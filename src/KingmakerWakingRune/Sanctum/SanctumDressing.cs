@@ -17,7 +17,7 @@ namespace KingmakerWakingRune.Sanctum
         private static Material s_Iron;
         private static Material s_Rune;
         private static Material s_Dark;
-        private static Material s_ParticleSource;
+
 
         public static void Build(Transform root, SanctumMaterials materials)
         {
@@ -27,7 +27,7 @@ namespace KingmakerWakingRune.Sanctum
             s_Iron = Tint(materials.Rock, new Color(0.13f, 0.13f, 0.15f));
             s_Dark = Tint(materials.Rock, new Color(0.30f, 0.29f, 0.28f));
             s_Rune = Glow(materials.Rock, RuneGreen);
-            s_ParticleSource = materials.Particle;
+
 
             BuildZiggurat();
             BuildConduitDoor();
@@ -84,8 +84,7 @@ namespace KingmakerWakingRune.Sanctum
             float height = 2.9f, width = SanctumPlan.MetersPerSquare * 1.5f;
             // The stair falls toward the door, so the open leaf sits on the stair's lower end, tipped back to be readable.
             Vector3 center = World(leafX, 25.3f, 1.0f + height / 2f);
-            Vector3 normal = Quaternion.AngleAxis(-28f, Vector3.forward) * Vector3.right;
-            Quaternion leaf = Quaternion.LookRotation(Vector3.forward, normal);
+            Vector3 normal = Quaternion.AngleAxis(30f, Vector3.forward) * Vector3.right;
             Solid(PrimitiveType.Cube, center, new Vector3(height, 0.12f, width), Quaternion.LookRotation(Vector3.forward, normal) , s_Stone);
             Vector3 face = center + normal * 0.08f;
             Basis(normal, out Vector3 u, out Vector3 v);
@@ -114,8 +113,7 @@ namespace KingmakerWakingRune.Sanctum
                 float offset = (i - 1.5f) * 0.07f;
                 Strip(face + u * offset + v * 0.1f + normal * 0.02f, face + u * offset * 1.3f + v * 0.27f + normal * 0.02f, normal, 0.045f, s_Dark);
             }
-            SanctumLighting.Point(s_Root, 12.6f, 25.3f, 2.8f, RuneGreen, 0.8f, 4.5f);
-            _ = leaf;
+
         }
 
         private static readonly Dictionary<string, float[][]> RuneShapes = new Dictionary<string, float[][]>
@@ -152,7 +150,7 @@ namespace KingmakerWakingRune.Sanctum
             Figure(foot + side * 1.15f - inward * 0.15f, Yaw(inward), 1.85f, true);
             Figure(foot - side * 1.15f - inward * 0.15f, Yaw(inward), 1.85f, true);
             Figure(foot + Vector3.up * 1.72f - normal * 0.2f, Yaw(inward), 0.95f, true);
-            SanctumLighting.Point(s_Root, plate.Position.X + plate.InwardNormal.X * 0.7f, plate.Position.Y + plate.InwardNormal.Y * 0.7f, 2.0f, RuneGreen, 0.55f, 3.6f);
+
         }
 
         private static void BuildAtrium(SanctumMaterials materials)
@@ -249,7 +247,8 @@ namespace KingmakerWakingRune.Sanctum
             {
                 Vector3 corner = at + new Vector3(cornerX[i], 0.32f, cornerZ[i]);
                 GridPoint a = SanctumPlan.ChainAnchors[i];
-                Vector3 anchor = World(a, 3.9f);
+                // The southern pair stands between the camera's view and A1, so it stops short of hiding the arrival floor.
+                Vector3 anchor = World(a, i < 2 ? 3.6f : 2.3f);
                 // Cut-away walls cannot carry an anchor at height, so each chain runs to a corbel rising from its wall.
                 Vector3 foot = World(a, 0f);
                 Solid(PrimitiveType.Cube, (foot + anchor) / 2f, new Vector3(0.62f, anchor.y, 0.62f), Quaternion.identity, s_Stone);
@@ -257,7 +256,7 @@ namespace KingmakerWakingRune.Sanctum
                 Chain(anchor, corner);
             }
 
-            SanctumMist.Create(s_Root, s_ParticleSource, World(centre, 0.15f), new Vector3(9f, 0.15f, 7f));
+            SanctumMist.Create(s_Root, World(centre, 0.15f), new Vector3(9f, 0.15f, 7f));
         }
 
         private static void Chain(Vector3 from, Vector3 to)
@@ -378,7 +377,12 @@ namespace KingmakerWakingRune.Sanctum
             var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
             texture.SetPixels(new[] { color, color, color, color });
             texture.Apply();
-            return new Material(source) { mainTexture = texture, mainTextureScale = Vector2.one };
+            var material = new Material(source) { mainTexture = texture, mainTextureScale = Vector2.one };
+            if (material.HasProperty("_Color"))
+            {
+                material.SetColor("_Color", Color.white);
+            }
+            return material;
         }
 
         private static Material Glow(Material source, Color color)

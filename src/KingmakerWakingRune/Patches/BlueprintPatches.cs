@@ -20,7 +20,7 @@ namespace KingmakerWakingRune.Patches
                 Sanctum.SanctumSession.Subscribe();
             }
             Recon.DumpBlueprints(__instance);
-            ReconAreas.DumpMetadata(__instance);
+
         }
     }
 

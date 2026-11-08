@@ -13,7 +13,7 @@ namespace KingmakerWakingRune.Sanctum
         public Material Floor;
         public Material Rock;
         public Material Black;
-        public Material Particle;
+
     }
 
     /// <summary>Builds the walkable surfaces, walls and sight blockers of the plan as runtime meshes.</summary>
@@ -42,6 +42,10 @@ namespace KingmakerWakingRune.Sanctum
             {
                 AddRampCollider(ramp, collider);
             }
+            // The sarcophagus hangs clear of the floor: its shadow is unwalkable but the floor is still there.
+            GridPoint[] shadow = SanctumPlan.SarcophagusShadow;
+            floor.PlanarTriangle(World(shadow[0], 0f), World(shadow[1], 0f), World(shadow[2], 0f), FloorTile);
+            floor.PlanarTriangle(World(shadow[0], 0f), World(shadow[2], 0f), World(shadow[3], 0f), FloorTile);
             foreach (WallRun wall in SanctumPlan.Walls)
             {
                 AddWall(wall, rock, black);

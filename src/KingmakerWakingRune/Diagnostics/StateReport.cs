@@ -28,6 +28,23 @@ namespace KingmakerWakingRune.Diagnostics
                 bool active = player.PartyCharacters.Contains(reference);
                 sb.AppendLine($"  {(active ? "active" : "reserve")} '{unit.CharacterName}' level={progression.CharacterLevel} xp={progression.Experience} canLevel={Kingmaker.UnitLogic.Class.LevelUp.LevelUpController.CanLevelUp(unit.Descriptor)} classes={classes} inGame={unit.IsInGame} custom={unit.IsCustomCompanion()} pos={unit.Position}");
             }
+            sb.AppendLine("pets:");
+            foreach (UnitEntityData pet in Game.Instance.State.Units.Where(u => u.Descriptor.IsPet))
+            {
+                sb.AppendLine($"  '{pet.CharacterName}' bp={pet.Blueprint.name} id={pet.UniqueId} master={pet.Descriptor.Master.Value?.CharacterName} level={pet.Descriptor.Progression.CharacterLevel} inGame={pet.IsInGame} pos={pet.Position}");
+            }
+            UnitEntityData hero = player.MainCharacter.Value;
+            sb.AppendLine("belt: " + string.Join(", ", hero.Body.QuickSlots.Select(s => s.HasItem ? $"{s.Item.Blueprint.name}x{s.Item.Count}" : "-").ToArray()));
+            sb.AppendLine($"tokens={player.Inventory.Where(i => i.Blueprint.name == "KWR_RefugeToken").Sum(i => i.Count)} lootSetting={Game.Instance.CurrentlyLoadedArea?.LootSetting} indoor={Game.Instance.CurrentlyLoadedArea?.IsIndoor} grid=({hero.Position.x / 1.524f + 13f:0.0},{15.5f - hero.Position.z / 1.524f:0.0})");
+            foreach (var reference in player.PartyCharacters)
+            {
+                UnitEntityData unit = reference.Value;
+                var favored = unit.Stats.SkillPerception.Modifiers.Where(m => m.Source != null && m.Source.Blueprint.name.StartsWith("FavoriteTerrain")).Select(m => $"{m.Source.Blueprint.name}+{m.ModValue}").ToArray();
+                if (unit.Get<Kingmaker.UnitLogic.Parts.UnitPartFavoredTerrain>() != null)
+                {
+                    sb.AppendLine($"favored '{unit.CharacterName}' perception={unit.Stats.SkillPerception.ModifiedValue} favoredModifiers=[{string.Join(",", favored)}]");
+                }
+            }
             sb.AppendLine("authored NPCs:");
             foreach (UnitEntityData unit in Game.Instance.State.Units.Where(u => u.Blueprint.name.StartsWith("KWR_")).OrderBy(u => u.Blueprint.name))
             {

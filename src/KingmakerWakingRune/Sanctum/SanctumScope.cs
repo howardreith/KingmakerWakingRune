@@ -20,6 +20,31 @@ namespace KingmakerWakingRune.Sanctum
     /// before it can act, and native navigation, camera bounds, fog of war and local map are pointed at the
     /// plan instead. Applied once for each load of the area and scoped to it.
     /// </summary>
+    /// <summary>
+    /// Marks the mod-built hierarchy. The native time-of-day step loads the donor's light scene after the area
+    /// reports loaded, so its lamps are hidden, and the ambient re-applied, whenever that scene turns up.
+    /// </summary>
+    internal sealed class SanctumRootMarker : MonoBehaviour
+    {
+        private const float PollSeconds = 0.25f;
+        private float m_NextPoll;
+
+        private void Update()
+        {
+            if (Time.unscaledTime < m_NextPoll)
+            {
+                return;
+            }
+            m_NextPoll = Time.unscaledTime + PollSeconds;
+            int hidden = SanctumScope.HideDonorLighting();
+            if (hidden > 0)
+            {
+                SanctumLighting.ApplyEnvironment();
+                Log.Info($"Sanctum lighting applied: {hidden} donor light roots hidden.");
+            }
+        }
+    }
+
     internal static class SanctumScope
     {
         private const float MapHalfWidth = 22f;
@@ -60,9 +85,9 @@ namespace KingmakerWakingRune.Sanctum
             }
             SanctumMaterials materials = HarvestMaterials(statics);
             int hidden = HideDonorObjects(statics) + HideDonorObjects(mechanics);
-            hidden += HideDonorLighting(area);
 
             s_Root = new GameObject("KWR_SanctumEnvironment");
+            s_Root.AddComponent<SanctumRootMarker>();
             SceneManager.MoveGameObjectToScene(s_Root, mechanics);
             SanctumBuilder.Build(s_Root.transform, materials);
             SanctumDressing.Build(s_Root.transform, materials);
@@ -93,7 +118,7 @@ namespace KingmakerWakingRune.Sanctum
                 Floor = Copy(found, "cyclops_dungeon_floor_tile_02_opaque_d"),
                 Rock = Copy(found, "cyclops_dungeon_rock_opaque_d"),
                 Black = Copy(found, "black_cut_opaque_d"),
-                Particle = Copy(found, "Tile_Noise00_64_Transparent_Scale_Hdr_Detail_Noise_Soft_Light_Fluid_LonelyBarrow_6"),
+
             };
         }
 
@@ -127,10 +152,10 @@ namespace KingmakerWakingRune.Sanctum
             return count;
         }
 
-        private static int HideDonorLighting(BlueprintArea area)
+        public static int HideDonorLighting()
         {
             int count = 0;
-            foreach (SceneReference reference in area.TimeOfDayScenes)
+            foreach (SceneReference reference in ScenarioBlueprints.Sanctum.LightScenes)
             {
                 Scene scene = SceneManager.GetSceneByName(reference.SceneName);
                 if (!scene.isLoaded)
@@ -139,7 +164,7 @@ namespace KingmakerWakingRune.Sanctum
                 }
                 foreach (GameObject root in scene.GetRootGameObjects())
                 {
-                    if (root.name.Contains("LIGHT_SETUP") || root.name.Contains("Particles"))
+                    if (root.activeSelf && (root.name.Contains("LIGHT_SETUP") || root.name.Contains("Particles")))
                     {
                         root.SetActive(false);
                         count++;

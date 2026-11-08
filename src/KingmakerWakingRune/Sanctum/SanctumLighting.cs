@@ -9,7 +9,6 @@ namespace KingmakerWakingRune.Sanctum
     /// </summary>
     internal static class SanctumLighting
     {
-        private static readonly Color Fill = new Color(0.62f, 0.60f, 0.66f);
         private static LightProbes s_SavedProbes;
         private static bool s_ProbesReplaced;
 
@@ -23,39 +22,52 @@ namespace KingmakerWakingRune.Sanctum
             }
         }
 
-        public static void Apply(Transform root)
+        public static void ApplyEnvironment()
         {
             // The donor's baked probes describe a different room, so characters use the ambient fill instead.
-            s_SavedProbes = LightmapSettings.lightProbes;
-            s_ProbesReplaced = true;
+            if (!s_ProbesReplaced)
+            {
+                s_SavedProbes = LightmapSettings.lightProbes;
+                s_ProbesReplaced = true;
+            }
             LightmapSettings.lightProbes = null;
             RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.42f, 0.42f, 0.50f);
-            RenderSettings.ambientEquatorColor = new Color(0.36f, 0.36f, 0.42f);
-            RenderSettings.ambientGroundColor = new Color(0.26f, 0.26f, 0.30f);
+            RenderSettings.ambientSkyColor = new Color(0.30f, 0.30f, 0.37f);
+            RenderSettings.ambientEquatorColor = new Color(0.25f, 0.25f, 0.31f);
+            RenderSettings.ambientGroundColor = new Color(0.18f, 0.18f, 0.22f);
             RenderSettings.fog = false;
+        }
 
-            // A1 and the ziggurat.
-            Point(root, 13f, 14.8f, 4.2f, Fill, 1.5f, 13f);
-            Point(root, 9.5f, 18.5f, 3.4f, Fill, 1.0f, 10f);
-            Point(root, 16.5f, 18.5f, 3.4f, Fill, 1.0f, 10f);
-            Point(root, 13f, 19.6f, 8.6f, Fill, 1.0f, 12f);
-            // A3, around the perimeter.
-            foreach (GridPoint p in new[]
-            {
-                new GridPoint(13f, 2.5f), new GridPoint(19f, 3.4f), new GridPoint(22.5f, 8f), new GridPoint(22.5f, 14f),
-                new GridPoint(20.5f, 21.5f), new GridPoint(15.5f, 27f), new GridPoint(10.5f, 27f), new GridPoint(5.5f, 21.5f),
-                new GridPoint(3.5f, 14f), new GridPoint(3.5f, 8f), new GridPoint(7f, 3.4f),
-            })
-            {
-                Point(root, p.X, p.Y, 3.4f, Fill, 1.1f, 9.5f);
-            }
-            // The A4 approach, and the faint tan light through the dome.
-            Point(root, 19.5f, 14.6f, 3f, Fill, 0.9f, 7f);
-            Point(root, 18.4f, 9.6f, 5f, new Color(0.86f, 0.72f, 0.50f), 1.5f, 12f);
-            // Sickly green-purple from A5, as the source describes it.
-            Point(root, 9f, 9.5f, 3.6f, new Color(0.58f, 0.46f, 0.72f), 1.4f, 13f);
-            Point(root, 12.5f, 9.5f, 3f, new Color(0.46f, 0.62f, 0.42f), 0.9f, 9f);
+        public static void Apply(Transform root)
+        {
+            // Straight down: the isometric camera is never in its mirror direction, so glossy stone shows no hotspots,
+            // and one light cannot overrun the per-object light limit that seams many small fills between mesh chunks.
+            var fill = new GameObject("Fill");
+            fill.transform.SetParent(root, false);
+            fill.transform.rotation = Quaternion.LookRotation(Vector3.down, Vector3.forward);
+            var directional = fill.AddComponent<Light>();
+            directional.type = LightType.Directional;
+            directional.color = new Color(0.78f, 0.76f, 0.80f);
+            directional.intensity = 0.72f;
+            directional.shadows = LightShadows.None;
+            directional.renderMode = LightRenderMode.ForcePixel;
+
+            // A weaker fill from the camera's side lights the faces the top-down fill cannot reach. Its half-vector
+            // with the view is far from vertical, so it adds no highlight on the floor.
+            var faces = new GameObject("FaceFill");
+            faces.transform.SetParent(root, false);
+            faces.transform.rotation = Quaternion.LookRotation(new Vector3(0f, -0.62f, -0.78f), Vector3.up);
+            var faceLight = faces.AddComponent<Light>();
+            faceLight.type = LightType.Directional;
+            faceLight.color = new Color(0.74f, 0.72f, 0.78f);
+            faceLight.intensity = 0.42f;
+            faceLight.shadows = LightShadows.None;
+            faceLight.renderMode = LightRenderMode.ForcePixel;
+
+            // The faint tan light through the A4 dome, and the sickly green-purple from A5, as the source describes them.
+            Point(root, 18.4f, 9.6f, 6.5f, new Color(0.86f, 0.72f, 0.50f), 1.4f, 13f);
+            Point(root, 9f, 11.5f, 6.5f, new Color(0.58f, 0.46f, 0.72f), 1.0f, 13f);
+            Point(root, 12.5f, 9.5f, 5f, new Color(0.46f, 0.62f, 0.42f), 0.7f, 9f);
         }
 
         public static Light Point(Transform root, float x, float y, float height, Color color, float intensity, float range)
@@ -66,7 +78,7 @@ namespace KingmakerWakingRune.Sanctum
             var light = go.AddComponent<Light>();
             light.type = LightType.Point;
             light.color = color;
-            light.intensity = intensity * 2.2f;
+            light.intensity = intensity;
             light.range = range;
             light.shadows = LightShadows.None;
             light.renderMode = LightRenderMode.ForcePixel;

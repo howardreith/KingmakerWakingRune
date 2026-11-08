@@ -35,7 +35,7 @@ namespace KingmakerWakingRune.Diagnostics
             m_Frames = 0;
             Answer("capture.request", ScreenCapture.CaptureScreenshot);
             Answer("state.request", target => File.WriteAllText(target, StateReport.Build()));
-            ReconAreas.Poll();
+
         }
 
         private static void Answer(string requestFile, Action<string> respond)
