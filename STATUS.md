@@ -23,5 +23,9 @@ the profile, Steam save mirror, registry and UMM params. The WR-02 candidate is 
 ```
 Preconditions: Kingmaker not running; Steam running with Kingmaker cloud sync disabled. `Shot` is an in-engine capture (harness flag in the mod folder) because the game presents directly to the display; screen capture would read the desktop instead.
 
+## Open items for the owner's review
+- Listen to the warding murmur (not measurable here) and watch the masked figure's gesture.
+- Recruits were verified at level-11 XP; only the protagonist was levelled all the way to 11 in testing.
+
 ## Next exact action
 Owner review of the draft PR; then WR-03 (refuge-token activation and departure).

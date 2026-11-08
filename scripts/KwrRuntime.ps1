@@ -19,7 +19,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('Begin', 'Reinstall', 'Uninstall', 'Launch', 'Shot', 'State', 'Click', 'Hover', 'Key', 'Type', 'Scroll', 'Close', 'Collect', 'End', 'Status')]
+    [ValidateSet('Begin', 'Reinstall', 'Uninstall', 'Launch', 'Shot', 'State', 'Click', 'Drag', 'Hover', 'Key', 'Type', 'Scroll', 'Close', 'Collect', 'End', 'Status')]
     [string] $Operation,
     [string] $RunId,
     [string] $PackagePath,
@@ -28,6 +28,8 @@ param(
     [string] $Name,
     [int] $X,
     [int] $Y,
+    [int] $X2,
+    [int] $Y2,
     [string] $Button = 'Left',
     [string] $Keys,
     [string] $Text,
@@ -357,6 +359,24 @@ function Invoke-Click {
     Write-Step "$Button click at window ($X,$Y)"
 }
 
+function Invoke-Drag {
+    $w = Get-GameWindow
+    Assert-GameForeground $w
+    Assert-GameAtPoint $w $X $Y
+    [void][KwrInput]::SetCursorPos($w.Rect.Left + $X, $w.Rect.Top + $Y)
+    Start-Sleep -Milliseconds 200
+    [KwrInput]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
+    Start-Sleep -Milliseconds 150
+    for ($i = 1; $i -le 10; $i++) {
+        [void][KwrInput]::SetCursorPos($w.Rect.Left + $X + ($X2 - $X) * $i / 10, $w.Rect.Top + $Y + ($Y2 - $Y) * $i / 10)
+        Start-Sleep -Milliseconds 40
+    }
+    Assert-GameAtPoint $w $X2 $Y2
+    Start-Sleep -Milliseconds 150
+    [KwrInput]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
+    Write-Step "Drag ($X,$Y) -> ($X2,$Y2)"
+}
+
 function Invoke-Scroll {
     $w = Get-GameWindow
     Assert-GameForeground $w
@@ -500,6 +520,7 @@ switch ($Operation) {
     'Shot' { Invoke-Shot }
     'State' { Invoke-State }
     'Click' { Invoke-Click }
+    'Drag' { Invoke-Drag }
     'Hover' { $w = Get-GameWindow; Assert-GameForeground $w; Assert-GameAtPoint $w $X $Y; [void][KwrInput]::SetCursorPos($w.Rect.Left + $X, $w.Rect.Top + $Y); Write-Step "Hover at window ($X,$Y)" }
     'Key' { Invoke-Key }
     'Type' { Invoke-Type }
