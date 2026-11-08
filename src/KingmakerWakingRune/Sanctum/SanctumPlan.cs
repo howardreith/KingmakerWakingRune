@@ -80,7 +80,21 @@ namespace KingmakerWakingRune.Sanctum
         public const float RingHeight = 6f * MetersPerFoot;
         public const float ApexHeight = 20f * MetersPerFoot;
 
-        public static readonly GridPoint Arrival = new GridPoint(13.1f, 14.95f);
+        /// <summary>The printed "PCs Arrive Here" rectangle, cut off where the built stairs begin.</summary>
+        public const float ArrivalWest = 11.09f;
+        public const float ArrivalEast = 15.16f;
+        public const float ArrivalNorth = 13.9f;
+        public const float ArrivalSouth = 15.4f;
+
+        public static readonly GridPoint Arrival = new GridPoint(13.1f, 15.1f);
+
+        /// <summary>
+        /// Native preset positions after <see cref="Arrival"/>, in party order: two staggered rows on the chamber floor.
+        /// The first eight lie inside the printed rectangle; the rest spread onto the same floor for a party of six with six pets.
+        /// </summary>
+        public static readonly GridPoint[] ArrivalSlots = Points(
+            12.2f, 15.1f, 14f, 15.1f, 12.65f, 14.55f, 13.55f, 14.55f, 11.75f, 14.55f, 14.45f, 14.55f, 11.3f, 15.1f, 14.9f, 15.1f,
+            10.85f, 14.55f, 15.35f, 14.55f, 10.4f, 15.1f, 15.8f, 15.1f);
 
         public const float ZigguratWest = 10f;
         public const float ZigguratEast = 16f;

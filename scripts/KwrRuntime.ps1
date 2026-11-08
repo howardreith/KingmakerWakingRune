@@ -19,7 +19,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('Begin', 'Reinstall', 'Uninstall', 'Launch', 'Shot', 'State', 'Click', 'Drag', 'Hover', 'Key', 'Type', 'Scroll', 'Close', 'Collect', 'End', 'Status')]
+    [ValidateSet('Begin', 'Reinstall', 'Uninstall', 'Launch', 'Shot', 'State', 'Click', 'DoubleClick', 'Drag', 'Hover', 'Key', 'Type', 'Scroll', 'Close', 'Collect', 'End', 'Status')]
     [string] $Operation,
     [string] $RunId,
     [string] $PackagePath,
@@ -359,6 +359,19 @@ function Invoke-Click {
     Write-Step "$Button click at window ($X,$Y)"
 }
 
+function Invoke-DoubleClick {
+    $w = Get-GameWindow
+    Assert-GameForeground $w
+    Assert-GameAtPoint $w $X $Y
+    [void][KwrInput]::SetCursorPos($w.Rect.Left + $X, $w.Rect.Top + $Y)
+    Start-Sleep -Milliseconds 150
+    for ($i = 0; $i -lt 2; $i++) {
+        [KwrInput]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 50
+        [KwrInput]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero); Start-Sleep -Milliseconds 70
+    }
+    Write-Step "Double click at window ($X,$Y)"
+}
+
 function Invoke-Drag {
     $w = Get-GameWindow
     Assert-GameForeground $w
@@ -520,6 +533,7 @@ switch ($Operation) {
     'Shot' { Invoke-Shot }
     'State' { Invoke-State }
     'Click' { Invoke-Click }
+    'DoubleClick' { Invoke-DoubleClick }
     'Drag' { Invoke-Drag }
     'Hover' { $w = Get-GameWindow; Assert-GameForeground $w; Assert-GameAtPoint $w $X $Y; [void][KwrInput]::SetCursorPos($w.Rect.Left + $X, $w.Rect.Top + $Y); Write-Step "Hover at window ($X,$Y)" }
     'Key' { Invoke-Key }

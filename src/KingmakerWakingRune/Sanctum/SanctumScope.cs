@@ -245,6 +245,14 @@ namespace KingmakerWakingRune.Sanctum
             GridPoint arrival = SanctumPlan.Arrival;
             marker.transform.SetPositionAndRotation(new Vector3(SanctumPlan.ToWorldX(arrival.X), 0f, SanctumPlan.ToWorldZ(arrival.Y)), Quaternion.Euler(0f, 180f, 0f));
             marker.transform.SetParent(s_Root.transform, true);
+            // Children switch the native placement to preset slots: a centred formation would stand the party on the front stairs.
+            for (int i = 0; i < SanctumPlan.ArrivalSlots.Length; i++)
+            {
+                GridPoint slot = SanctumPlan.ArrivalSlots[i];
+                var child = new GameObject($"Slot{i + 1}");
+                child.transform.SetPositionAndRotation(new Vector3(SanctumPlan.ToWorldX(slot.X), 0f, SanctumPlan.ToWorldZ(slot.Y)), marker.transform.rotation);
+                child.transform.SetParent(marker.transform, true);
+            }
             marker.AddComponent<AreaEnterPoint>().Blueprint = enterPoint;
             marker.SetActive(true);
         }

@@ -47,7 +47,7 @@ namespace KingmakerWakingRune.Sanctum
             var sparks = new GameObject("A5_Sparks");
             sparks.transform.SetParent(effects.transform, false);
             sparks.transform.position = center + Vector3.up * 0.8f;
-            Emit(sparks, shader, puff, new Vector3(size.x * 0.5f, 1.5f, size.z * 0.5f), 3, 0.2f, 0.5f, 0.07f, 0.16f, 0.9f, new Color(0.72f, 0.92f, 0.46f, 1f));
+            Emit(sparks, shader, puff, new Vector3(size.x * 0.5f, 1.5f, size.z * 0.5f), 7, 0.2f, 0.5f, 0.25f, 0.5f, 0.9f, new Color(0.72f, 0.92f, 0.46f, 1f));
 
             var watcher = new GameObject("A5_MistWatcher").AddComponent<SanctumMist>();
             watcher.transform.SetParent(root, false);

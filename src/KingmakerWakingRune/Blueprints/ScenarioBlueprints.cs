@@ -189,6 +189,8 @@ namespace KingmakerWakingRune.Blueprints
             area.CameraRotation = 0f;
             area.Peaceful = false;
             area.CR = 11;
+            // This sprint has no encounters: without camping the native rest roll cannot introduce any.
+            area.CampingSettings = new CampingSettings { CampingAllowed = false, HuntingDC = 0 };
             return area;
         }
 

@@ -115,6 +115,29 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(true, SanctumPlan.HeightAt(SanctumPlan.Arrival.X, SanctumPlan.Arrival.Y) == 0f, "on the chamber floor");
         }
 
+        public static void TestArrivalSlotsStayOnTheChamberFloor()
+        {
+            GridPoint[] all = new[] { SanctumPlan.Arrival }.Concat(SanctumPlan.ArrivalSlots).ToArray();
+            Assert.Equal(13, all.Length, "six characters, six pets and a spare");
+            foreach (GridPoint slot in all)
+            {
+                Assert.Equal(true, SanctumPlan.HeightAt(slot.X, slot.Y) == 0f, $"floor at ({slot.X}, {slot.Y})");
+                Assert.Equal(true, slot.Y < SanctumPlan.ArrivalSouth, $"north of the stairs at ({slot.X}, {slot.Y})");
+            }
+            foreach (GridPoint slot in all.Take(9))
+            {
+                Assert.Equal(true, slot.X >= SanctumPlan.ArrivalWest && slot.X <= SanctumPlan.ArrivalEast && slot.Y >= SanctumPlan.ArrivalNorth, $"inside the printed rectangle at ({slot.X}, {slot.Y})");
+            }
+            for (int i = 0; i < all.Length; i++)
+            {
+                for (int j = i + 1; j < all.Length; j++)
+                {
+                    double distance = Math.Sqrt(Math.Pow(all[i].X - all[j].X, 2) + Math.Pow(all[i].Y - all[j].Y, 2));
+                    Assert.Equal(true, distance >= 0.65, $"slots {i} and {j} are apart");
+                }
+            }
+        }
+
         public static void TestApexIsTwentyFeetUp()
         {
             Assert.Equal(true, Math.Abs(SanctumPlan.HeightAt(13f, 19.6f).Value - 6.096f) < 0.001f, "apex height");
