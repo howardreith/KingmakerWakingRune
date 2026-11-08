@@ -8,6 +8,9 @@ Branch `feature/wr-03-sanctum` from accepted `main` (`bc248fb`). Package SHA-256
 - **Screenshots** must be in-engine (`Shot`); the game presents directly to the display.
 - `Continue` on the main menu loads the newest save, usually the automatic pre-departure save during iteration.
 
+- **Arrival** must use `AreaEnterPoint` child transforms: the centred native formation stands a six-person party on the front stairs.
+- **Level-up** reopens the next level after Complete; queue nothing behind it. The load list is newest-first, so row positions shift after every save.
+- **Portrait double-click** recentres the camera only when both clicks are fast (`DoubleClick`). A world click on a party member selects it instead of moving.
+
 ## State
-- Done: token item/icon/grant/use, transit service, plan + tests, graybox, navmesh, scenery first pass.
-- Remaining: visual tuning, recon code removal, local map check, acceptance run, report.
+Done: all WR-03 code, acceptance on `ab56249`, reports. Awaiting owner review of the draft PR.

@@ -21,6 +21,8 @@
     <Compile Include="LodgePolicyTests.cs" />
     <Compile Include="WakingPoliciesTests.cs" />
     <Compile Include="SanctumPlanTests.cs" />
+    <Compile Include="SanctumPolicyTests.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\SanctumPolicy.cs" Link="Linked\SanctumPolicy.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\SanctumPlan.cs" Link="Linked\SanctumPlan.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Lodge\WakingPolicies.cs" Link="Linked\WakingPolicies.cs" />
     <!-- Pure logic only: compiled directly so no game assemblies are loaded by the tests. -->
