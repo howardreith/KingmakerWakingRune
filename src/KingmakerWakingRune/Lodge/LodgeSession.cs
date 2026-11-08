@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Kingmaker;
 using Kingmaker.EntitySystem.Entities;
@@ -6,13 +7,15 @@ using Kingmaker.PubSubSystem;
 using Kingmaker.View;
 using KingmakerWakingRune.Blueprints;
 using KingmakerWakingRune.Diagnostics;
+using KingmakerWakingRune.Party;
 using UnityEngine;
 
 namespace KingmakerWakingRune.Lodge
 {
     /// <summary>
-    /// Applies lodge setup through native persistence: Sheila is spawned into the area's saved
-    /// entity state exactly once, recorded by a save-bound flag, and only verified afterwards.
+    /// Applies lodge setup through native persistence: authored NPCs are spawned into the area's saved
+    /// entity state exactly once, recorded by save-bound flags, and only verified afterwards.
+    /// A WR-01 save (Sheila only) is upgraded once by the same path.
     /// </summary>
     internal sealed class LodgeSession : ISceneHandler
     {
@@ -30,6 +33,8 @@ namespace KingmakerWakingRune.Lodge
 
         public void OnAreaBeginUnloading()
         {
+            BriefingService.Disarm();
+            LodgeDriver.Detach();
         }
 
         public void OnAreaDidLoad()
@@ -71,7 +76,7 @@ namespace KingmakerWakingRune.Lodge
             switch (decision.Action)
             {
                 case LodgeAction.CreateInitialSetup:
-                    UnitEntityData sheila = SpawnSheila();
+                    UnitEntityData sheila = Spawn(ScenarioBlueprints.Sheila, LodgeLayout.Sheila, LodgeLayout.SheilaYaw);
                     if (sheila == null)
                     {
                         Log.Error("Sheila could not be spawned; setup is not recorded and will be retried on next load.");
@@ -86,22 +91,69 @@ namespace KingmakerWakingRune.Lodge
                     break;
                 case LodgeAction.Error:
                     Log.Error($"Lodge state inconsistent: {decision.Reason}; sheilas=[{string.Join(", ", sheilas.Select(Describe).ToArray())}]");
-                    break;
+                    return;
             }
             if (inLodge)
             {
+                EnsureCast();
+                StartingGrants.ApplyOnce();
+                BriefingService.ArmIfPending();
+                LodgeDriver.Attach();
                 Recon.DumpLodge();
+                Recon.SpawnGallery();
             }
         }
 
-        private static UnitEntityData SpawnSheila()
+        private static void EnsureCast()
         {
-            UnitEntityData main = Game.Instance.Player.MainCharacter.Value;
-            Pose entry = LodgeEntry.LastEntryPose ?? new Pose(main.Position, Quaternion.Euler(0f, main.Orientation, 0f));
-            Vector3 requested = entry.position + entry.rotation * LodgeLayout.SheilaOffset;
-            Vector3 position = ObstacleAnalyzer.GetNearestNode(requested).clampedPosition;
-            Quaternion rotation = Quaternion.Euler(0f, entry.rotation.eulerAngles.y + LodgeLayout.SheilaRelativeYaw, 0f);
-            return Game.Instance.EntityCreator.SpawnUnit(ScenarioBlueprints.Sheila, position, rotation, Game.Instance.State.LoadedAreaState.MainState);
+            var flags = Game.Instance.Player.UnlockableFlags;
+            bool recorded = flags.IsUnlocked(ScenarioBlueprints.CastSetupFlag);
+            foreach (CastMember member in LodgeCast.Members)
+            {
+                int present = Game.Instance.State.Units.Count(u => u.Blueprint == member.Unit);
+                switch (WakingPolicies.DecideMember(recorded, present))
+                {
+                    case WakingPolicies.CastAction.Spawn:
+                        UnitEntityData spawned = Spawn(member.Unit, member.Position, member.Yaw);
+                        if (spawned == null)
+                        {
+                            Log.Error($"Cast member {member.Id} could not be spawned; setup stays unrecorded.");
+                            return;
+                        }
+                        break;
+                    case WakingPolicies.CastAction.Report:
+                        Log.Error($"Cast member {member.Id} has {present} instances but setup recorded={recorded}; not changed.");
+                        break;
+                }
+            }
+            if (!recorded)
+            {
+                flags.Unlock(ScenarioBlueprints.CastSetupFlag);
+                Log.Info($"Lodge cast setup recorded: {LodgeCast.Members.Count} NPCs plus Sheila.");
+            }
+        }
+
+        private static UnitEntityData Spawn(Kingmaker.Blueprints.BlueprintUnit blueprint, Vector3 position, float yaw)
+        {
+            Vector3 placed = ObstacleAnalyzer.GetNearestNode(position).clampedPosition;
+            return Game.Instance.EntityCreator.SpawnUnit(blueprint, placed, Quaternion.Euler(0f, yaw, 0f), Game.Instance.State.LoadedAreaState.MainState);
+        }
+
+        public static UnitEntityData FindCastMember(string id)
+        {
+            var blueprint = LodgeCast.Find(id).Unit;
+            return Game.Instance.State.Units.FirstOrDefault(u => u.Blueprint == blueprint);
+        }
+
+        public static UnitEntityData FindSheila()
+        {
+            return Game.Instance.State.Units.FirstOrDefault(u => u.Blueprint == ScenarioBlueprints.Sheila);
+        }
+
+        public static IEnumerable<UnitEntityData> CurrentAgents()
+        {
+            HashSet<Kingmaker.Blueprints.BlueprintUnit> blueprints = new HashSet<Kingmaker.Blueprints.BlueprintUnit>(LodgeCast.Agents.Select(a => a.Unit));
+            return Game.Instance.State.Units.Where(u => blueprints.Contains(u.Blueprint));
         }
 
         internal static string Describe(UnitEntityData unit)

@@ -19,6 +19,7 @@ namespace KingmakerWakingRune
             {
                 Log.Info($"Loading {modEntry.Info.Id} {modEntry.Info.Version} ({BuildInfo()})");
                 harmony.PatchAll(Assembly.GetExecutingAssembly());
+                Diagnostics.HarnessProbe.StartIfRequested();
                 return true;
             }
             catch (Exception ex)

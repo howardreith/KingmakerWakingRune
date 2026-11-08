@@ -19,7 +19,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('Begin', 'Reinstall', 'Uninstall', 'Launch', 'Shot', 'Click', 'Hover', 'Key', 'Type', 'Scroll', 'Close', 'Collect', 'End', 'Status')]
+    [ValidateSet('Begin', 'Reinstall', 'Uninstall', 'Launch', 'Shot', 'State', 'Click', 'Hover', 'Key', 'Type', 'Scroll', 'Close', 'Collect', 'End', 'Status')]
     [string] $Operation,
     [string] $RunId,
     [string] $PackagePath,
@@ -81,7 +81,10 @@ public static class KwrInput {
     [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
     [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
     [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint flags);
+    [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(POINT p);
+    [DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr h, uint flags);
     [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
+    [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
 }
 '@
 [void][KwrInput]::SetProcessDPIAware()
@@ -184,7 +187,6 @@ function Invoke-Begin {
     if (@(Get-GameProcesses).Count -gt 0) { throw 'Kingmaker is running; it may be an owner session. Refusing to start.' }
     if (-not $RunId -or $RunId -notmatch '^[A-Za-z0-9._-]{3,80}$') { throw 'A -RunId of 3-80 safe characters is required.' }
     if (-not $PackagePath -or -not (Test-Path -LiteralPath $PackagePath)) { throw 'A -PackagePath to the built zip is required.' }
-    if (Test-Path -LiteralPath $ModDir) { throw "Mod already installed at $ModDir; refusing to overwrite an unknown install." }
     Assert-SteamCloudOffline
 
     $tx = Join-Path $BackupRoot $RunId
@@ -201,6 +203,18 @@ function Invoke-Begin {
     (Get-Inventory $ModsRoot) | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $tx 'mods-inventory.json') -Encoding UTF8
     $s.ummLogLength = (Get-Item -LiteralPath $UmmLog).Length
 
+    # An existing install (the owner's accepted build) is preserved exactly and put back by End.
+    if (Test-Path -LiteralPath $ModDir) {
+        & robocopy.exe $ModDir (Join-Path $tx 'mod-existing') /MIR /COPY:DAT /DCOPY:DAT /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
+        if ($LASTEXITCODE -ge 8) { throw "robocopy snapshot of the existing mod failed ($LASTEXITCODE)" }
+        $d = Compare-Inventory (Get-Inventory $ModDir) (Get-Inventory (Join-Path $tx 'mod-existing'))
+        if ($d.Count -gt 0) { throw "Existing mod snapshot does not match: $($d -join '; ')" }
+        Remove-Item -LiteralPath $ModDir -Recurse -Force
+        $s.existingMod = $true
+        Write-Step 'Existing mod install snapshotted and set aside.'
+    }
+    else { $s.existingMod = $false }
+
     # Temporary test profile: suppress the UMM window at start (restored by End).
     [xml] $params = Get-Content -LiteralPath $UmmParams -Raw
     $params.Param.ShowOnStart = '0'
@@ -209,6 +223,7 @@ function Invoke-Begin {
     Expand-Archive -LiteralPath $PackagePath -DestinationPath $ModsRoot
     if (-not (Test-Path -LiteralPath (Join-Path $ModDir 'KingmakerWakingRune.dll'))) { throw 'Package did not install the expected mod folder.' }
     if ($Recon) { Set-Content -LiteralPath (Join-Path $ModDir 'recon.flag') -Value 'recon' }
+    Set-Content -LiteralPath (Join-Path $ModDir 'capture.flag') -Value 'harness'
     $s.phase = 'installed'
     Save-State $s
     Write-Step "Installed package $($s.packageSha256) into $ModDir (recon=$([bool]$Recon))."
@@ -223,6 +238,7 @@ function Invoke-Reinstall {
     Remove-Item -LiteralPath $ModDir -Recurse -Force
     Expand-Archive -LiteralPath $PackagePath -DestinationPath $ModsRoot
     if ($recon) { Set-Content -LiteralPath (Join-Path $ModDir 'recon.flag') -Value 'recon' }
+    Set-Content -LiteralPath (Join-Path $ModDir 'capture.flag') -Value 'harness'
     $s.package = (Resolve-Path $PackagePath).Path
     $s.packageSha256 = (Get-FileHash -LiteralPath $PackagePath -Algorithm SHA256).Hash.ToLowerInvariant()
     Save-State $s
@@ -287,29 +303,51 @@ function Assert-GameForeground($w) {
     $w.Rect = $r
 }
 
+# The game presents directly to the display, so screen capture sees the desktop instead of the game.
+# The mod's harness-only probe (capture.flag) writes Unity's own frame; nothing else can be captured.
+function Request-Probe([string] $requestFile, [string] $target, [int] $timeoutSeconds = 30) {
+    Remove-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue
+    [IO.File]::WriteAllText((Join-Path $ModDir $requestFile), $target)
+    $deadline = (Get-Date).AddSeconds($timeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        if ((Test-Path -LiteralPath $target) -and (Get-Item -LiteralPath $target).Length -gt 0) {
+            Start-Sleep -Milliseconds 200
+            return
+        }
+        Start-Sleep -Milliseconds 100
+    }
+    throw "The game did not answer $requestFile within $timeoutSeconds seconds."
+}
+
 function Invoke-Shot {
-    # The DirectX surface cannot be read while hidden (PrintWindow returns black), so capture the
-    # screen only after verifying the game is the foreground window; otherwise abort.
     $w = Get-GameWindow
     Assert-GameForeground $w
-    Start-Sleep -Milliseconds 400
-    $r = $w.Rect
-    $width = $r.Right - $r.Left; $height = $r.Bottom - $r.Top
-    $bmp = New-Object System.Drawing.Bitmap $width, $height
-    $g = [System.Drawing.Graphics]::FromImage($bmp)
-    $g.CopyFromScreen($r.Left, $r.Top, 0, 0, $bmp.Size)
-    if ([KwrInput]::GetForegroundWindow() -ne $w.Process.MainWindowHandle) { $g.Dispose(); $bmp.Dispose(); throw 'Game lost foreground during capture; discarded.' }
     $label = if ($Name) { $Name } else { 'shot' }
     $file = Join-Path (Get-RunDir $w.State) ('{0:HHmmss}-{1}.png' -f (Get-Date), $label)
-    $bmp.Save($file, [System.Drawing.Imaging.ImageFormat]::Png)
-    $g.Dispose(); $bmp.Dispose()
+    Request-Probe 'capture.request' $file
     Write-Output $file
-    Write-Step "Window $($r.Left),$($r.Top) ${width}x${height} -> $file"
+}
+
+function Invoke-State {
+    $w = Get-GameWindow
+    Assert-GameForeground $w
+    $label = if ($Name) { $Name } else { 'state' }
+    $file = Join-Path (Get-RunDir $w.State) ('{0:HHmmss}-{1}.txt' -f (Get-Date), $label)
+    Request-Probe 'state.request' $file
+    Get-Content -LiteralPath $file
+}
+
+# Input lands on whatever window is under the cursor, so that window must be the game.
+function Assert-GameAtPoint($w, [int] $px, [int] $py) {
+    $point = New-Object KwrInput+POINT
+    $point.X = $w.Rect.Left + $px; $point.Y = $w.Rect.Top + $py
+    if ([KwrInput]::GetAncestor([KwrInput]::WindowFromPoint($point), 2) -ne $w.Process.MainWindowHandle) { throw "The game window is not under ($px,$py); no input was sent." }
 }
 
 function Invoke-Click {
     $w = Get-GameWindow
     Assert-GameForeground $w
+    Assert-GameAtPoint $w $X $Y
     Start-Sleep -Milliseconds 150
     [void][KwrInput]::SetCursorPos($w.Rect.Left + $X, $w.Rect.Top + $Y)
     Start-Sleep -Milliseconds 150
@@ -322,6 +360,7 @@ function Invoke-Click {
 function Invoke-Scroll {
     $w = Get-GameWindow
     Assert-GameForeground $w
+    Assert-GameAtPoint $w $X $Y
     [void][KwrInput]::SetCursorPos($w.Rect.Left + $X, $w.Rect.Top + $Y)
     Start-Sleep -Milliseconds 100
     [KwrInput]::mouse_event(0x0800, 0, 0, $Delta, [UIntPtr]::Zero)
@@ -432,7 +471,17 @@ function Invoke-End {
     if ((Get-FileHash $UmmParams).Hash -ne (Get-FileHash (Join-Path $tx 'Params.xml')).Hash) { throw 'UMM Params.xml restore did not verify.' }
 
     if (-not $KeepInstalled -and (Test-Path -LiteralPath $ModDir)) { Remove-Item -LiteralPath $ModDir -Recurse -Force }
-    if ($KeepInstalled -and (Test-Path -LiteralPath (Join-Path $ModDir 'recon.flag'))) { Remove-Item -LiteralPath (Join-Path $ModDir 'recon.flag'), (Join-Path $ModDir 'recon') -Recurse -Force -ErrorAction SilentlyContinue }
+    if ($KeepInstalled) {
+        foreach ($leftover in 'recon.flag', 'recon', 'capture.flag', 'capture.request', 'state.request') {
+            Remove-Item -LiteralPath (Join-Path $ModDir $leftover) -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    $existingSnapshot = Join-Path $tx 'mod-existing'
+    if (-not $KeepInstalled -and (Test-Path -LiteralPath $existingSnapshot)) {
+        & robocopy.exe $existingSnapshot $ModDir /MIR /COPY:DAT /DCOPY:DAT /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
+        if ($LASTEXITCODE -ge 8) { throw "robocopy restore of the existing mod failed ($LASTEXITCODE)" }
+        Write-Step 'Previously installed mod restored.'
+    }
     $modsBefore = @{}
     (Get-Content -LiteralPath (Join-Path $tx 'mods-inventory.json') -Raw | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $modsBefore[$_.Name] = $_.Value }
     $modsNow = Get-Inventory $ModsRoot
@@ -449,8 +498,9 @@ switch ($Operation) {
     'Uninstall' { Invoke-Uninstall }
     'Launch' { Invoke-Launch }
     'Shot' { Invoke-Shot }
+    'State' { Invoke-State }
     'Click' { Invoke-Click }
-    'Hover' { $w = Get-GameWindow; Assert-GameForeground $w; [void][KwrInput]::SetCursorPos($w.Rect.Left + $X, $w.Rect.Top + $Y); Write-Step "Hover at window ($X,$Y)" }
+    'Hover' { $w = Get-GameWindow; Assert-GameForeground $w; Assert-GameAtPoint $w $X $Y; [void][KwrInput]::SetCursorPos($w.Rect.Left + $X, $w.Rect.Top + $Y); Write-Step "Hover at window ($X,$Y)" }
     'Key' { Invoke-Key }
     'Type' { Invoke-Type }
     'Scroll' { Invoke-Scroll }

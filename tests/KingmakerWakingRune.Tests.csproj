@@ -19,6 +19,8 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="LodgePolicyTests.cs" />
+    <Compile Include="WakingPoliciesTests.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Lodge\WakingPolicies.cs" Link="Linked\WakingPolicies.cs" />
     <!-- Pure logic only: compiled directly so no game assemblies are loaded by the tests. -->
     <Compile Include="..\src\KingmakerWakingRune\Lodge\LodgePolicy.cs" Link="Linked\LodgePolicy.cs" />
   </ItemGroup>
