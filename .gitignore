@@ -1,0 +1,9 @@
+bin/
+obj/
+*.user
+.vs/
+LocalGamePaths.props
+artifacts/
+# Source material and game data must never be committed or packaged.
+*.pdf
+*.zks
