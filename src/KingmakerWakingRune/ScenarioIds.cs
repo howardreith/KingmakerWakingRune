@@ -25,10 +25,11 @@ namespace KingmakerWakingRune
         /// </summary>
         public const DlcType StoryType = (DlcType)0x4B57;
 
-        /// <summary>Donor geometry: Jamandi Aldori's office in Restov (static + light/audio scenes only).</summary>
-        public const string DonorStaticScene = "RestovThroneRoom_JamandiOffice_Static";
-
-        /// <summary>Mod-owned, runtime-created mechanics scene that replaces the donor's mechanics scene.</summary>
-        public const string MechanicsScene = "KWR_MagnimarLodge_Mechanics";
+        /// <summary>
+        /// Donor room: the base-game Capital Library (a self-contained area, not an area part, so it
+        /// carries its own navmesh). Its static, light, audio and mechanics scenes are loaded, but
+        /// none of the mechanics scene's entity views are ever turned into entities.
+        /// </summary>
+        public const string DonorStaticScene = "CapitalLibrary_Static";
     }
 }

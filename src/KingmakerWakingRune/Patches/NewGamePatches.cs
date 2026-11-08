@@ -7,6 +7,8 @@ using Kingmaker.EntitySystem.Persistence;
 using Kingmaker.UI.LevelUp.NewGame;
 using KingmakerWakingRune.Blueprints;
 using KingmakerWakingRune.Selection;
+using TMPro;
+using UnityEngine;
 using UnityEngine.UI;
 
 namespace KingmakerWakingRune.Patches
@@ -31,6 +33,20 @@ namespace KingmakerWakingRune.Patches
                 }
             }
             StartFlow.OnStorySelected(story);
+        }
+    }
+
+    [HarmonyPatch(typeof(NewGameWinPhaseStory), nameof(NewGameWinPhaseStory.Initialize), new System.Type[0])]
+    internal static class StoryInitializePatch
+    {
+        private static void Postfix(NewGameWinPhaseStory __instance)
+        {
+            var container = Traverse.Create(__instance).Field("m_StoryContainer").GetValue<RectTransform>();
+            var description = Traverse.Create(__instance).Field("m_Description").GetValue<TextMeshProUGUI>();
+            if (container != null && description != null)
+            {
+                StoryListLayout.Apply(container, description.rectTransform);
+            }
         }
     }
 

@@ -14,15 +14,18 @@ namespace KingmakerWakingRune
         {
             Mod = modEntry;
             Log.Initialize(modEntry);
+            HarmonyInstance harmony = HarmonyInstance.Create(modEntry.Info.Id);
             try
             {
                 Log.Info($"Loading {modEntry.Info.Id} {modEntry.Info.Version} ({BuildInfo()})");
-                HarmonyInstance.Create(modEntry.Info.Id).PatchAll(Assembly.GetExecutingAssembly());
+                harmony.PatchAll(Assembly.GetExecutingAssembly());
                 return true;
             }
             catch (Exception ex)
             {
-                Log.Error("Failed to apply patches; the Waking Rune entry will be unavailable.", ex);
+                // All or nothing: never leave a partially patched game.
+                harmony.UnpatchAll(modEntry.Info.Id);
+                Log.Error("Failed to apply patches; all patches were removed and the Waking Rune entry is unavailable.", ex);
                 return false;
             }
         }

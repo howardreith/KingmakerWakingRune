@@ -19,7 +19,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('Begin', 'Launch', 'Shot', 'Click', 'Key', 'Type', 'Scroll', 'Close', 'Collect', 'End', 'Status')]
+    [ValidateSet('Begin', 'Reinstall', 'Launch', 'Shot', 'Click', 'Hover', 'Key', 'Type', 'Scroll', 'Close', 'Collect', 'End', 'Status')]
     [string] $Operation,
     [string] $RunId,
     [string] $PackagePath,
@@ -69,6 +69,10 @@ public static class KwrInput {
     [DllImport("user32.dll")] public static extern void mouse_event(uint f, int dx, int dy, int data, UIntPtr extra);
     [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint f, UIntPtr extra);
     [DllImport("user32.dll")] public static extern short VkKeyScan(char c);
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
+    [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
+    [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint flags);
     [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
 }
 '@
@@ -133,7 +137,7 @@ function Get-RunDir($s) { Join-Path $EvidenceRoot $s.runId }
 
 function Invoke-Begin {
     if (Get-State) { throw "A transaction is already open: $StatePath. Run End (or inspect) first." }
-    if ((Get-GameProcesses).Count -gt 0) { throw 'Kingmaker is running; it may be an owner session. Refusing to start.' }
+    if (@(Get-GameProcesses).Count -gt 0) { throw 'Kingmaker is running; it may be an owner session. Refusing to start.' }
     if (-not $RunId -or $RunId -notmatch '^[A-Za-z0-9._-]{3,80}$') { throw 'A -RunId of 3-80 safe characters is required.' }
     if (-not $PackagePath -or -not (Test-Path -LiteralPath $PackagePath)) { throw 'A -PackagePath to the built zip is required.' }
     if (Test-Path -LiteralPath $ModDir) { throw "Mod already installed at $ModDir; refusing to overwrite an unknown install." }
@@ -173,10 +177,25 @@ function Invoke-Begin {
     Write-Step "Installed package $($s.packageSha256) into $ModDir (recon=$([bool]$Recon))."
 }
 
+function Invoke-Reinstall {
+    $s = Get-State
+    if (-not $s -or $s.phase -notin @('installed', 'closed')) { throw 'Reinstall needs an open transaction with the game closed.' }
+    if (@(Get-GameProcesses).Count -gt 0) { throw 'Kingmaker is running; never hot-replace the DLL.' }
+    if (-not $PackagePath -or -not (Test-Path -LiteralPath $PackagePath)) { throw 'A -PackagePath is required.' }
+    $recon = Test-Path -LiteralPath (Join-Path $ModDir 'recon.flag')
+    Remove-Item -LiteralPath $ModDir -Recurse -Force
+    Expand-Archive -LiteralPath $PackagePath -DestinationPath $ModsRoot
+    if ($recon) { Set-Content -LiteralPath (Join-Path $ModDir 'recon.flag') -Value 'recon' }
+    $s.package = (Resolve-Path $PackagePath).Path
+    $s.packageSha256 = (Get-FileHash -LiteralPath $PackagePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    Save-State $s
+    Write-Step "Reinstalled package $($s.packageSha256) (recon=$recon)."
+}
+
 function Invoke-Launch {
     $s = Get-State
     if (-not $s -or $s.phase -notin @('installed', 'closed')) { throw 'No installed transaction ready to launch.' }
-    if ((Get-GameProcesses).Count -gt 0) { throw 'Kingmaker is already running.' }
+    if (@(Get-GameProcesses).Count -gt 0) { throw 'Kingmaker is already running.' }
     Assert-SteamCloudOffline
     $since = Get-Date
     $argList = @('-applaunch', $AppId) + $LaunchArgs
@@ -206,15 +225,35 @@ function Get-GameWindow {
     return @{ Process = $p; Rect = $r; State = $s }
 }
 
+# Input is only ever sent while the owned game window is verifiably in the foreground;
+# otherwise the operation aborts so nothing lands in another application.
+function Assert-GameForeground($w) {
+    $h = $w.Process.MainWindowHandle
+    if ([KwrInput]::IsIconic($h)) { [void][KwrInput]::ShowWindow($h, 9) }
+    for ($i = 0; $i -lt 5 -and [KwrInput]::GetForegroundWindow() -ne $h; $i++) {
+        # A synthetic ALT tap lets this process take foreground rights.
+        Send-Vk 0x12 $false; Send-Vk 0x12 $true
+        [void][KwrInput]::SetForegroundWindow($h)
+        Start-Sleep -Milliseconds 300
+    }
+    if ([KwrInput]::GetForegroundWindow() -ne $h) { throw 'The game window is not in the foreground; no input was sent.' }
+    $r = New-Object KwrInput+RECT
+    [void][KwrInput]::GetWindowRect($h, [ref] $r)
+    $w.Rect = $r
+}
+
 function Invoke-Shot {
+    # The DirectX surface cannot be read while hidden (PrintWindow returns black), so capture the
+    # screen only after verifying the game is the foreground window; otherwise abort.
     $w = Get-GameWindow
-    [void][KwrInput]::SetForegroundWindow($w.Process.MainWindowHandle)
-    Start-Sleep -Milliseconds 300
+    Assert-GameForeground $w
+    Start-Sleep -Milliseconds 400
     $r = $w.Rect
     $width = $r.Right - $r.Left; $height = $r.Bottom - $r.Top
     $bmp = New-Object System.Drawing.Bitmap $width, $height
     $g = [System.Drawing.Graphics]::FromImage($bmp)
     $g.CopyFromScreen($r.Left, $r.Top, 0, 0, $bmp.Size)
+    if ([KwrInput]::GetForegroundWindow() -ne $w.Process.MainWindowHandle) { $g.Dispose(); $bmp.Dispose(); throw 'Game lost foreground during capture; discarded.' }
     $label = if ($Name) { $Name } else { 'shot' }
     $file = Join-Path (Get-RunDir $w.State) ('{0:HHmmss}-{1}.png' -f (Get-Date), $label)
     $bmp.Save($file, [System.Drawing.Imaging.ImageFormat]::Png)
@@ -225,7 +264,7 @@ function Invoke-Shot {
 
 function Invoke-Click {
     $w = Get-GameWindow
-    [void][KwrInput]::SetForegroundWindow($w.Process.MainWindowHandle)
+    Assert-GameForeground $w
     Start-Sleep -Milliseconds 150
     [void][KwrInput]::SetCursorPos($w.Rect.Left + $X, $w.Rect.Top + $Y)
     Start-Sleep -Milliseconds 150
@@ -237,7 +276,7 @@ function Invoke-Click {
 
 function Invoke-Scroll {
     $w = Get-GameWindow
-    [void][KwrInput]::SetForegroundWindow($w.Process.MainWindowHandle)
+    Assert-GameForeground $w
     [void][KwrInput]::SetCursorPos($w.Rect.Left + $X, $w.Rect.Top + $Y)
     Start-Sleep -Milliseconds 100
     [KwrInput]::mouse_event(0x0800, 0, 0, $Delta, [UIntPtr]::Zero)
@@ -250,7 +289,7 @@ function Send-Vk([byte] $vk, [bool] $up) { [KwrInput]::keybd_event($vk, 0, $(if 
 
 function Invoke-Key {
     $w = Get-GameWindow
-    [void][KwrInput]::SetForegroundWindow($w.Process.MainWindowHandle)
+    Assert-GameForeground $w
     Start-Sleep -Milliseconds 150
     foreach ($chord in $Keys.Split(' ')) {
         $parts = $chord.Split('+') | ForEach-Object { $_.ToUpperInvariant() }
@@ -264,7 +303,7 @@ function Invoke-Key {
 
 function Invoke-Type {
     $w = Get-GameWindow
-    [void][KwrInput]::SetForegroundWindow($w.Process.MainWindowHandle)
+    Assert-GameForeground $w
     Start-Sleep -Milliseconds 150
     foreach ($c in $Text.ToCharArray()) {
         $scan = [KwrInput]::VkKeyScan($c)
@@ -281,7 +320,7 @@ function Invoke-Close {
     $s = Get-State
     $p = Get-OwnedProcess $s
     if (-not $p) {
-        if ((Get-GameProcesses).Count -gt 0) { throw 'A Kingmaker process is running that this transaction does not own; not touching it.' }
+        if (@(Get-GameProcesses).Count -gt 0) { throw 'A Kingmaker process is running that this transaction does not own; not touching it.' }
         Write-Step 'Owned game process already exited.'
     }
     else {
@@ -320,7 +359,7 @@ function Invoke-End {
     $s = Get-State
     if (-not $s) { throw 'No open transaction.' }
     if (Get-OwnedProcess $s) { throw 'The owned game is still running; Close it first.' }
-    if ((Get-GameProcesses).Count -gt 0) { throw 'A Kingmaker process is running; refusing to restore underneath it.' }
+    if (@(Get-GameProcesses).Count -gt 0) { throw 'A Kingmaker process is running; refusing to restore underneath it.' }
     $tx = Join-Path $BackupRoot $s.runId
     $run = Get-RunDir $s
     try { Invoke-Collect | Out-Null } catch { Write-Step "Collect before restore failed: $_" }
@@ -354,8 +393,8 @@ function Invoke-End {
     $now = Join-Path $tx 'registry-after.reg'
     Export-Registry $now
     if ((Get-FileHash $now).Hash -ne (Get-FileHash (Join-Path $tx 'registry.reg')).Hash) {
-        & reg.exe delete $RegKey /f | Out-Null
-        & reg.exe import (Join-Path $tx 'registry.reg') 2>$null | Out-Null
+        & cmd.exe /c "reg delete `"$RegKey`" /f >nul 2>&1"
+        & cmd.exe /c "reg import `"$(Join-Path $tx 'registry.reg')`" >nul 2>&1"
         Export-Registry $now
         if ((Get-FileHash $now).Hash -ne (Get-FileHash (Join-Path $tx 'registry.reg')).Hash) { throw 'Registry restore did not verify.' }
         Write-Step 'Registry key restored.'
@@ -379,9 +418,11 @@ function Invoke-End {
 
 switch ($Operation) {
     'Begin' { Invoke-Begin }
+    'Reinstall' { Invoke-Reinstall }
     'Launch' { Invoke-Launch }
     'Shot' { Invoke-Shot }
     'Click' { Invoke-Click }
+    'Hover' { $w = Get-GameWindow; Assert-GameForeground $w; [void][KwrInput]::SetCursorPos($w.Rect.Left + $X, $w.Rect.Top + $Y); Write-Step "Hover at window ($X,$Y)" }
     'Key' { Invoke-Key }
     'Type' { Invoke-Type }
     'Scroll' { Invoke-Scroll }

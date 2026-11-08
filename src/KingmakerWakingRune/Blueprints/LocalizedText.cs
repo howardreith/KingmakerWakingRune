@@ -14,7 +14,7 @@ namespace KingmakerWakingRune.Blueprints
 
         private static readonly Dictionary<string, string> s_Texts = new Dictionary<string, string>
         {
-            { StoryTitle, "Play The Waking Rune" },
+            { StoryTitle, "The Waking Rune" },
             {
                 StoryDescription,
                 "Pathfinder Society Scenario #4–26: The Waking Rune.\n\n" +

@@ -32,6 +32,9 @@ namespace KingmakerWakingRune.Blueprints
         public static NewGameRoot.StoryEntity StoryEntry { get; private set; }
         public static DlcRoot.DlcData StoryDlcData { get; private set; }
 
+        /// <summary>Main-campaign companion setup (romance flags, camping encounters) run for every new game.</summary>
+        public static ActionList RootStartGameActions { get; private set; }
+
         public static void Register(LibraryScriptableObject library)
         {
             if (s_Attempted)
@@ -62,6 +65,7 @@ namespace KingmakerWakingRune.Blueprints
                 EnterPoint.Area = Area;
                 Sheila = CreateSheila(donorUnit, root);
                 Preset = CreatePreset(root);
+                RootStartGameActions = root.StartGameActions;
 
                 foreach (BlueprintScriptableObject bp in new BlueprintScriptableObject[] { SessionFlag, SetupFlag, Area, EnterPoint, Sheila, Preset })
                 {
@@ -119,13 +123,13 @@ namespace KingmakerWakingRune.Blueprints
         private static BlueprintArea CreateArea(BlueprintAreaPart donor)
         {
             var area = Create<BlueprintArea>("KWR_MagnimarLodge", ScenarioIds.AreaGuid);
-            // Geometry, lighting, audio and camera settings come from the donor. Its mechanics scene,
-            // changeable dynamics, parts and blueprint components (area scripts) are deliberately not copied.
+            // Scenes, lighting and camera settings come from the donor part. Its changeable dynamics,
+            // parts and blueprint components (area scripts) are deliberately not copied, and the
+            // mechanics scene's entity views are suppressed for this area (see LodgeScope).
             foreach (FieldInfo field in typeof(BlueprintAreaPart).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
             {
                 field.SetValue(area, field.GetValue(donor));
             }
-            area.DynamicScene = new SceneReference(ScenarioIds.MechanicsScene);
             AccessTools.Field(typeof(BlueprintAreaPart), "m_ChangeableDynamics").SetValue(area, new BlueprintAreaPart.AdditionalDynamicEntry[0]);
             AccessTools.Field(typeof(BlueprintArea), "m_Parts").SetValue(area, new List<BlueprintAreaPart>());
             area.ComponentsArray = new BlueprintComponent[0];

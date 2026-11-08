@@ -48,7 +48,7 @@ namespace KingmakerWakingRune.Diagnostics
                 }
                 sb.AppendLine($"# Main preset: {root.NewGamePreset?.name}/{root.NewGamePreset?.AssetGuid}");
                 sb.AppendLine("# Area parts with Restov/Jamandi/Capital scenes");
-                foreach (var p in all.OfType<BlueprintAreaPart>().Where(p => Regex.IsMatch(p.name, "Restov|Jamandi|CapitalLibrary", RegexOptions.IgnoreCase)))
+                foreach (var p in all.OfType<BlueprintAreaPart>().Where(p => Regex.IsMatch(p.name, "CapitalLibrary", RegexOptions.IgnoreCase)))
                 {
                     sb.AppendLine($"{p.GetType().Name} {p.name}/{p.AssetGuid} static={p.StaticScene?.SceneName} mechanics={p.DynamicScene?.SceneName} " +
                                   $"light=[{string.Join(",", p.TimeOfDayScenes.Select(x => x.SceneName).ToArray())}] audio=[{string.Join(",", p.AudioScenes.Select(x => x.SceneName).ToArray())}] " +
@@ -56,7 +56,7 @@ namespace KingmakerWakingRune.Diagnostics
                                   (p is BlueprintArea a ? $" areaName='{a.AreaName}' parts=[{string.Join(",", a.GetParts().Select(x => x.name).ToArray())}] music={a.MusicTheme}" : ""));
                 }
                 sb.AppendLine("# Enter points into those areas");
-                foreach (var e in all.OfType<BlueprintAreaEnterPoint>().Where(e => e.Area != null && Regex.IsMatch(e.Area.name, "Restov|Jamandi", RegexOptions.IgnoreCase)))
+                foreach (var e in all.OfType<BlueprintAreaEnterPoint>().Where(e => e.Area != null && Regex.IsMatch(e.Area.name, "CapitalLibrary", RegexOptions.IgnoreCase)))
                 {
                     sb.AppendLine($"{e.name}/{e.AssetGuid} area={e.Area.name}");
                 }

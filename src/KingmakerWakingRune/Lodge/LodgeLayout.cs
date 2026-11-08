@@ -2,13 +2,16 @@ using UnityEngine;
 
 namespace KingmakerWakingRune.Lodge
 {
-    /// <summary>Prototype room layout in donor-scene coordinates (verified in-game; see docs/RECON.md).</summary>
+    /// <summary>Prototype room layout, relative to the donor office entry pose (tuned in-game; see docs/RECON.md).</summary>
     internal static class LodgeLayout
     {
-        public static readonly Vector3 SpawnPosition = new Vector3(0f, 0f, 0f);
-        public const float SpawnYaw = 0f;
+        /// <summary>
+        /// Sheila's position in entry-local space (x right, z forward), in metres: just in front of the
+        /// reading desk (Capital Library desk at x≈-13.8, entry at x≈-21.9 facing +x), clear of the aisle.
+        /// </summary>
+        public static readonly Vector3 SheilaOffset = new Vector3(0f, 0f, 6f);
 
-        public static readonly Vector3 SheilaPosition = new Vector3(2f, 0f, 2f);
-        public const float SheilaYaw = 180f;
+        /// <summary>Sheila's facing relative to the entry facing; 180 faces the arriving hero.</summary>
+        public const float SheilaRelativeYaw = 180f;
     }
 }

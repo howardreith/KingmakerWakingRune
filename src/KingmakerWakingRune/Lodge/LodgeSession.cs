@@ -96,12 +96,12 @@ namespace KingmakerWakingRune.Lodge
 
         private static UnitEntityData SpawnSheila()
         {
-            Vector3 position = ObstacleAnalyzer.GetNearestNode(LodgeLayout.SheilaPosition).clampedPosition;
-            return Game.Instance.EntityCreator.SpawnUnit(
-                ScenarioBlueprints.Sheila,
-                position,
-                Quaternion.Euler(0f, LodgeLayout.SheilaYaw, 0f),
-                Game.Instance.State.LoadedAreaState.MainState);
+            UnitEntityData main = Game.Instance.Player.MainCharacter.Value;
+            Pose entry = LodgeEntry.LastEntryPose ?? new Pose(main.Position, Quaternion.Euler(0f, main.Orientation, 0f));
+            Vector3 requested = entry.position + entry.rotation * LodgeLayout.SheilaOffset;
+            Vector3 position = ObstacleAnalyzer.GetNearestNode(requested).clampedPosition;
+            Quaternion rotation = Quaternion.Euler(0f, entry.rotation.eulerAngles.y + LodgeLayout.SheilaRelativeYaw, 0f);
+            return Game.Instance.EntityCreator.SpawnUnit(ScenarioBlueprints.Sheila, position, rotation, Game.Instance.State.LoadedAreaState.MainState);
         }
 
         internal static string Describe(UnitEntityData unit)
