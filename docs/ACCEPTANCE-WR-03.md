@@ -24,7 +24,7 @@ Evidence (outside the repo; contains game imagery): `C:\Dev\KingmakerWakingRuneL
 | S02 | **PASS** | `s02-a4-before/after`, `s02-a1-before/after`, `s01-before-restart/reloaded`: full process restart, no state differences | |
 | S03 | **PASS** | `s03-predeparture` (token present, `KWR_SanctumEntered` unset) then a second departure (T04). `t01-new-start`: new game with a new `gameId` and clean flags in a process that had loaded a departed save | Checkpoints are separate files: `..._Sloth`, `..._Sloth_1`, `..._Sloth_2` |
 | R01 | **PASS** | Stock Main Story `r01-stock-started.txt`: native area, no token, no flags. Recruit flow works. Shop 239 lines / 759 items equals the WR-02 baseline. No Harmony hook touches ordinary usable items | Shop window was not reopened this run |
-| P01 | **PASS** | `candidate-identity.txt`; zip holds `Info.json`, DLL, `Icons/RefugeToken.png`, portraits, no `capture.flag`; no lab path in the DLL; restoration below | |
+| P01 | **PASS** | `candidate-identity.txt`; zip holds `Info.json`, DLL, `Icons/RefugeToken.png`, portraits, no `capture.flag`; no lab path in the DLL; restoration below | The zip built with the docs and tests commit `ac942fc` (SHA-256 `525749178f15226619da96f5cc745578422ba4ae3c09ff8bb6b4ef2f85c443d8`, kept in `wr03-accept-a\`) is a repack of the tested zip `db11e1f3…`: same DLL hash, and all 18 packaged files match the tested install's recorded hashes |
 
 **Optional teleport VFX:** omitted. Fade and transfer are implemented.
 
