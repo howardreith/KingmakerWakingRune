@@ -118,34 +118,6 @@ namespace KingmakerWakingRune.Diagnostics
             }
         }
 
-        /// <summary>Dev-only model comparison: gallery.txt lists donor GUIDs, spawned in a grid in the lodge.</summary>
-        public static void SpawnGallery()
-        {
-            string file = Path.Combine(Main.Mod.Path, "gallery.txt");
-            if (!Enabled || !File.Exists(file))
-            {
-                return;
-            }
-            var units = ResourcesLibrary.GetBlueprints<BlueprintUnit>().ToDictionary(u => u.AssetGuid, u => u);
-            float[] rows = { 2.4f, 1.0f, -2.4f, -3.4f };
-            int column = 0, row = 0;
-            foreach (string guid in File.ReadAllLines(file).Select(l => l.Trim()).Where(l => l.Length > 0))
-            {
-                if (!units.TryGetValue(guid, out BlueprintUnit unit))
-                {
-                    continue;
-                }
-                var position = new Vector3(-23.6f + column * 1.5f, 0f, rows[row]);
-                Game.Instance.EntityCreator.SpawnUnit(unit, ObstacleAnalyzer.GetNearestNode(position).clampedPosition, Quaternion.Euler(0f, 225f, 0f), Game.Instance.State.LoadedAreaState.MainState);
-                Log.Info($"Gallery {column},{row}: {unit.name}");
-                if (++column == 6)
-                {
-                    column = 0;
-                    row = Math.Min(row + 1, rows.Length - 1);
-                }
-            }
-        }
-
         public static void DumpLodge()
         {
             if (!Enabled)

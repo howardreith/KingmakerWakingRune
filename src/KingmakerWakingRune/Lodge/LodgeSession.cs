@@ -100,7 +100,6 @@ namespace KingmakerWakingRune.Lodge
                 BriefingService.ArmIfPending();
                 LodgeDriver.Attach();
                 Recon.DumpLodge();
-                Recon.SpawnGallery();
             }
         }
 

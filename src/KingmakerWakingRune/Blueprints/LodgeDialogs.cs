@@ -112,10 +112,6 @@ namespace KingmakerWakingRune.Blueprints
             AddInteraction(coordinator, Dialog("coordinator", recruitPrompt, new ActionList()), new ConditionsChecker());
         }
 
-        public static void FocusCameraOn(UnityEngine.Vector3 position)
-        {
-            Game.Instance.UI.GetCameraRig()?.ScrollDialogTo(position);
-        }
 
         private static BlueprintCue Cue(string id, BlueprintUnit speaker, string text)
         {
