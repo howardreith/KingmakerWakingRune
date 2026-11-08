@@ -18,7 +18,7 @@ Evidence (outside the repo; contains game imagery): `C:\Dev\KingmakerWakingRuneL
 | A7 | Protagonist XP and native level-ups to 11 | **PASS** | Exactly 155,000 XP (read from the game's XP table; level 12 needs 220,000). Serin Vale, Druid 1→11 with every level chosen by hand: `*-A3-*`, `canLevel=False` at 11. Wolf companion advanced. |
 | A8 | Five free recruits at level-11 XP; cancel; spellcaster | **PASS** | Aria Voss (Bard) and four Fighters, each exactly 155,000 XP, treasury unchanged: `*-A4-*`. Cancel left no ghost, no charge: `*-A4-cancelled`. Bard took a level-2 spell choice natively. |
 | A9 | Recruit level-ups to 11 | **NOT RUN** | Recruits keep native pending level-ups (Bard at 2, Fighters at 1). The full 1→11 path was exercised on the protagonist only. |
-| A10 | Starting gold 450,000; recruitment leaves it alone | **PASS** | 450,000 on arrival and after all five recruits. Native chargen's class gold (for example 800) is refunded by the Coordinator's flow. |
+| A10 | Starting gold 450,000; recruitment leaves it alone | **PASS** | 450,000 on arrival and after all five recruits. Native chargen's class gold (411 gp measured for a Fighter) is refunded by the Coordinator's flow. |
 | A11 | Buy, sell, cancel, reopen, equip | **PASS** | Cancel unchanged at 450,000 (`*-A5-after-cancel`). Buy 2,400 + 2,500 → 445,100. Sell torch +27 → 445,127. Composite Longbow +1 equipped on Bram Holt (`*-A5-equipped`). Sell price is 25% of cost, so no profit loop. |
 | A12 | Navigation and both services, no modal overlap | **PASS** | Party of six walked the room (`*-A8-party-moved`). Both services reached by walking. Dialogue, shop, chargen and Group Manager never overlapped. |
 | A13 | Full restart and normal load preserve everything | **PASS** | Identical before and after (`*-A7-before-restart.txt`, `*-A7-reloaded.txt`): party, 445,127 gp, purchases, shop 240 lines / 758 items, all NPC ids, briefing flag. No replay and no duplicates. Shop reopened after a further restart: `*-A14-shop-open`. |
@@ -29,7 +29,7 @@ Evidence (outside the repo; contains game imagery): `C:\Dev\KingmakerWakingRuneL
 | A18 | Interrupted briefing recovers | **PASS** | Process exit mid-briefing, reload: it starts again from its checkpoint and can be finished (`*-A10-*`). The game disallows saving during dialogue, so there are no mid-dialogue saves. |
 | A19 | Follow-up questions without replay | **PASS** | Sheila or Ambrus reopen the hub after the briefing; nothing regranted (`*-A6-followup`, `*-A8-*`). |
 
-Unit tests: 17/17 (lodge policy, once-only grants, recruit refund, treasury, briefing gate). The only exception in the game log is the native `BugReportCanvas` startup NRE, also present without WR-02 code paths running.
+Unit tests: 17/17 (lodge policy, once-only grants, recruit refund, treasury, briefing gate). The only exception in the collected game logs is a `NullReferenceException` in the native `Kingmaker.UI.BugReportCanvas.OnEnable` at startup, with no mod frames in its stack.
 
 ## Environment restoration
 Receipts from `End`: profile (14 test-added files quarantined), Steam save mirror (3 quarantined), registry and UMM `Params.xml` restored and verified. Quarantine: `C:\Dev\KingmakerWakingRuneLab\runtime-backups\wr02-accept-f75782e\quarantine`. The owner's WR-01 install was snapshotted, set aside for the run and restored: DLL `72a011dd…` matches. The WR-02 candidate is **not installed**.
