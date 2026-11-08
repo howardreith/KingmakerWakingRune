@@ -25,7 +25,9 @@ namespace KingmakerWakingRune.Selection
 
         public static void Apply(RectTransform storyContainer, RectTransform description)
         {
-            ScrollRect scroll = storyContainer.GetComponentInParent<ScrollRect>();
+            // The window may still be inactive when its phases initialize; include inactive objects.
+            ScrollRect[] scrolls = storyContainer.GetComponentsInParent<ScrollRect>(true);
+            ScrollRect scroll = scrolls.Length > 0 ? scrolls[0] : null;
             if (scroll == null)
             {
                 Log.Error("Scenario list has no ScrollRect; layout left native.");

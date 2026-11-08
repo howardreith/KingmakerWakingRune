@@ -19,7 +19,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('Begin', 'Reinstall', 'Launch', 'Shot', 'Click', 'Hover', 'Key', 'Type', 'Scroll', 'Close', 'Collect', 'End', 'Status')]
+    [ValidateSet('Begin', 'Reinstall', 'Uninstall', 'Launch', 'Shot', 'Click', 'Hover', 'Key', 'Type', 'Scroll', 'Close', 'Collect', 'End', 'Status')]
     [string] $Operation,
     [string] $RunId,
     [string] $PackagePath,
@@ -190,6 +190,14 @@ function Invoke-Reinstall {
     $s.packageSha256 = (Get-FileHash -LiteralPath $PackagePath -Algorithm SHA256).Hash.ToLowerInvariant()
     Save-State $s
     Write-Step "Reinstalled package $($s.packageSha256) (recon=$recon)."
+}
+
+function Invoke-Uninstall {
+    $s = Get-State
+    if (-not $s -or $s.phase -notin @('installed', 'closed')) { throw 'Uninstall needs an open transaction with the game closed.' }
+    if (@(Get-GameProcesses).Count -gt 0) { throw 'Kingmaker is running.' }
+    if (Test-Path -LiteralPath $ModDir) { Remove-Item -LiteralPath $ModDir -Recurse -Force }
+    Write-Step 'Mod folder removed for a mod-absent run (End still restores everything).'
 }
 
 function Invoke-Launch {
@@ -419,6 +427,7 @@ function Invoke-End {
 switch ($Operation) {
     'Begin' { Invoke-Begin }
     'Reinstall' { Invoke-Reinstall }
+    'Uninstall' { Invoke-Uninstall }
     'Launch' { Invoke-Launch }
     'Shot' { Invoke-Shot }
     'Click' { Invoke-Click }
