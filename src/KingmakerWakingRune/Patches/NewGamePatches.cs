@@ -66,6 +66,7 @@ namespace KingmakerWakingRune.Patches
         private static void Prefix(SaveInfo saveInfo)
         {
             StartFlow.Clear("save load");
+            Sanctum.RefugeTransit.Reset("save load");
             Log.Info($"Loading save '{saveInfo?.Name}' area={saveInfo?.Area?.name}/{saveInfo?.Area?.AssetGuid}");
         }
     }
@@ -76,6 +77,7 @@ namespace KingmakerWakingRune.Patches
         private static void Prefix(BlueprintAreaPreset preset)
         {
             StartFlow.OnNewGameStarting(preset);
+            Sanctum.RefugeTransit.Reset("new game");
         }
     }
 }

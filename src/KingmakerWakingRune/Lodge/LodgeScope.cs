@@ -21,7 +21,7 @@ namespace KingmakerWakingRune.Lodge
             var loaded = Game.Instance.State.LoadedAreaState;
             return ScenarioBlueprints.IsRegistered
                    && loaded != null
-                   && loaded.Area.Blueprint == ScenarioBlueprints.Area
+                   && (loaded.Area.Blueprint == ScenarioBlueprints.Area || loaded.Area.Blueprint == ScenarioBlueprints.Sanctum)
                    && state != null
                    && state != Game.Instance.State.PlayerState.CrossSceneState;
         }

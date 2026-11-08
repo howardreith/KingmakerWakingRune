@@ -8,6 +8,7 @@ using Kingmaker.EntitySystem.Persistence.Scenes;
 using Kingmaker.View;
 using KingmakerWakingRune.Blueprints;
 using KingmakerWakingRune.Lodge;
+using KingmakerWakingRune.Sanctum;
 
 namespace KingmakerWakingRune.Patches
 {
@@ -35,6 +36,11 @@ namespace KingmakerWakingRune.Patches
         private static void Prefix(BlueprintAreaEnterPoint enterPoint)
         {
             LodgeEntry.EnsureMarker(enterPoint);
+            if (enterPoint == ScenarioBlueprints.SanctumEnter && ScenarioBlueprints.SanctumEnter != null)
+            {
+                SanctumScope.EnsureBuilt();
+                SanctumScope.EnsureEnterMarker(enterPoint);
+            }
         }
     }
 

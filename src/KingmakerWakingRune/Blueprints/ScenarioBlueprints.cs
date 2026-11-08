@@ -6,8 +6,10 @@ using Harmony12;
 using Kingmaker.Blueprints;
 using Kingmaker.Blueprints.Area;
 using Kingmaker.Blueprints.Facts;
+using Kingmaker.Blueprints.Items.Equipment;
 using Kingmaker.Blueprints.Root;
 using Kingmaker.ElementsSystem;
+using Kingmaker.Enums;
 using Kingmaker.Localization;
 using UnityEngine;
 
@@ -33,6 +35,11 @@ namespace KingmakerWakingRune.Blueprints
         public static BlueprintUnlockableFlag ProtagonistXpFlag { get; private set; }
         public static BlueprintUnlockableFlag TreasuryFlag { get; private set; }
         public static BlueprintUnlockableFlag BriefingCompleteFlag { get; private set; }
+        public static BlueprintUnlockableFlag TokenGrantedFlag { get; private set; }
+        public static BlueprintUnlockableFlag SanctumEnteredFlag { get; private set; }
+        public static BlueprintArea Sanctum { get; private set; }
+        public static BlueprintAreaEnterPoint SanctumEnter { get; private set; }
+        public static BlueprintItemEquipmentUsable Token { get; private set; }
         public static NewGameRoot.StoryEntity StoryEntry { get; private set; }
         public static DlcRoot.DlcData StoryDlcData { get; private set; }
 
@@ -94,6 +101,22 @@ namespace KingmakerWakingRune.Blueprints
                     register(sheilaPortrait);
                     AccessTools.Field(typeof(BlueprintUnit), "m_Portrait").SetValue(Sheila, sheilaPortrait);
                 }
+                BlueprintAreaPart sanctumDonor = all.OfType<BlueprintArea>().FirstOrDefault(a => a.StaticScene != null && a.StaticScene.SceneName == ScenarioIds.SanctumDonorStaticScene && a.name == "DunswardTomb");
+                if (sanctumDonor == null)
+                {
+                    Log.Error("Registration aborted: the Dunsward Tomb donor is missing; the Waking Rune entry will not be offered.");
+                    return;
+                }
+                TokenGrantedFlag = Flag("KWR_RefugeTokenGranted");
+                SanctumEnteredFlag = Flag("KWR_SanctumEntered");
+                register(TokenGrantedFlag);
+                register(SanctumEnteredFlag);
+                Sanctum = CreateSanctumArea(sanctumDonor);
+                SanctumEnter = Create<BlueprintAreaEnterPoint>("KWR_Sanctum_Enter", ScenarioIds.Derive("enter.sanctum"));
+                SanctumEnter.Area = Sanctum;
+                register(Sanctum);
+                register(SanctumEnter);
+                Token = RefugeTokenBlueprints.Create(register);
                 LodgeDialogs.Build(Sheila, register, BriefingCompleteFlag);
                 QuartermasterStock.Attach(LodgeCast.Find("quartermaster").Unit, all, register);
                 LocalizedText.InjectInto(LocalizationManager.CurrentPack);
@@ -156,9 +179,27 @@ namespace KingmakerWakingRune.Blueprints
             return Create<BlueprintUnlockableFlag>(name, ScenarioIds.Derive("flag." + name));
         }
 
+        private static BlueprintArea CreateSanctumArea(BlueprintAreaPart donor)
+        {
+            BlueprintArea area = CreateArea(donor, "KWR_SanctumOfSloth", ScenarioIds.Derive("area.sanctum"), "kwr.area.sanctum");
+            LocalizedText.Define("kwr.area.sanctum", "The Sanctum of Sloth");
+            // Cyclops is the setting used by the donor's own ancient stone tomb and is matched by Favored Terrain
+            // (Underground) but not by Urban, Forest, Plains, Highlands or First World.
+            area.LootSetting = LootSetting.Cyclops;
+            area.CameraRotation = 0f;
+            area.Peaceful = false;
+            area.CR = 11;
+            return area;
+        }
+
         private static BlueprintArea CreateArea(BlueprintAreaPart donor)
         {
-            var area = Create<BlueprintArea>("KWR_MagnimarLodge", ScenarioIds.AreaGuid);
+            return CreateArea(donor, "KWR_MagnimarLodge", ScenarioIds.AreaGuid, LocalizedText.AreaName);
+        }
+
+        private static BlueprintArea CreateArea(BlueprintAreaPart donor, string name, string guid, string nameKey)
+        {
+            var area = Create<BlueprintArea>(name, guid);
             // Scenes, lighting and camera settings come from the donor part. Its changeable dynamics,
             // parts and blueprint components (area scripts) are deliberately not copied, and the
             // mechanics scene's entity views are suppressed for this area (see LodgeScope).
@@ -180,7 +221,7 @@ namespace KingmakerWakingRune.Blueprints
                 area.MusicThemeStop = donorArea.MusicThemeStop;
                 area.LootSetting = donorArea.LootSetting;
             }
-            area.AreaName = LocalizedText.Create(LocalizedText.AreaName);
+            area.AreaName = LocalizedText.Create(nameKey);
             area.CustomUIScene = new SceneReference();
             area.HotAreas = new BlueprintArea[0];
             area.Peaceful = true;
