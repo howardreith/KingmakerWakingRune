@@ -56,6 +56,14 @@ $RegKey = 'HKCU\Software\Owlcat Games\Pathfinder Kingmaker'
 $SteamExe = 'C:\Program Files (x86)\Steam\steam.exe'
 $SteamCloudLog = 'C:\Program Files (x86)\Steam\logs\cloud_log.txt'
 $AppId = '640820'
+$SteamUserData = @(Get-ChildItem 'C:\Program Files (x86)\Steam\userdata' -Directory | Where-Object { Test-Path (Join-Path $_.FullName "$AppId\remote") })
+if ($SteamUserData.Count -ne 1) { throw "Expected exactly one Steam user with a Kingmaker save mirror; found $($SteamUserData.Count)." }
+$SnapshotTrees = @(
+    @{ Name = 'profile'; Path = $ProfileDir },
+    # The game mirrors saves via Steam remote storage and restores missing local saves from it.
+    # remotecache.vdf beside it is Steam-maintained and rewritten on every launch; it is not restored.
+    @{ Name = 'steam-remote'; Path = (Join-Path $SteamUserData[0].FullName "$AppId\remote") }
+)
 
 Add-Type -AssemblyName System.Drawing
 Add-Type @'
@@ -120,6 +128,42 @@ function Compare-Inventory($before, $after) {
     return , $diff
 }
 
+function Save-Tree([string] $name, [string] $root, [string] $tx) {
+    & robocopy.exe $root (Join-Path $tx $name) /MIR /COPY:DAT /DCOPY:DAT /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
+    if ($LASTEXITCODE -ge 8) { throw "robocopy snapshot of $name failed ($LASTEXITCODE)" }
+    $inv = Get-Inventory $root
+    $d = Compare-Inventory $inv (Get-Inventory (Join-Path $tx $name))
+    if ($d.Count -gt 0) { throw "$name snapshot does not match source: $($d[0..([Math]::Min(5,$d.Count)-1)] -join '; ')" }
+    $inv | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $tx "$name-inventory.json") -Encoding UTF8
+    Write-Step ("Snapshot verified: {0} {1} files." -f $inv.Count, $name)
+}
+
+# Quarantines files the test added and restores anything changed or removed, then verifies.
+function Restore-Tree([string] $name, [string] $root, [string] $tx) {
+    $baseline = @{}
+    (Get-Content -LiteralPath (Join-Path $tx "$name-inventory.json") -Raw | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $baseline[$_.Name] = $_.Value }
+    $quarantine = Join-Path (Join-Path $tx 'quarantine') $name
+    $diff = Compare-Inventory $baseline (Get-Inventory $root)
+    foreach ($entry in $diff) {
+        $kind, $rel = $entry.Split(':', 2)
+        $live = Join-Path $root $rel
+        $saved = Join-Path (Join-Path $tx $name) $rel
+        if ($kind -eq 'added') {
+            $dest = Join-Path $quarantine $rel
+            New-Item -ItemType Directory -Force -Path (Split-Path $dest) | Out-Null
+            Move-Item -LiteralPath $live -Destination $dest -Force
+        }
+        else {
+            New-Item -ItemType Directory -Force -Path (Split-Path $live) | Out-Null
+            Copy-Item -LiteralPath $saved -Destination $live -Force
+            (Get-Item -LiteralPath $live).LastWriteTimeUtc = (Get-Item -LiteralPath $saved).LastWriteTimeUtc
+        }
+    }
+    $after = Compare-Inventory $baseline (Get-Inventory $root)
+    if ($after.Count -gt 0) { throw "$name restore incomplete: $($after -join '; ')" }
+    Write-Step ("{0} restored: {1} differences reverted (added files quarantined in {2})." -f $name, $diff.Count, $quarantine)
+}
+
 function Export-Registry([string] $path) {
     & reg.exe export $RegKey $path /y | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "reg export failed ($LASTEXITCODE)" }
@@ -150,19 +194,12 @@ function Invoke-Begin {
     $s = [ordered]@{ runId = $RunId; createdUtc = (Get-Date).ToUniversalTime().ToString('o'); phase = 'snapshotting'; gamePid = $null; gameStart = $null; package = (Resolve-Path $PackagePath).Path; packageSha256 = (Get-FileHash -LiteralPath $PackagePath -Algorithm SHA256).Hash.ToLowerInvariant(); recon = [bool]$Recon }
     Save-State $s
 
-    Write-Step 'Snapshotting Kingmaker profile (saves etc.)...'
-    & robocopy.exe $ProfileDir (Join-Path $tx 'profile') /MIR /COPY:DAT /DCOPY:DAT /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
-    if ($LASTEXITCODE -ge 8) { throw "robocopy snapshot failed ($LASTEXITCODE)" }
-    $inv = Get-Inventory $ProfileDir
-    $bak = Get-Inventory (Join-Path $tx 'profile')
-    $d = Compare-Inventory $inv $bak
-    if ($d.Count -gt 0) { throw "Profile snapshot does not match source: $($d[0..([Math]::Min(5,$d.Count)-1)] -join '; ')" }
-    $inv | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $tx 'profile-inventory.json') -Encoding UTF8
+    Write-Step 'Snapshotting Kingmaker profile and Steam save mirror...'
+    foreach ($t in $SnapshotTrees) { Save-Tree $t.Name $t.Path $tx }
     Export-Registry (Join-Path $tx 'registry.reg')
     Copy-Item -LiteralPath $UmmParams -Destination (Join-Path $tx 'Params.xml')
     (Get-Inventory $ModsRoot) | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $tx 'mods-inventory.json') -Encoding UTF8
     $s.ummLogLength = (Get-Item -LiteralPath $UmmLog).Length
-    Write-Step ("Snapshot verified: {0} profile files." -f $inv.Count)
 
     # Temporary test profile: suppress the UMM window at start (restored by End).
     [xml] $params = Get-Content -LiteralPath $UmmParams -Raw
@@ -372,30 +409,12 @@ function Invoke-End {
     $run = Get-RunDir $s
     try { Invoke-Collect | Out-Null } catch { Write-Step "Collect before restore failed: $_" }
 
-    # Profile: quarantine files the test added, restore anything changed or removed.
-    $baseline = @{}
-    (Get-Content -LiteralPath (Join-Path $tx 'profile-inventory.json') -Raw | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $baseline[$_.Name] = $_.Value }
-    $current = Get-Inventory $ProfileDir
-    $quarantine = Join-Path $tx 'quarantine'
-    $diff = Compare-Inventory $baseline $current
-    foreach ($entry in $diff) {
-        $kind, $rel = $entry.Split(':', 2)
-        $live = Join-Path $ProfileDir $rel
-        $saved = Join-Path (Join-Path $tx 'profile') $rel
-        if ($kind -eq 'added') {
-            $dest = Join-Path $quarantine $rel
-            New-Item -ItemType Directory -Force -Path (Split-Path $dest) | Out-Null
-            Move-Item -LiteralPath $live -Destination $dest -Force
-        }
-        else {
-            New-Item -ItemType Directory -Force -Path (Split-Path $live) | Out-Null
-            Copy-Item -LiteralPath $saved -Destination $live -Force
-            (Get-Item -LiteralPath $live).LastWriteTimeUtc = (Get-Item -LiteralPath $saved).LastWriteTimeUtc
-        }
+    # Saves live in two places: the profile and the game's Steam remote-storage mirror (it restores
+    # missing local saves from the mirror at launch). Restore both, or test saves come back.
+    foreach ($t in $SnapshotTrees) {
+        if (Test-Path -LiteralPath (Join-Path $tx "$($t.Name)-inventory.json")) { Restore-Tree $t.Name $t.Path $tx }
+        else { Write-Step "WARNING: transaction has no $($t.Name) snapshot; not restored." }
     }
-    $after = Compare-Inventory $baseline (Get-Inventory $ProfileDir)
-    if ($after.Count -gt 0) { throw "Profile restore incomplete: $($after -join '; ')" }
-    Write-Step ("Profile restored: {0} differences reverted (added files quarantined in {1})." -f $diff.Count, $quarantine)
 
     # Registry: restore exactly if anything differs.
     $now = Join-Path $tx 'registry-after.reg'

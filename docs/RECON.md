@@ -33,5 +33,17 @@ and live runtime dumps. Only facts used by the implementation are recorded.
 | NPC spawn/persistence | `EntityCreationController.SpawnUnit(bp, pos, rot, LoadedAreaState.MainState)`; saved with the area state, view recreated on load | Spawn once, guarded by save-bound setup flag |
 | Save marker | `Player.UnlockableFlags` (`BlueprintUnlockableFlag`, value = schema version) | `KWR_WakingRuneSession` (v1), `KWR_LodgeInitialSetupDone` |
 
-## Donor choices
-Pending runtime confirmation (see below).
+| Main-campaign start actions | `BlueprintRoot.StartGameActions` (36 actions: companion romance flags, camping encounters) runs for every preset | Skipped (prefix on `ActionList.Run`) only when `Player.StartPreset` is the Waking Rune preset |
+| Save header campaign | `SaveManager` writes `SaveInfo.CampaignDLC = StartPreset.DlcCampaign`; DLC importers list `CampaignDLC == None` saves as main-story saves | Preset `DlcCampaign = 0x4B57`, so Waking Rune saves are never offered as main-story imports |
+
+## Donor choices (verified in game)
+| Need | Choice | Why |
+|---|---|---|
+| Room | `CapitalLibrary` area (`e100798af67576b459fb345cdd4e77ce`): `CapitalLibrary_Static` + `_Light` + `_Audio_Day` + `_Mechanics` | Self-contained area with its own navmesh (`AstarPath`) and `LocalMapArea` in the mechanics scene; reading desk, bookshelves, candelabra. `RestovThroneRoom_JamandiOffice` was tried first: it is an area *part* without its own navmesh (`GetNearestNode` NRE). |
+| Donor isolation | All 113 entity views of `CapitalLibrary_Mechanics` (57 map objects incl. doors/exits/loot, 2 unit spawners, 54 waypoints) are withheld from `CreateSceneEntities`/`LoadSceneEntities` for the lodge only; native "destroy unattached views" removes them | No donor entity is ever created, so none of its logic runs. The donor area's blueprint components (area scripts) are not copied. Donor blueprints are never mutated. |
+| Entry | Donor marker `CapitalLibrary_Enter` (`e2a1da2a…`) pose at (-21.9, 0.1, -0.7), yaw 89 | Mod enter point placed at that pose right before party placement |
+| Sheila model | `AdventurerRanger` (`66f9f99225680ea4dac138bbb54b9c28`, generic neutral human female adventurer, fixed prefab) | Cloned to `KWR_SheilaHeidmarch` with no components/facts, `FactionNeutrals`, name "Sheila Heidmarch"; spawned 6 m in front of the entry at the reading desk (-16.2, 0, -0.6) |
+
+## Runtime notes
+- Kingmaker hides NPCs outside the party's line of sight; Sheila is not drawn while the hero stands behind a bookcase (native fog-of-war behavior).
+- The game mirrors saves through Steam remote storage (`userdata/<id>/640820/remote`) and restores missing local saves from it at launch. Test harnesses must snapshot/restore that mirror as well as the profile.
