@@ -20,8 +20,9 @@ namespace KingmakerWakingRune
         public const int SessionVersion = 1;
 
         /// <summary>
-        /// Out-of-range DlcType that identifies the Waking Rune story entry in the native selector.
-        /// It never reaches a save: the preset itself is DlcType.None.
+        /// Out-of-range DlcType identifying the Waking Rune as its own campaign: the selector entry,
+        /// the preset's DlcCampaign and therefore the save header's CampaignDLC. DlcRoot.Get maps it
+        /// to the mod's DLC data; every native type is untouched.
         /// </summary>
         public const DlcType StoryType = (DlcType)0x4B57;
 

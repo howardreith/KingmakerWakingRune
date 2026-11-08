@@ -178,7 +178,9 @@ namespace KingmakerWakingRune.Blueprints
             preset.CharGen = true;
             preset.PartyXp = 0;
             preset.MakeAutosave = false;
-            preset.DlcCampaign = DlcType.None;
+            // The scenario's own campaign type: saves record it as SaveInfo.CampaignDLC, so they are never
+            // offered as main-campaign saves (DLC character import, achievements, DLC import suggestions).
+            preset.DlcCampaign = ScenarioIds.StoryType;
             preset.HasKingdom = false;
             preset.RevealGlobalmap = false;
             preset.StartGameActions = new ActionList { Actions = new GameAction[0] };
