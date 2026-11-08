@@ -1,28 +1,31 @@
 # Status — The Waking Rune
 
-**Milestone:** WR-01 (New Game → native difficulty/chargen → Magnimar Lodge with Sheila Heidmarch). **Complete.**
-**Branch:** `feature/wr-01-lodge-opening` · **Candidate:** `db3352e` (see `docs/ACCEPTANCE-WR-01.md` for hashes).
+**Milestone:** WR-02 (lodge briefing, cast, quartermaster, free recruitment, level-11 XP, 450,000 gp). **Candidate under review.**
+**Branch:** `feature/wr-02-lodge-briefing` (from accepted `main`).
+Results and evidence: `docs/ACCEPTANCE-WR-02.md`; design notes: `docs/WR-02-NOTES.md`; stock: `docs/QUARTERMASTER.md`.
 
-## Proven
-- A1–A8 PASS on the real game (2.1.7b) with real input; layout checked at 1280×720 and 1024×768.
-- Build: `scripts/Build.ps1` (MSBuild 17.14, net47, C# 7.3, Harmony 1.2 API) + 8 unit tests.
+## What exists
+- 11 authored NPCs in the lodge (Sheila, Ambrus, the Masked Figure, Quartermaster, Society Coordinator, 6 warding agents), spawned once per save.
+- Native briefing dialogue with the question hub; follow-up questions via Sheila or Ambrus after it.
+- Native shared-vendor shop, native custom-companion recruitment (free, level-11 XP), native party selection.
+- 450,000 gp and protagonist XP granted once per save (save-bound flags `KWR_*`); WR-01 saves upgrade once, automatically.
 
 ## Environment state
-- Candidate is **not installed**; `Mods/` is empty as before. Profile, Steam save mirror (`userdata/…/640820/remote`),
-  registry and UMM `Params.xml` match the pre-session state.
-- Test saves and stray autosaves are quarantined under `C:\Dev\KingmakerWakingRuneLab\runtime-backups\*\quarantine`
-  and `…\runtime-backups\steam-mirror-repair-20261108\` (mirror cleanup after runs r02/r03, which predate the harness
-  covering the mirror).
+The owner's install at `Mods/KingmakerWakingRune` (WR-01, DLL `72a011dd…`) is preserved by the harness: every run snapshots and restores it,
+the profile, Steam save mirror, registry and UMM params. The WR-02 candidate is not installed unless the owner installs it.
 
 ## How to test again
 ```powershell
 .\scripts\Build.ps1
-.\scripts\KwrRuntime.ps1 Begin -RunId <new-id> -PackagePath .\artifacts\KingmakerWakingRune-0.1.0.zip
-.\scripts\KwrRuntime.ps1 Launch      # then Shot / Click / Key / Type / Hover, Close
-.\scripts\KwrRuntime.ps1 End         # restores profile, Steam mirror, registry, Params, Mods
+.\scripts\KwrRuntime.ps1 Begin -RunId <new-id> -PackagePath .\artifacts\KingmakerWakingRune-0.2.0.zip
+.\scripts\KwrRuntime.ps1 Launch      # then Shot / State / Click / Key / Type / Hover, Close
+.\scripts\KwrRuntime.ps1 End         # restores profile, Steam mirror, registry, Params, and the previous Mods install
 ```
-Preconditions: Kingmaker not running; Steam running with Kingmaker cloud sync disabled. The harness takes the
-screen (foreground input) while a run is open.
+Preconditions: Kingmaker not running; Steam running with Kingmaker cloud sync disabled. `Shot` is an in-engine capture (harness flag in the mod folder) because the game presents directly to the display; screen capture would read the desktop instead.
+
+## Open items for the owner's review
+- Listen to the warding murmur (not measurable here) and watch the masked figure's gesture.
+- Recruits were verified at level-11 XP; only the protagonist was levelled all the way to 11 in testing.
 
 ## Next exact action
-Owner review of the draft PR; then WR-02 (Sheila's briefing dialogue and the remaining opening cast).
+Owner review of the draft PR; then WR-03 (refuge-token activation and departure).

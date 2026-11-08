@@ -7,6 +7,11 @@ using System.Text.RegularExpressions;
 using Kingmaker;
 using Kingmaker.Blueprints;
 using Kingmaker.Blueprints.Area;
+using Kingmaker.Blueprints.Items;
+using Kingmaker.Blueprints.Items.Armors;
+using Kingmaker.Blueprints.Items.Equipment;
+using Kingmaker.Blueprints.Items.Shields;
+using Kingmaker.Blueprints.Items.Weapons;
 using Kingmaker.View;
 using Kingmaker.Visual.LocalMap;
 using KingmakerWakingRune.Blueprints;
@@ -67,6 +72,50 @@ namespace KingmakerWakingRune.Diagnostics
                                   $"components=[{string.Join(",", u.ComponentsArray.Select(c => c.GetType().Name).Distinct().ToArray())}]");
                 }
             });
+            Write("units.txt", sb =>
+            {
+                foreach (BlueprintUnit u in library.GetAllBlueprints().OfType<BlueprintUnit>().OrderBy(u => u.name))
+                {
+                    sb.AppendLine($"{u.AssetGuid}|{u.name}|{SafeName(u)}|{u.Gender}|{u.Race?.name}|preset={(u.CustomizationPreset != null)}|prefab={u.Prefab?.AssetId}|faction={u.Faction?.name}|portrait={u.PortraitSafe?.name}");
+                }
+            });
+            Write("items.txt", sb =>
+            {
+                foreach (BlueprintItem i in library.GetAllBlueprints().OfType<BlueprintItem>().OrderBy(i => i.GetType().Name).ThenBy(i => i.name))
+                {
+                    sb.AppendLine($"{i.GetType().Name}|{i.AssetGuid}|{i.name}|{SafeItemName(i)}|cost={i.Cost}|wt={i.Weight}|notable={i.IsNotable}|{ItemDetail(i)}");
+                }
+            });
+        }
+
+        private static string SafeItemName(BlueprintItem i)
+        {
+            try { return i.Name; } catch { return "?"; }
+        }
+
+        private static string ItemDetail(BlueprintItem i)
+        {
+            try
+            {
+                string ench = string.Join(",", i.Enchantments.Where(e => e != null).Select(e => e.name).ToArray());
+                switch (i)
+                {
+                    case BlueprintItemWeapon w:
+                        return $"cat={w.Category} 2h={w.IsTwoHanded} natural={w.IsNatural} ench=[{ench}]";
+                    case BlueprintItemArmor a:
+                        return $"group={a.ProficiencyGroup} ench=[{ench}]";
+                    case BlueprintItemShield s:
+                        return $"ench=[{ench}]";
+                    case BlueprintItemEquipmentUsable u:
+                        return $"use={u.Type} spell={u.Ability?.name} cl={u.CasterLevel} sl={u.SpellLevel} charges={u.Charges}";
+                    default:
+                        return $"ench=[{ench}]";
+                }
+            }
+            catch (Exception ex)
+            {
+                return "err=" + ex.GetType().Name;
+            }
         }
 
         public static void DumpLodge()
@@ -75,6 +124,21 @@ namespace KingmakerWakingRune.Diagnostics
             {
                 return;
             }
+            Write("navmap.txt", sb =>
+            {
+                sb.AppendLine("# walkable map, 1 m cells: x -32..-2 left to right, z +18 (top) .. -18 (bottom); '.' walkable, '#' not");
+                for (int z = 18; z >= -18; z--)
+                {
+                    sb.Append($"{z,4} ");
+                    for (int x = -32; x <= -2; x++)
+                    {
+                        var req = new Vector3(x, 0f, z);
+                        Vector3 got = ObstacleAnalyzer.GetNearestNode(req).clampedPosition;
+                        sb.Append(Vector3.Distance(new Vector3(got.x, 0f, got.z), req) < 0.3f ? '.' : '#');
+                    }
+                    sb.AppendLine();
+                }
+            });
             Write($"lodge-{DateTime.Now:HHmmss}.txt", sb =>
             {
                 sb.AppendLine($"# Area {Game.Instance.CurrentlyLoadedArea?.name} main={Game.Instance.Player.MainCharacter.Value?.Position}");

@@ -18,12 +18,18 @@ namespace KingmakerWakingRune.Blueprints
             {
                 StoryDescription,
                 "Pathfinder Society Scenario #4–26: The Waking Rune.\n\n" +
-                "Opening prototype: create a new character and begin in Venture-Captain Sheila Heidmarch's " +
-                "study at the Magnimar Lodge. Only this first room is implemented so far."
+                "Create a new character, receive your briefing in Venture-Captain Sheila Heidmarch's study at the " +
+                "Magnimar Lodge, then build a level 11 party and equip it from the Society's stores. The adventure " +
+                "does not leave the lodge yet."
             },
             { AreaName, "Magnimar Lodge — Sheila's Study" },
             { SheilaName, "Sheila Heidmarch" },
         };
+
+        public static void Define(string key, string text)
+        {
+            s_Texts[key] = text;
+        }
 
         public static LocalizedString Create(string key)
         {

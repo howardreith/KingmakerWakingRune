@@ -47,3 +47,14 @@ and live runtime dumps. Only facts used by the implementation are recorded.
 ## Runtime notes
 - Kingmaker hides NPCs outside the party's line of sight; Sheila is not drawn while the hero stands behind a bookcase (native fog-of-war behavior).
 - The game mirrors saves through Steam remote storage (`userdata/<id>/640820/remote`) and restores missing local saves from it at launch. Test harnesses must snapshot/restore that mirror as well as the profile.
+
+## WR-02 additions (verified in game)
+| Concern | Finding | Use |
+|---|---|---|
+| Portrait data | `PortraitData(null, small, medium, full)` skips the player's portrait folder; `BlueprintUnit.PortraitSafe` backs dialogue portraits | Mod-owned portraits from the mod folder |
+| Custom companions | `Player.CreateCustomCompanion(cb, xp)` opens the native chargen; `LevelUpController.SetupNewCharacher` adds the unit to `RemoteCompanions` before the success callback, and native chargen pays class starting gold there | Free recruitment; refund the starting gold in the callback |
+| Level-11 threshold | `BlueprintRoot.Progression.XPTable.GetBonus(11)` = 155000; `GetBonus(12)` = 220000 | Protagonist and recruit target |
+| Shops | `AddSharedVendor` + `BlueprintSharedVendorTable`; sell = cost Ã— 0.25 (`Vendors.SellModifier`), buy = cost | No custom pricing needed |
+| Casting pose | `UnitAnimationManager.CreateHandle(CastSpell)` with `CastStyle` and `SpecialCastBehaviour=NoCast` loops the precast pose without an ability | Warding agents |
+| Room | Central bay x -24..-16, z -3..3, alcoves at z +/-4..7. West of x=-22.5 the door wall hides units from the camera | Placement |
+| Screen capture | The game presents directly to the display on this machine, so GDI capture returns the desktop; Unity's `ScreenCapture` works | Harness `Shot` |

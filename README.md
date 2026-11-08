@@ -1,18 +1,19 @@
 # The Waking Rune for Pathfinder: Kingmaker (opening prototype)
 
 A standalone adventure mod that will eventually make Pathfinder Society Scenario #4–26, *The Waking Rune*,
-playable in Pathfinder: Kingmaker. This first slice (WR-01) adds **The Waking Rune** as a fourth choice on the
-New Game screen, runs the native difficulty and character-creation screens, and starts the created hero in a
-walkable "Magnimar Lodge — Sheila's Study" with Venture-Captain Sheila Heidmarch present. There is no briefing,
-dialogue, quest or combat yet.
+playable in Pathfinder: Kingmaker. It adds **The Waking Rune** as a fourth choice on the New Game screen, runs the
+native difficulty and character-creation screens, and starts the created hero in a populated "Magnimar Lodge —
+Sheila's Study" for a scripted briefing. The party can then level to 11, recruit custom adventurers for free through
+the Society Coordinator, and spend a shared 450,000 gp at the Quartermaster's shop. The adventure does not leave the
+lodge yet.
 
 ## Requirements
 - Pathfinder: Kingmaker 2.1.7b (Steam), Unity Mod Manager 0.33.x (any 0.28+ with Harmony 1.2 support).
 - No other mods are required.
 
 ## Install
-1. Build (or take) `artifacts/KingmakerWakingRune-0.1.0.zip`.
-2. Extract it into `<Kingmaker>/Mods/` so you get `Mods/KingmakerWakingRune/{Info.json, KingmakerWakingRune.dll}`
+1. Build (or take) `artifacts/KingmakerWakingRune-0.2.0.zip`.
+2. Extract it into `<Kingmaker>/Mods/` so you get `Mods/KingmakerWakingRune/{Info.json, KingmakerWakingRune.dll, Portraits/...}`
    (or install the zip through the UMM installer).
 
 ## Play

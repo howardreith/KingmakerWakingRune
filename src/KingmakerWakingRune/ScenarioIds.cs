@@ -1,3 +1,6 @@
+using System;
+using System.Security.Cryptography;
+using System.Text;
 using Kingmaker.Blueprints.Root;
 
 namespace KingmakerWakingRune
@@ -19,6 +22,12 @@ namespace KingmakerWakingRune
         /// <summary>Save-bound scenario schema version, stored as the session flag value.</summary>
         public const int SessionVersion = 1;
 
+        /// <summary>Level the protagonist and every recruit are brought to (by XP, never by assigned levels).</summary>
+        public const int PartyLevelTarget = 11;
+
+        /// <summary>The shared party treasury set once for each new Waking Rune game.</summary>
+        public const long StartingTreasury = 450000;
+
         /// <summary>
         /// Out-of-range DlcType identifying the Waking Rune as its own campaign: the selector entry,
         /// the preset's DlcCampaign and therefore the save header's CampaignDLC. DlcRoot.Get maps it
@@ -32,5 +41,18 @@ namespace KingmakerWakingRune
         /// none of the mechanics scene's entity views are ever turned into entities.
         /// </summary>
         public const string DonorStaticScene = "CapitalLibrary_Static";
+
+        /// <summary>
+        /// Stable GUID for a named mod blueprint. The name is the identity: renaming one orphans
+        /// it in existing saves, so names of shipped blueprints must not change.
+        /// </summary>
+        public static string Derive(string name)
+        {
+            using (MD5 md5 = MD5.Create())
+            {
+                byte[] hash = md5.ComputeHash(Encoding.UTF8.GetBytes("KingmakerWakingRune:" + name));
+                return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+            }
+        }
     }
 }

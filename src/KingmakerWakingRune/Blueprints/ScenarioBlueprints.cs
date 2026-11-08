@@ -29,6 +29,10 @@ namespace KingmakerWakingRune.Blueprints
         public static BlueprintUnit Sheila { get; private set; }
         public static BlueprintUnlockableFlag SessionFlag { get; private set; }
         public static BlueprintUnlockableFlag SetupFlag { get; private set; }
+        public static BlueprintUnlockableFlag CastSetupFlag { get; private set; }
+        public static BlueprintUnlockableFlag ProtagonistXpFlag { get; private set; }
+        public static BlueprintUnlockableFlag TreasuryFlag { get; private set; }
+        public static BlueprintUnlockableFlag BriefingCompleteFlag { get; private set; }
         public static NewGameRoot.StoryEntity StoryEntry { get; private set; }
         public static DlcRoot.DlcData StoryDlcData { get; private set; }
 
@@ -58,16 +62,43 @@ namespace KingmakerWakingRune.Blueprints
                     return;
                 }
 
+                var pending = new List<BlueprintScriptableObject>();
+                Action<BlueprintScriptableObject> register = pending.Add;
+
                 SessionFlag = Create<BlueprintUnlockableFlag>("KWR_WakingRuneSession", ScenarioIds.SessionFlagGuid);
                 SetupFlag = Create<BlueprintUnlockableFlag>("KWR_LodgeInitialSetupDone", ScenarioIds.SetupFlagGuid);
+                CastSetupFlag = Flag("KWR_LodgeCastSetupDone");
+                ProtagonistXpFlag = Flag("KWR_ProtagonistXpGranted");
+                TreasuryFlag = Flag("KWR_TreasuryInitialized");
+                BriefingCompleteFlag = Flag("KWR_BriefingComplete");
                 Area = CreateArea(donorArea);
                 EnterPoint = Create<BlueprintAreaEnterPoint>("KWR_MagnimarLodge_Enter", ScenarioIds.EnterPointGuid);
                 EnterPoint.Area = Area;
                 Sheila = CreateSheila(donorUnit, root);
                 Preset = CreatePreset(root);
                 RootStartGameActions = root.StartGameActions;
+                foreach (BlueprintScriptableObject bp in new BlueprintScriptableObject[] { SessionFlag, SetupFlag, CastSetupFlag, ProtagonistXpFlag, TreasuryFlag, BriefingCompleteFlag, Area, EnterPoint, Sheila, Preset })
+                {
+                    register(bp);
+                }
 
-                foreach (BlueprintScriptableObject bp in new BlueprintScriptableObject[] { SessionFlag, SetupFlag, Area, EnterPoint, Sheila, Preset })
+                var units = all.OfType<BlueprintUnit>().GroupBy(u => u.AssetGuid).ToDictionary(g => g.Key, g => g.First());
+                if (!LodgeCast.Build(root, units, register))
+                {
+                    Log.Error("Registration aborted: a cast donor is missing; the Waking Rune entry will not be offered.");
+                    return;
+                }
+                BlueprintPortrait sheilaPortrait = PortraitAssets.Create("SheilaHeidmarch");
+                if (sheilaPortrait != null)
+                {
+                    register(sheilaPortrait);
+                    AccessTools.Field(typeof(BlueprintUnit), "m_Portrait").SetValue(Sheila, sheilaPortrait);
+                }
+                LodgeDialogs.Build(Sheila, register, BriefingCompleteFlag);
+                QuartermasterStock.Attach(LodgeCast.Find("quartermaster").Unit, all, register);
+                LocalizedText.InjectInto(LocalizationManager.CurrentPack);
+
+                foreach (BlueprintScriptableObject bp in pending)
                 {
                     library.BlueprintsByAssetId[bp.AssetGuid] = bp;
                     all.Add(bp);
@@ -120,6 +151,11 @@ namespace KingmakerWakingRune.Blueprints
             return bp;
         }
 
+        private static BlueprintUnlockableFlag Flag(string name)
+        {
+            return Create<BlueprintUnlockableFlag>(name, ScenarioIds.Derive("flag." + name));
+        }
+
         private static BlueprintArea CreateArea(BlueprintAreaPart donor)
         {
             var area = Create<BlueprintArea>("KWR_MagnimarLodge", ScenarioIds.AreaGuid);
@@ -154,19 +190,7 @@ namespace KingmakerWakingRune.Blueprints
 
         private static BlueprintUnit CreateSheila(BlueprintUnit donor, BlueprintRoot root)
         {
-            // Clone only presentation data; the clone has no components, facts, dialog or companion role.
-            var unit = UnityEngine.Object.Instantiate(donor);
-            unit.name = "KWR_SheilaHeidmarch";
-            unit.AssetGuid = ScenarioIds.SheilaUnitGuid;
-            unit.ComponentsArray = new BlueprintComponent[0];
-            unit.AddFacts = new BlueprintUnitFact[0];
-            unit.CustomizationPreset = null;
-            unit.Faction = root.SystemMechanics.FactionNeutrals;
-            var name = ScriptableObject.CreateInstance<SharedStringAsset>();
-            name.name = "KWR_SheilaHeidmarch_Name";
-            name.String = LocalizedText.Create(LocalizedText.SheilaName);
-            unit.LocalizedName = name;
-            return unit;
+            return LodgeCast.CloneUnit(donor, root, "KWR_SheilaHeidmarch", ScenarioIds.SheilaUnitGuid, LocalizedText.SheilaName, null);
         }
 
         private static BlueprintAreaPreset CreatePreset(BlueprintRoot root)
