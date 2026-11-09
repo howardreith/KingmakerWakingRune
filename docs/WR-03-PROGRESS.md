@@ -14,3 +14,8 @@ Branch `feature/wr-03-sanctum` from accepted `main` (`bc248fb`). Package SHA-256
 
 ## State
 Done: all WR-03 code, acceptance on `ab56249`, reports. Awaiting owner review of the draft PR.
+
+## WR-03A (Sanctum refinement)
+Continued on `feature/wr-03-sanctum` because PR #3 was still an open draft. The full specification file was not found; the pasted brief was followed.
+- `c6d7bf7`, `dbaba06`, `d14d101`, `3093e03`: doors, stair channels, fixtures, A4/A5, navigation clearances, door-cut timing.
+- In-game validation found four navigation faults and one arrival regression; all are listed in `ACCEPTANCE-WR-03A.md`. Acceptance evidence is `runtime-evidence\wr03a-final2` only.

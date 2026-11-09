@@ -12,6 +12,7 @@ The Sanctum of Sloth is built at runtime from the page-6 plan of *The Waking Run
 | Arrival | `AreaEnterPoint` with child transforms selects the native `PositionCharactersByPreset` | `SanctumScope.EnsureEnterMarker` |
 | Token item | `BlueprintItemEquipmentUsable` + `BlueprintAbility` with `AbilityEffectRunAction` | `RefugeTokenBlueprints` |
 | Transfer | `SaveManager.CreateNewSave`, `FadeCanvas`, `Game.LoadArea(enterPoint, AutoSaveMode.None)` | `RefugeTransit` |
+| Doors | `MapObjectView` + `StandardDoor` subclass created while the native loader matches views to the save; `NavmeshCut` through a `TileHandler` built after this area's scan, applied once the area has finished loading | `SanctumDoors`, `LodgeScope.Filter`, `SanctumScope.ApplyDoorCuts` |
 | Lighting | Donor `!LIGHT_SETUP` hidden by a poller because the light scene loads after `OnAreaDidLoad`; own directional fills and three point lights; ambient and light probes restored on unload | `SanctumLighting`, `SanctumScope` |
 
 No global item, spell, mercenary or area-terrain behaviour is patched. All Harmony hooks are listed in `src/KingmakerWakingRune/Patches`; each returns early outside the Waking Rune areas or enter points.
@@ -24,7 +25,7 @@ GUIDs come from `ScenarioIds.Derive(name)` (MD5 of a fixed name), so they stay t
 
 ## Donor and asset provenance
 - Materials cloned from the donor scene: `cyclops_dungeon_floor_tile_02_opaque_d`, `cyclops_dungeon_rock_opaque_d`, `black_cut_opaque_d`. No game asset is shipped or modified on disk.
-- Scenery is Unity primitives without colliders, tinted by 2×2 textures. Figures are deliberately simple stone shapes.
+- Scenery is merged runtime meshes without colliders (`SceneryMesh`), over textures painted at load (`SanctumPalette`). No texture is shipped. Figures are deliberately simple stone shapes.
 - `art/RefugeToken_master.png` (512×512, SHA-256 `8799CBD1…CDA6`) and `assets/icons/RefugeToken.png` (128×128, 18,160 bytes, SHA-256 `D04275AF…3E9C`) are original, painted by `scripts/MakeRefugeTokenIcon.ps1`. Native item icons are 128×128 sprites at 66.667 ppu. The file ships as `Icons/RefugeToken.png`.
 
 ## Grid transform
@@ -36,10 +37,16 @@ One square is 5 ft = 1.524 m. `worldX = (gridX − 13) × 1.524`; `worldZ = (15.
 | A2 direction | p.9 text says north; p.6 map draws it south | **Map followed.** A2 falls south from the ziggurat's first tier to A3. |
 | Arrival | Rectangle north of the front steps | Rectangle at x 11.09–15.16, y 13.9–15.4 (cut at the built stairs). Native preset slots: main character at (13.1, 15.1), first eight others inside the rectangle, up to four more on the same floor for a very large party. Facing south, so the ziggurat is ahead. |
 | Ziggurat height | Apex 20 ft; lower tiers unstated | Apex 20 ft (6.1 m); first tier **6 ft, inferred** so the front flight stays short and readable. |
+| Ziggurat flights (WR-03A) | Short, steep north flight; east and west flights to the apex | North flight runs back into the first tier, easing it from 53° to 45°. East and west flights start further out and the apex narrows from 6 to 5 ft across, easing them from 63.5° to about 59°. Upper courses leave open channels for both, so climbers are not inside the masonry. |
+| Walking clearances (WR-03A) | Walls are lines on the map | Walls have no thickness to the navmesh, so the walkable outline is held back from the drawn floor at the tier faces (0.53 m), beside the A2 stairs (0.84 m), at the ziggurat's south corners, and along the A3 walls nearest A1 and A4. The floor still renders to the wall. |
 | A1 ledges | Narrow on the map | Widened to about 6.5 ft so a 0.5 m agent can pass. Walkable area otherwise matches: 2,412 sampled cells on plan, 1 stray navmesh-only cell; plan-only cells are the agent-radius margin. |
 | Ceilings | 20 ft, A1 30 ft | Cutaway only: walls in front of a floor stay low, walls behind rise only as far as they can without hiding the next walkable floor. No ceiling is rendered. |
-| Dome rim, A3 plates | Dome over A4; plates wall-mounted | The A4 dome rim and the tipped plates on plinths exist only because of the cutaway camera. The rim is visible as a grey arc across the room. |
-| Doors | A2 Sihedron door; A4 approach | **Open, passable and inert.** Leaves are held open, with no door entities. |
+| A4 dome (WR-03A) | Opaque glassy dome | **Not drawn.** The floating rim crossed the room, so it is removed; the tan light remains. |
+| A3 plates (WR-03A) | Built into alternating walls | Stone masses engaged with the wall at the mapped points. Each plate leans back by a per-wall tilt (6° to 56°) only so the fixed camera can read it. |
+| Doors (WR-03A) | A2 Sihedron door; A4 approach | **Native, working doors**, closed by default, unlocked and untrapped: `StandardDoor` state in the save, native approach interaction, navmesh cut and sight blocker. A2 opens into A3 as the source says; the east door opens inward against the passage's far wall. A party member in a doorway blocks closing. Silent: no donor door sound exists. |
+| Chains (WR-03A) | Four chains from the walls | Wall-engaged piers at the mapped points. The south-east pier is 1.45 m so it stays below the view of A1, which leaves that chain near-level. |
+| Style (WR-03A) | Sparse, little decoration | Restrained Egyptian-influenced forms only: battered faces and flared cornices on existing elements, nothing decorative added. Ornament stays where the source puts it. |
+| Floor (WR-03A) | Carved stone | Plainer donor tile `cyclops_dungeon_floor_tile_01` in place of the busier `_02`. |
 | Camera | North-up map | `CameraRotation` 0 looks south (so the arrival view faces the ziggurat). The native local map is therefore rotated 180° from page 6. |
 
 ## Terrain
