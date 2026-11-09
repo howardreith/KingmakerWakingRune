@@ -21,7 +21,14 @@ namespace KingmakerWakingRune.Sanctum
         public string Name;
         public GridPoint[] Outer;
         public List<GridPoint[]> Holes = new List<GridPoint[]>();
+        /// <summary>When set, replaces <see cref="Holes"/> for walking only: the floor is still drawn up to the holes.</summary>
+        public List<GridPoint[]> WalkHoles;
+        /// <summary>When set, replaces <see cref="Outer"/> for walking only.</summary>
+        public GridPoint[] WalkOuter;
         public float Height;
+
+        public List<GridPoint[]> EffectiveWalkHoles => WalkHoles ?? Holes;
+        public GridPoint[] EffectiveWalkOuter => WalkOuter ?? Outer;
     }
 
     /// <summary>A sloped rectangle: height runs linearly from From to To along Y, or along X when AlongX is set.</summary>
@@ -71,7 +78,7 @@ namespace KingmakerWakingRune.Sanctum
         public float Depth;
     }
 
-    /// <summary>One of the two mapped doors. Seen from above, opening turns the leaf clockwise about its hinge.</summary>
+    /// <summary>One of the two mapped doors. Seen from above, positive degrees turn the leaf clockwise about its hinge as it opens.</summary>
     internal sealed class DoorPlan
     {
         public string Id;
@@ -112,9 +119,10 @@ namespace KingmakerWakingRune.Sanctum
         /// <summary>
         /// Native preset positions after <see cref="Arrival"/>, in party order: two staggered rows on the chamber floor.
         /// The first eight lie inside the printed rectangle; the rest spread onto the same floor for a party of six with six pets.
+        /// Pets take slots from the sixth on, so the first of them stand in the row clear of the chamber's near wall.
         /// </summary>
         public static readonly GridPoint[] ArrivalSlots = Points(
-            12.2f, 15.1f, 14f, 15.1f, 12.65f, 14.62f, 13.55f, 14.62f, 11.75f, 14.62f, 14.45f, 14.62f, 11.3f, 15.1f, 14.9f, 15.1f,
+            12.2f, 15.1f, 14f, 15.1f, 12.65f, 14.62f, 13.55f, 14.62f, 11.75f, 14.62f, 14.9f, 15.1f, 11.3f, 15.1f, 14.45f, 14.62f,
             10.85f, 14.62f, 15.35f, 14.62f, 10.4f, 15.1f, 15.8f, 15.1f);
 
         public const float ZigguratWest = 10f;
@@ -140,19 +148,29 @@ namespace KingmakerWakingRune.Sanctum
         public const float WestStairFoot = 10.85f;
         public const float EastStairFoot = 15.15f;
 
+        /// <summary>Squares of chamber floor left unwalkable before a tier face, so characters cannot step up through it.</summary>
+        public const float FaceGap = 0.35f;
+
         /// <summary>Half the depth of a door's sealed strip, in squares.</summary>
         public const float DoorwayHalfDepth = 0.2f;
 
         public static readonly DoorPlan[] Doors =
         {
             new DoorPlan { Id = "A2", Hinge = new GridPoint(12.4f, 26.4f), Latch = new GridPoint(13.9f, 26.4f), OpenDegrees = 100f, Sihedron = true },
-            new DoorPlan { Id = "A4Approach", Hinge = new GridPoint(21f, 13.9f), Latch = new GridPoint(21f, 15.4f), OpenDegrees = 90f },
+            // Hinged south: open, the leaf lies against the passage's far wall, where it cannot stand between the camera and the floor.
+            new DoorPlan { Id = "A4Approach", Hinge = new GridPoint(21f, 15.4f), Latch = new GridPoint(21f, 13.9f), OpenDegrees = -90f },
         };
 
         public static readonly GridPoint[] Outer = Points(8, 1, 18, 1, 24, 7, 24, 18, 13, 30, 2, 18, 2, 7);
 
         /// <summary>The solid core inside the A3 ring, with the east door to A4 and the A2 stair block drawn into it.</summary>
         public static readonly GridPoint[] Core = Points(9.24f, 4, 16.76f, 4, 21, 8.24f, 21, 13.9f, 21, 15.4f, 21, 16.83f, 14.3f, 24.14f, 14.3f, 26.4f, 13.9f, 26.4f, 12.4f, 26.4f, 12, 26.4f, 12, 24.14f, 5, 16.83f, 5, 8.24f);
+
+        /// <summary>
+        /// The core for walking purposes: it bulges around the ziggurat's two south corners, which overhang A3's floor
+        /// by less than the navmesh's step allowance would otherwise respect, and along both sides of the A2 stairs.
+        /// </summary>
+        public static readonly GridPoint[] CoreForWalking = Points(9.24f, 4, 16.76f, 4, 21, 8.24f, 21, 13.9f, 21, 15.4f, 21, 16.83f, 16.81f, 21.4f, 16.45f, 23.45f, 14.9f, 23.49f, 14.6f, 24.3f, 14.6f, 26.7f, 13.9f, 26.7f, 13.9f, 26.4f, 12.4f, 26.4f, 12.4f, 26.7f, 11.7f, 26.7f, 11.7f, 24.3f, 11.35f, 23.46f, 9.55f, 23.45f, 9.38f, 21.4f, 5, 16.83f, 5, 8.24f);
 
         public static readonly GridPoint[] Atrium = BuildAtrium();
 
@@ -170,9 +188,9 @@ namespace KingmakerWakingRune.Sanctum
 
         public static readonly List<WalkRegion> Regions = new List<WalkRegion>
         {
-            new WalkRegion { Name = "A3", Outer = Outer, Holes = { Core }, Height = 0f },
+            new WalkRegion { Name = "A3", Outer = Outer, Holes = { Core }, WalkHoles = new List<GridPoint[]> { CoreForWalking }, Height = 0f },
             new WalkRegion { Name = "A4A5", Outer = Atrium, Holes = { Altar, BrazierNorth, BrazierSouth, Pedestal, SarcophagusShadow }, Height = 0f },
-            new WalkRegion { Name = "A1", Outer = ArrivalChamber, Height = 0f },
+            new WalkRegion { Name = "A1", Outer = ArrivalChamber, WalkOuter = BuildArrivalChamber(FaceGap), Height = 0f },
             new WalkRegion { Name = "ZigguratRing", Outer = Points(ZigguratWest, ZigguratNorth, NorthStairWest, ZigguratNorth, NorthStairWest, NorthStairHead, NorthStairEast, NorthStairHead, NorthStairEast, ZigguratNorth, ZigguratEast, ZigguratNorth, ZigguratEast, ZigguratSouth, ZigguratWest, ZigguratSouth), Holes = { Rect(RingInnerWest, RingInnerNorth, RingInnerEast, RingInnerSouth) }, Height = RingHeight },
             new WalkRegion { Name = "ZigguratApex", Outer = Rect(ApexWest, ApexNorth, ApexEast, ApexSouth), Height = ApexHeight },
             new WalkRegion { Name = "A2Threshold", Outer = Rect(12.4f, 26.2f, 13.9f, 26.6f), Height = 0f },
@@ -224,7 +242,7 @@ namespace KingmakerWakingRune.Sanctum
             float? best = null;
             foreach (WalkRegion region in Regions)
             {
-                if (Inside(region.Outer, x, y) && !region.Holes.Any(h => Inside(h, x, y)))
+                if (Inside(region.EffectiveWalkOuter, x, y) && !region.EffectiveWalkHoles.Any(h => Inside(h, x, y)))
                 {
                     best = best.HasValue ? Math.Max(best.Value, region.Height) : region.Height;
                 }
@@ -303,11 +321,13 @@ namespace KingmakerWakingRune.Sanctum
             return walls;
         }
 
-        private static GridPoint[] BuildArrivalChamber()
+        /// <summary>The chamber floor; a gap held back from the ziggurat's faces gives the outline characters may walk.</summary>
+        private static GridPoint[] BuildArrivalChamber(float gap = 0f)
         {
             var points = new List<GridPoint>();
             points.AddRange(ArrivalChamberRock());
-            points.AddRange(Points(16, 21.1f, 16, 16.2f, 14.16f, 16.2f, 14.16f, 15.4f, 12.07f, 15.4f, 12.07f, 16.2f, 10, 16.2f, 10, 21.1f));
+            float east = 16f + gap, west = 10f - gap, face = 16.2f - gap;
+            points.AddRange(Points(east, 21.1f, east, face, 14.16f, face, 14.16f, 15.4f, 12.07f, 15.4f, 12.07f, face, west, face, west, 21.1f));
             return points.ToArray();
         }
 

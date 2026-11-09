@@ -320,20 +320,29 @@ namespace KingmakerWakingRune.Sanctum
             s_Mesh.Extrude(s_Palette.Basalt, Outline(1.0f, SarcophagusHeight), 0.12f, 0.96f);
             s_Mesh.Extrude(s_Palette.Stone, Outline(0.78f, SarcophagusHeight + 0.12f), 0.1f, 0.8f);
 
-            // A dozen cracks: each a jagged line across the lid or down a flank, the vapour's way out.
+            // A dozen cracks, the vapour's way out: eight jagged lines over the raised lid, four down the north flank.
             var crack = new System.Random(4026);
-            float lidTop = SarcophagusHeight + 0.122f;
-            for (int i = 0; i < 12; i++)
+            float lidTop = SarcophagusHeight + 0.225f;
+            for (int i = 0; i < 8; i++)
             {
-                float x = -halfLength * 0.72f + i * halfLength * 0.13f;
-                float z = (crack.Next(2) == 0 ? 1f : -1f) * halfWidth * (0.15f + (float)crack.NextDouble() * 0.5f);
+                float x = -halfLength * 0.46f + i * halfLength * 0.125f;
+                float z = (i % 2 == 0 ? 1f : -1f) * halfWidth * (0.3f + (float)crack.NextDouble() * 0.16f);
                 Vector3 previous = at + new Vector3(x, lidTop, z);
                 for (int s = 0; s < 3; s++)
                 {
-                    Vector3 next = previous + new Vector3(0.05f + (float)crack.NextDouble() * 0.14f, 0f, (z > 0f ? -1f : 1f) * (0.12f + (float)crack.NextDouble() * 0.18f));
-                    s_Mesh.Strip(s_Palette.Crack, previous, next, Vector3.up, 0.028f);
+                    Vector3 next = previous + new Vector3(0.04f + (float)crack.NextDouble() * 0.09f, 0f, (z > 0f ? -1f : 1f) * (0.1f + (float)crack.NextDouble() * 0.09f));
+                    s_Mesh.Strip(s_Palette.Crack, previous, next, Vector3.up, 0.034f);
                     previous = next;
                 }
+            }
+            for (int i = 0; i < 4; i++)
+            {
+                float x = -halfLength * 0.4f + i * halfLength * 0.28f;
+                Vector3 top = at + new Vector3(x, SarcophagusHeight * 0.92f, halfWidth * 0.965f + 0.012f);
+                Vector3 middle = top + new Vector3(0.08f * (i % 2 == 0 ? 1f : -1f), -0.3f, 0.006f);
+                Vector3 bottom = middle + new Vector3(-0.05f * (i % 2 == 0 ? 1f : -1f), -0.3f, -0.012f);
+                s_Mesh.Strip(s_Palette.Crack, top, middle, Vector3.forward, 0.034f);
+                s_Mesh.Strip(s_Palette.Crack, middle, bottom, Vector3.forward, 0.034f);
             }
 
             float[] cornerX = { -halfLength * 0.55f, halfLength * 0.55f, -halfLength * 0.55f, halfLength * 0.55f };

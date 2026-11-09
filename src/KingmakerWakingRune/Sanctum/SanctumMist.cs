@@ -42,7 +42,7 @@ namespace KingmakerWakingRune.Sanctum
             var mist = new GameObject("A5_Mist");
             mist.transform.SetParent(effects.transform, false);
             mist.transform.position = center;
-            Emit(mist, shader, puff, size, 20, 7f, 11f, 2.6f, 4.2f, 0.04f, new Color(0.30f, 0.20f, 0.36f, 0.34f), new Color(0.36f, 0.34f, 0.24f, 0.26f));
+            Emit(mist, shader, puff, size, 26, 7f, 11f, 2.6f, 4.2f, 0.04f, new Color(0.34f, 0.22f, 0.40f, 0.46f), new Color(0.38f, 0.36f, 0.25f, 0.34f));
 
             // Vapour leaving the cracks and sinking to join the pool below.
             var seep = new GameObject("A5_Seep");

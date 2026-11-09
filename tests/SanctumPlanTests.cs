@@ -161,6 +161,29 @@ namespace KingmakerWakingRune.Tests
                 Assert.Equal(false, SanctumPlan.HeightAt(a2.WalkX1 + 0.05f, y).HasValue, $"east side gap at y {y}");
             }
             Assert.Equal(true, a2.WalkX0 <= 12.4f && a2.WalkX1 >= 13.9f, "the walkable flight still spans the doorway");
+            // At least four 0.2 m navmesh cells must separate the flight from A3 on each side.
+            Assert.Equal(false, SanctumPlan.HeightAt(14.5f, 25f).HasValue, "A3 held back east of the stairs");
+            Assert.Equal(false, SanctumPlan.HeightAt(11.8f, 25f).HasValue, "A3 held back west of the stairs");
+            Assert.Equal(true, (14.6f - a2.WalkX1) * SanctumPlan.MetersPerSquare >= 0.8f, "east gap width");
+            Assert.Equal(true, (a2.WalkX0 - 11.7f) * SanctumPlan.MetersPerSquare >= 0.8f, "west gap width");
+            Assert.Equal(true, SanctumPlan.HeightAt(13.1f, 26.9f) == 0f, "the doorway still opens onto A3");
+        }
+
+        public static void TestZigguratCornersCannotBeSteppedOffIntoA3()
+        {
+            Assert.Equal(false, SanctumPlan.HeightAt(16.2f, 22.9f).HasValue, "gap beyond the south-east corner");
+            Assert.Equal(false, SanctumPlan.HeightAt(9.8f, 22.9f).HasValue, "gap beyond the south-west corner");
+            Assert.Equal(true, SanctumPlan.HeightAt(15.9f, 22.9f) == SanctumPlan.RingHeight, "the terrace keeps its corner");
+            Assert.Equal(true, SanctumPlan.HeightAt(18f, 24f) == 0f, "A3 stays walkable past the corner");
+        }
+
+        public static void TestChamberFloorStopsShortOfTheZigguratFaces()
+        {
+            Assert.Equal(false, SanctumPlan.HeightAt(11f, 16.1f).HasValue, "gap before the north face");
+            Assert.Equal(false, SanctumPlan.HeightAt(9.85f, 19f).HasValue, "gap before the west face");
+            Assert.Equal(false, SanctumPlan.HeightAt(16.15f, 19f).HasValue, "gap before the east face");
+            Assert.Equal(true, SanctumPlan.HeightAt(13.1f, 15.3f) == 0f, "the foot of the flight stays connected");
+            Assert.Equal(true, SanctumPlan.HeightAt(11f, 15.7f) == 0f, "chamber floor in front of the gap");
         }
 
         public static void TestDoorsFillTheMappedOpenings()

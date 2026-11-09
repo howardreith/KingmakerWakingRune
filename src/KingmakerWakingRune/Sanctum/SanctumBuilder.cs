@@ -91,8 +91,14 @@ namespace KingmakerWakingRune.Sanctum
 
         private static void AddRegion(WalkRegion region, ChunkedMesh floor, ChunkedMesh collider)
         {
-            var polygon = new Polygon(region.Outer.Select(p => new PolygonPoint(p.X, p.Y)).ToList());
-            foreach (GridPoint[] hole in region.Holes)
+            AddSurface(region, region.Outer, region.Holes, floor);
+            AddSurface(region, region.EffectiveWalkOuter, region.EffectiveWalkHoles, collider);
+        }
+
+        private static void AddSurface(WalkRegion region, GridPoint[] outer, List<GridPoint[]> holes, ChunkedMesh mesh)
+        {
+            var polygon = new Polygon(outer.Select(p => new PolygonPoint(p.X, p.Y)).ToList());
+            foreach (GridPoint[] hole in holes)
             {
                 polygon.AddHole(new Polygon(hole.Select(p => new PolygonPoint(p.X, p.Y)).ToList()));
             }
@@ -102,8 +108,7 @@ namespace KingmakerWakingRune.Sanctum
                 Vector3 a = WorldOf(triangle.Points[0], region.Height);
                 Vector3 b = WorldOf(triangle.Points[1], region.Height);
                 Vector3 c = WorldOf(triangle.Points[2], region.Height);
-                floor.PlanarTriangle(a, b, c, FloorTile);
-                collider.PlanarTriangle(a, b, c, FloorTile);
+                mesh.PlanarTriangle(a, b, c, FloorTile);
             }
         }
 

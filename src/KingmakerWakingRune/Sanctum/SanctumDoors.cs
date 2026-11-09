@@ -26,6 +26,7 @@ namespace KingmakerWakingRune.Sanctum
         public DoorPlan Plan;
         public Transform Pivot;
         public FogOfWarBlocker Blocker;
+        public BoxCollider Hit;
 
         private float m_Angle;
         private bool m_Shown;
@@ -65,6 +66,10 @@ namespace KingmakerWakingRune.Sanctum
         {
             m_Shown = IsOpen;
             Blocker.enabled = !m_Shown;
+            // A closed door is an easy target; an open leaf should not catch clicks meant for the floor around it.
+            Vector3 size = Hit.size;
+            size.z = m_Shown ? SanctumDoors.OpenHitDepth : SanctumDoors.ClosedHitDepth;
+            Hit.size = size;
             if (instantly)
             {
                 m_Angle = m_Shown ? Plan.OpenDegrees : 0f;
@@ -83,6 +88,8 @@ namespace KingmakerWakingRune.Sanctum
         private const float LeafThickness = 0.22f;
         private const float StarRadius = 0.92f;
         private const int SelectableLayer = 10;
+        public const float ClosedHitDepth = 0.6f;
+        public const float OpenHitDepth = 0.24f;
 
         private static GameObject s_Root;
 
@@ -167,7 +174,7 @@ namespace KingmakerWakingRune.Sanctum
             var frame = new GameObject("Leaf").transform;
             frame.SetParent(pivot, false);
             frame.localRotation = Quaternion.Euler(0f, yaw, 0f);
-            BuildLeaf(frame, plan, palette, width);
+            BoxCollider hit = BuildLeaf(frame, plan, palette, width);
 
             var cut = go.AddComponent<NavmeshCut>();
             cut.type = NavmeshCut.MeshType.Rectangle;
@@ -186,6 +193,7 @@ namespace KingmakerWakingRune.Sanctum
             door.Plan = plan;
             door.Pivot = pivot;
             door.Blocker = go.GetComponent<FogOfWarBlocker>();
+            door.Hit = hit;
             door.ObstacleAnimation = new AnimationClip { name = "KWR_DoorState" };
             door.DisableNavmeshCutWhenOpen = true;
             door.ProximityRadius = 2.4f;
@@ -197,7 +205,7 @@ namespace KingmakerWakingRune.Sanctum
         }
 
         /// <summary>The leaf runs along local +X from the hinge; local +Z faces the side the party meets it from.</summary>
-        private static void BuildLeaf(Transform leaf, DoorPlan plan, SanctumPalette palette, float width)
+        private static BoxCollider BuildLeaf(Transform leaf, DoorPlan plan, SanctumPalette palette, float width)
         {
             var mesh = new SceneryMesh();
             float clear = width - 0.04f;
@@ -220,7 +228,8 @@ namespace KingmakerWakingRune.Sanctum
             hit.transform.SetParent(leaf, false);
             var box = hit.AddComponent<BoxCollider>();
             box.center = new Vector3(width / 2f, LeafHeight / 2f, 0f);
-            box.size = new Vector3(clear, LeafHeight, 0.6f);
+            box.size = new Vector3(clear, LeafHeight, ClosedHitDepth);
+            return box;
         }
 
         /// <summary>The seven-pointed star, an abyssium disk at each point, and the handprint at its centre.</summary>

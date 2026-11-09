@@ -117,7 +117,7 @@ namespace KingmakerWakingRune.Sanctum
             }
             return new SanctumMaterials
             {
-                Floor = Copy(found, "cyclops_dungeon_floor_tile_02_opaque_d"),
+                Floor = Copy(found, "cyclops_dungeon_floor_tile_01_opaque_d"),
                 Rock = Copy(found, "cyclops_dungeon_rock_opaque_d"),
                 Black = Copy(found, "black_cut_opaque_d"),
 
@@ -212,7 +212,8 @@ namespace KingmakerWakingRune.Sanctum
                 recast.scanEmptyGraph = false;
                 recast.relevantGraphSurfaceMode = RecastGraph.RelevantGraphSurfaceMode.DoNotRequire;
                 recast.minRegionSize = 1f;
-                // The donor's one-voxel climb marks the source's short, steep flights as ledges. Below the 1.83 m terrace face.
+                // The donor's one-voxel climb marks the source's short, steep flights as ledges. This allowance can reach the
+                // 1.83 m terrace after voxel rounding, so the plan leaves a walking gap in front of every tier face.
                 recast.walkableClimb = 1.5f;
                 recast.forcedBoundsCenter = Vector3.zero;
                 recast.forcedBoundsSize = new Vector3(2f * MapHalfWidth, 40f, 2f * MapHalfDepth);
@@ -243,6 +244,19 @@ namespace KingmakerWakingRune.Sanctum
             if (!existed)
             {
                 helper = astar.gameObject.AddComponent<TileHandlerHelper>();
+            }
+            // On travel the donor's own door cuts are still alive at this point; they describe another floor plan.
+            foreach (NavmeshCut cut in NavmeshCut.GetAll().ToArray())
+            {
+                if (cut.GetComponent<SanctumDoor>() == null)
+                {
+                    cut.enabled = false;
+                }
+                else
+                {
+                    // Unmoved cuts report no change, so a door's must be pushed onto the freshly scanned tiles.
+                    cut.ForceUpdate();
+                }
             }
             var handler = new Pathfinding.Util.TileHandler(graph);
             handler.CreateTileTypesFromGraph();
