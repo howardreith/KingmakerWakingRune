@@ -370,6 +370,20 @@ namespace KingmakerWakingRune.Sanctum
             return Inside(Outer, x, y) ? SanctumSpace.Hall : SanctumSpace.None;
         }
 
+        /// <summary>
+        /// A sight line traced out and back again. The fog's shadow volume takes each edge's direction into account, as
+        /// native blockers are solid outlines; a wall with no thickness needs both directions to stop sight from both sides.
+        /// </summary>
+        public static List<GridPoint> TracedBothWays(IList<GridPoint> run)
+        {
+            var traced = new List<GridPoint>(run);
+            for (int i = run.Count - 2; i >= 0; i--)
+            {
+                traced.Add(run[i]);
+            }
+            return traced;
+        }
+
         /// <summary>Whether a restored unit is standing on the plan's walking surface at its own height.</summary>
         public static bool IsValidGround(float x, float y, float height)
         {

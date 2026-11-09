@@ -135,6 +135,20 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(true, FindLeak(corners, Walkable(SanctumSpace.Hall, 0.5f), drawn).HasValue, "the cause of the owner's report");
         }
 
+        public static void TestSightLinesAreTracedInBothDirections()
+        {
+            var run = new[] { new GridPoint(1f, 1f), new GridPoint(2f, 1f), new GridPoint(2f, 3f) };
+            List<GridPoint> traced = SanctumPlan.TracedBothWays(run);
+            Assert.Equal(5, traced.Count, "out and back share the turning point");
+            var edges = new HashSet<string>();
+            for (int i = 0; i + 1 < traced.Count; i++)
+            {
+                edges.Add($"{traced[i].X},{traced[i].Y}>{traced[i + 1].X},{traced[i + 1].Y}");
+            }
+            Assert.Equal(true, edges.Contains("1,1>2,1") && edges.Contains("2,1>1,1"), "first edge both ways");
+            Assert.Equal(true, edges.Contains("2,1>2,3") && edges.Contains("2,3>2,1"), "second edge both ways");
+        }
+
         public static void TestOpenDoorsDoLetSightThrough()
         {
             var viewer = new List<GridPoint> { new GridPoint(13.15f, 25.9f) };

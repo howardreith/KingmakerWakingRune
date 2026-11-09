@@ -365,7 +365,7 @@ function Invoke-Record {
 function Invoke-Fault {
     $s = Get-State
     if (-not $s) { throw 'No open transaction.' }
-    if ($FaultName -notin @('save-refused', 'save-failed', 'save-timeout', 'build-failed', 'arrival-invalid')) { throw "Unknown fault '$FaultName'." }
+    if ($FaultName -notin @('save-refused', 'save-failed', 'save-timeout', 'build-failed', 'arrival-invalid', 'position-invalid')) { throw "Unknown fault '$FaultName'." }
     [IO.File]::WriteAllText((Join-Path $ModDir 'fault.request'), $FaultName)
     Write-Step "Fault armed: $FaultName"
 }

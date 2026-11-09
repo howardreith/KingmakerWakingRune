@@ -236,6 +236,12 @@ namespace KingmakerWakingRune.Sanctum
                 return;
             }
             List<UnitEntityData> party = PartyAndPets().Where(u => u.IsInGame && u.View != null).ToList();
+            if (party.Count > 0 && FaultInjection.Take("position-invalid"))
+            {
+                // A compatibility fixture for the harness: terrace height inside the upper courses is ground no save should hold.
+                party[0].Position = new Vector3(SanctumPlan.ToWorldX(13.6f), SanctumPlan.RingHeight, SanctumPlan.ToWorldZ(18.2f));
+                Log.Info($"INJECTED FAULT position-invalid: {party[0].CharacterName} moved to {party[0].Position}.");
+            }
             foreach (UnitEntityData unit in party)
             {
                 if (IsStandingValidly(unit.Position))

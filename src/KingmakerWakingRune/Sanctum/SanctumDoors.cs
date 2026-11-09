@@ -200,7 +200,7 @@ namespace KingmakerWakingRune.Sanctum
 
             var polygon = go.AddComponent<FogOfWarBlockerPolygon>();
             polygon.Height = 12f;
-            AccessTools.Field(typeof(Kingmaker.Utility.PolygonComponent), "m_Points").SetValue(polygon, SanctumBuilder.BothSides(new List<Vector3> { hinge - center, latch - center }));
+            AccessTools.Field(typeof(Kingmaker.Utility.PolygonComponent), "m_Points").SetValue(polygon, SanctumPlan.TracedBothWays(new[] { plan.Hinge, plan.Latch }).Select(p => World(p) - center).ToList());
             AccessTools.Field(typeof(Kingmaker.Utility.PolygonComponent), "m_Closed").SetValue(polygon, false);
 
             var door = go.AddComponent<SanctumDoor>();

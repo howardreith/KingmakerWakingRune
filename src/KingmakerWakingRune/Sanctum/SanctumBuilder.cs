@@ -368,23 +368,9 @@ namespace KingmakerWakingRune.Sanctum
             go.transform.SetParent(root, false);
             var polygon = go.AddComponent<FogOfWarBlockerPolygon>();
             polygon.Height = height;
-            AccessTools.Field(typeof(Kingmaker.Utility.PolygonComponent), "m_Points").SetValue(polygon, BothSides(points.Select(p => World(p, y)).ToList()));
+            AccessTools.Field(typeof(Kingmaker.Utility.PolygonComponent), "m_Points").SetValue(polygon, SanctumPlan.TracedBothWays(points).Select(p => World(p, y)).ToList());
             AccessTools.Field(typeof(Kingmaker.Utility.PolygonComponent), "m_Closed").SetValue(polygon, false);
             go.SetActive(true);
-        }
-
-        /// <summary>
-        /// A run traced out and back again. The fog's shadow volume takes each edge's direction into account, as native
-        /// blockers are solid outlines; a wall with no thickness needs both directions to stop sight from both of its sides.
-        /// </summary>
-        public static List<Vector3> BothSides(List<Vector3> run)
-        {
-            var traced = new List<Vector3>(run);
-            for (int i = run.Count - 2; i >= 0; i--)
-            {
-                traced.Add(run[i]);
-            }
-            return traced;
         }
     }
 }
