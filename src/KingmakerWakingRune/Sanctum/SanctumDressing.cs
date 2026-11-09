@@ -24,6 +24,7 @@ namespace KingmakerWakingRune.Sanctum
 
         public static void Build(Transform root, SanctumMaterials materials)
         {
+            System.Diagnostics.Stopwatch timer = System.Diagnostics.Stopwatch.StartNew();
             s_Root = new GameObject("Dressing").transform;
             s_Root.SetParent(root, false);
             s_Mesh = new SceneryMesh();
@@ -40,6 +41,7 @@ namespace KingmakerWakingRune.Sanctum
             BuildInnerSanctum();
             s_Mesh.Instantiate(s_Root, "Scenery");
             s_Statues.Finish();
+            Log.Info($"Sanctum dressing built in {timer.ElapsedMilliseconds} ms, statues included.");
         }
 
         private static void BuildZiggurat()

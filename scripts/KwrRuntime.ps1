@@ -239,7 +239,7 @@ function Invoke-Reinstall {
     if (@(Get-GameProcesses).Count -gt 0) { throw 'Kingmaker is running; never hot-replace the DLL.' }
     if (-not $PackagePath -or -not (Test-Path -LiteralPath $PackagePath)) { throw 'A -PackagePath is required.' }
     $recon = Test-Path -LiteralPath (Join-Path $ModDir 'recon.flag')
-    Remove-Item -LiteralPath $ModDir -Recurse -Force
+    if (Test-Path -LiteralPath $ModDir) { Remove-Item -LiteralPath $ModDir -Recurse -Force }
     Expand-Archive -LiteralPath $PackagePath -DestinationPath $ModsRoot
     if ($recon) { Set-Content -LiteralPath (Join-Path $ModDir 'recon.flag') -Value 'recon' }
     Set-Content -LiteralPath (Join-Path $ModDir 'capture.flag') -Value 'harness'
