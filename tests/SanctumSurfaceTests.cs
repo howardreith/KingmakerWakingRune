@@ -85,11 +85,56 @@ namespace KingmakerWakingRune.Tests
         {
             Ramp west = SanctumPlan.Ramps.Single(r => r.Name == "ZigguratWestStairs");
             Ramp east = SanctumPlan.Ramps.Single(r => r.Name == "ZigguratEastStairs");
-            Assert.Equal(false, ZigguratMasonry.ExposedFlank(west, SanctumPlan.RingInnerWest + 0.1f, SanctumPlan.RingInnerWest + 0.3f, out _, out _), "inside the course, west");
-            Assert.Equal(false, ZigguratMasonry.ExposedFlank(east, SanctumPlan.RingInnerEast - 0.3f, SanctumPlan.RingInnerEast - 0.1f, out _, out _), "inside the course, east");
-            Assert.Equal(true, ZigguratMasonry.ExposedFlank(west, SanctumPlan.RingInnerWest - 0.1f, SanctumPlan.RingInnerWest + 0.1f, out float start, out float end), "straddling step");
-            Assert.Equal(SanctumPlan.RingInnerWest - 0.1f, start, "straddling start");
-            Assert.Equal(SanctumPlan.RingInnerWest, end, "straddling end");
+            float below = ZigguratMasonry.CourseTop(0) - 0.1f;
+            Assert.Equal(0, ZigguratMasonry.ExposedFlank(west, SanctumPlan.RingInnerWest + 0.1f, SanctumPlan.RingInnerWest + 0.3f, below, SanctumPlan.RingHeight).Count(), "inside the course, west");
+            Assert.Equal(0, ZigguratMasonry.ExposedFlank(east, SanctumPlan.RingInnerEast - 0.3f, SanctumPlan.RingInnerEast - 0.1f, below, SanctumPlan.RingHeight).Count(), "inside the course, east");
+            FlankSpan[] straddling = ZigguratMasonry.ExposedFlank(west, SanctumPlan.RingInnerWest - 0.1f, SanctumPlan.RingInnerWest + 0.1f, below, SanctumPlan.RingHeight).ToArray();
+            Assert.Equal(1, straddling.Length, "only the part clear of the course");
+            Assert.Equal(SanctumPlan.RingInnerWest - 0.1f, straddling[0].Start, "straddling start");
+            Assert.Equal(SanctumPlan.RingInnerWest, straddling[0].End, "straddling end");
+        }
+
+        public static void TestSideFlankRisesFromTheChannelWallWithoutGapOrOverlap()
+        {
+            foreach (Ramp ramp in SanctumPlan.Ramps.Where(r => r.Name == "ZigguratWestStairs" || r.Name == "ZigguratEastStairs"))
+            {
+                const int steps = 13;
+                int exposedAboveCourse = 0;
+                for (int i = 0; i < steps; i++)
+                {
+                    float t0 = (float)i / steps, t1 = (float)(i + 1) / steps;
+                    float from = ramp.From + (ramp.To - ramp.From) * t0, to = ramp.From + (ramp.To - ramp.From) * t1;
+                    float height = ramp.HeightFrom + (ramp.HeightTo - ramp.HeightFrom) * (t0 + t1) / 2f;
+                    FlankSpan[] spans = ZigguratMasonry.ExposedFlank(ramp, from, to, height, ramp.HeightFrom).ToArray();
+                    float low = Math.Min(from, to), high = Math.Max(from, to);
+                    for (int sample = 0; sample < 40; sample++)
+                    {
+                        float x = low + (high - low) * (sample + 0.5f) / 40f;
+                        float wall = Math.Max(ramp.HeightFrom, ZigguratMasonry.ChannelWallTop(ramp, x));
+                        FlankSpan[] here = spans.Where(s => x >= s.Start && x <= s.End).ToArray();
+                        if (height > wall + 0.001f)
+                        {
+                            Assert.Equal(1, here.Length, $"{ramp.Name} flank covers the stone above the wall at {x}");
+                            Assert.Equal(wall, here[0].Bottom, $"{ramp.Name} flank starts at the wall top at {x}");
+                            exposedAboveCourse += wall > ramp.HeightFrom ? 1 : 0;
+                        }
+                        else
+                        {
+                            Assert.Equal(0, here.Length, $"{ramp.Name} flank does not double the wall at {x}");
+                        }
+                    }
+                }
+                Assert.Equal(true, exposedAboveCourse > 0, $"{ramp.Name} climbs past a course, the case that left a gap");
+            }
+        }
+
+        public static void TestOtherFlightsKeepTheirWholeFlank()
+        {
+            Ramp north = SanctumPlan.Ramps.Single(r => r.Name == "ZigguratNorthStairs");
+            FlankSpan span = ZigguratMasonry.ExposedFlank(north, 16f, 15.5f, 1f, 0f).Single();
+            Assert.Equal(15.5f, span.Start, "start");
+            Assert.Equal(16f, span.End, "end");
+            Assert.Equal(0f, span.Bottom, "foot");
         }
 
         public static void TestThresholdDrawsOnlyToTheDoorLine()

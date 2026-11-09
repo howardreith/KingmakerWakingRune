@@ -289,14 +289,12 @@ namespace KingmakerWakingRune.Sanctum
             Vector3 up = P(to, c0, 0f) - P(from, c0, 0f);
             Outward(block, riseA, riseB, b, a, Vector2.zero, new Vector2(u, 0f), new Vector2(u, v), new Vector2(0f, v), height > below ? -up : up);
             // Closed flanks: a flight seen from the side is solid stone, not a row of floating treads. Side flights
-            // only need them where they stand clear of the course whose channel wall is otherwise the visible stone.
-            float start = from, end = to;
-            bool sideFlight = ramp.Name == "ZigguratWestStairs" || ramp.Name == "ZigguratEastStairs";
-            if (!sideFlight || ZigguratMasonry.ExposedFlank(ramp, from, to, out start, out end))
+            // only need them above the channel wall of the course they are climbing through.
+            Vector3 across = P(from, c1, 0f) - P(from, c0, 0f);
+            foreach (FlankSpan span in ZigguratMasonry.ExposedFlank(ramp, from, to, height, foot))
             {
-                Vector3 across = P(from, c1, 0f) - P(from, c0, 0f);
-                AddStepFlank(block, P(start, c0, foot), P(end, c0, foot), P(end, c0, height), P(start, c0, height), -across);
-                AddStepFlank(block, P(start, c1, foot), P(end, c1, foot), P(end, c1, height), P(start, c1, height), across);
+                AddStepFlank(block, P(span.Start, c0, span.Bottom), P(span.End, c0, span.Bottom), P(span.End, c0, height), P(span.Start, c0, height), -across);
+                AddStepFlank(block, P(span.Start, c1, span.Bottom), P(span.End, c1, span.Bottom), P(span.End, c1, height), P(span.Start, c1, height), across);
             }
         }
 

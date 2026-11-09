@@ -51,6 +51,19 @@ namespace KingmakerWakingRune.Sanctum
         }
     }
 
+    /// <summary>A length of a stair's side wall to draw: from <see cref="Start"/> to <see cref="End"/> along the run, rising from <see cref="Bottom"/>.</summary>
+    internal struct FlankSpan
+    {
+        public readonly float Start, End, Bottom;
+
+        public FlankSpan(float start, float end, float bottom)
+        {
+            Start = start;
+            End = end;
+            Bottom = bottom;
+        }
+    }
+
     /// <summary>
     /// The upper courses of the ziggurat as data, so every exposed patch has exactly one owner and that can be tested
     /// without the game. A course's top keeps only what the next course up, or the walkable apex, leaves exposed.
@@ -161,16 +174,58 @@ namespace KingmakerWakingRune.Sanctum
         }
 
         /// <summary>
-        /// The part of a side flight's run standing clear of the first course. Inside it the course's own channel
-        /// wall is the visible stone, so a flank drawn there would share its plane.
+        /// The height to which a side flight's flank is already stone at a point along its run: the top of the highest
+        /// course whose channel wall reaches that point, or the terrace where none does.
         /// </summary>
-        public static bool ExposedFlank(Ramp ramp, float from, float to, out float start, out float end)
+        public static float ChannelWallTop(Ramp ramp, float along)
+        {
+            bool west = ramp.Name == "ZigguratWestStairs";
+            float top = SanctumPlan.RingHeight;
+            for (int course = 0; course < Courses; course++)
+            {
+                float t = (float)course / Courses;
+                bool reached = west ? along >= Lerp(SanctumPlan.RingInnerWest, SanctumPlan.ApexWest, t) : along <= Lerp(SanctumPlan.RingInnerEast, SanctumPlan.ApexEast, t);
+                if (reached)
+                {
+                    top = CourseTop(course);
+                }
+            }
+            return top;
+        }
+
+        /// <summary>
+        /// The parts of one step's flank that need drawing. On a side flight a channel wall is already the visible stone
+        /// up to <see cref="ChannelWallTop"/>, so the flank starts there: lower and it would share the wall's plane, higher
+        /// and a gap would open where the steps climb past a course. Other flights have no channel, so their flank is whole.
+        /// </summary>
+        public static IEnumerable<FlankSpan> ExposedFlank(Ramp ramp, float from, float to, float height, float foot)
         {
             float low = Math.Min(from, to), high = Math.Max(from, to);
+            if (ramp.Name != "ZigguratWestStairs" && ramp.Name != "ZigguratEastStairs")
+            {
+                yield return new FlankSpan(low, high, foot);
+                yield break;
+            }
             bool west = ramp.Name == "ZigguratWestStairs";
-            start = west ? low : Math.Max(low, SanctumPlan.RingInnerEast);
-            end = west ? Math.Min(high, SanctumPlan.RingInnerWest) : high;
-            return end - start > 0.0001f;
+            var cuts = new List<float> { low, high };
+            for (int course = 0; course < Courses; course++)
+            {
+                float t = (float)course / Courses;
+                float edge = west ? Lerp(SanctumPlan.RingInnerWest, SanctumPlan.ApexWest, t) : Lerp(SanctumPlan.RingInnerEast, SanctumPlan.ApexEast, t);
+                if (edge > low && edge < high)
+                {
+                    cuts.Add(edge);
+                }
+            }
+            cuts.Sort();
+            for (int i = 0; i + 1 < cuts.Count; i++)
+            {
+                float bottom = Math.Max(foot, ChannelWallTop(ramp, (cuts[i] + cuts[i + 1]) / 2f));
+                if (height - bottom > 0.0001f && cuts[i + 1] - cuts[i] > 0.0001f)
+                {
+                    yield return new FlankSpan(cuts[i], cuts[i + 1], bottom);
+                }
+            }
         }
     }
 }
