@@ -51,6 +51,7 @@ namespace KingmakerWakingRune.Sanctum
         private const float MapHalfDepth = 26f;
 
         private static GameObject s_Root;
+        private static TileHandlerHelper s_CutHelper;
 
         public static bool IsBuilt => s_Root != null;
 
@@ -232,18 +233,18 @@ namespace KingmakerWakingRune.Sanctum
             astar.Scan();
             if (astar.graphs.FirstOrDefault() is RecastGraph scanned)
             {
-                EnableDoorCuts(astar, scanned);
+                PrepareDoorCuts(astar, scanned);
             }
         }
 
         /// <summary>Door cuts act through a handler built from the tiles, so it has to be made after this area's own scan.</summary>
-        private static void EnableDoorCuts(AstarPath astar, RecastGraph graph)
+        private static void PrepareDoorCuts(AstarPath astar, RecastGraph graph)
         {
-            TileHandlerHelper helper = UnityEngine.Object.FindObjectOfType<TileHandlerHelper>();
-            bool existed = helper != null;
+            s_CutHelper = UnityEngine.Object.FindObjectOfType<TileHandlerHelper>();
+            bool existed = s_CutHelper != null;
             if (!existed)
             {
-                helper = astar.gameObject.AddComponent<TileHandlerHelper>();
+                s_CutHelper = astar.gameObject.AddComponent<TileHandlerHelper>();
             }
             // On travel the donor's own door cuts are still alive at this point; they describe another floor plan.
             foreach (NavmeshCut cut in NavmeshCut.GetAll().ToArray())
@@ -252,17 +253,34 @@ namespace KingmakerWakingRune.Sanctum
                 {
                     cut.enabled = false;
                 }
-                else
+            }
+            var handler = new Pathfinding.Util.TileHandler(graph);
+            handler.CreateTileTypesFromGraph();
+            s_CutHelper.UseSpecifiedHandler(handler);
+            Log.Info($"Sanctum door cuts prepared: helper {(existed ? "native" : "added")}, {NavmeshCut.GetAll().Count} cuts, tiles={graph.useTiles}, {graph.tileXCount}x{graph.tileZCount}.");
+        }
+
+        /// <summary>
+        /// Applies the door cuts. Runs once the area has finished loading: reloading tiles while the party is being
+        /// placed would leave the arrival floor missing and stack everyone on the nearest surviving navmesh.
+        /// </summary>
+        public static void ApplyDoorCuts()
+        {
+            if (s_CutHelper == null)
+            {
+                return;
+            }
+            foreach (NavmeshCut cut in NavmeshCut.GetAll().ToArray())
+            {
+                if (cut.GetComponent<SanctumDoor>() != null)
                 {
                     // Unmoved cuts report no change, so a door's must be pushed onto the freshly scanned tiles.
                     cut.ForceUpdate();
                 }
             }
-            var handler = new Pathfinding.Util.TileHandler(graph);
-            handler.CreateTileTypesFromGraph();
-            helper.UseSpecifiedHandler(handler);
-            helper.ForceUpdate();
-            Log.Info($"Sanctum door cuts ready: helper {(existed ? "native" : "added")}, {NavmeshCut.GetAll().Count} cuts, tiles={graph.useTiles}, {graph.tileXCount}x{graph.tileZCount}.");
+            s_CutHelper.ForceUpdate();
+            s_CutHelper = null;
+            Log.Info("Sanctum door cuts applied.");
         }
 
         private static int NavNodeCount()

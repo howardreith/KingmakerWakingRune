@@ -328,7 +328,15 @@ namespace KingmakerWakingRune.Sanctum
             var points = new List<GridPoint>();
             points.AddRange(ArrivalChamberRock());
             float east = 16f + gap, west = 10f - gap, face = 16.2f - gap;
-            points.AddRange(Points(east, 21.1f, east, face, 14.16f, face, 14.16f, 15.4f, 12.07f, 15.4f, 12.07f, face, west, face, west, 21.1f));
+            if (gap <= 0f)
+            {
+                points.Add(new GridPoint(east, 21.1f));
+            }
+            points.AddRange(Points(east, face, 14.16f, face, 14.16f, 15.4f, 12.07f, 15.4f, 12.07f, face, west, face));
+            if (gap <= 0f)
+            {
+                points.Add(new GridPoint(west, 21.1f));
+            }
             return points.ToArray();
         }
 

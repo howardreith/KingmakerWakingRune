@@ -49,6 +49,7 @@ namespace KingmakerWakingRune.Sanctum
             try
             {
                 SanctumScope.EnsureBuilt();
+                SanctumScope.ApplyDoorCuts();
 
                 RefugeTransit.OnSanctumLoaded();
                 Log.Info($"Sanctum loaded: entered={Game.Instance.Player.UnlockableFlags.IsUnlocked(ScenarioBlueprints.SanctumEnteredFlag)} party={Game.Instance.Player.Party.Count} loot={Game.Instance.CurrentlyLoadedArea.LootSetting} indoor={Game.Instance.CurrentlyLoadedArea.IsIndoor}.");
