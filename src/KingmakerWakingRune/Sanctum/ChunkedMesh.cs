@@ -28,6 +28,12 @@ namespace KingmakerWakingRune.Sanctum
             Add(Key((a + b + c) / 3f), a, b, c, ua, ub, uc, normal);
         }
 
+        /// <summary>A triangle that keeps the supplied vertex normals, for smooth curved parts.</summary>
+        public void SmoothTriangle(Vector3 a, Vector3 b, Vector3 c, Vector2 ua, Vector2 ub, Vector2 uc, Vector3 na, Vector3 nb, Vector3 nc)
+        {
+            Add(Key((a + b + c) / 3f), a, b, c, ua, ub, uc, na, nb, nc);
+        }
+
         public void Quad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector2 ua, Vector2 ub, Vector2 uc, Vector2 ud)
         {
             Vector3 normal = Vector3.Cross(b - a, c - a).normalized;
@@ -100,6 +106,11 @@ namespace KingmakerWakingRune.Sanctum
 
         private void Add(long key, Vector3 a, Vector3 b, Vector3 c, Vector2 ua, Vector2 ub, Vector2 uc, Vector3 normal)
         {
+            Add(key, a, b, c, ua, ub, uc, normal, normal, normal);
+        }
+
+        private void Add(long key, Vector3 a, Vector3 b, Vector3 c, Vector2 ua, Vector2 ub, Vector2 uc, Vector3 na, Vector3 nb, Vector3 nc)
+        {
             if (!m_Parts.TryGetValue(key, out Part part))
             {
                 part = new Part();
@@ -109,9 +120,9 @@ namespace KingmakerWakingRune.Sanctum
             part.Vertices.Add(a);
             part.Vertices.Add(b);
             part.Vertices.Add(c);
-            part.Normals.Add(normal);
-            part.Normals.Add(normal);
-            part.Normals.Add(normal);
+            part.Normals.Add(na);
+            part.Normals.Add(nb);
+            part.Normals.Add(nc);
             part.Uvs.Add(ua);
             part.Uvs.Add(ub);
             part.Uvs.Add(uc);

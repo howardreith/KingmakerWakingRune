@@ -31,10 +31,15 @@ namespace KingmakerWakingRune.Sanctum
         public float X0, Y0, X1, Y1;
         public bool AlongX;
         public float From, To, HeightFrom, HeightTo;
+        /// <summary>Squares kept unwalkable along each side of a flight, though its steps are still drawn there.</summary>
+        public float SideGap;
+
+        public float WalkX0 => Math.Min(X0, X1) + (AlongX ? 0f : SideGap);
+        public float WalkX1 => Math.Max(X0, X1) - (AlongX ? 0f : SideGap);
 
         public bool Contains(float x, float y)
         {
-            return x >= Math.Min(X0, X1) && x <= Math.Max(X0, X1) && y >= Math.Min(Y0, Y1) && y <= Math.Max(Y0, Y1);
+            return x >= WalkX0 && x <= WalkX1 && y >= Math.Min(Y0, Y1) && y <= Math.Max(Y0, Y1);
         }
 
         public float HeightAt(float x, float y)
@@ -60,6 +65,22 @@ namespace KingmakerWakingRune.Sanctum
         public string Rune;
         public GridPoint Position;
         public GridPoint InwardNormal;
+        /// <summary>Degrees the plate leans back into its wall so the fixed camera can read it.</summary>
+        public float Tilt;
+        /// <summary>Metres the foot of the plate's face stands forward of the wall line.</summary>
+        public float Depth;
+    }
+
+    /// <summary>One of the two mapped doors. Seen from above, opening turns the leaf clockwise about its hinge.</summary>
+    internal sealed class DoorPlan
+    {
+        public string Id;
+        public GridPoint Hinge;
+        public GridPoint Latch;
+        public float OpenDegrees;
+        public bool Sihedron;
+
+        public GridPoint Center => new GridPoint((Hinge.X + Latch.X) / 2f, (Hinge.Y + Latch.Y) / 2f);
     }
 
     /// <summary>
@@ -93,8 +114,8 @@ namespace KingmakerWakingRune.Sanctum
         /// The first eight lie inside the printed rectangle; the rest spread onto the same floor for a party of six with six pets.
         /// </summary>
         public static readonly GridPoint[] ArrivalSlots = Points(
-            12.2f, 15.1f, 14f, 15.1f, 12.65f, 14.55f, 13.55f, 14.55f, 11.75f, 14.55f, 14.45f, 14.55f, 11.3f, 15.1f, 14.9f, 15.1f,
-            10.85f, 14.55f, 15.35f, 14.55f, 10.4f, 15.1f, 15.8f, 15.1f);
+            12.2f, 15.1f, 14f, 15.1f, 12.65f, 14.62f, 13.55f, 14.62f, 11.75f, 14.62f, 14.45f, 14.62f, 11.3f, 15.1f, 14.9f, 15.1f,
+            10.85f, 14.62f, 15.35f, 14.62f, 10.4f, 15.1f, 15.8f, 15.1f);
 
         public const float ZigguratWest = 10f;
         public const float ZigguratEast = 16f;
@@ -104,10 +125,29 @@ namespace KingmakerWakingRune.Sanctum
         public const float RingInnerEast = 14.7f;
         public const float RingInnerNorth = 17.5f;
         public const float RingInnerSouth = 21.7f;
-        public const float ApexWest = 12.4f;
-        public const float ApexEast = 13.6f;
+        public const float ApexWest = 12.5f;
+        public const float ApexEast = 13.5f;
         public const float ApexNorth = 18.7f;
         public const float ApexSouth = 20.5f;
+
+        public const float NorthStairWest = 12.07f;
+        public const float NorthStairEast = 14.16f;
+        public const float NorthStairFoot = 15.4f;
+        /// <summary>The flight runs into the first tier, which eases it to 45 degrees and leaves room behind its head.</summary>
+        public const float NorthStairHead = 16.6f;
+        public const float SideStairNorth = 18.95f;
+        public const float SideStairSouth = 20.25f;
+        public const float WestStairFoot = 10.85f;
+        public const float EastStairFoot = 15.15f;
+
+        /// <summary>Half the depth of a door's sealed strip, in squares.</summary>
+        public const float DoorwayHalfDepth = 0.2f;
+
+        public static readonly DoorPlan[] Doors =
+        {
+            new DoorPlan { Id = "A2", Hinge = new GridPoint(12.4f, 26.4f), Latch = new GridPoint(13.9f, 26.4f), OpenDegrees = 100f, Sihedron = true },
+            new DoorPlan { Id = "A4Approach", Hinge = new GridPoint(21f, 13.9f), Latch = new GridPoint(21f, 15.4f), OpenDegrees = 90f },
+        };
 
         public static readonly GridPoint[] Outer = Points(8, 1, 18, 1, 24, 7, 24, 18, 13, 30, 2, 18, 2, 7);
 
@@ -133,28 +173,29 @@ namespace KingmakerWakingRune.Sanctum
             new WalkRegion { Name = "A3", Outer = Outer, Holes = { Core }, Height = 0f },
             new WalkRegion { Name = "A4A5", Outer = Atrium, Holes = { Altar, BrazierNorth, BrazierSouth, Pedestal, SarcophagusShadow }, Height = 0f },
             new WalkRegion { Name = "A1", Outer = ArrivalChamber, Height = 0f },
-            new WalkRegion { Name = "ZigguratRing", Outer = Rect(ZigguratWest, ZigguratNorth, ZigguratEast, ZigguratSouth), Holes = { Rect(RingInnerWest, RingInnerNorth, RingInnerEast, RingInnerSouth) }, Height = RingHeight },
+            new WalkRegion { Name = "ZigguratRing", Outer = Points(ZigguratWest, ZigguratNorth, NorthStairWest, ZigguratNorth, NorthStairWest, NorthStairHead, NorthStairEast, NorthStairHead, NorthStairEast, ZigguratNorth, ZigguratEast, ZigguratNorth, ZigguratEast, ZigguratSouth, ZigguratWest, ZigguratSouth), Holes = { Rect(RingInnerWest, RingInnerNorth, RingInnerEast, RingInnerSouth) }, Height = RingHeight },
             new WalkRegion { Name = "ZigguratApex", Outer = Rect(ApexWest, ApexNorth, ApexEast, ApexSouth), Height = ApexHeight },
             new WalkRegion { Name = "A2Threshold", Outer = Rect(12.4f, 26.2f, 13.9f, 26.6f), Height = 0f },
         };
 
         public static readonly List<Ramp> Ramps = new List<Ramp>
         {
-            new Ramp { Name = "ZigguratNorthStairs", X0 = 12.07f, Y0 = 15.4f, X1 = 14.16f, Y1 = 16.3f, From = 15.4f, To = 16.3f, HeightFrom = 0f, HeightTo = RingHeight },
-            new Ramp { Name = "ZigguratWestStairs", X0 = 11.0f, Y0 = 18.95f, X1 = 12.4f, Y1 = 20.25f, AlongX = true, From = 11.0f, To = 12.4f, HeightFrom = RingHeight, HeightTo = ApexHeight },
-            new Ramp { Name = "ZigguratEastStairs", X0 = 13.6f, Y0 = 18.95f, X1 = 15.0f, Y1 = 20.25f, AlongX = true, From = 15.0f, To = 13.6f, HeightFrom = RingHeight, HeightTo = ApexHeight },
-            new Ramp { Name = "A2Stairs", X0 = 12f, Y0 = 23f, X1 = 14.3f, Y1 = 26.2f, From = 23f, To = 26.2f, HeightFrom = RingHeight, HeightTo = 0f },
+            new Ramp { Name = "ZigguratNorthStairs", X0 = NorthStairWest, Y0 = NorthStairFoot, X1 = NorthStairEast, Y1 = NorthStairHead, From = NorthStairFoot, To = NorthStairHead, HeightFrom = 0f, HeightTo = RingHeight },
+            new Ramp { Name = "ZigguratWestStairs", X0 = WestStairFoot, Y0 = SideStairNorth, X1 = ApexWest, Y1 = SideStairSouth, AlongX = true, From = WestStairFoot, To = ApexWest, HeightFrom = RingHeight, HeightTo = ApexHeight },
+            new Ramp { Name = "ZigguratEastStairs", X0 = ApexEast, Y0 = SideStairNorth, X1 = EastStairFoot, Y1 = SideStairSouth, AlongX = true, From = EastStairFoot, To = ApexEast, HeightFrom = RingHeight, HeightTo = ApexHeight },
+            // The flight's lower half is within a step of the A3 floor beyond its walls; the gap keeps a closed door from being walked around.
+            new Ramp { Name = "A2Stairs", X0 = 12f, Y0 = 23f, X1 = 14.3f, Y1 = 26.2f, From = 23f, To = 26.2f, HeightFrom = RingHeight, HeightTo = 0f, SideGap = 0.25f },
         };
 
         public static readonly List<RunePlate> RunePlates = new List<RunePlate>
         {
-            new RunePlate { Id = "A3a", Rune = "Life", Position = new GridPoint(21.8f, 20.4f), InwardNormal = new GridPoint(-0.737f, -0.676f) },
-            new RunePlate { Id = "A3b", Rune = "Alacrity", Position = new GridPoint(21f, 13.2f), InwardNormal = new GridPoint(1f, 0f) },
-            new RunePlate { Id = "A3c", Rune = "Defense", Position = new GridPoint(22.3f, 5.3f), InwardNormal = new GridPoint(-0.707f, 0.707f) },
-            new RunePlate { Id = "A3d", Rune = "Life", Position = new GridPoint(13f, 4f), InwardNormal = new GridPoint(0f, -1f) },
-            new RunePlate { Id = "A3e", Rune = "Armor", Position = new GridPoint(3.7f, 5.3f), InwardNormal = new GridPoint(0.707f, 0.707f) },
-            new RunePlate { Id = "A3f", Rune = "Control", Position = new GridPoint(5f, 13.2f), InwardNormal = new GridPoint(-1f, 0f) },
-            new RunePlate { Id = "A3g", Rune = "Life", Position = new GridPoint(4.2f, 20.4f), InwardNormal = new GridPoint(0.737f, -0.676f) },
+            new RunePlate { Id = "A3a", Rune = "Life", Position = new GridPoint(21.8f, 20.4f), InwardNormal = new GridPoint(-0.737f, -0.676f), Tilt = 14f, Depth = 0.72f },
+            new RunePlate { Id = "A3b", Rune = "Alacrity", Position = new GridPoint(21f, 13.2f), InwardNormal = new GridPoint(1f, 0f), Tilt = 36f, Depth = 0.6f },
+            new RunePlate { Id = "A3c", Rune = "Defense", Position = new GridPoint(22.3f, 5.3f), InwardNormal = new GridPoint(-0.707f, 0.707f), Tilt = 56f, Depth = 0.6f },
+            new RunePlate { Id = "A3d", Rune = "Life", Position = new GridPoint(13f, 4f), InwardNormal = new GridPoint(0f, -1f), Tilt = 6f, Depth = 0.4f },
+            new RunePlate { Id = "A3e", Rune = "Armor", Position = new GridPoint(3.7f, 5.3f), InwardNormal = new GridPoint(0.707f, 0.707f), Tilt = 56f, Depth = 0.6f },
+            new RunePlate { Id = "A3f", Rune = "Control", Position = new GridPoint(5f, 13.2f), InwardNormal = new GridPoint(-1f, 0f), Tilt = 36f, Depth = 0.6f },
+            new RunePlate { Id = "A3g", Rune = "Life", Position = new GridPoint(4.2f, 20.4f), InwardNormal = new GridPoint(0.737f, -0.676f), Tilt = 14f, Depth = 0.72f },
         };
 
         public static readonly List<WallRun> Walls = BuildWalls();
@@ -189,6 +230,17 @@ namespace KingmakerWakingRune.Sanctum
                 }
             }
             return best;
+        }
+
+        /// <summary>Whether a grid point lies in a door's sealed strip, widened by a margin in squares.</summary>
+        public static bool InDoorway(DoorPlan door, float x, float y, float margin = 0f)
+        {
+            float halfDepth = DoorwayHalfDepth + margin;
+            float x0 = Math.Min(door.Hinge.X, door.Latch.X), x1 = Math.Max(door.Hinge.X, door.Latch.X);
+            float y0 = Math.Min(door.Hinge.Y, door.Latch.Y), y1 = Math.Max(door.Hinge.Y, door.Latch.Y);
+            return door.Hinge.Y == door.Latch.Y
+                ? x >= x0 - margin && x <= x1 + margin && Math.Abs(y - y0) <= halfDepth
+                : y >= y0 - margin && y <= y1 + margin && Math.Abs(x - x0) <= halfDepth;
         }
 
         public static bool Inside(GridPoint[] polygon, float x, float y)

@@ -84,6 +84,7 @@ namespace KingmakerWakingRune.Sanctum
                 return;
             }
             SanctumMaterials materials = HarvestMaterials(statics);
+            materials.Palette = new SanctumPalette(materials.Rock);
             int hidden = HideDonorObjects(statics) + HideDonorObjects(mechanics);
 
             s_Root = new GameObject("KWR_SanctumEnvironment");
@@ -94,10 +95,11 @@ namespace KingmakerWakingRune.Sanctum
             SanctumLighting.Apply(s_Root.transform);
             ConfigureBounds();
             ScanNavigation();
+            SanctumDoors.ReleaseOccupied();
             Log.Info($"Sanctum built: {hidden} donor roots hidden, {s_Root.GetComponentsInChildren<Renderer>().Length} renderers, {NavNodeCount()} navmesh nodes.");
         }
 
-        private static SanctumMaterials HarvestMaterials(Scene statics)
+        public static SanctumMaterials HarvestMaterials(Scene statics)
         {
             var found = new Dictionary<string, Material>();
             foreach (GameObject root in statics.GetRootGameObjects())
@@ -138,7 +140,8 @@ namespace KingmakerWakingRune.Sanctum
             {
                 if (root.GetComponentInChildren<AstarPath>(true) != null
                     || root.GetComponentInChildren<LocalMapArea>(true) != null
-                    || root.GetComponentInChildren<LocationMaskRenderer>(true) != null)
+                    || root.GetComponentInChildren<LocationMaskRenderer>(true) != null
+                    || root.GetComponentInChildren<SanctumDoor>(true) != null)
                 {
                     continue;
                 }
@@ -226,6 +229,26 @@ namespace KingmakerWakingRune.Sanctum
             validArea.transform.position = new Vector3(SanctumPlan.ToWorldX(SanctumPlan.Arrival.X), 0f, SanctumPlan.ToWorldZ(SanctumPlan.Arrival.Y));
             validArea.AddComponent<ValidNavmeshArea>();
             astar.Scan();
+            if (astar.graphs.FirstOrDefault() is RecastGraph scanned)
+            {
+                EnableDoorCuts(astar, scanned);
+            }
+        }
+
+        /// <summary>Door cuts act through a handler built from the tiles, so it has to be made after this area's own scan.</summary>
+        private static void EnableDoorCuts(AstarPath astar, RecastGraph graph)
+        {
+            TileHandlerHelper helper = UnityEngine.Object.FindObjectOfType<TileHandlerHelper>();
+            bool existed = helper != null;
+            if (!existed)
+            {
+                helper = astar.gameObject.AddComponent<TileHandlerHelper>();
+            }
+            var handler = new Pathfinding.Util.TileHandler(graph);
+            handler.CreateTileTypesFromGraph();
+            helper.UseSpecifiedHandler(handler);
+            helper.ForceUpdate();
+            Log.Info($"Sanctum door cuts ready: helper {(existed ? "native" : "added")}, {NavmeshCut.GetAll().Count} cuts, tiles={graph.useTiles}, {graph.tileXCount}x{graph.tileZCount}.");
         }
 
         private static int NavNodeCount()

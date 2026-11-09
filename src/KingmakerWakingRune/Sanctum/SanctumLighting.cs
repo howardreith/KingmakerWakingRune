@@ -7,6 +7,33 @@ namespace KingmakerWakingRune.Sanctum
     /// Restrained fill for CRPG readability in a chamber the source leaves dark, plus the local lights it describes.
     /// Visual only; none of this is a mechanical light source.
     /// </summary>
+    /// <summary>The short-lived flashes of energy over the sarcophagus: visual only, never a hazard.</summary>
+    internal sealed class SanctumFlash : MonoBehaviour
+    {
+        private const float Dim = 0.35f;
+        private const float Bright = 1.5f;
+
+        private Light m_Light;
+        private float m_NextFlash;
+        private float m_FlashEnds;
+
+        private void Awake()
+        {
+            m_Light = GetComponent<Light>();
+        }
+
+        private void Update()
+        {
+            float now = Time.unscaledTime;
+            if (now >= m_NextFlash)
+            {
+                m_FlashEnds = now + Random.Range(0.06f, 0.2f);
+                m_NextFlash = now + Random.Range(0.8f, 3.2f);
+            }
+            m_Light.intensity = now < m_FlashEnds ? Bright : Dim;
+        }
+    }
+
     internal static class SanctumLighting
     {
         private static LightProbes s_SavedProbes;
@@ -32,9 +59,9 @@ namespace KingmakerWakingRune.Sanctum
             }
             LightmapSettings.lightProbes = null;
             RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.30f, 0.30f, 0.37f);
-            RenderSettings.ambientEquatorColor = new Color(0.25f, 0.25f, 0.31f);
-            RenderSettings.ambientGroundColor = new Color(0.18f, 0.18f, 0.22f);
+            RenderSettings.ambientSkyColor = new Color(0.26f, 0.26f, 0.33f);
+            RenderSettings.ambientEquatorColor = new Color(0.22f, 0.21f, 0.27f);
+            RenderSettings.ambientGroundColor = new Color(0.15f, 0.15f, 0.19f);
             RenderSettings.fog = false;
         }
 
@@ -48,7 +75,7 @@ namespace KingmakerWakingRune.Sanctum
             var directional = fill.AddComponent<Light>();
             directional.type = LightType.Directional;
             directional.color = new Color(0.78f, 0.76f, 0.80f);
-            directional.intensity = 0.72f;
+            directional.intensity = 0.58f;
             directional.shadows = LightShadows.None;
             directional.renderMode = LightRenderMode.ForcePixel;
 
@@ -65,9 +92,10 @@ namespace KingmakerWakingRune.Sanctum
             faceLight.renderMode = LightRenderMode.ForcePixel;
 
             // The faint tan light through the A4 dome, and the sickly green-purple from A5, as the source describes them.
-            Point(root, 18.4f, 9.6f, 6.5f, new Color(0.86f, 0.72f, 0.50f), 1.4f, 13f);
-            Point(root, 9f, 11.5f, 6.5f, new Color(0.58f, 0.46f, 0.72f), 1.0f, 13f);
-            Point(root, 12.5f, 9.5f, 5f, new Color(0.46f, 0.62f, 0.42f), 0.7f, 9f);
+            Point(root, 18.4f, 9.6f, 6.5f, new Color(0.86f, 0.72f, 0.50f), 1.7f, 13f);
+            Point(root, 9f, 11.5f, 6.5f, new Color(0.58f, 0.46f, 0.72f), 1.15f, 13f);
+            Light flash = Point(root, 8.9f, 9.5f, 2.6f, new Color(0.62f, 0.86f, 0.46f), 0.7f, 8f);
+            flash.gameObject.AddComponent<SanctumFlash>();
         }
 
         public static Light Point(Transform root, float x, float y, float height, Color color, float intensity, float range)

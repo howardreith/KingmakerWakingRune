@@ -10,7 +10,7 @@ namespace KingmakerWakingRune.Tests
         private const float Step = 0.1f;
         private const float MaxStepRise = 0.6f;
 
-        private static HashSet<long> Flood()
+        private static HashSet<long> Flood(params DoorPlan[] closed)
         {
             var seen = new HashSet<long>();
             var open = new Queue<long>();
@@ -28,7 +28,9 @@ namespace KingmakerWakingRune.Tests
                 {
                     long next = Key(x + dx[d], y + dy[d]);
                     float? there = SanctumPlan.HeightAt((x + dx[d]) * Step, (y + dy[d]) * Step);
-                    if (there.HasValue && here.HasValue && !seen.Contains(next) && Math.Abs(there.Value - here.Value) <= MaxStepRise)
+                    // The navmesh cut overlaps each jamb by 0.15 m, which is 0.1 of a square.
+                    bool sealedOff = closed.Any(door => SanctumPlan.InDoorway(door, (x + dx[d]) * Step, (y + dy[d]) * Step, 0.1f));
+                    if (there.HasValue && here.HasValue && !sealedOff && !seen.Contains(next) && Math.Abs(there.Value - here.Value) <= MaxStepRise)
                     {
                         seen.Add(next);
                         open.Enqueue(next);
@@ -136,6 +138,64 @@ namespace KingmakerWakingRune.Tests
                     Assert.Equal(true, distance >= 0.65, $"slots {i} and {j} are apart");
                 }
             }
+        }
+
+        public static void TestClosedDoorsSealTheirRoutes()
+        {
+            DoorPlan a2 = SanctumPlan.Doors.Single(d => d.Id == "A2"), a4 = SanctumPlan.Doors.Single(d => d.Id == "A4Approach");
+            HashSet<long> pastA2 = Flood(a2);
+            Assert.Equal(true, Reached(pastA2, 13f, 19.6f), "the ziggurat stays reachable behind a closed A2 door");
+            Assert.Equal(false, Reached(pastA2, 13f, 28f), "closed A2 door seals A3");
+            HashSet<long> pastA4 = Flood(a4);
+            Assert.Equal(true, Reached(pastA4, 22.5f, 12f), "A3 stays reachable behind a closed east door");
+            Assert.Equal(false, Reached(pastA4, 18f, 9.5f), "closed east door seals A4");
+            Assert.Equal(false, Reached(pastA4, 7f, 9.5f), "closed east door seals A5");
+        }
+
+        public static void TestA2StairsCannotBeSteppedOffIntoA3()
+        {
+            Ramp a2 = SanctumPlan.Ramps.Single(r => r.Name == "A2Stairs");
+            foreach (float y in new[] { 24.5f, 25.5f, 26.1f })
+            {
+                Assert.Equal(false, SanctumPlan.HeightAt(a2.WalkX0 - 0.05f, y).HasValue, $"west side gap at y {y}");
+                Assert.Equal(false, SanctumPlan.HeightAt(a2.WalkX1 + 0.05f, y).HasValue, $"east side gap at y {y}");
+            }
+            Assert.Equal(true, a2.WalkX0 <= 12.4f && a2.WalkX1 >= 13.9f, "the walkable flight still spans the doorway");
+        }
+
+        public static void TestDoorsFillTheMappedOpenings()
+        {
+            foreach (DoorPlan door in SanctumPlan.Doors)
+            {
+                double width = Math.Sqrt(Math.Pow(door.Latch.X - door.Hinge.X, 2) + Math.Pow(door.Latch.Y - door.Hinge.Y, 2));
+                Assert.Equal(true, Math.Abs(width - 1.5) < 0.01, $"{door.Id} is the mapped 7.5 feet wide");
+                Assert.Equal(true, SanctumPlan.InDoorway(door, door.Center.X, door.Center.Y), $"{door.Id} centre is sealed");
+            }
+        }
+
+        public static void TestArrivalIsClearOfBothDoors()
+        {
+            foreach (GridPoint slot in new[] { SanctumPlan.Arrival }.Concat(SanctumPlan.ArrivalSlots))
+            {
+                Assert.Equal(false, SanctumPlan.Doors.Any(d => SanctumPlan.InDoorway(d, slot.X, slot.Y, 1f)), $"slot ({slot.X}, {slot.Y})");
+            }
+        }
+
+        public static void TestZigguratFlightsAreClimbableAndClearOfTheCourses()
+        {
+            Ramp north = SanctumPlan.Ramps.Single(r => r.Name == "ZigguratNorthStairs");
+            double run = (north.To - north.From) * SanctumPlan.MetersPerSquare;
+            Assert.Equal(true, Math.Atan2(SanctumPlan.RingHeight, run) * 180.0 / Math.PI <= 45.5, "north flight at most 45 degrees");
+            // Both flights end on the apex and start on the first tier, inside the channels left through the courses.
+            foreach (string name in new[] { "ZigguratWestStairs", "ZigguratEastStairs" })
+            {
+                Ramp flight = SanctumPlan.Ramps.Single(r => r.Name == name);
+                Assert.Equal(true, flight.Y0 >= SanctumPlan.SideStairNorth - 0.001f && flight.Y1 <= SanctumPlan.SideStairSouth + 0.001f, $"{name} stays in its channel");
+                Assert.Equal(true, Math.Atan2(SanctumPlan.ApexHeight - SanctumPlan.RingHeight, Math.Abs(flight.To - flight.From) * SanctumPlan.MetersPerSquare) * 180.0 / Math.PI < 60.0, $"{name} is under 60 degrees");
+            }
+            // Walkable terrace remains behind the head of the north flight.
+            Assert.Equal(true, SanctumPlan.HeightAt(11f, SanctumPlan.NorthStairHead + 0.4f) == SanctumPlan.RingHeight, "terrace beside the flight head");
+            Assert.Equal(true, SanctumPlan.RingInnerNorth - SanctumPlan.NorthStairHead >= 0.85f, "passage behind the flight head");
         }
 
         public static void TestApexIsTwentyFeetUp()

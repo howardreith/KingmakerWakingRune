@@ -13,7 +13,7 @@ namespace KingmakerWakingRune.Sanctum
         public Material Floor;
         public Material Rock;
         public Material Black;
-
+        public SanctumPalette Palette;
     }
 
     /// <summary>Builds the walkable surfaces, walls and sight blockers of the plan as runtime meshes.</summary>
@@ -21,6 +21,10 @@ namespace KingmakerWakingRune.Sanctum
     {
         public const int GroundLayer = 8;
         private const float LowWall = 0.45f;
+        /// <summary>The chamber's near wall stays a curb, so it cannot cover the feet of a party standing at the arrival.</summary>
+        private const float ArrivalCurb = 0.25f;
+        private const float StepRise = 0.17f;
+        private const float TreadSink = 0.04f;
         private const float HighWall = 4.6f;
         private const float WallCap = 0.3f;
         private const float FloorTile = 3f;
@@ -33,6 +37,7 @@ namespace KingmakerWakingRune.Sanctum
             var collider = new ChunkedMesh();
             var rock = new ChunkedMesh();
             var black = new ChunkedMesh();
+            var ashlar = new ChunkedMesh();
 
             foreach (WalkRegion region in SanctumPlan.Regions)
             {
@@ -51,12 +56,13 @@ namespace KingmakerWakingRune.Sanctum
                 AddWall(wall, rock, black);
                 AddBlockers(root, wall);
             }
-            AddZiggurat(rock, floor);
-            AddStairs(rock);
+            AddZiggurat(ashlar, floor);
+            AddStairs(ashlar);
             AddZigguratBlocker(root);
 
             floor.Instantiate(root, "Floor", materials.Floor);
             rock.Instantiate(root, "Rock", materials.Rock);
+            ashlar.Instantiate(root, "Ashlar", materials.Palette.Ashlar);
             black.Instantiate(root, "RockTop", materials.Black);
 
             var walkable = new GameObject("WalkableSurface") { layer = GroundLayer };
@@ -108,10 +114,10 @@ namespace KingmakerWakingRune.Sanctum
 
         private static void AddRampCollider(Ramp ramp, ChunkedMesh collider)
         {
-            Vector3 a = RampPoint(ramp, ramp.X0, ramp.Y0);
-            Vector3 b = RampPoint(ramp, ramp.X1, ramp.Y0);
-            Vector3 c = RampPoint(ramp, ramp.X1, ramp.Y1);
-            Vector3 d = RampPoint(ramp, ramp.X0, ramp.Y1);
+            Vector3 a = RampPoint(ramp, ramp.WalkX0, ramp.Y0);
+            Vector3 b = RampPoint(ramp, ramp.WalkX1, ramp.Y0);
+            Vector3 c = RampPoint(ramp, ramp.WalkX1, ramp.Y1);
+            Vector3 d = RampPoint(ramp, ramp.WalkX0, ramp.Y1);
             collider.PlanarTriangle(a, b, c, FloorTile);
             collider.PlanarTriangle(a, c, d, FloorTile);
         }
@@ -132,7 +138,7 @@ namespace KingmakerWakingRune.Sanctum
                 }
                 GridPoint p0 = wall.Points[i];
                 GridPoint p1 = wall.Points[(i + 1) % wall.Points.Length];
-                float height = wall.Name.StartsWith("A2") ? SanctumPlan.RingHeight + 1.2f : SanctumPlan.CutawayHeight(p0, p1, LowWall, HighWall);
+                float height = wall.Name.StartsWith("A2") ? SanctumPlan.RingHeight + 1.2f : SanctumPlan.CutawayHeight(p0, p1, wall.Name == "A1" ? ArrivalCurb : LowWall, HighWall);
                 AddWallSegment(p0, p1, height, rock, black);
             }
         }
@@ -175,12 +181,20 @@ namespace KingmakerWakingRune.Sanctum
             }
         }
 
-        private static void AddZiggurat(ChunkedMesh rock, ChunkedMesh floor)
+        private static void AddZiggurat(ChunkedMesh block, ChunkedMesh floor)
         {
             float w = SanctumPlan.ZigguratWest, e = SanctumPlan.ZigguratEast, n = SanctumPlan.ZigguratNorth, s = SanctumPlan.ZigguratSouth;
             float ring = SanctumPlan.RingHeight;
-            Box(rock, w, n, e, s, 0f, ring, north: true, east: true, west: true);
+            float stairWest = SanctumPlan.NorthStairWest, stairEast = SanctumPlan.NorthStairEast, head = SanctumPlan.NorthStairHead;
+            Box(block, w, n, e, s, 0f, ring, east: true, west: true);
+            // The north face, parted by the flight that runs back into the first tier.
+            float rows = ring / WallTile;
+            Face(block, World(stairWest, n, 0f), World(w, n, 0f), World(w, n, ring), World(stairWest, n, ring), rows);
+            Face(block, World(e, n, 0f), World(stairEast, n, 0f), World(stairEast, n, ring), World(e, n, ring), rows);
+            Face(block, World(stairWest, head, 0f), World(stairWest, n, 0f), World(stairWest, n, ring), World(stairWest, head, ring), rows);
+            Face(block, World(stairEast, n, 0f), World(stairEast, head, 0f), World(stairEast, head, ring), World(stairEast, n, ring), rows);
             const int courses = 3;
+            float channelNorth = SanctumPlan.SideStairNorth, channelSouth = SanctumPlan.SideStairSouth;
             for (int i = 0; i < courses; i++)
             {
                 float t0 = (float)i / courses, t1 = (float)(i + 1) / courses;
@@ -189,7 +203,10 @@ namespace KingmakerWakingRune.Sanctum
                 float re = Mathf.Lerp(SanctumPlan.RingInnerEast, SanctumPlan.ApexEast, t0);
                 float rn = Mathf.Lerp(SanctumPlan.RingInnerNorth, SanctumPlan.ApexNorth, t0);
                 float rs = Mathf.Lerp(SanctumPlan.RingInnerSouth, SanctumPlan.ApexSouth, t0);
-                Box(rock, rw, rn, re, rs, bottom, top, north: true, east: true, west: true, south: true, topFace: true);
+                // Channels are left open for the east and west flights, so nobody climbing them walks inside a course.
+                Box(block, rw, rn, re, channelNorth, bottom, top, north: true, east: true, west: true, south: true, topFace: true);
+                Box(block, rw, channelSouth, re, rs, bottom, top, north: true, east: true, west: true, south: true, topFace: true);
+                Box(block, SanctumPlan.ApexWest, channelNorth, SanctumPlan.ApexEast, channelSouth, bottom, top, east: true, west: true, topFace: true);
             }
             float aw = SanctumPlan.ApexWest, ae = SanctumPlan.ApexEast, an = SanctumPlan.ApexNorth, asouth = SanctumPlan.ApexSouth;
             Vector3 p0 = World(aw, an, SanctumPlan.ApexHeight), p1 = World(ae, an, SanctumPlan.ApexHeight), p2 = World(ae, asouth, SanctumPlan.ApexHeight), p3 = World(aw, asouth, SanctumPlan.ApexHeight);
@@ -230,23 +247,26 @@ namespace KingmakerWakingRune.Sanctum
             mesh.Quad(a, d, c, b, Vector2.zero, new Vector2(0f, vRepeat), new Vector2(u, vRepeat), new Vector2(u, 0f));
         }
 
-        private static void AddStairs(ChunkedMesh rock)
+        private static void AddStairs(ChunkedMesh block)
         {
             foreach (Ramp ramp in SanctumPlan.Ramps)
             {
-                int steps = Mathf.Max(3, Mathf.RoundToInt(Mathf.Abs(ramp.HeightTo - ramp.HeightFrom) / 0.19f));
+                int steps = Mathf.Max(3, Mathf.RoundToInt(Mathf.Abs(ramp.HeightTo - ramp.HeightFrom) / StepRise));
+                float below = ramp.HeightFrom;
+                float foot = Mathf.Min(ramp.HeightFrom, ramp.HeightTo);
                 for (int i = 0; i < steps; i++)
                 {
                     float t0 = (float)i / steps, t1 = (float)(i + 1) / steps;
                     float from = Mathf.Lerp(ramp.From, ramp.To, t0), to = Mathf.Lerp(ramp.From, ramp.To, t1);
-                    float height = Mathf.Lerp(ramp.HeightFrom, ramp.HeightTo, t1);
-                    float below = Mathf.Lerp(ramp.HeightFrom, ramp.HeightTo, t0);
-                    AddStep(rock, ramp, from, to, below, height);
+                    // Each tread sits a hair under the walking slope at its middle, so feet rest on the stone instead of in it.
+                    float height = Mathf.Lerp(ramp.HeightFrom, ramp.HeightTo, (t0 + t1) / 2f) - TreadSink;
+                    AddStep(block, ramp, from, to, below, height, foot);
+                    below = height;
                 }
             }
         }
 
-        private static void AddStep(ChunkedMesh rock, Ramp ramp, float from, float to, float below, float height)
+        private static void AddStep(ChunkedMesh block, Ramp ramp, float from, float to, float below, float height, float foot)
         {
             Vector3 P(float along, float cross, float h)
             {
@@ -255,13 +275,23 @@ namespace KingmakerWakingRune.Sanctum
             float c0 = ramp.AlongX ? Mathf.Min(ramp.Y0, ramp.Y1) : Mathf.Min(ramp.X0, ramp.X1);
             float c1 = ramp.AlongX ? Mathf.Max(ramp.Y0, ramp.Y1) : Mathf.Max(ramp.X0, ramp.X1);
             Vector3 a = P(from, c0, height), b = P(from, c1, height), c = P(to, c1, height), d = P(to, c0, height);
-            rock.PlanarTriangle(a, b, c, WallTile);
-            rock.PlanarTriangle(a, c, d, WallTile);
+            block.PlanarTriangle(a, b, c, WallTile);
+            block.PlanarTriangle(a, c, d, WallTile);
             Vector3 riseA = P(from, c0, below), riseB = P(from, c1, below);
             float v = Mathf.Abs(height - below) / WallTile;
             float u = (b - a).magnitude / WallTile;
-            rock.Quad(riseA, riseB, b, a, Vector2.zero, new Vector2(u, 0f), new Vector2(u, v), new Vector2(0f, v));
-            rock.Quad(riseA, a, b, riseB, Vector2.zero, new Vector2(0f, v), new Vector2(u, v), new Vector2(u, 0f));
+            block.Quad(riseA, riseB, b, a, Vector2.zero, new Vector2(u, 0f), new Vector2(u, v), new Vector2(0f, v));
+            block.Quad(riseA, a, b, riseB, Vector2.zero, new Vector2(0f, v), new Vector2(u, v), new Vector2(u, 0f));
+            // Closed flanks: a flight seen from the side is solid stone, not a row of floating treads.
+            AddStepFlank(block, P(from, c0, foot), P(to, c0, foot), P(to, c0, height), P(from, c0, height));
+            AddStepFlank(block, P(from, c1, foot), P(to, c1, foot), P(to, c1, height), P(from, c1, height));
+        }
+
+        private static void AddStepFlank(ChunkedMesh block, Vector3 a, Vector3 b, Vector3 c, Vector3 d)
+        {
+            float u = (b - a).magnitude / WallTile, v = (d - a).magnitude / WallTile;
+            block.Quad(a, b, c, d, Vector2.zero, new Vector2(u, 0f), new Vector2(u, v), new Vector2(0f, v));
+            block.Quad(a, d, c, b, Vector2.zero, new Vector2(0f, v), new Vector2(u, v), new Vector2(u, 0f));
         }
 
         private static void AddBlockers(Transform root, WallRun wall)
