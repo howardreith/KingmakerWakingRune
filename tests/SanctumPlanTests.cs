@@ -186,6 +186,50 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(true, SanctumPlan.HeightAt(11f, 15.7f) == 0f, "chamber floor in front of the gap");
         }
 
+        /// <summary>Walls have no thickness to the navmesh, so separate spaces need real distance between their walkable floors.</summary>
+        public static void TestSeparateSpacesKeepClearOfEachOther()
+        {
+            const float clearance = 0.45f, step = 0.1f;
+            var leaks = new List<string>();
+            bool NearDoor(float x, float y) => SanctumPlan.Doors.Any(d => SanctumPlan.InDoorway(d, x, y, 0.9f));
+            string Space(float x, float y)
+            {
+                if (!SanctumPlan.HeightAt(x, y).HasValue)
+                {
+                    return null;
+                }
+                if (SanctumPlan.Inside(SanctumPlan.Atrium, x, y))
+                {
+                    return "A4A5";
+                }
+                bool inCore = SanctumPlan.Inside(SanctumPlan.CoreForWalking, x, y);
+                return inCore ? "Inner" : "A3";
+            }
+            for (float y = 1f; y < 30f; y += step)
+            {
+                for (float x = 2f; x < 24f; x += step)
+                {
+                    string here = Space(x, y);
+                    if (here == null || NearDoor(x, y))
+                    {
+                        continue;
+                    }
+                    for (int a = 0; a < 16; a++)
+                    {
+                        double angle = a * Math.PI / 8.0;
+                        float ox = x + clearance * (float)Math.Cos(angle), oy = y + clearance * (float)Math.Sin(angle);
+                        string there = Space(ox, oy);
+                        if (there != null && there != here && !NearDoor(ox, oy))
+                        {
+                            leaks.Add($"{here}({x:0.0},{y:0.0})~{there}");
+                            break;
+                        }
+                    }
+                }
+            }
+            Assert.Equal(0, leaks.Count, "spaces too close: " + string.Join(" ", leaks.Take(40).ToArray()));
+        }
+
         public static void TestDoorsFillTheMappedOpenings()
         {
             foreach (DoorPlan door in SanctumPlan.Doors)

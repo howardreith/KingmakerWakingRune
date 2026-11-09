@@ -168,9 +168,10 @@ namespace KingmakerWakingRune.Sanctum
 
         /// <summary>
         /// The core for walking purposes: it bulges around the ziggurat's two south corners, which overhang A3's floor
-        /// by less than the navmesh's step allowance would otherwise respect, and along both sides of the A2 stairs.
+        /// by less than the navmesh's step allowance would otherwise respect, along both sides of the A2 stairs, and
+        /// on the north-east diagonal, where A4's lobes come within inches of the A3 floor behind a zero-thickness wall.
         /// </summary>
-        public static readonly GridPoint[] CoreForWalking = Points(9.24f, 4, 16.76f, 4, 21, 8.24f, 21, 13.9f, 21, 15.4f, 21, 16.83f, 16.81f, 21.4f, 16.45f, 23.45f, 14.9f, 23.49f, 14.6f, 24.3f, 14.6f, 26.7f, 13.9f, 26.7f, 13.9f, 26.4f, 12.4f, 26.4f, 12.4f, 26.7f, 11.7f, 26.7f, 11.7f, 24.3f, 11.35f, 23.46f, 9.55f, 23.45f, 9.38f, 21.4f, 5, 16.83f, 5, 8.24f);
+        public static readonly GridPoint[] CoreForWalking = Points(9.24f, 4, 16.76f, 4, 18.16f, 5.4f, 19.18f, 5.58f, 20.88f, 7.28f, 21.25f, 8.24f, 21.25f, 13.6f, 21, 13.9f, 21, 15.4f, 21, 16.83f, 18.15f, 20.4f, 17.2f, 21.65f, 16.45f, 23.45f, 14.9f, 23.49f, 14.6f, 24.3f, 14.6f, 26.7f, 13.9f, 26.7f, 13.9f, 26.4f, 12.4f, 26.4f, 12.4f, 26.7f, 11.7f, 26.7f, 11.7f, 24.3f, 11.35f, 23.46f, 9.55f, 23.45f, 8.95f, 21.65f, 7.85f, 20.4f, 5, 16.83f, 5, 8.24f);
 
         public static readonly GridPoint[] Atrium = BuildAtrium();
 
