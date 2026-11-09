@@ -1,5 +1,6 @@
 using Kingmaker;
 using Kingmaker.EntitySystem.Entities;
+using Kingmaker.EntitySystem.Persistence;
 using UnityEngine;
 
 namespace KingmakerWakingRune.Sanctum
@@ -78,7 +79,8 @@ namespace KingmakerWakingRune.Sanctum
 
         private void Update()
         {
-            if (Time.unscaledTime < m_NextPoll || m_Effects.activeSelf)
+            // A save load disposes the player's state before this scene is unloaded, so the party cannot be asked for then.
+            if (Time.unscaledTime < m_NextPoll || m_Effects.activeSelf || LoadingProcess.Instance.IsLoadingInProcess)
             {
                 return;
             }

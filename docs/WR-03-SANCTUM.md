@@ -25,7 +25,7 @@ GUIDs come from `ScenarioIds.Derive(name)` (MD5 of a fixed name), so they stay t
 
 ## Donor and asset provenance
 - Materials cloned from the donor scene: `cyclops_dungeon_floor_tile_02_opaque_d`, `cyclops_dungeon_rock_opaque_d`, `black_cut_opaque_d`. No game asset is shipped or modified on disk.
-- Scenery is merged runtime meshes without colliders (`SceneryMesh`), over textures painted at load (`SanctumPalette`). No texture is shipped. Figures are deliberately simple stone shapes.
+- Scenery is merged runtime meshes without colliders (`SceneryMesh`), over textures painted at load (`SanctumPalette`). No texture is shipped. The 31 petrified figures are installed unit models posed and baked to stone (`StatueBuilder`); each placement is listed in `WR-03B-STATUES.md`.
 - `art/RefugeToken_master.png` (512×512, SHA-256 `8799CBD1…CDA6`) and `assets/icons/RefugeToken.png` (128×128, 18,160 bytes, SHA-256 `D04275AF…3E9C`) are original, painted by `scripts/MakeRefugeTokenIcon.ps1`. Native item icons are 128×128 sprites at 66.667 ppu. The file ships as `Icons/RefugeToken.png`.
 
 ## Grid transform
@@ -43,7 +43,7 @@ One square is 5 ft = 1.524 m. `worldX = (gridX − 13) × 1.524`; `worldZ = (15.
 | Ceilings | 20 ft, A1 30 ft | Cutaway only: walls in front of a floor stay low, walls behind rise only as far as they can without hiding the next walkable floor. No ceiling is rendered. |
 | A4 dome (WR-03A) | Opaque glassy dome | **Not drawn.** The floating rim crossed the room, so it is removed; the tan light remains. |
 | A3 plates (WR-03A) | Built into alternating walls | Stone masses engaged with the wall at the mapped points. Each plate leans back by a per-wall tilt (6° to 56°) only so the fixed camera can read it. |
-| Doors (WR-03A) | A2 Sihedron door; A4 approach | **Native, working doors**, closed by default, unlocked and untrapped: `StandardDoor` state in the save, native approach interaction, navmesh cut and sight blocker. A2 opens into A3 as the source says; the east door opens inward against the passage's far wall. A party member in a doorway blocks closing. Silent: no donor door sound exists. |
+| Doors (WR-03A) | A2 Sihedron door; A4 approach | **Native, working doors**, closed by default, unlocked and untrapped: `StandardDoor` state in the save, native approach interaction, navmesh cut and sight blocker. A2 opens into A3 as the source says; the east door opens inward against the passage's far wall. A door will not close on anyone whose body overlaps its doorway or the leaf's swing, measured with each unit's own corpulence and height. Saves from before the doors existed open them once; an explicitly saved state is never changed. Silent: no donor door sound exists. |
 | Chains (WR-03A) | Four chains from the walls | Wall-engaged piers at the mapped points. The south-east pier is 1.45 m so it stays below the view of A1, which leaves that chain near-level. |
 | Style (WR-03A) | Sparse, little decoration | Restrained Egyptian-influenced forms only: battered faces and flared cornices on existing elements, nothing decorative added. Ornament stays where the source puts it. |
 | Floor (WR-03A) | Carved stone | Plainer donor tile `cyclops_dungeon_floor_tile_01` in place of the busier `_02`. |

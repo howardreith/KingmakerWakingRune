@@ -13,7 +13,7 @@ scenario's map. It has no enemies or return route yet.
 - No other mods are required.
 
 ## Install
-1. Build (or take) `artifacts/KingmakerWakingRune-0.3.1.zip`.
+1. Build (or take) `artifacts/KingmakerWakingRune-0.3.2.zip`.
 2. Extract it into `<Kingmaker>/Mods/` so you get `Mods/KingmakerWakingRune/{Info.json, KingmakerWakingRune.dll, Icons/..., Portraits/...}`
    (or install the zip through the UMM installer).
 
