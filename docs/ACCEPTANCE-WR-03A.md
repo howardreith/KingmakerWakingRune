@@ -1,5 +1,7 @@
 # WR-03A acceptance report (Sanctum refinement)
 
+> Closed-door visibility claims here rested on screenshots. `ACCEPTANCE-WR-03B.md` supersedes them with measured results.
+
 **Candidate:** commit `3093e0347b903acbd9305a50d62be83c9d6878bd` · package `KingmakerWakingRune-0.3.1.zip` SHA-256 `d11846ff3f0c5a937cb326c2f11da8b800bc2b7b9e771717db37e89896423abb` · DLL SHA-256 `344843a7883a0a297ed8d4d99f54c0f0fea96804f70c1b936227cd05a1e857cf`. Later commits change only documents.
 **Environment:** Kingmaker 2.1.7b (Steam, cloud sync disabled), UMM 0.33.2, 1280×720. **Tests:** 43/43.
 **Method:** real mouse and keyboard input on the packaged candidate through the guarded harness, in one transaction started from this exact package. Captures were opened and inspected. State reports come from the harness probe, which is inert without `capture.flag`; that flag is written by the harness and is not in the package. No debug helper changes game state.
