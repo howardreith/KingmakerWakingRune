@@ -37,6 +37,7 @@ namespace KingmakerWakingRune.Diagnostics
                 return;
             }
             s_BlueprintsDumped = true;
+            RulesRecon.Dump(library, () => Enabled);
             Write("blueprints.txt", sb =>
             {
                 var all = library.GetAllBlueprints();

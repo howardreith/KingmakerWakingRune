@@ -484,7 +484,8 @@ function Invoke-Collect {
     $logBytes = [IO.File]::ReadAllBytes($UmmLog)
     $start = [Math]::Min([long]$s.ummLogLength, $logBytes.Length)
     if ($logBytes.Length -lt [long]$s.ummLogLength) { $start = 0 }
-    [IO.File]::WriteAllBytes((Join-Path $run 'umm-log.txt'), $logBytes[$start..($logBytes.Length - 1)])
+    $newLog = [IO.File]::Create((Join-Path $run 'umm-log.txt'))
+    try { $newLog.Write($logBytes, $start, $logBytes.Length - $start) } finally { $newLog.Dispose() }
     $out = Join-Path $ProfileDir 'output_log.txt'
     if (Test-Path -LiteralPath $out) { Copy-Item -LiteralPath $out -Destination (Join-Path $run ('output_log-{0:HHmmss}.txt' -f (Get-Date))) }
     $recon = Join-Path $ModDir 'recon'

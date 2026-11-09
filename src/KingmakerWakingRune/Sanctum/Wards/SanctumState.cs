@@ -1,0 +1,252 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+// Saved fields: some are only ever written by the native adapters or the JSON reader.
+#pragma warning disable CS0649
+
+namespace KingmakerWakingRune.Sanctum.Wards
+{
+    internal sealed class KnowledgeEntry
+    {
+        public string Key = string.Empty;
+        public string Actor = string.Empty;
+        public string Skill = string.Empty;
+        public int Rank;
+        public int Result;
+    }
+
+    internal sealed class AlarmState
+    {
+        public double ExpiresAt = -1d;
+        public bool Disarmed;
+        public bool Dispelled;
+        public int Alerts;
+        public double FirstAlertAt = -1d;
+        public double LastAlertAt = -1d;
+
+        public bool IsActive(double now)
+        {
+            return !Disarmed && !Dispelled && ExpiresAt >= 0d && now < ExpiresAt;
+        }
+    }
+
+    internal sealed class GlyphState
+    {
+        public bool Triggered;
+        public bool Disarmed;
+        public bool Dispelled;
+        public double TriggeredAt = -1d;
+    }
+
+    internal sealed class DoorWardState
+    {
+        /// <summary>The physical latch: a barrier on fresh starts, released by a legal opening.</summary>
+        public bool Latched = true;
+        public bool Destroyed;
+        public int HitPoints = WardProfile.DoorHitPoints;
+        public FeederState Feeder = new FeederState();
+    }
+
+    internal sealed class HoundState
+    {
+        public double ExpiresAt = -1d;
+        public double FirstBarkAt = -1d;
+        public double DischargedExpiresAt = -1d;
+        public bool Dispelled;
+        public double LastBiteAt = -1d;
+        public List<string> BarkedAt = new List<string>();
+
+        public bool IsActive(double now)
+        {
+            if (Dispelled || ExpiresAt < 0d || now >= ExpiresAt)
+            {
+                return false;
+            }
+            return DischargedExpiresAt < 0d || now < DischargedExpiresAt;
+        }
+    }
+
+    internal enum StatueOutcome
+    {
+        Stone,
+        Living,
+        Corpse,
+        Crumbling,
+        Ash,
+    }
+
+    internal sealed class StatueState
+    {
+        public string Id = string.Empty;
+        public StatueOutcome Outcome = StatueOutcome.Stone;
+        /// <summary>The entity that replaced this figure, so a reload re-binds rather than duplicates it.</summary>
+        public string EntityId = string.Empty;
+        public double CrumbleStartedAt = -1d;
+        public bool Reported;
+        public double ReportedAt = -1d;
+    }
+
+    internal sealed class GemState
+    {
+        public int HitPoints = WardProfile.GemHitPoints;
+        public bool Destroyed;
+    }
+
+    /// <summary>
+    /// Everything WR-04 must remember, as plain serializable data. It holds no game objects or renderer flags; the adapters
+    /// rebuild the world from it on every load, so a reload never rerolls, re-triggers or duplicates anything.
+    /// </summary>
+    internal sealed class SanctumState
+    {
+        public const int CurrentVersion = 1;
+
+        public int Version = CurrentVersion;
+        public string ProfileSubtier = WardProfile.Subtier;
+        public int ProfilePartyBaseline = WardProfile.PartyBaseline;
+        public bool ProfileExtraChallenge = WardProfile.ExtraChallenge;
+        public bool Initialized;
+        public double InitializedAt = -1d;
+        /// <summary>True for a save that entered the empty pre-WR-04 sanctum; its wards were armed around the party.</summary>
+        public bool MigratedLegacy;
+        public bool LegacyNoticeShown;
+
+        public double Clock;
+        public List<KnowledgeEntry> Knowledge = new List<KnowledgeEntry>();
+        public Dictionary<string, RuneFocusState> Foci = new Dictionary<string, RuneFocusState>();
+        public int RuneMask;
+        public Dictionary<string, CurseRecord> Curses = new Dictionary<string, CurseRecord>();
+        public Dictionary<string, MistRecord> Mist = new Dictionary<string, MistRecord>();
+        public Dictionary<string, StatueState> Statues = new Dictionary<string, StatueState>();
+        public AlarmState Alarm = new AlarmState();
+        public GlyphState Glyph = new GlyphState();
+        public DoorWardState Door = new DoorWardState();
+        public HoundState Hound = new HoundState();
+        public GemState Gem = new GemState();
+        public RitualState Ritual = new RitualState();
+        public bool FlailAcquired;
+        public string TokenMotif = string.Empty;
+
+        public RuneFocusState Focus(string id)
+        {
+            if (!Foci.TryGetValue(id, out RuneFocusState focus))
+            {
+                focus = new RuneFocusState();
+                Foci[id] = focus;
+            }
+            return focus;
+        }
+
+        public CurseRecord Curse(string actor)
+        {
+            if (!Curses.TryGetValue(actor, out CurseRecord record))
+            {
+                record = new CurseRecord { Actor = actor };
+                Curses[actor] = record;
+            }
+            return record;
+        }
+
+        public MistRecord MistOf(string actor)
+        {
+            if (!Mist.TryGetValue(actor, out MistRecord record))
+            {
+                record = new MistRecord { Actor = actor };
+                Mist[actor] = record;
+            }
+            return record;
+        }
+
+        public StatueState Statue(string id)
+        {
+            if (!Statues.TryGetValue(id, out StatueState statue))
+            {
+                statue = new StatueState { Id = id };
+                Statues[id] = statue;
+            }
+            return statue;
+        }
+
+        /// <summary>Recomputes the seven-bit mask from each focus's state, the one authoritative source.</summary>
+        public int RecomputeMask()
+        {
+            RuneMask = KruneProjection.Foci.Where(f => Focus(f.Id).Disabled).Aggregate(0, (mask, f) => mask | (1 << f.Bit));
+            return RuneMask;
+        }
+
+        /// <summary>Starts ward lifetimes once, at the first sanctum initialization. A later load changes nothing.</summary>
+        public bool Initialize(double now, bool legacyEntered)
+        {
+            if (Initialized)
+            {
+                return false;
+            }
+            Initialized = true;
+            InitializedAt = now;
+            Clock = now;
+            MigratedLegacy = legacyEntered;
+            Alarm.ExpiresAt = now + WardProfile.AlarmDurationSeconds;
+            Hound.ExpiresAt = now + WardProfile.HoundDurationSeconds;
+            if (legacyEntered)
+            {
+                // A pre-WR-04 save may have walked through this door when it was unlocked; a barrier must not close on it.
+                Door.Latched = false;
+            }
+            return true;
+        }
+    }
+
+    /// <summary>One roll per character, skill and rank, preserved through saves; a higher rank or new character earns a fresh attempt.</summary>
+    internal static class InspectionRules
+    {
+        public static bool CanAttempt(IEnumerable<KnowledgeEntry> ledger, string key, string actor, string skill, int rank)
+        {
+            return !ledger.Any(e => e.Key == key && e.Actor == actor && e.Skill == skill && e.Rank >= rank);
+        }
+
+        public static void Record(ICollection<KnowledgeEntry> ledger, string key, string actor, string skill, int rank, int result)
+        {
+            ledger.Add(new KnowledgeEntry { Key = key, Actor = actor, Skill = skill, Rank = rank, Result = result });
+        }
+
+        public static int BestResult(IEnumerable<KnowledgeEntry> ledger, string key)
+        {
+            return ledger.Where(e => e.Key == key).Select(e => e.Result).DefaultIfEmpty(int.MinValue).Max();
+        }
+
+        /// <summary>0 for nothing learned, 1 for identity and hint, 2 for the exact routes.</summary>
+        public static int RuneTier(int result)
+        {
+            return result >= WardProfile.RuneExactDC ? 2 : result >= WardProfile.RuneHintDC ? 1 : 0;
+        }
+    }
+
+    internal enum BearerRole
+    {
+        Attack,
+        Report,
+    }
+
+    /// <summary>The authored per-slot response of the ten restored bearers: a balanced five and five, and fixed in this manifest.</summary>
+    internal static class BearerManifest
+    {
+        public static readonly IReadOnlyDictionary<string, BearerRole> Roles = new Dictionary<string, BearerRole>
+        {
+            { "Support-N1", BearerRole.Report },
+            { "Support-N2", BearerRole.Attack },
+            { "Support-N3", BearerRole.Report },
+            { "Support-N4", BearerRole.Attack },
+            { "Support-T1", BearerRole.Report },
+            { "Support-T2", BearerRole.Attack },
+            { "Support-W1", BearerRole.Attack },
+            { "Support-E1", BearerRole.Report },
+            { "Support-W2", BearerRole.Report },
+            { "Support-E2", BearerRole.Attack },
+        };
+
+        public static bool IsBearer(string statueId)
+        {
+            return statueId.StartsWith("Support-", StringComparison.Ordinal);
+        }
+    }
+}
