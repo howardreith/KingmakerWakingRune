@@ -4,11 +4,13 @@ using System.Linq;
 using Harmony12;
 using Kingmaker;
 using Kingmaker.Blueprints.Area;
+using Kingmaker.EntitySystem.Entities;
 using Kingmaker.View;
 using Kingmaker.Visual;
 using Kingmaker.Visual.FogOfWar;
 using Kingmaker.Visual.LocalMap;
 using KingmakerWakingRune.Blueprints;
+using KingmakerWakingRune.Diagnostics;
 using Pathfinding;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -43,38 +45,75 @@ namespace KingmakerWakingRune.Sanctum
                 Log.Info($"Sanctum lighting applied: {hidden} donor light roots hidden.");
             }
         }
+
+        /// <summary>Everything below this root was generated for this load, so its meshes and materials go with it.</summary>
+        private void OnDestroy()
+        {
+            foreach (MeshFilter filter in GetComponentsInChildren<MeshFilter>(true))
+            {
+                Destroy(filter.sharedMesh);
+            }
+            foreach (Renderer renderer in GetComponentsInChildren<Renderer>(true))
+            {
+                foreach (Material material in renderer.sharedMaterials)
+                {
+                    if (material != null)
+                    {
+                        // Copies of donor materials still point at the donor's textures, which are not ours to destroy.
+                        if (material.mainTexture != null && material.mainTexture.name.StartsWith(SanctumPalette.OwnedTexturePrefix))
+                        {
+                            Destroy(material.mainTexture);
+                        }
+                        Destroy(material);
+                    }
+                }
+            }
+        }
     }
 
     internal static class SanctumScope
     {
         private const float MapHalfWidth = 22f;
         private const float MapHalfDepth = 26f;
+        /// <summary>Metres two arrivals must stand apart; anything closer is the stacked placement this check exists to catch.</summary>
+        private const float MinSeparation = 0.2f;
+        /// <summary>Metres a restored unit may be from the navmesh and still count as standing on it.</summary>
+        private const float NavmeshReach = 0.45f;
 
+        private static readonly SanctumBuildGate s_Gate = new SanctumBuildGate();
         private static GameObject s_Root;
         private static TileHandlerHelper s_CutHelper;
+        private static bool s_CutsApplied;
 
-        public static bool IsBuilt => s_Root != null;
+        public static bool IsBuilt => s_Gate.IsReady && s_Root != null;
+
+        public static int StatueCount => s_Root == null ? 0 : s_Root.GetComponentsInChildren<Transform>(true).Select(t => t.name).Where(n => n.StartsWith(StatueBuilder.ObjectPrefix)).Distinct().Count();
 
         public static bool IsSanctumLoaded => ScenarioBlueprints.Sanctum != null && Game.Instance.CurrentlyLoadedArea == ScenarioBlueprints.Sanctum;
 
         /// <summary>Called both before native party placement (travel) and at scene-load completion (saves).</summary>
         public static void EnsureBuilt()
         {
-            if (IsBuilt)
+            if (s_Root == null && s_Gate.IsReady)
             {
-                return;
+                s_Gate.Reset();
             }
-            try
-            {
-                Build();
-            }
-            catch (Exception ex)
-            {
-                Log.Error("Sanctum construction failed.", ex);
-            }
+            s_Gate.Ensure(Build, DiscardPartialBuild, ex => Log.Error("Sanctum construction failed.", ex));
         }
 
-        private static void Build()
+        private static void DiscardPartialBuild()
+        {
+            if (s_Root != null)
+            {
+                UnityEngine.Object.DestroyImmediate(s_Root);
+            }
+            s_Root = null;
+            s_CutHelper = null;
+            s_CutsApplied = false;
+            Log.Error("Sanctum build not published; its partial objects were removed and it can be tried again.");
+        }
+
+        private static bool Build()
         {
             BlueprintArea area = ScenarioBlueprints.Sanctum;
             Scene statics = SceneManager.GetSceneByName(area.StaticScene.SceneName);
@@ -82,8 +121,9 @@ namespace KingmakerWakingRune.Sanctum
             if (!statics.isLoaded || !mechanics.isLoaded || AstarPath.active == null)
             {
                 Log.Error($"Sanctum scenes are not ready: static={statics.isLoaded} mechanics={mechanics.isLoaded} astar={AstarPath.active != null}.");
-                return;
+                return false;
             }
+            s_CutsApplied = false;
             SanctumMaterials materials = HarvestMaterials(statics);
             materials.Palette = new SanctumPalette(materials.Rock);
             int hidden = HideDonorObjects(statics) + HideDonorObjects(mechanics);
@@ -92,12 +132,162 @@ namespace KingmakerWakingRune.Sanctum
             s_Root.AddComponent<SanctumRootMarker>();
             SceneManager.MoveGameObjectToScene(s_Root, mechanics);
             SanctumBuilder.Build(s_Root.transform, materials);
+            if (FaultInjection.Take("build-failed"))
+            {
+                throw new InvalidOperationException("INJECTED FAULT build-failed: construction stopped after the root was created.");
+            }
             SanctumDressing.Build(s_Root.transform, materials);
             SanctumLighting.Apply(s_Root.transform);
             ConfigureBounds();
             ScanNavigation();
-            SanctumDoors.ReleaseOccupied();
             Log.Info($"Sanctum built: {hidden} donor roots hidden, {s_Root.GetComponentsInChildren<Renderer>().Length} renderers, {NavNodeCount()} navmesh nodes.");
+            return true;
+        }
+
+        /// <summary>Whether a token arrival may commit: everything set up, and the party actually standing on valid, separate ground.</summary>
+        public static bool CheckArrival(out string problem)
+        {
+            problem = null;
+            if (!IsBuilt)
+            {
+                problem = "the sanctum did not finish building";
+            }
+            else if (!SanctumDoors.AreReady)
+            {
+                problem = "the doors are not ready";
+            }
+            else if (!s_CutsApplied)
+            {
+                problem = "the door cuts are not applied";
+            }
+            else if (AstarPath.active == null || NavNodeCount() == 0)
+            {
+                problem = "there is no navigation";
+            }
+            else if (FaultInjection.Take("arrival-invalid"))
+            {
+                problem = "INJECTED FAULT arrival-invalid";
+            }
+            else
+            {
+                problem = CheckPartyPlacement();
+            }
+            return problem == null;
+        }
+
+        private static string CheckPartyPlacement()
+        {
+            List<UnitEntityData> party = PartyAndPets().ToList();
+            if (party.Count == 0)
+            {
+                return "nobody arrived";
+            }
+            foreach (UnitEntityData unit in party)
+            {
+                if (!unit.IsInGame || unit.View == null)
+                {
+                    return $"{unit.CharacterName} is not in the area";
+                }
+                Vector3 p = unit.Position;
+                float x = GridX(p), y = GridY(p);
+                if (SanctumPlan.SpaceAt(x, y) != SanctumSpace.Interior || !SanctumPlan.IsValidGround(x, y, p.y))
+                {
+                    return $"{unit.CharacterName} was placed off the arrival floor at ({x:0.0}, {y:0.0})";
+                }
+                if (party.Any(other => other != unit && (other.Position - p).sqrMagnitude < MinSeparation * MinSeparation))
+                {
+                    return $"{unit.CharacterName} was placed on top of another party member";
+                }
+            }
+            return null;
+        }
+
+        private static IEnumerable<UnitEntityData> PartyAndPets()
+        {
+            foreach (UnitEntityData unit in Game.Instance.Player.Party)
+            {
+                yield return unit;
+                UnitEntityData pet = unit.Descriptor.Pet;
+                if (pet != null)
+                {
+                    yield return pet;
+                }
+            }
+        }
+
+        private static float GridX(Vector3 p)
+        {
+            return p.x / SanctumPlan.MetersPerSquare + SanctumPlan.OriginX;
+        }
+
+        private static float GridY(Vector3 p)
+        {
+            return SanctumPlan.OriginY - p.z / SanctumPlan.MetersPerSquare;
+        }
+
+        /// <summary>
+        /// Puts anyone a save left somewhere the plan or navmesh no longer allows, such as a flight that has since moved,
+        /// on the nearest ground in the same space. Everyone else, and everything else about them, is left alone.
+        /// </summary>
+        public static void RepairRestoredPositions()
+        {
+            if (!IsBuilt)
+            {
+                return;
+            }
+            List<UnitEntityData> party = PartyAndPets().Where(u => u.IsInGame && u.View != null).ToList();
+            foreach (UnitEntityData unit in party)
+            {
+                if (IsStandingValidly(unit.Position))
+                {
+                    continue;
+                }
+                Vector3 from = unit.Position;
+                SanctumSpace space = SanctumPlan.SpaceAt(GridX(from), GridY(from));
+                Vector3? ground = FindGround(GridX(from), GridY(from), space, unit, party);
+                if (ground == null)
+                {
+                    Log.Error($"No safe ground found near {unit.CharacterName} at {from}; left in place.");
+                    continue;
+                }
+                unit.Position = ground.Value;
+                Log.Info($"Restored position corrected: {unit.CharacterName} {from} -> {ground.Value} in {space}.");
+            }
+        }
+
+        private static bool IsStandingValidly(Vector3 p)
+        {
+            return SanctumPlan.IsValidGround(GridX(p), GridY(p), p.y) && IsOnNavmesh(p);
+        }
+
+        private static bool IsOnNavmesh(Vector3 p)
+        {
+            NNInfo nearest = ObstacleAnalyzer.GetNearestNode(p);
+            Vector3 clamped = nearest.clampedPosition;
+            return nearest.node != null && new Vector2(clamped.x - p.x, clamped.z - p.z).sqrMagnitude <= NavmeshReach * NavmeshReach && Mathf.Abs(clamped.y - p.y) <= SanctumPlan.GroundTolerance;
+        }
+
+        private static Vector3? FindGround(float x, float y, SanctumSpace space, UnitEntityData unit, List<UnitEntityData> party)
+        {
+            foreach (GridPoint candidate in SanctumPlan.RingsAround(x, y))
+            {
+                float? height = SanctumPlan.HeightAt(candidate.X, candidate.Y);
+                if (!height.HasValue || (space != SanctumSpace.None && SanctumPlan.SpaceAt(candidate.X, candidate.Y) != space))
+                {
+                    continue;
+                }
+                var point = new Vector3(SanctumPlan.ToWorldX(candidate.X), height.Value, SanctumPlan.ToWorldZ(candidate.Y));
+                if (!IsOnNavmesh(point))
+                {
+                    continue;
+                }
+                Vector3 placed = ObstacleAnalyzer.GetNearestNode(point).clampedPosition;
+                if (party.All(other => other == unit || new Vector2(other.Position.x - placed.x, other.Position.z - placed.z).magnitude >= other.View.Corpulence + unit.View.Corpulence))
+                {
+                    return placed;
+                }
+            }
+            return null;
         }
 
         public static SanctumMaterials HarvestMaterials(Scene statics)
@@ -280,6 +470,7 @@ namespace KingmakerWakingRune.Sanctum
             }
             s_CutHelper.ForceUpdate();
             s_CutHelper = null;
+            s_CutsApplied = true;
             Log.Info("Sanctum door cuts applied.");
         }
 

@@ -54,9 +54,12 @@ namespace KingmakerWakingRune.Sanctum
             foreach (WallRun wall in SanctumPlan.Walls)
             {
                 AddWall(wall, rock, black);
-                AddBlockers(root, wall);
             }
-            AddZiggurat(ashlar, floor);
+            foreach (WallRun line in SanctumPlan.SightLines)
+            {
+                AddBlockers(root, line);
+            }
+            AddZiggurat(ashlar);
             AddStairs(ashlar);
             AddZigguratBlocker(root);
 
@@ -186,7 +189,7 @@ namespace KingmakerWakingRune.Sanctum
             }
         }
 
-        private static void AddZiggurat(ChunkedMesh block, ChunkedMesh floor)
+        private static void AddZiggurat(ChunkedMesh block)
         {
             float w = SanctumPlan.ZigguratWest, e = SanctumPlan.ZigguratEast, n = SanctumPlan.ZigguratNorth, s = SanctumPlan.ZigguratSouth;
             float ring = SanctumPlan.RingHeight;
@@ -198,51 +201,49 @@ namespace KingmakerWakingRune.Sanctum
             Face(block, World(e, n, 0f), World(stairEast, n, 0f), World(stairEast, n, ring), World(e, n, ring), rows);
             Face(block, World(stairWest, head, 0f), World(stairWest, n, 0f), World(stairWest, n, ring), World(stairWest, head, ring), rows);
             Face(block, World(stairEast, n, 0f), World(stairEast, head, 0f), World(stairEast, head, ring), World(stairEast, n, ring), rows);
-            const int courses = 3;
-            float channelNorth = SanctumPlan.SideStairNorth, channelSouth = SanctumPlan.SideStairSouth;
-            for (int i = 0; i < courses; i++)
+            foreach (PlanFace face in ZigguratMasonry.Faces)
             {
-                float t0 = (float)i / courses, t1 = (float)(i + 1) / courses;
-                float bottom = Mathf.Lerp(ring, SanctumPlan.ApexHeight, t0), top = Mathf.Lerp(ring, SanctumPlan.ApexHeight, t1);
-                float rw = Mathf.Lerp(SanctumPlan.RingInnerWest, SanctumPlan.ApexWest, t0);
-                float re = Mathf.Lerp(SanctumPlan.RingInnerEast, SanctumPlan.ApexEast, t0);
-                float rn = Mathf.Lerp(SanctumPlan.RingInnerNorth, SanctumPlan.ApexNorth, t0);
-                float rs = Mathf.Lerp(SanctumPlan.RingInnerSouth, SanctumPlan.ApexSouth, t0);
-                // Channels are left open for the east and west flights, so nobody climbing them walks inside a course.
-                Box(block, rw, rn, re, channelNorth, bottom, top, north: true, east: true, west: true, south: true, topFace: true);
-                Box(block, rw, channelSouth, re, rs, bottom, top, north: true, east: true, west: true, south: true, topFace: true);
-                Box(block, SanctumPlan.ApexWest, channelNorth, SanctumPlan.ApexEast, channelSouth, bottom, top, east: true, west: true, topFace: true);
+                AddFace(block, face);
             }
-            float aw = SanctumPlan.ApexWest, ae = SanctumPlan.ApexEast, an = SanctumPlan.ApexNorth, asouth = SanctumPlan.ApexSouth;
-            Vector3 p0 = World(aw, an, SanctumPlan.ApexHeight), p1 = World(ae, an, SanctumPlan.ApexHeight), p2 = World(ae, asouth, SanctumPlan.ApexHeight), p3 = World(aw, asouth, SanctumPlan.ApexHeight);
-            floor.PlanarTriangle(p0, p1, p2, FloorTile);
-            floor.PlanarTriangle(p0, p2, p3, FloorTile);
+            // The walkable apex is drawn by its region; a course keeps only the top the next one up leaves exposed.
+            foreach (PlanPatch top in ZigguratMasonry.Tops)
+            {
+                Vector3 a = World(top.West, top.North, top.Height), b = World(top.East, top.North, top.Height), c = World(top.East, top.South, top.Height), d = World(top.West, top.South, top.Height);
+                block.PlanarTriangle(a, b, c, WallTile);
+                block.PlanarTriangle(a, c, d, WallTile);
+            }
         }
 
-        private static void Box(ChunkedMesh mesh, float w, float n, float e, float s, float bottom, float top, bool north = false, bool east = false, bool west = false, bool south = false, bool topFace = false)
+        private static void Box(ChunkedMesh mesh, float w, float n, float e, float s, float bottom, float top, bool east = false, bool west = false)
         {
-            float h = (top - bottom) / WallTile;
-            if (north)
-            {
-                Face(mesh, World(e, n, bottom), World(w, n, bottom), World(w, n, top), World(e, n, top), h);
-            }
-            if (south)
-            {
-                Face(mesh, World(w, s, bottom), World(e, s, bottom), World(e, s, top), World(w, s, top), h);
-            }
             if (east)
             {
-                Face(mesh, World(e, s, bottom), World(e, n, bottom), World(e, n, top), World(e, s, top), h);
+                AddFace(mesh, new PlanFace(new PlanPatch(w, n, e, s, top), bottom, top, FaceDirection.East));
             }
             if (west)
             {
-                Face(mesh, World(w, n, bottom), World(w, s, bottom), World(w, s, top), World(w, n, top), h);
+                AddFace(mesh, new PlanFace(new PlanPatch(w, n, e, s, top), bottom, top, FaceDirection.West));
             }
-            if (topFace)
+        }
+
+        private static void AddFace(ChunkedMesh mesh, PlanFace face)
+        {
+            PlanPatch f = face.Footprint;
+            float bottom = face.Bottom, top = face.Top, h = (top - bottom) / WallTile;
+            switch (face.Direction)
             {
-                Vector3 a = World(w, n, top), b = World(e, n, top), c = World(e, s, top), d = World(w, s, top);
-                mesh.PlanarTriangle(a, b, c, WallTile);
-                mesh.PlanarTriangle(a, c, d, WallTile);
+                case FaceDirection.North:
+                    Face(mesh, World(f.East, f.North, bottom), World(f.West, f.North, bottom), World(f.West, f.North, top), World(f.East, f.North, top), h);
+                    break;
+                case FaceDirection.South:
+                    Face(mesh, World(f.West, f.South, bottom), World(f.East, f.South, bottom), World(f.East, f.South, top), World(f.West, f.South, top), h);
+                    break;
+                case FaceDirection.East:
+                    Face(mesh, World(f.East, f.South, bottom), World(f.East, f.North, bottom), World(f.East, f.North, top), World(f.East, f.South, top), h);
+                    break;
+                default:
+                    Face(mesh, World(f.West, f.North, bottom), World(f.West, f.South, bottom), World(f.West, f.South, top), World(f.West, f.North, top), h);
+                    break;
             }
         }
 
@@ -285,18 +286,37 @@ namespace KingmakerWakingRune.Sanctum
             Vector3 riseA = P(from, c0, below), riseB = P(from, c1, below);
             float v = Mathf.Abs(height - below) / WallTile;
             float u = (b - a).magnitude / WallTile;
-            block.Quad(riseA, riseB, b, a, Vector2.zero, new Vector2(u, 0f), new Vector2(u, v), new Vector2(0f, v));
-            block.Quad(riseA, a, b, riseB, Vector2.zero, new Vector2(0f, v), new Vector2(u, v), new Vector2(u, 0f));
-            // Closed flanks: a flight seen from the side is solid stone, not a row of floating treads.
-            AddStepFlank(block, P(from, c0, foot), P(to, c0, foot), P(to, c0, height), P(from, c0, height));
-            AddStepFlank(block, P(from, c1, foot), P(to, c1, foot), P(to, c1, height), P(from, c1, height));
+            Vector3 up = P(to, c0, 0f) - P(from, c0, 0f);
+            Outward(block, riseA, riseB, b, a, Vector2.zero, new Vector2(u, 0f), new Vector2(u, v), new Vector2(0f, v), height > below ? -up : up);
+            // Closed flanks: a flight seen from the side is solid stone, not a row of floating treads. Side flights
+            // only need them where they stand clear of the course whose channel wall is otherwise the visible stone.
+            float start = from, end = to;
+            bool sideFlight = ramp.Name == "ZigguratWestStairs" || ramp.Name == "ZigguratEastStairs";
+            if (!sideFlight || ZigguratMasonry.ExposedFlank(ramp, from, to, out start, out end))
+            {
+                Vector3 across = P(from, c1, 0f) - P(from, c0, 0f);
+                AddStepFlank(block, P(start, c0, foot), P(end, c0, foot), P(end, c0, height), P(start, c0, height), -across);
+                AddStepFlank(block, P(start, c1, foot), P(end, c1, foot), P(end, c1, height), P(start, c1, height), across);
+            }
         }
 
-        private static void AddStepFlank(ChunkedMesh block, Vector3 a, Vector3 b, Vector3 c, Vector3 d)
+        private static void AddStepFlank(ChunkedMesh block, Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 outward)
         {
             float u = (b - a).magnitude / WallTile, v = (d - a).magnitude / WallTile;
-            block.Quad(a, b, c, d, Vector2.zero, new Vector2(u, 0f), new Vector2(u, v), new Vector2(0f, v));
-            block.Quad(a, d, c, b, Vector2.zero, new Vector2(0f, v), new Vector2(u, v), new Vector2(u, 0f));
+            Outward(block, a, b, c, d, Vector2.zero, new Vector2(u, 0f), new Vector2(u, v), new Vector2(0f, v), outward);
+        }
+
+        /// <summary>One quad wound to face the given way, so a face has a single surface rather than two back to back.</summary>
+        private static void Outward(ChunkedMesh mesh, Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector2 ua, Vector2 ub, Vector2 uc, Vector2 ud, Vector3 outward)
+        {
+            if (Vector3.Dot(Vector3.Cross(b - a, c - a), outward) >= 0f)
+            {
+                mesh.Quad(a, b, c, d, ua, ub, uc, ud);
+            }
+            else
+            {
+                mesh.Quad(a, d, c, b, ua, ud, uc, ub);
+            }
         }
 
         private static void AddBlockers(Transform root, WallRun wall)
@@ -348,9 +368,23 @@ namespace KingmakerWakingRune.Sanctum
             go.transform.SetParent(root, false);
             var polygon = go.AddComponent<FogOfWarBlockerPolygon>();
             polygon.Height = height;
-            AccessTools.Field(typeof(Kingmaker.Utility.PolygonComponent), "m_Points").SetValue(polygon, points.Select(p => World(p, y)).ToList());
+            AccessTools.Field(typeof(Kingmaker.Utility.PolygonComponent), "m_Points").SetValue(polygon, BothSides(points.Select(p => World(p, y)).ToList()));
             AccessTools.Field(typeof(Kingmaker.Utility.PolygonComponent), "m_Closed").SetValue(polygon, false);
             go.SetActive(true);
+        }
+
+        /// <summary>
+        /// A run traced out and back again. The fog's shadow volume takes each edge's direction into account, as native
+        /// blockers are solid outlines; a wall with no thickness needs both directions to stop sight from both of its sides.
+        /// </summary>
+        public static List<Vector3> BothSides(List<Vector3> run)
+        {
+            var traced = new List<Vector3>(run);
+            for (int i = run.Count - 2; i >= 0; i--)
+            {
+                traced.Add(run[i]);
+            }
+            return traced;
         }
     }
 }

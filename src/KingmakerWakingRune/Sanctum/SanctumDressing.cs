@@ -17,17 +17,10 @@ namespace KingmakerWakingRune.Sanctum
         private const float SarcophagusHeight = 0.85f;
         private static readonly Color RuneLight = new Color(0.25f, 0.95f, 0.82f);
 
-        private enum Pose
-        {
-            Bearing,
-            Anger,
-            Agony,
-            Despair,
-        }
-
         private static Transform s_Root;
         private static SceneryMesh s_Mesh;
         private static SanctumPalette s_Palette;
+        private static StatueBuilder s_Statues;
 
         public static void Build(Transform root, SanctumMaterials materials)
         {
@@ -35,6 +28,7 @@ namespace KingmakerWakingRune.Sanctum
             s_Root.SetParent(root, false);
             s_Mesh = new SceneryMesh();
             s_Palette = materials.Palette;
+            s_Statues = new StatueBuilder(s_Root, materials.Rock);
 
             BuildZiggurat();
             BuildDoorFrames();
@@ -45,25 +39,29 @@ namespace KingmakerWakingRune.Sanctum
             BuildAtrium();
             BuildInnerSanctum();
             s_Mesh.Instantiate(s_Root, "Scenery");
+            s_Statues.Finish();
         }
 
         private static void BuildZiggurat()
         {
             float ring = SanctumPlan.RingHeight;
             // Petrified humans bearing the first tier on the north face, either side of the stairs.
+            int north = 1;
             foreach (float x in new[] { 10.7f, 11.5f, 14.7f, 15.5f })
             {
-                Figure(World(x, SanctumPlan.ZigguratNorth - 0.05f, 0f), 0f, ring * 0.98f, false, Pose.Bearing);
+                s_Statues.Place($"Support-N{north++}", World(x, SanctumPlan.ZigguratNorth - 0.05f, 0f), 0f);
             }
             // And the second tier, on the terrace's inner face.
+            int terrace = 1;
             foreach (float x in new[] { 11.9f, 14.1f })
             {
-                Figure(World(x, SanctumPlan.RingInnerNorth - 0.04f, ring), 0f, 1.75f, false, Pose.Bearing);
+                s_Statues.Place($"Support-T{terrace++}", World(x, SanctumPlan.RingInnerNorth - 0.04f, ring), 0f);
             }
+            int flank = 1;
             foreach (float y in new[] { 17.9f, 21.2f })
             {
-                Figure(World(SanctumPlan.ZigguratWest - 0.05f, y, 0f), 90f, ring * 0.98f, false, Pose.Bearing);
-                Figure(World(SanctumPlan.ZigguratEast + 0.05f, y, 0f), -90f, ring * 0.98f, false, Pose.Bearing);
+                s_Statues.Place($"Support-W{flank}", World(SanctumPlan.ZigguratWest - 0.05f, y, 0f), 90f);
+                s_Statues.Place($"Support-E{flank++}", World(SanctumPlan.ZigguratEast + 0.05f, y, 0f), -90f);
             }
             // The round finials drawn at the head of each flight on the map.
             foreach (GridPoint p in new[] { new GridPoint(11.95f, 16.25f), new GridPoint(14.28f, 16.25f), new GridPoint(11.9f, 22.95f), new GridPoint(14.4f, 22.95f) })
@@ -174,11 +172,15 @@ namespace KingmakerWakingRune.Sanctum
             s_Mesh.Lathe(s_Palette.Basalt, center + normal * 0.056f, normal, new[] { PlateRadius * 0.9f, 0f, PlateRadius * 0.9f, 0.006f, 0f, 0.006f }, 40);
             Rune(center + normal * 0.07f, normal, PlateRadius * 0.72f, RuneShapes[plate.Rune]);
 
-            // The trio of extraplanar husks framing the rune: anger, agony and, crouched above it, despair.
+            // The extraplanar beings framing the rune, each authored in StatueManifest: two on the floor, one crouched above.
             float yaw = Yaw(inward);
-            Figure(foot + side * 1.12f + inward * 0.02f, yaw, 1.8f, true, Pose.Anger);
-            Figure(foot - side * 1.12f + inward * 0.02f, yaw, 1.8f, true, Pose.Agony);
-            Figure(head + normal * 0.04f - Vector3.up * 0.02f, yaw, 0.92f, true, Pose.Despair);
+            s_Statues.Place(plate.Id + "-L", foot + side * 1.12f + inward * 0.02f, yaw);
+            s_Statues.Place(plate.Id + "-R", foot - side * 1.12f + inward * 0.02f, yaw);
+            s_Statues.Place(plate.Id + "-T", head + normal * 0.04f - Vector3.up * 0.02f, yaw);
+            if (plate.Id == "A3d")
+            {
+                BuildFlail(foot + side * 1.12f + inward * 0.72f);
+            }
 
             Vector3 lit = center + normal * 1.1f;
             SanctumLighting.Point(s_Root, lit.x / SanctumPlan.MetersPerSquare + SanctumPlan.OriginX, SanctumPlan.OriginY - lit.z / SanctumPlan.MetersPerSquare, Mathf.Max(lit.y, 1.4f), RuneLight, 0.8f, 4.2f);
@@ -395,50 +397,19 @@ namespace KingmakerWakingRune.Sanctum
             }
         }
 
-        /// <summary>A cast figure: a petrified human bearing weight, or a horned extraplanar husk in the given extremity.</summary>
-        private static void Figure(Vector3 foot, float yaw, float height, bool horned, Pose pose)
+        /// <summary>The deva's metal flail, lying where it fell: inert scenery, not an item.</summary>
+        private static void BuildFlail(Vector3 at)
         {
-            Matrix4x4 body = Matrix4x4.TRS(foot, Quaternion.Euler(0f, yaw, 0f), Vector3.one);
-            float s = height / 1.8f;
-            float lean = pose == Pose.Agony ? -9f : pose == Pose.Despair ? 16f : 0f;
-            Vector3 headAt = new Vector3(0f, 1.62f, pose == Pose.Despair ? 0.18f : pose == Pose.Agony ? -0.08f : 0.05f);
-            Part(body, PrimitiveType.Capsule, new Vector3(-0.13f, 0.42f, 0f) * s, new Vector3(0.17f, 0.42f, 0.18f) * s, Vector3.zero);
-            Part(body, PrimitiveType.Capsule, new Vector3(0.13f, 0.42f, 0f) * s, new Vector3(0.17f, 0.42f, 0.18f) * s, Vector3.zero);
-            Part(body, PrimitiveType.Capsule, new Vector3(0f, 1.12f, pose == Pose.Despair ? 0.06f : 0f) * s, new Vector3(0.44f, 0.42f, 0.28f) * s, new Vector3(lean, 0f, 0f));
-            Part(body, PrimitiveType.Sphere, headAt * s, new Vector3(0.24f, 0.28f, 0.24f) * s, Vector3.zero);
-            switch (pose)
+            Vector3 grip = at + Vector3.up * 0.04f;
+            Vector3 end = grip + new Vector3(0.52f, 0.02f, 0.16f);
+            s_Mesh.Strip(s_Palette.Leather, grip, end, Vector3.up, 0.05f, 0.05f);
+            Vector3 link = end, step = new Vector3(0.1f, -0.004f, -0.05f);
+            for (int i = 0; i < 4; i++)
             {
-                case Pose.Bearing:
-                    // Palms braced against the load overhead.
-                    Part(body, PrimitiveType.Capsule, new Vector3(-0.31f, 1.58f, 0f) * s, new Vector3(0.12f, 0.36f, 0.12f) * s, new Vector3(0f, 0f, -18f));
-                    Part(body, PrimitiveType.Capsule, new Vector3(0.31f, 1.58f, 0f) * s, new Vector3(0.12f, 0.36f, 0.12f) * s, new Vector3(0f, 0f, 18f));
-                    break;
-                case Pose.Anger:
-                    // Fists thrown up and out.
-                    Part(body, PrimitiveType.Capsule, new Vector3(-0.42f, 1.5f, 0.06f) * s, new Vector3(0.12f, 0.34f, 0.12f) * s, new Vector3(-15f, 0f, -48f));
-                    Part(body, PrimitiveType.Capsule, new Vector3(0.42f, 1.5f, 0.06f) * s, new Vector3(0.12f, 0.34f, 0.12f) * s, new Vector3(-15f, 0f, 48f));
-                    break;
-                case Pose.Agony:
-                    // Hands clawing at the skull, head thrown back.
-                    Part(body, PrimitiveType.Capsule, new Vector3(-0.28f, 1.56f, 0.02f) * s, new Vector3(0.11f, 0.32f, 0.11f) * s, new Vector3(0f, 0f, 30f));
-                    Part(body, PrimitiveType.Capsule, new Vector3(0.28f, 1.56f, 0.02f) * s, new Vector3(0.11f, 0.32f, 0.11f) * s, new Vector3(0f, 0f, -30f));
-                    break;
-                default:
-                    // Arms hanging, head bowed.
-                    Part(body, PrimitiveType.Capsule, new Vector3(-0.3f, 0.98f, 0.14f) * s, new Vector3(0.11f, 0.38f, 0.11f) * s, new Vector3(14f, 0f, -6f));
-                    Part(body, PrimitiveType.Capsule, new Vector3(0.3f, 0.98f, 0.14f) * s, new Vector3(0.11f, 0.38f, 0.11f) * s, new Vector3(14f, 0f, 6f));
-                    break;
+                s_Mesh.Box(s_Palette.Iron, link + step / 2f, new Vector3(0.05f, 0.03f, 0.1f), Quaternion.LookRotation(step, i % 2 == 0 ? Vector3.up : Vector3.right));
+                link += step;
             }
-            if (horned)
-            {
-                Part(body, PrimitiveType.Capsule, headAt * s + new Vector3(-0.15f, 0.24f, 0f) * s, new Vector3(0.05f, 0.18f, 0.05f) * s, new Vector3(0f, 0f, 28f));
-                Part(body, PrimitiveType.Capsule, headAt * s + new Vector3(0.15f, 0.24f, 0f) * s, new Vector3(0.05f, 0.18f, 0.05f) * s, new Vector3(0f, 0f, -28f));
-            }
-        }
-
-        private static void Part(Matrix4x4 body, PrimitiveType type, Vector3 position, Vector3 scale, Vector3 euler)
-        {
-            s_Mesh.AddPrimitive(type, body * Matrix4x4.TRS(position, Quaternion.Euler(euler), scale), s_Palette.Stone);
+            s_Mesh.Solid(PrimitiveType.Sphere, new Vector3(link.x + 0.09f, 0.1f, link.z - 0.03f), Vector3.one * 0.19f, Quaternion.identity, s_Palette.Iron);
         }
 
         private static void Rune(Vector3 center, Vector3 normal, float radius, float[][] lines)

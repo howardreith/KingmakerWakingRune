@@ -61,6 +61,10 @@ namespace KingmakerWakingRune.Diagnostics
                     sb.AppendLine($"  stock {item.Blueprint.Name} x{item.Count} cost={item.Cost}");
                 }
             }
+            if (Sanctum.SanctumScope.IsSanctumLoaded)
+            {
+                sb.Append(SanctumProbe.Build());
+            }
             sb.AppendLine($"inventory lines={player.Inventory.Items.Count}");
             foreach (var item in player.Inventory.Items)
             {

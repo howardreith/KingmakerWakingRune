@@ -8,6 +8,8 @@ namespace KingmakerWakingRune.Sanctum
     /// </summary>
     internal sealed class SanctumPalette
     {
+        /// <summary>Marks textures painted for this load, as distinct from donor textures that copied materials still use.</summary>
+        public const string OwnedTexturePrefix = "KWR_Painted";
         private const int TextureSize = 256;
         private const int AshlarCourses = 4;
 
@@ -63,7 +65,7 @@ namespace KingmakerWakingRune.Sanctum
 
         private static Texture2D NewTexture()
         {
-            return new Texture2D(TextureSize, TextureSize, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Trilinear };
+            return new Texture2D(TextureSize, TextureSize, TextureFormat.RGBA32, true) { name = OwnedTexturePrefix, wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Trilinear };
         }
 
         private static Texture2D Paint(Color light, Color dark, int seed)

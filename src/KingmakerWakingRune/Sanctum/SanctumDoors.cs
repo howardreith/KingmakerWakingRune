@@ -39,8 +39,10 @@ namespace KingmakerWakingRune.Sanctum
 
         protected override void OnInteract(UnitEntityData user)
         {
-            if (IsOpen && SanctumDoors.IsOccupied(Plan))
+            UnitEntityData inTheWay = IsOpen ? SanctumDoors.FindInSwing(Plan) : null;
+            if (inTheWay != null)
             {
+                Log.Info($"Sanctum door {Plan.Id}: closing refused, {inTheWay.CharacterName} is in its way (corpulence {inTheWay.View.Corpulence:0.00} m at {inTheWay.Position}).");
                 EventBus.RaiseEvent(delegate(IWarningNotificationUIHandler h) { h.HandleWarning("Someone is standing in the doorway."); });
                 return;
             }
@@ -68,7 +70,7 @@ namespace KingmakerWakingRune.Sanctum
             Blocker.enabled = !m_Shown;
             // A closed door is an easy target; an open leaf should not catch clicks meant for the floor around it.
             Vector3 size = Hit.size;
-            size.z = m_Shown ? SanctumDoors.OpenHitDepth : SanctumDoors.ClosedHitDepth;
+            size.z = m_Shown ? SanctumDoors.OpenHitDepth : Plan.ClosedHitDepth;
             Hit.size = size;
             if (instantly)
             {
@@ -80,18 +82,23 @@ namespace KingmakerWakingRune.Sanctum
 
     /// <summary>
     /// Creates the two mapped doors as scene entities while the native loader is matching views to the save, which
-    /// is what lets their state persist. A save made before the doors existed simply gets them closed.
+    /// is what lets their state persist. A fresh arrival meets them closed. A save already inside the sanctum but with
+    /// no recorded door state was made before the doors existed, so they open once for it: nobody in that save can be
+    /// standing where a closed door would seal them. Any state a save has recorded is left as it is.
     /// </summary>
     internal static class SanctumDoors
     {
-        private const float LeafHeight = 2.9f;
+        private const float LeafHeight = SanctumPlan.DoorLeafHeight;
         private const float LeafThickness = 0.22f;
         private const float StarRadius = 0.92f;
         private const int SelectableLayer = 10;
-        public const float ClosedHitDepth = 0.6f;
+        /// <summary>Metres a user may stand from the door: beyond the leaf's reach, so nobody has to stand in its swing to shut it.</summary>
+        private const float UseDistance = 3.2f;
         public const float OpenHitDepth = 0.24f;
 
         private static GameObject s_Root;
+
+        public static bool AreReady => s_Root != null && s_Root.GetComponentsInChildren<SanctumDoor>(true).Count(d => d.Data != null) == SanctumPlan.Doors.Length;
 
         public static IEnumerable<EntityViewBase> Create(IEnumerable<EntityViewBase> donorViews)
         {
@@ -104,9 +111,10 @@ namespace KingmakerWakingRune.Sanctum
                 var palette = new SanctumPalette(SanctumScope.HarvestMaterials(statics).Rock);
                 s_Root = new GameObject("KWR_SanctumDoors");
                 SceneManager.MoveGameObjectToScene(s_Root, mechanics);
+                bool alreadyInside = Game.Instance.Player.UnlockableFlags.IsUnlocked(ScenarioBlueprints.SanctumEnteredFlag);
                 foreach (DoorPlan plan in SanctumPlan.Doors)
                 {
-                    CreateDoor(plan, palette, openSound, closeSound);
+                    CreateDoor(plan, palette, openSound, closeSound, alreadyInside);
                 }
                 Log.Info($"Sanctum doors created; door sounds {(string.IsNullOrEmpty(openSound) ? "absent" : openSound + "/" + closeSound)}.");
             }
@@ -127,7 +135,7 @@ namespace KingmakerWakingRune.Sanctum
             }
             foreach (SanctumDoor door in s_Root.GetComponentsInChildren<SanctumDoor>(true))
             {
-                if (door.Data != null && !door.IsOpen && IsOccupied(door.Plan))
+                if (door.Data != null && !door.IsOpen && FindUnit((x, y, height, radius) => SanctumPlan.DoorwayOverlap(door.Plan, x, y, height, radius)) != null)
                 {
                     door.Open();
                     Log.Info($"Sanctum door {door.Plan.Id} opened on load: a party member stands in the doorway.");
@@ -135,24 +143,30 @@ namespace KingmakerWakingRune.Sanctum
             }
         }
 
-        public static bool IsOccupied(DoorPlan plan)
+        /// <summary>The native door closes with no check of its own, so its whole swing is guarded here against each unit's real footprint.</summary>
+        public static UnitEntityData FindInSwing(DoorPlan plan)
+        {
+            return FindUnit((x, y, height, radius) => SanctumPlan.ClosureBlocked(plan, x, y, height, radius));
+        }
+
+        private static UnitEntityData FindUnit(System.Func<float, float, float, float, bool> overlaps)
         {
             foreach (UnitEntityData unit in Game.Instance.State.Units)
             {
-                if (unit.IsInGame && !unit.Descriptor.State.IsDead)
+                if (unit.IsInGame && unit.View != null)
                 {
                     float x = unit.Position.x / SanctumPlan.MetersPerSquare + SanctumPlan.OriginX;
                     float y = SanctumPlan.OriginY - unit.Position.z / SanctumPlan.MetersPerSquare;
-                    if (SanctumPlan.InDoorway(plan, x, y, 0.15f))
+                    if (overlaps(x, y, unit.Position.y, unit.View.Corpulence / SanctumPlan.MetersPerSquare))
                     {
-                        return true;
+                        return unit;
                     }
                 }
             }
-            return false;
+            return null;
         }
 
-        private static void CreateDoor(DoorPlan plan, SanctumPalette palette, string openSound, string closeSound)
+        private static void CreateDoor(DoorPlan plan, SanctumPalette palette, string openSound, string closeSound, bool openIfUnrecorded)
         {
             Vector3 hinge = World(plan.Hinge), latch = World(plan.Latch), center = World(plan.Center);
             float width = (latch - hinge).magnitude;
@@ -186,7 +200,7 @@ namespace KingmakerWakingRune.Sanctum
 
             var polygon = go.AddComponent<FogOfWarBlockerPolygon>();
             polygon.Height = 12f;
-            AccessTools.Field(typeof(Kingmaker.Utility.PolygonComponent), "m_Points").SetValue(polygon, new List<Vector3> { hinge - center, latch - center });
+            AccessTools.Field(typeof(Kingmaker.Utility.PolygonComponent), "m_Points").SetValue(polygon, SanctumBuilder.BothSides(new List<Vector3> { hinge - center, latch - center }));
             AccessTools.Field(typeof(Kingmaker.Utility.PolygonComponent), "m_Closed").SetValue(polygon, false);
 
             var door = go.AddComponent<SanctumDoor>();
@@ -196,7 +210,8 @@ namespace KingmakerWakingRune.Sanctum
             door.Hit = hit;
             door.ObstacleAnimation = new AnimationClip { name = "KWR_DoorState" };
             door.DisableNavmeshCutWhenOpen = true;
-            door.ProximityRadius = 2.4f;
+            door.OpenByDefault = openIfUnrecorded;
+            door.ProximityRadius = UseDistance;
             door.UseAnimationState = UnitAnimationInteractionType.UseObject;
             AccessTools.Field(typeof(StandardDoor), "m_OpenSound").SetValue(door, openSound);
             AccessTools.Field(typeof(StandardDoor), "m_CloseSound").SetValue(door, closeSound);
@@ -228,7 +243,7 @@ namespace KingmakerWakingRune.Sanctum
             hit.transform.SetParent(leaf, false);
             var box = hit.AddComponent<BoxCollider>();
             box.center = new Vector3(width / 2f, LeafHeight / 2f, 0f);
-            box.size = new Vector3(clear, LeafHeight, ClosedHitDepth);
+            box.size = new Vector3(clear, LeafHeight, plan.ClosedHitDepth);
             return box;
         }
 

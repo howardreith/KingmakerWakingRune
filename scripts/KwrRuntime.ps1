@@ -19,7 +19,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('Begin', 'Reinstall', 'Uninstall', 'Launch', 'Shot', 'State', 'Click', 'DoubleClick', 'Drag', 'Hover', 'Key', 'Type', 'Scroll', 'Close', 'Collect', 'End', 'Status')]
+    [ValidateSet('Begin', 'Reinstall', 'Uninstall', 'Launch', 'Shot', 'State', 'Click', 'DoubleClick', 'Drag', 'Hover', 'Key', 'Type', 'Scroll', 'Close', 'Collect', 'End', 'Status', 'Record', 'Fault')]
     [string] $Operation,
     [string] $RunId,
     [string] $PackagePath,
@@ -35,7 +35,9 @@ param(
     [string] $Text,
     [int] $Delta = -120,
     [switch] $KeepInstalled,
-    [int] $TimeoutSeconds = 180
+    [int] $TimeoutSeconds = 180,
+    [int] $Seconds = 15,
+    [string] $FaultName
 )
 
 Set-StrictMode -Version Latest
@@ -346,6 +348,28 @@ function Assert-GameAtPoint($w, [int] $px, [int] $py) {
     if ([KwrInput]::GetAncestor([KwrInput]::WindowFromPoint($point), 2) -ne $w.Process.MainWindowHandle) { throw "The game window is not under ($px,$py); no input was sent." }
 }
 
+# Desktop Duplication sees what the game presents, which GDI capture does not. Only the game window's rectangle is grabbed.
+function Invoke-Record {
+    $w = Get-GameWindow
+    Assert-GameForeground $w
+    $label = if ($Name) { $Name } else { 'recording' }
+    $file = Join-Path (Get-RunDir $w.State) ('{0:HHmmss}-{1}.mp4' -f (Get-Date), $label)
+    $r = $w.Rect
+    $grab = 'ddagrab=framerate=30:offset_x={0}:offset_y={1}:video_size={2}x{3},hwdownload,format=bgra,scale=1280:720,format=yuv420p' -f $r.Left, $r.Top, ($r.Right - $r.Left), ($r.Bottom - $r.Top)
+    $arguments = @('-hide_banner', '-loglevel', 'error', '-y', '-init_hw_device', 'd3d11va', '-filter_complex', $grab, '-t', "$Seconds", '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', "`"$file`"")
+    Start-Process -FilePath 'ffmpeg' -ArgumentList $arguments -WindowStyle Hidden | Out-Null
+    Write-Output $file
+}
+
+# Arms one labelled test fault; the mod consumes it only while capture.flag exists and logs it as injected.
+function Invoke-Fault {
+    $s = Get-State
+    if (-not $s) { throw 'No open transaction.' }
+    if ($FaultName -notin @('save-refused', 'save-failed', 'save-timeout', 'build-failed', 'arrival-invalid')) { throw "Unknown fault '$FaultName'." }
+    [IO.File]::WriteAllText((Join-Path $ModDir 'fault.request'), $FaultName)
+    Write-Step "Fault armed: $FaultName"
+}
+
 function Invoke-Click {
     $w = Get-GameWindow
     Assert-GameForeground $w
@@ -505,7 +529,7 @@ function Invoke-End {
 
     if (-not $KeepInstalled -and (Test-Path -LiteralPath $ModDir)) { Remove-Item -LiteralPath $ModDir -Recurse -Force }
     if ($KeepInstalled) {
-        foreach ($leftover in 'recon.flag', 'recon', 'capture.flag', 'capture.request', 'state.request') {
+        foreach ($leftover in 'recon.flag', 'recon', 'capture.flag', 'capture.request', 'state.request', 'fault.request') {
             Remove-Item -LiteralPath (Join-Path $ModDir $leftover) -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
@@ -518,7 +542,8 @@ function Invoke-End {
     $modsBefore = @{}
     (Get-Content -LiteralPath (Join-Path $tx 'mods-inventory.json') -Raw | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $modsBefore[$_.Name] = $_.Value }
     $modsNow = Get-Inventory $ModsRoot
-    $modsDiff = @((Compare-Inventory $modsBefore $modsNow) | Where-Object { -not ($KeepInstalled -and $_ -match '^added:KingmakerWakingRune\\') })
+    # With -KeepInstalled the candidate replaces whatever was there; the previous install stays in the transaction's mod-existing snapshot.
+    $modsDiff = @((Compare-Inventory $modsBefore $modsNow) | Where-Object { -not ($KeepInstalled -and $_ -match '^(added|changed|missing):KingmakerWakingRune\\') })
     if ($modsDiff.Count -gt 0) { throw "Mods inventory differs after restore: $($modsDiff -join '; ')" }
     Write-Step "Params.xml and Mods verified (candidate installed: $([bool]$KeepInstalled))."
     Remove-Item -LiteralPath $StatePath -Force
@@ -543,4 +568,6 @@ switch ($Operation) {
     'Collect' { Invoke-Collect }
     'End' { Invoke-End }
     'Status' { $s = Get-State; if ($s) { $s | ConvertTo-Json } else { 'No open transaction.' } }
+    'Record' { Invoke-Record }
+    'Fault' { Invoke-Fault }
 }

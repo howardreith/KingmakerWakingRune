@@ -49,14 +49,20 @@ namespace KingmakerWakingRune.Sanctum
             try
             {
                 SanctumScope.EnsureBuilt();
+                // The party is already placed by now: door cuts applied during placement stack everyone on the stairs.
+                SanctumDoors.ReleaseOccupied();
                 SanctumScope.ApplyDoorCuts();
-
+                if (!RefugeTransit.InProgress)
+                {
+                    SanctumScope.RepairRestoredPositions();
+                }
                 RefugeTransit.OnSanctumLoaded();
                 Log.Info($"Sanctum loaded: entered={Game.Instance.Player.UnlockableFlags.IsUnlocked(ScenarioBlueprints.SanctumEnteredFlag)} party={Game.Instance.Player.Party.Count} loot={Game.Instance.CurrentlyLoadedArea.LootSetting} indoor={Game.Instance.CurrentlyLoadedArea.IsIndoor}.");
             }
             catch (Exception ex)
             {
                 Log.Error("Sanctum session failed.", ex);
+                RefugeTransit.OnSanctumLoadFailed(ex.Message);
             }
         }
     }

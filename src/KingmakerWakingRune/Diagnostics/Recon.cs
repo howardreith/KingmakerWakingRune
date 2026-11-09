@@ -30,6 +30,7 @@ namespace KingmakerWakingRune.Diagnostics
 
         private static bool Enabled => Main.Mod != null && File.Exists(Path.Combine(Main.Mod.Path, "recon.flag"));
 
+
         public static void DumpBlueprints(LibraryScriptableObject library)
         {
             if (s_BlueprintsDumped || !Enabled)

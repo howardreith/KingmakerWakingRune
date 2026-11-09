@@ -86,8 +86,22 @@ namespace KingmakerWakingRune.Sanctum
         public GridPoint Latch;
         public float OpenDegrees;
         public bool Sihedron;
+        /// <summary>Metres of closed leaf a click can land on, measured through the door.</summary>
+        public float ClosedHitDepth = 0.6f;
 
         public GridPoint Center => new GridPoint((Hinge.X + Latch.X) / 2f, (Hinge.Y + Latch.Y) / 2f);
+    }
+
+    /// <summary>Spaces separated by the mapped doors and walls; sight and safe ground do not cross between them.</summary>
+    internal enum SanctumSpace
+    {
+        None,
+        /// <summary>A1, the ziggurat and the A2 stairs.</summary>
+        Interior,
+        /// <summary>The A3 circuit.</summary>
+        Hall,
+        /// <summary>A4 and A5.</summary>
+        Atrium,
     }
 
     /// <summary>
@@ -154,11 +168,18 @@ namespace KingmakerWakingRune.Sanctum
         /// <summary>Half the depth of a door's sealed strip, in squares.</summary>
         public const float DoorwayHalfDepth = 0.2f;
 
+        /// <summary>Metres from the floor to the top of a door leaf.</summary>
+        public const float DoorLeafHeight = 2.9f;
+
+        /// <summary>How far, in metres, a restored unit may sit from the plan's walking surface and still be standing on it.</summary>
+        public const float GroundTolerance = 0.8f;
+
         public static readonly DoorPlan[] Doors =
         {
             new DoorPlan { Id = "A2", Hinge = new GridPoint(12.4f, 26.4f), Latch = new GridPoint(13.9f, 26.4f), OpenDegrees = 100f, Sihedron = true },
             // Hinged south: open, the leaf lies against the passage's far wall, where it cannot stand between the camera and the floor.
-            new DoorPlan { Id = "A4Approach", Hinge = new GridPoint(21f, 15.4f), Latch = new GridPoint(21f, 13.9f), OpenDegrees = -90f },
+            // The default camera sees this door edge-on, so its closed click target is deeper than the leaf.
+            new DoorPlan { Id = "A4Approach", Hinge = new GridPoint(21f, 15.4f), Latch = new GridPoint(21f, 13.9f), OpenDegrees = -90f, ClosedHitDepth = 1.25f },
         };
 
         public static readonly GridPoint[] Outer = Points(8, 1, 18, 1, 24, 7, 24, 18, 13, 30, 2, 18, 2, 7);
@@ -194,7 +215,8 @@ namespace KingmakerWakingRune.Sanctum
             new WalkRegion { Name = "A1", Outer = ArrivalChamber, WalkOuter = BuildArrivalChamber(FaceGap), Height = 0f },
             new WalkRegion { Name = "ZigguratRing", Outer = Points(ZigguratWest, ZigguratNorth, NorthStairWest, ZigguratNorth, NorthStairWest, NorthStairHead, NorthStairEast, NorthStairHead, NorthStairEast, ZigguratNorth, ZigguratEast, ZigguratNorth, ZigguratEast, ZigguratSouth, ZigguratWest, ZigguratSouth), Holes = { Rect(RingInnerWest, RingInnerNorth, RingInnerEast, RingInnerSouth) }, Height = RingHeight },
             new WalkRegion { Name = "ZigguratApex", Outer = Rect(ApexWest, ApexNorth, ApexEast, ApexSouth), Height = ApexHeight },
-            new WalkRegion { Name = "A2Threshold", Outer = Rect(12.4f, 26.2f, 13.9f, 26.6f), Height = 0f },
+            // Walking reaches through the door line; the floor beyond it already belongs to A3.
+            new WalkRegion { Name = "A2Threshold", Outer = Rect(12.4f, 26.2f, 13.9f, 26.4f), WalkOuter = Rect(12.4f, 26.2f, 13.9f, 26.6f), Height = 0f },
         };
 
         public static readonly List<Ramp> Ramps = new List<Ramp>
@@ -218,6 +240,16 @@ namespace KingmakerWakingRune.Sanctum
         };
 
         public static readonly List<WallRun> Walls = BuildWalls();
+
+        /// <summary>
+        /// The core as fog of war must see it. Fog is two-dimensional, and the ziggurat's two south corners overhang the
+        /// drawn core wall: anyone standing on those terrace corners would be past it, looking straight into A3. This line
+        /// runs around the corners instead, while the walls themselves stay where they are drawn.
+        /// </summary>
+        public static readonly GridPoint[] CoreSight = BuildCoreSight();
+
+        /// <summary>The runs that stop sight: the drawn walls, with the core following <see cref="CoreSight"/>.</summary>
+        public static readonly List<WallRun> SightLines = BuildSightLines();
 
         public static float ToWorldX(float gridX)
         {
@@ -260,6 +292,103 @@ namespace KingmakerWakingRune.Sanctum
             return door.Hinge.Y == door.Latch.Y
                 ? x >= x0 - margin && x <= x1 + margin && Math.Abs(y - y0) <= halfDepth
                 : y >= y0 - margin && y <= y1 + margin && Math.Abs(x - x0) <= halfDepth;
+        }
+
+        /// <summary>
+        /// Whether a unit's circular footprint touches the strip a closed door seals. Elevation matters: someone on the
+        /// flights or the terrace above is not in the doorway however close their plan position is.
+        /// </summary>
+        public static bool DoorwayOverlap(DoorPlan door, float x, float y, float height, float radius)
+        {
+            if (height < -1f || height > DoorLeafHeight)
+            {
+                return false;
+            }
+            float x0 = Math.Min(door.Hinge.X, door.Latch.X), x1 = Math.Max(door.Hinge.X, door.Latch.X);
+            float y0 = Math.Min(door.Hinge.Y, door.Latch.Y), y1 = Math.Max(door.Hinge.Y, door.Latch.Y);
+            bool alongX = door.Hinge.Y == door.Latch.Y;
+            float halfX = alongX ? 0f : DoorwayHalfDepth, halfY = alongX ? DoorwayHalfDepth : 0f;
+            float dx = Math.Max(Math.Max(x0 - halfX - x, x - x1 - halfX), 0f);
+            float dy = Math.Max(Math.Max(y0 - halfY - y, y - y1 - halfY), 0f);
+            return dx * dx + dy * dy <= radius * radius;
+        }
+
+        /// <summary>Whether a unit's footprint touches the quarter-circle an open leaf sweeps as it closes.</summary>
+        public static bool LeafSweepOverlap(DoorPlan door, float x, float y, float height, float radius)
+        {
+            if (height < -1f || height > DoorLeafHeight)
+            {
+                return false;
+            }
+            float leafX = door.Latch.X - door.Hinge.X, leafY = door.Latch.Y - door.Hinge.Y;
+            float length = (float)Math.Sqrt(leafX * leafX + leafY * leafY);
+            double open = door.OpenDegrees * Math.PI / 180.0;
+            var openLatch = new GridPoint(door.Hinge.X + (float)(leafX * Math.Cos(open) - leafY * Math.Sin(open)), door.Hinge.Y + (float)(leafX * Math.Sin(open) + leafY * Math.Cos(open)));
+            float px = x - door.Hinge.X, py = y - door.Hinge.Y;
+            float reach = (float)Math.Sqrt(px * px + py * py);
+            // Y runs south, so an increasing angle here is clockwise on the page, the sense OpenDegrees is given in.
+            double between = Math.Atan2(leafX * py - leafY * px, leafX * px + leafY * py);
+            if (door.OpenDegrees < 0f)
+            {
+                between = -between;
+            }
+            if (between >= 0.0 && between <= Math.Abs(open))
+            {
+                return reach - length <= radius;
+            }
+            return DistanceToSegment(x, y, door.Hinge, door.Latch) <= radius || DistanceToSegment(x, y, door.Hinge, openLatch) <= radius;
+        }
+
+        /// <summary>Whether closing the door now would pass through a unit of the given footprint.</summary>
+        public static bool ClosureBlocked(DoorPlan door, float x, float y, float height, float radius)
+        {
+            return DoorwayOverlap(door, x, y, height, radius) || LeafSweepOverlap(door, x, y, height, radius);
+        }
+
+        private static float DistanceToSegment(float x, float y, GridPoint a, GridPoint b)
+        {
+            float vx = b.X - a.X, vy = b.Y - a.Y;
+            float t = Math.Max(0f, Math.Min(1f, ((x - a.X) * vx + (y - a.Y) * vy) / (vx * vx + vy * vy)));
+            float dx = x - (a.X + vx * t), dy = y - (a.Y + vy * t);
+            return (float)Math.Sqrt(dx * dx + dy * dy);
+        }
+
+        public static SanctumSpace SpaceAt(float x, float y)
+        {
+            if (Inside(Atrium, x, y))
+            {
+                return SanctumSpace.Atrium;
+            }
+            if (x >= ZigguratWest && x <= ZigguratEast && y >= ZigguratNorth && y <= ZigguratSouth)
+            {
+                return SanctumSpace.Interior;
+            }
+            if (Inside(Core, x, y))
+            {
+                return SanctumSpace.Interior;
+            }
+            return Inside(Outer, x, y) ? SanctumSpace.Hall : SanctumSpace.None;
+        }
+
+        /// <summary>Whether a restored unit is standing on the plan's walking surface at its own height.</summary>
+        public static bool IsValidGround(float x, float y, float height)
+        {
+            float? ground = HeightAt(x, y);
+            return ground.HasValue && Math.Abs(ground.Value - height) <= GroundTolerance;
+        }
+
+        /// <summary>Plan points on rings spreading out from a position, nearest first, for finding ground close to it.</summary>
+        public static IEnumerable<GridPoint> RingsAround(float x, float y, float step = 0.2f, float reach = 6f)
+        {
+            for (float radius = step; radius <= reach; radius += step)
+            {
+                int bearings = Math.Max(8, (int)(radius * 12f));
+                for (int i = 0; i < bearings; i++)
+                {
+                    double angle = i * Math.PI * 2.0 / bearings;
+                    yield return new GridPoint(x + radius * (float)Math.Cos(angle), y + radius * (float)Math.Sin(angle));
+                }
+            }
         }
 
         public static bool Inside(GridPoint[] polygon, float x, float y)
@@ -320,6 +449,51 @@ namespace KingmakerWakingRune.Sanctum
                 new WallRun { Name = "A2East", Points = Points(14.3f, 23, 14.3f, 26.4f), Closed = false },
             };
             return walls;
+        }
+
+        private static GridPoint[] BuildCoreSight()
+        {
+            GridPoint northEast = new GridPoint(21f, 16.83f), southEast = new GridPoint(14.3f, 24.14f), southWest = new GridPoint(12f, 24.14f), northWest = new GridPoint(5f, 16.83f);
+            var points = new List<GridPoint>();
+            foreach (GridPoint p in Core)
+            {
+                points.Add(p);
+                if (p.X == northEast.X && p.Y == northEast.Y)
+                {
+                    points.Add(new GridPoint(ZigguratEast, YAt(northEast, southEast, ZigguratEast)));
+                    points.Add(new GridPoint(ZigguratEast, ZigguratSouth));
+                    points.Add(new GridPoint(XAt(northEast, southEast, ZigguratSouth), ZigguratSouth));
+                }
+                else if (p.X == southWest.X && p.Y == southWest.Y)
+                {
+                    points.Add(new GridPoint(XAt(southWest, northWest, ZigguratSouth), ZigguratSouth));
+                    points.Add(new GridPoint(ZigguratWest, ZigguratSouth));
+                    points.Add(new GridPoint(ZigguratWest, YAt(southWest, northWest, ZigguratWest)));
+                }
+            }
+            return points.ToArray();
+        }
+
+        private static float YAt(GridPoint a, GridPoint b, float x)
+        {
+            return a.Y + (b.Y - a.Y) * (x - a.X) / (b.X - a.X);
+        }
+
+        private static float XAt(GridPoint a, GridPoint b, float y)
+        {
+            return a.X + (b.X - a.X) * (y - a.Y) / (b.Y - a.Y);
+        }
+
+        private static List<WallRun> BuildSightLines()
+        {
+            var lines = new List<WallRun>();
+            foreach (WallRun wall in Walls)
+            {
+                lines.Add(wall.Name == "A3Core"
+                    ? new WallRun { Name = wall.Name, Points = CoreSight, Closed = true, Openings = { IndexOf(CoreSight, 21, 13.9f), IndexOf(CoreSight, 13.9f, 26.4f) } }
+                    : wall);
+            }
+            return lines;
         }
 
         /// <summary>The chamber floor; a gap held back from the ziggurat's faces gives the outline characters may walk.</summary>
