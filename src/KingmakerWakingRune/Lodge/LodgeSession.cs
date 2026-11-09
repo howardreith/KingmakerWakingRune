@@ -8,6 +8,7 @@ using Kingmaker.View;
 using KingmakerWakingRune.Blueprints;
 using KingmakerWakingRune.Diagnostics;
 using KingmakerWakingRune.Party;
+using KingmakerWakingRune.Sanctum;
 using UnityEngine;
 
 namespace KingmakerWakingRune.Lodge
@@ -55,6 +56,10 @@ namespace KingmakerWakingRune.Lodge
 
         private static void Apply()
         {
+            if (Game.Instance.CurrentlyLoadedArea == ScenarioBlueprints.Sanctum)
+            {
+                return;
+            }
             Player player = Game.Instance.Player;
             var flags = player.UnlockableFlags;
             bool inLodge = Game.Instance.CurrentlyLoadedArea == ScenarioBlueprints.Area;
@@ -97,6 +102,7 @@ namespace KingmakerWakingRune.Lodge
             {
                 EnsureCast();
                 StartingGrants.ApplyOnce();
+                RefugeToken.EnsureGranted();
                 BriefingService.ArmIfPending();
                 LodgeDriver.Attach();
                 Recon.DumpLodge();

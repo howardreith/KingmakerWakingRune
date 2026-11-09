@@ -68,8 +68,16 @@
       <HintPath>$(KingmakerManagedDir)\UnityEngine.AnimationModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="UnityEngine.ParticleSystemModule">
+      <HintPath>$(KingmakerManagedDir)\UnityEngine.ParticleSystemModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="UnityEngine.ScreenCaptureModule">
       <HintPath>$(KingmakerManagedDir)\UnityEngine.ScreenCaptureModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Pathfinding.Poly2Tri">
+      <HintPath>$(KingmakerManagedDir)\Pathfinding.Poly2Tri.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityModManager">

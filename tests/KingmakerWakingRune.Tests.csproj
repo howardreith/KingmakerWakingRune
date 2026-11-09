@@ -20,6 +20,19 @@
     <Compile Include="Program.cs" />
     <Compile Include="LodgePolicyTests.cs" />
     <Compile Include="WakingPoliciesTests.cs" />
+    <Compile Include="SanctumPlanTests.cs" />
+    <Compile Include="SanctumPolicyTests.cs" />
+    <Compile Include="SanctumSurfaceTests.cs" />
+    <Compile Include="SanctumSightTests.cs" />
+    <Compile Include="SanctumDoorSafetyTests.cs" />
+    <Compile Include="RefugeTransferFlowTests.cs" />
+    <Compile Include="SanctumStatueTests.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\SanctumPolicy.cs" Link="Linked\SanctumPolicy.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\SanctumPlan.cs" Link="Linked\SanctumPlan.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\ZigguratMasonry.cs" Link="Linked\ZigguratMasonry.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\RefugeTransferFlow.cs" Link="Linked\RefugeTransferFlow.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\SanctumBuildGate.cs" Link="Linked\SanctumBuildGate.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\StatueManifest.cs" Link="Linked\StatueManifest.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Lodge\WakingPolicies.cs" Link="Linked\WakingPolicies.cs" />
     <!-- Pure logic only: compiled directly so no game assemblies are loaded by the tests. -->
     <Compile Include="..\src\KingmakerWakingRune\Lodge\LodgePolicy.cs" Link="Linked\LodgePolicy.cs" />

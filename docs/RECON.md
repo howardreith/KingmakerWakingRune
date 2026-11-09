@@ -58,3 +58,11 @@ and live runtime dumps. Only facts used by the implementation are recorded.
 | Casting pose | `UnitAnimationManager.CreateHandle(CastSpell)` with `CastStyle` and `SpecialCastBehaviour=NoCast` loops the precast pose without an ability | Warding agents |
 | Room | Central bay x -24..-16, z -3..3, alcoves at z +/-4..7. West of x=-22.5 the door wall hides units from the camera | Placement |
 | Screen capture | The game presents directly to the display on this machine, so GDI capture returns the desktop; Unity's `ScreenCapture` works | Harness `Shot` |
+## WR-03 additions (verified in game)
+| Concern | Finding | Use |
+|---|---|---|
+| Favored Terrain | Reads `BlueprintArea.LootSetting`; Underground = NaturalCaves, RichHuman, Cyclops, Kobolds, Dwarves; Urban = PoorHuman, RichHuman, Barbarians, Goblins, Lizards | Sanctum is `Cyclops`; the lodge (`RichHuman`) matches both, so it is no control for Underground |
+| Runtime navmesh | Recast needs `RecastMeshObj` with an enabled renderer, donor `NavmeshMasks` removed, an own `ValidNavmeshArea`, `walkableClimb` 1.5 | `SanctumScope.ScanNavigation` |
+| Party placement | `AreaEnterPoint.PositionCharacters` uses presets when the marker has children, otherwise a centred formation | Arrival slots |
+| Item use | `ItemEntity.TryUseFromInventory` runs the ability instantly; `ItemSlot` context menu exposes native Use | Refuge Token |
+| Light scene | Loads after `OnAreaDidLoad`; donor `!LIGHT_SETUP` must be hidden later | `SanctumRootMarker` poller |

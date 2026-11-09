@@ -17,8 +17,10 @@ namespace KingmakerWakingRune.Patches
             if (ScenarioBlueprints.IsRegistered)
             {
                 LodgeSession.Subscribe();
+                Sanctum.SanctumSession.Subscribe();
             }
             Recon.DumpBlueprints(__instance);
+
         }
     }
 

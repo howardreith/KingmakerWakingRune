@@ -42,6 +42,9 @@ namespace KingmakerWakingRune
         /// </summary>
         public const string DonorStaticScene = "CapitalLibrary_Static";
 
+        /// <summary>Technical shell and material source for the sanctum: an underground tomb with its own navmesh.</summary>
+        public const string SanctumDonorStaticScene = "DunswardTomb_Static";
+
         /// <summary>
         /// Stable GUID for a named mod blueprint. The name is the identity: renaming one orphans
         /// it in existing saves, so names of shipped blueprints must not change.

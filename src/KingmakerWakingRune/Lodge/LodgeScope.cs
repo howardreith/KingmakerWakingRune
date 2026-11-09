@@ -1,9 +1,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using Kingmaker;
+using Kingmaker.Blueprints.Area;
 using Kingmaker.EntitySystem;
 using Kingmaker.View;
 using KingmakerWakingRune.Blueprints;
+using KingmakerWakingRune.Sanctum;
 
 namespace KingmakerWakingRune.Lodge
 {
@@ -21,7 +23,7 @@ namespace KingmakerWakingRune.Lodge
             var loaded = Game.Instance.State.LoadedAreaState;
             return ScenarioBlueprints.IsRegistered
                    && loaded != null
-                   && loaded.Area.Blueprint == ScenarioBlueprints.Area
+                   && (loaded.Area.Blueprint == ScenarioBlueprints.Area || loaded.Area.Blueprint == ScenarioBlueprints.Sanctum)
                    && state != null
                    && state != Game.Instance.State.PlayerState.CrossSceneState;
         }
@@ -35,6 +37,11 @@ namespace KingmakerWakingRune.Lodge
             List<EntityViewBase> suppressed = views.ToList();
             Log.Info($"Donor entity views suppressed for lodge: scene={state.SceneName} count={suppressed.Count} " +
                      $"kinds=[{string.Join(",", suppressed.GroupBy(v => v.GetType().Name).Select(g => $"{g.Key}x{g.Count()}").ToArray())}]");
+            BlueprintArea area = Game.Instance.State.LoadedAreaState.Area.Blueprint;
+            if (area == ScenarioBlueprints.Sanctum && state.SceneName == area.DynamicScene.SceneName)
+            {
+                return SanctumDoors.Create(suppressed);
+            }
             return Enumerable.Empty<EntityViewBase>();
         }
     }
