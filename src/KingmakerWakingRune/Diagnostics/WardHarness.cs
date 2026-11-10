@@ -34,6 +34,8 @@ namespace KingmakerWakingRune.Diagnostics
             {
                 case "state":
                     return WardStore.Dump();
+                case "spawnfoe":
+                    return SpawnFoe(args[1], float.Parse(args[2]));
                 case "wardpart":
                     return $"area={Game.Instance.CurrentlyLoadedArea?.name} sanctum={SanctumScope.IsSanctumLoaded} SanctumWardPart present={WardStore.HasPart} turnBased={TurnBased.Controllers.CombatController.IsInTurnBasedCombat()} inCombat={Game.Instance.Player.IsInCombat}";
                 case "fixtures":
@@ -86,6 +88,20 @@ namespace KingmakerWakingRune.Diagnostics
                 default:
                     return $"unknown command {args[0]}";
             }
+        }
+
+        /// <summary>One stock hostile beside the party, for a combat in any area; the fight itself is entirely native.</summary>
+        private static string SpawnFoe(string guid, float meters)
+        {
+            BlueprintUnit blueprint = ResourcesLibrary.TryGetBlueprint<BlueprintUnit>(guid);
+            UnitEntityData lead = Game.Instance.Player.Party[0];
+            if (blueprint == null)
+            {
+                return $"no unit blueprint {guid}";
+            }
+            Vector3 at = lead.Position + lead.OrientationDirection * meters;
+            UnitEntityData foe = Game.Instance.EntityCreator.SpawnUnit(blueprint, at, Quaternion.identity, Game.Instance.State.LoadedAreaState.MainState);
+            return $"SETUP spawned hostile {foe.CharacterName} ({blueprint.name}) {meters} m ahead of {lead.CharacterName} in {Game.Instance.CurrentlyLoadedArea?.name}.";
         }
 
         private static UnitEntityData Member(string index)
