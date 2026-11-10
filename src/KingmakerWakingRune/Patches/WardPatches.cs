@@ -50,16 +50,36 @@ namespace KingmakerWakingRune.Patches
 
     /// <summary>
     /// The printed rune plates "receive no saving throw to resist effects to which they are vulnerable": only a rune plate,
-    /// and only against an effect of the kind its own routes name. Statues, props, Krune and Vandiana save normally.
+    /// and only against an effect of the kind its own routes name, by descriptor or by what the effect does (Harm's
+    /// negative energy has no descriptor). Statues, props, Krune and Vandiana save normally.
     /// </summary>
     [HarmonyPatch(typeof(RuleSavingThrow), nameof(RuleSavingThrow.IsPassed), MethodType.Getter)]
     internal static class FixtureSaveFailPatch
     {
+        private static readonly System.Collections.Generic.HashSet<RuleSavingThrow> s_Logged = new System.Collections.Generic.HashSet<RuleSavingThrow>();
+
         private static void Postfix(RuleSavingThrow __instance, ref bool __result)
         {
-            if (__result && RuneVulnerability.Denies(WardFixtures.IdOf(__instance.Initiator), (long)(__instance.Reason?.Context?.SpellDescriptor ?? Kingmaker.Blueprints.Classes.Spells.SpellDescriptor.None)))
+            string id = WardFixtures.IdOf(__instance.Initiator);
+            if (!__result || id == null)
             {
-                __result = false;
+                return;
+            }
+            var context = __instance.Reason?.Context;
+            long descriptor = (long)(context?.SpellDescriptor ?? Kingmaker.Blueprints.Classes.Spells.SpellDescriptor.None);
+            RuneEffect effects = RuneEffectScan.Of(context);
+            if (!RuneVulnerability.Denies(id, descriptor, effects))
+            {
+                return;
+            }
+            __result = false;
+            if (s_Logged.Count > 64)
+            {
+                s_Logged.Clear();
+            }
+            if (s_Logged.Add(__instance))
+            {
+                Log.Info($"Rune save denied: {id} {__instance.Type} {__instance.RollResult} vs DC {__instance.DifficultyClass} from {context?.AssociatedBlueprint?.name}; descriptor {context?.SpellDescriptor}; effects {effects}.");
             }
         }
     }

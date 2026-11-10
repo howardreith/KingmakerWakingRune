@@ -523,6 +523,20 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(false, RuneVulnerability.Denies(null, RuneVulnerability.Fire), "non-fixtures untouched");
         }
 
+        public static void TestRunePlatesDenySavesByWhatTheEffectDoes()
+        {
+            // Harm and the inflict spells carry no descriptor: Life still answers their negative energy, scoped to Life.
+            Assert.Equal(true, RuneVulnerability.Denies("A3a", 0L, RuneEffect.NegativeEnergyDamage), "Life against undescribed negative energy");
+            Assert.Equal(true, RuneVulnerability.Denies("A3a", 0L, RuneEffect.NegativeLevels), "Life against energy drain");
+            Assert.Equal(false, RuneVulnerability.Denies("A3b", 0L, RuneEffect.NegativeEnergyDamage), "Alacrity saves against negative energy");
+            Assert.Equal(false, RuneVulnerability.Denies("A3f", 0L, RuneEffect.NegativeEnergyDamage), "Control saves against negative energy");
+            Assert.Equal(true, RuneVulnerability.Denies("A3b", 0L, RuneEffect.ColdDamage), "Alacrity against undescribed cold");
+            Assert.Equal(false, RuneVulnerability.Denies("A3e", 0L, RuneEffect.ColdDamage), "Armor saves against cold damage");
+            Assert.Equal(false, RuneVulnerability.Denies("A3a", 0L, RuneEffect.None), "no qualifying effect");
+            Assert.Equal(false, RuneVulnerability.Denies("Support-N1", 0L, RuneEffect.NegativeEnergyDamage), "statues save normally");
+            Assert.Equal(false, RuneVulnerability.Denies("Krune", 0L, RuneEffect.NegativeLevels), "Krune saves normally");
+        }
+
         public static void TestSpentFeederPointsNeverReturnOrAccelerate()
         {
             var feeder = new FeederState();
