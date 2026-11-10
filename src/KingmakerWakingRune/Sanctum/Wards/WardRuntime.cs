@@ -272,6 +272,10 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 refusal = "Not with the unseen hound baying so close.";
             }
+            if (refusal != null)
+            {
+                Log.Info($"Work refused: {refusal}");
+            }
             return refusal == null;
         }
 
