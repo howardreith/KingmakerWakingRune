@@ -13,6 +13,9 @@ using Kingmaker.Enums;
 using Kingmaker.Localization;
 using Kingmaker.UnitLogic;
 using Kingmaker.UnitLogic.Buffs.Blueprints;
+using Kingmaker.UnitLogic.Abilities.Blueprints;
+using Kingmaker.UnitLogic.Abilities.Components;
+using Kingmaker.UnitLogic.Abilities.Components.TargetCheckers;
 using Kingmaker.UnitLogic.Buffs.Components;
 using Kingmaker.UnitLogic.FactLogic;
 using KingmakerWakingRune.Blueprints;
@@ -49,6 +52,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
         private const string Fatigued = "e6f2fc5d73d88064583cb828801212f4";
         private const string Sleeping = "5e0cd801bac0e95429bb7e4d1bc61a23";
         private const string AberrationType = "3bec99efd9a363242a6c8d9957b75e91";
+        /// <summary>CR2_BanditPositiveClericLevel3: the nearest native body to the GameMastery Guide's cleric 3 cultist.</summary>
+        private const string CultistDonor = "9ffceca100e02644ba67cf492c17d351";
+        private const string RestorationLesserAbility = "e84fc922ccf952943b5240293669b171";
         private const int FixtureHitPoints = 1000000;
         private const int FixtureAbilityScore = 200;
 
@@ -67,6 +73,15 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public static BlueprintBuff MistSleep { get; private set; }
         public static BlueprintBuff FeederTempHp { get; private set; }
         public static BlueprintFeature SihedronBrand { get; private set; }
+        public static BlueprintFeature LissalaWorshipper { get; private set; }
+        public static BlueprintAbility WakeAlly { get; private set; }
+        public static BlueprintBuff WardMarker { get; private set; }
+        public static BlueprintUnit AlarmFixture { get; private set; }
+        public static BlueprintUnit GlyphFixture { get; private set; }
+        public static BlueprintUnit HoundFixture { get; private set; }
+        public static BlueprintUnit CultistAttacker { get; private set; }
+        public static BlueprintUnit CultistReporter { get; private set; }
+        public static readonly Dictionary<string, BlueprintUnit> InspectFixtures = new Dictionary<string, BlueprintUnit>();
 
         private static Action<BlueprintScriptableObject> s_Register;
 
@@ -93,7 +108,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             BlueprintUnit donor = root.InvisibleKittenUnit;
             foreach (RuneFocus focus in KruneProjection.Foci)
             {
-                RuneFixtures[focus.Id] = Fixture(root, donor, "KWR_Rune_" + focus.Id, $"{focus.Kind} Rune ({focus.Id})", FixtureFaction, fixtureFacts);
+                RuneFixtures[focus.Id] = Fixture(root, donor, "KWR_Rune_" + focus.Id, "Thassilonian rune plate", FixtureFaction, fixtureFacts);
             }
             StatueFixture = Fixture(root, donor, "KWR_StatueFixture", "Stone figure", StatueFaction, new BlueprintUnitFact[] { objectFeature });
             DoorFixture = Fixture(root, donor, "KWR_DoorFixture", "Conduit Door", FixtureFaction, fixtureFacts);
@@ -108,11 +123,96 @@ namespace KingmakerWakingRune.Sanctum.Wards
             MistSleep = Buff(buffs[Sleeping], "KWR_MistSleep", "Sleeping in the Mist", "Asleep in the preservation vapor. Damage or an adjacent ally's standard action wakes this creature.", hidden: false, fromSpell: false, Condition(UnitCondition.Sleeping), Condition(UnitCondition.Prone), Descriptor(SpellDescriptor.Sleep), Logic<KwrMistSleepWake>("KWR_MistWakeOnDamage"));
             FeederTempHp = Buff(buffs[Fatigued], "KWR_FeederTempHp", "Stolen Vitality", "Life stolen by the conduit door's feeder.", hidden: true, fromSpell: false, Logic<KwrFeederTempHp>("KWR_FeederTempHpLogic"));
 
+            WardMarker = Buff(buffs[Staggered], "KWR_WardMarker", "Ward", "A standing enchantment of the sanctum.", hidden: true, fromSpell: true, Permanent());
+
             SihedronBrand = Create<BlueprintFeature>("KWR_SihedronBrand");
             SihedronBrand.HideInUI = true;
             SihedronBrand.ComponentsArray = new BlueprintComponent[0];
             SihedronBrand.Groups = new FeatureGroup[0];
             register(SihedronBrand);
+
+            LissalaWorshipper = Create<BlueprintFeature>("KWR_LissalaWorshipper");
+            LissalaWorshipper.HideInUI = true;
+            LissalaWorshipper.ComponentsArray = new BlueprintComponent[0];
+            LissalaWorshipper.Groups = new FeatureGroup[0];
+            register(LissalaWorshipper);
+
+            WakeAlly = BuildWake(all);
+            register(WakeAlly);
+
+            AlarmFixture = Fixture(root, donor, "KWR_AlarmFixture", "Alarm ward", StatueFaction, new BlueprintUnitFact[] { objectFeature });
+            GlyphFixture = Fixture(root, donor, "KWR_GlyphFixture", "Glyph ward", StatueFaction, new BlueprintUnitFact[] { objectFeature });
+            HoundFixture = Fixture(root, donor, "KWR_HoundFixture", "Faithful Hound", StatueFaction, new BlueprintUnitFact[] { objectFeature });
+            foreach (string id in new[] { WardText.ApexId, WardText.ToolsId, WardText.LightId, WardText.PedestalId, WardText.SarcophagusId, WardText.MistId, WardText.FlailId })
+            {
+                InspectFixtures[id] = Fixture(root, donor, "KWR_Inspect_" + id.Replace("-", string.Empty), id == WardText.FlailId ? "Metal chain" : id, StatueFaction, new BlueprintUnitFact[] { objectFeature });
+            }
+
+            BlueprintUnit cultistDonor = all.OfType<BlueprintUnit>().First(u => u.AssetGuid == CultistDonor);
+            CultistAttacker = Cultist(cultistDonor, root, "KWR_CultistAttacker", "Restored Lissalan Cultist", root.SystemMechanics.FactionMobs);
+            CultistReporter = Cultist(cultistDonor, root, "KWR_CultistReporter", "Fleeing Lissalan Cultist", root.SystemMechanics.FactionNeutrals);
+
+            foreach (var pair in AllClickable())
+            {
+                AddInteraction(pair);
+            }
+        }
+
+        /// <summary>Every fixture a click can reach: rune, statue, door, gem and inspect proxies. Hound and hidden wards take spells only.</summary>
+        private static IEnumerable<BlueprintUnit> AllClickable()
+        {
+            return RuneFixtures.Values.Concat(new[] { StatueFixture, DoorFixture, GemFixture }).Concat(InspectFixtures.Values);
+        }
+
+        private static void AddInteraction(BlueprintUnit unit)
+        {
+            var interaction = Component<KwrFixtureInteraction>("KWR_FixtureInteraction_" + unit.name);
+            interaction.Conditions = new ConditionsChecker();
+            unit.ComponentsArray = unit.ComponentsArray.Concat(new BlueprintComponent[] { interaction }).ToArray();
+        }
+
+        /// <summary>A standard-action touch from an adjacent ally: the printed way out of the mist's sleep other than damage.</summary>
+        private static BlueprintAbility BuildWake(IEnumerable<BlueprintScriptableObject> all)
+        {
+            BlueprintAbility donor = all.OfType<BlueprintAbility>().First(a => a.AssetGuid == RestorationLesserAbility);
+            var ability = UnityEngine.Object.Instantiate(donor);
+            ability.name = "KWR_WakeAlly";
+            ability.AssetGuid = ScenarioIds.Derive("ability.KWR_WakeAlly");
+            string nameKey = "kwr.ability.wake", descriptionKey = nameKey + ".description";
+            LocalizedText.Define(nameKey, "Wake Ally");
+            LocalizedText.Define(descriptionKey, "Shake an adjacent ally awake from the mist's sleep. A standard action.");
+            AccessTools.Field(typeof(BlueprintUnitFact), "m_DisplayName").SetValue(ability, LocalizedText.Create(nameKey));
+            AccessTools.Field(typeof(BlueprintUnitFact), "m_Description").SetValue(ability, LocalizedText.Create(descriptionKey));
+            ability.Type = AbilityType.Extraordinary;
+            ability.Range = AbilityRange.Touch;
+            ability.CanTargetSelf = false;
+            ability.CanTargetFriends = true;
+            ability.CanTargetEnemies = false;
+            ability.CanTargetPoint = false;
+            ability.ActionType = Kingmaker.UnitLogic.Commands.Base.UnitCommand.CommandType.Standard;
+            var run = Component<AbilityEffectRunAction>("KWR_WakeRun");
+            run.Actions = new ActionList { Actions = new GameAction[] { ScriptableObject.CreateInstance<KwrWakeAction>() } };
+            var target = Component<AbilityTargetHasFact>("KWR_WakeTarget");
+            target.CheckedFacts = new BlueprintUnitFact[] { MistSleep };
+            ability.ComponentsArray = new BlueprintComponent[] { run, target };
+            return ability;
+        }
+
+        private static BlueprintUnit Cultist(BlueprintUnit donor, BlueprintRoot root, string name, string display, BlueprintFaction faction)
+        {
+            string key = "kwr.unit." + name;
+            LocalizedText.Define(key, display);
+            var unit = UnityEngine.Object.Instantiate(donor);
+            unit.name = name;
+            unit.AssetGuid = ScenarioIds.Derive("unit." + name);
+            unit.Faction = faction;
+            unit.AddFacts = (unit.AddFacts ?? new BlueprintUnitFact[0]).Concat(new BlueprintUnitFact[] { LissalaWorshipper }).ToArray();
+            var localizedName = ScriptableObject.CreateInstance<SharedStringAsset>();
+            localizedName.name = name + "_Name";
+            localizedName.String = LocalizedText.Create(key);
+            unit.LocalizedName = localizedName;
+            s_Register(unit);
+            return unit;
         }
 
         private static BlueprintUnit Fixture(BlueprintRoot root, BlueprintUnit donor, string name, string display, BlueprintFaction faction, BlueprintUnitFact[] facts)

@@ -125,6 +125,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public GemState Gem = new GemState();
         public RitualState Ritual = new RitualState();
         public bool FlailAcquired;
+        public List<string> AlarmInside = new List<string>();
+        public List<string> GlyphInside = new List<string>();
         public string TokenMotif = string.Empty;
 
         public RuneFocusState Focus(string id)

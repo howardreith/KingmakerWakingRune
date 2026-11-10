@@ -27,6 +27,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
         private const string VandianaId = "Vandiana";
         private const string GemId = "Gem";
         private const string DoorId = "DoorA2";
+        private const string AlarmId = "AlarmWard";
+        private const string GlyphId = "GlyphWard";
+        private const string HoundId = "Hound";
 
         public static readonly Dictionary<string, UnitEntityData> Live = new Dictionary<string, UnitEntityData>();
 
@@ -75,10 +78,29 @@ namespace KingmakerWakingRune.Sanctum.Wards
             EnsureOne(GemId, WardBlueprints.GemFixture, GridWorld(14.8f, 9.6f));
             EnsureOne(KruneId, WardBlueprints.KruneSupport, GridWorld(SanctumPlan.SarcophagusCenter.X, SanctumPlan.SarcophagusCenter.Y));
             EnsureOne(VandianaId, WardBlueprints.VandianaSupport, GridWorld(13.9f, 9.6f));
+            EnsureOne(AlarmId, WardBlueprints.AlarmFixture, GridWorld(WardGeometry.AlarmCenter.X, WardGeometry.AlarmCenter.Y));
+            EnsureOne(GlyphId, WardBlueprints.GlyphFixture, GridWorld(WardGeometry.GlyphCenter.X, WardGeometry.GlyphCenter.Y));
+            EnsureOne(HoundId, WardBlueprints.HoundFixture, GridWorld(WardGeometry.HoundPoint.X, WardGeometry.HoundPoint.Y));
+            EnsureOne(WardText.ApexId, WardBlueprints.InspectFixtures[WardText.ApexId], GridWorld(13f, 19.6f));
+            EnsureOne(WardText.ToolsId, WardBlueprints.InspectFixtures[WardText.ToolsId], GridWorld(14.8f, 9.1f));
+            EnsureOne(WardText.LightId, WardBlueprints.InspectFixtures[WardText.LightId], GridWorld(16.3f, 9.5f));
+            EnsureOne(WardText.PedestalId, WardBlueprints.InspectFixtures[WardText.PedestalId], GridWorld(19.7f, 10.5f));
+            EnsureOne(WardText.SarcophagusId, WardBlueprints.InspectFixtures[WardText.SarcophagusId], GridWorld(8.87f, 8.7f));
+            EnsureOne(WardText.MistId, WardBlueprints.InspectFixtures[WardText.MistId], GridWorld(9.7f, 11f));
+            if (SanctumDressing.StatueFeet.TryGetValue("A3d-L", out Vector3 deva))
+            {
+                EnsureOne(WardText.FlailId, WardBlueprints.InspectFixtures[WardText.FlailId], deva + new Vector3(0.3f, 0f, -0.4f));
+            }
             foreach (UnitEntityData unit in Live.Values)
             {
                 Configure(unit);
             }
+        }
+
+        /// <summary>Fixtures whose click belongs to the inspection dialogue. The hound and hidden wards take spells only.</summary>
+        public static bool Clickable(string id)
+        {
+            return id != KruneId && id != VandianaId && id != AlarmId && id != GlyphId && id != HoundId;
         }
 
         private static void EnsureOne(string id, BlueprintUnit blueprint, Vector3 at)

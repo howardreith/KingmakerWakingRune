@@ -1,5 +1,8 @@
 using System;
 
+// Saved fields: some are only ever written by the native adapters or the JSON reader.
+#pragma warning disable CS0649
+
 namespace KingmakerWakingRune.Sanctum.Wards
 {
     /// <summary>A creature's standing with the A5 mist. Saved per creature, with no per-frame or particle-derived values.</summary>
@@ -12,6 +15,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public double NextDueAt = -1d;
         /// <summary>The simulation time this creature last ended a full interval outside the mist, or below zero.</summary>
         public double LastOutsideAt = -1d;
+        /// <summary>Ever exposed to a real mist tick; gates the printed study of the vapor.</summary>
+        public bool Exposed;
     }
 
     internal enum MistExposure

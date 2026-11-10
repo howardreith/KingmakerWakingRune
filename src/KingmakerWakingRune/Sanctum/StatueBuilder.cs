@@ -269,6 +269,7 @@ namespace KingmakerWakingRune.Sanctum
                 figure.transform.SetParent(m_Root, false);
                 figure.AddComponent<MeshFilter>().sharedMesh = mesh;
                 var renderer = figure.AddComponent<MeshRenderer>();
+                SanctumDressing.AddStatueRenderer(slot.Id, renderer);
                 renderer.sharedMaterial = StoneOf(group.Key, slot.Finish);
                 renderer.receiveShadows = true;
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;

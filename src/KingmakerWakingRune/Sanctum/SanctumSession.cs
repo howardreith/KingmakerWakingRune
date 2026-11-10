@@ -37,6 +37,7 @@ namespace KingmakerWakingRune.Sanctum
             if (SanctumScope.IsSanctumLoaded)
             {
                 SanctumLighting.Restore();
+                Wards.WardRuntime.OnLeavingSanctum();
             }
         }
 

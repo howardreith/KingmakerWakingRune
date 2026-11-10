@@ -387,6 +387,29 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(2, InspectionRules.RuneTier(33), "exact");
         }
 
+        public static void TestAlarmCoversTheStairsAndApexButNotArrival()
+        {
+            Assert.Equal(true, WardGeometry.InAlarmZone(13.15f, 26f, 0f), "foot of the A2 stair at the door");
+            Assert.Equal(true, WardGeometry.InAlarmZone(13f, 19.6f, 6f), "apex");
+            Assert.Equal(false, WardGeometry.InAlarmZone(13f, 15.1f, 0f), "printed arrival");
+            Assert.Equal(false, WardGeometry.InAlarmZone(11.1f, 13.9f, 0f), "arrival corner");
+            Assert.Equal(4f, WardGeometry.AlarmRadiusSquares, "twenty feet in five-foot squares");
+        }
+
+        public static void TestGlyphBurstReachesTenFeetFromItsTrigger()
+        {
+            Assert.Equal(true, WardGeometry.InGlyphTrigger(19.6f, 14.65f), "centre");
+            Assert.Equal(false, WardGeometry.InGlyphTrigger(19.6f, 12.5f), "not the room beyond");
+            Assert.Equal(2f, WardGeometry.GlyphBurstSquares, "ten feet");
+        }
+
+        public static void TestMistStaysInItsVisibleRectangleAndChamber()
+        {
+            Assert.Equal(true, WardGeometry.InMist(8.9f, 9.5f), "under the sarcophagus");
+            Assert.Equal(false, WardGeometry.InMist(16f, 9.5f), "A4 floats no hazard");
+            Assert.Equal(false, WardGeometry.InMist(8.9f, 5.2f), "behind the wall");
+        }
+
         public static void TestBearerManifestIsFiveAndFive()
         {
             Assert.Equal(10, BearerManifest.Roles.Count, "ten bearers");

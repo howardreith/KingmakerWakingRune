@@ -36,6 +36,12 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         private static void HandleDamage(RuleDealDamage evt)
         {
+            string fixtureId = WardFixtures.IdOf(evt.Target);
+            if (fixtureId == WardText.DoorId || fixtureId == WardText.GemId)
+            {
+                HandleBreakable(evt, fixtureId);
+                return;
+            }
             RuneFocus focus = Focus(evt.Target);
             if (focus == null || evt.ResultDamage == null)
             {
@@ -119,6 +125,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         private static void HandleDispel(RuleDispelMagic evt)
         {
+            if (evt.Buff != null && evt.Buff.Blueprint == WardBlueprints.WardMarker)
+            {
+                WardRuntime.OnWardDispel(WardFixtures.IdOf(evt.Target), evt.Success, evt.CasterLevelCheck, evt.DC);
+                return;
+            }
             RuneFocus focus = Focus(evt.Target);
             if (focus == null || evt.Buff == null || evt.Buff.Blueprint != WardBlueprints.DefenseWard)
             {
@@ -140,6 +151,12 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         private static void HandleCast(RuleCastSpell evt)
         {
+            string fixtureId = WardFixtures.IdOf(evt.SpellTarget.Unit);
+            if (evt.Success && fixtureId != null && WardStatues.IsStoneToFlesh(evt.Spell.Blueprint) && StatueManifest.Slots.Any(s => s.Id == fixtureId))
+            {
+                WardStatues.OnRestored(fixtureId, evt.Initiator);
+                return;
+            }
             RuneFocus focus = Focus(evt.SpellTarget.Unit);
             if (focus == null || !evt.Success || !evt.Spell.Blueprint.IsSpell)
             {
@@ -151,6 +168,26 @@ namespace KingmakerWakingRune.Sanctum.Wards
             UnitEntityData actor = evt.Initiator;
             RuneOutcome outcome = RuneRules.ApplySpell(focus, WardRuntime.State.Focus(focus.Id), WardRuntime.Now, Id(actor), (descriptor & SpellDescriptor.Death) != 0, (descriptor & SpellDescriptor.Compulsion) != 0, level);
             WardRuntime.ReportRune(focus, outcome, $"{evt.Spell.Blueprint.name} (effective level {level}, {descriptor}) by {actor?.CharacterName}");
+        }
+
+        /// <summary>The door and emerald keep their own hit points; a proxy's HP is only a place for native damage to land.</summary>
+        private static void HandleBreakable(RuleDealDamage evt, string fixtureId)
+        {
+            if (evt.ResultDamage == null)
+            {
+                return;
+            }
+            int total = evt.ResultDamage.Where(v => !v.Source.Immune).Sum(v => v.FinalValue);
+            evt.Target.Damage = 0;
+            if (fixtureId == WardText.DoorId)
+            {
+                var weapon = evt.DamageBundle.Weapon;
+                WardDoor.TakeHit(Attacker(evt), total, weapon != null && weapon.Blueprint.IsMelee);
+            }
+            else
+            {
+                WardGem.TakeHit(total);
+            }
         }
 
         /// <summary>A failed rule read must never disturb the game; the rulebook would otherwise swallow it unseen.</summary>

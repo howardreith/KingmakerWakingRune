@@ -12,6 +12,7 @@ using Kingmaker.UnitLogic.Abilities;
 using Kingmaker.UnitLogic.Buffs;
 using Kingmaker.UnitLogic.Buffs.Components;
 using KingmakerWakingRune.Blueprints;
+using UnityEngine;
 
 namespace KingmakerWakingRune.Sanctum.Wards
 {
@@ -72,6 +73,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
         private const double TickSeconds = 0.25d;
 
         private static readonly WardObserver s_Observer = new WardObserver();
+        private static readonly WardTurnHandler s_TurnHandler = new WardTurnHandler();
         private static bool s_Subscribed;
         private static double s_NextTick;
 
@@ -84,6 +86,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             if (!s_Subscribed)
             {
                 EventBus.Subscribe(s_Observer);
+                EventBus.Subscribe(s_TurnHandler);
                 s_Subscribed = true;
             }
             SanctumState state = State;
@@ -97,6 +100,23 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
             WardFixtures.Ensure();
             EnsureDefenseWard(state);
+            WardTraps.AfterLoad(state);
+            WardDoor.ApplyVisual();
+            ApplyFlailVisual(state);
+            WardStatues.ApplyAll(state, Now);
+            EnsureWardMarkers(state);
+            WardRitual.EnsureBaseline(state);
+            ApplyRuneVisuals(state);
+            GrantWake();
+            if (legacyEntered && state.AlarmInside.Count == 0)
+            {
+                WardHazards.SeedLegacyOccupants(state);
+            }
+            if (legacyEntered && !state.LegacyNoticeShown)
+            {
+                state.LegacyNoticeShown = true;
+                Say("The sanctum's wards have awakened since you last stood here. For the full challenge, return to a save made before departure.");
+            }
             WardKrune.Refresh(state, Now);
             s_NextTick = 0d;
             Log.Info($"Wards ready: mask={state.RuneMask} clock={Now:0} focusWindows={state.Foci.Values.Sum(f => f.Windows.Count)}.");
@@ -133,7 +153,156 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 UpdateCurse(state, record, now);
             }
+            WardHazards.Tick(state, now);
+            WardStatues.Tick(state, now);
+            WardRitual.Tick(state, now);
+            WardTraps.Tick();
+            UpdateWardVisibility(state, now);
+            RestoreSuppressedFeeder(state, now);
             WardKrune.Refresh(state, now);
+        }
+
+        /// <summary>Every load and every disabling rule show the same thing: a dead plate, a dimmed light.</summary>
+        private static void ApplyRuneVisuals(SanctumState state)
+        {
+            foreach (RuneFocus focus in KruneProjection.Foci)
+            {
+                bool disabled = state.Focus(focus.Id).Disabled;
+                if (SanctumDressing.BrokenRunes.TryGetValue(focus.Id, out GameObject[] parts))
+                {
+                    foreach (GameObject part in parts)
+                    {
+                        part.SetActive(disabled);
+                    }
+                }
+                if (SanctumDressing.RuneLights.TryGetValue(focus.Id, out Light light) && light != null)
+                {
+                    light.enabled = !disabled;
+                }
+            }
+        }
+
+        /// <summary>A real door transition: one sound, and the east door is what Vandiana hears.</summary>
+        public static void OnDoorTransition(string id, bool opened)
+        {
+            if (id == "A4Approach" && opened)
+            {
+                WardRitual.HearDoor();
+            }
+        }
+
+        public static bool HasBeenExposedToMist()
+        {
+            SanctumState state = State;
+            return state != null && state.Mist.Values.Any(r => r.Exposed);
+        }
+
+        /// <summary>Long work only out of combat, and never during a running confrontation clock.</summary>
+        public static bool CanSpendWork()
+        {
+            SanctumState state = State;
+            return state != null && !Game.Instance.Player.IsInCombat && !TurnBased.Controllers.CombatController.IsInTurnBasedCombat() && !state.Ritual.ConfrontationStarted && !state.Ritual.AwakeningDue;
+        }
+
+        public static void SpendWork(double seconds, string what)
+        {
+            Game.Instance.AdvanceGameTime(TimeSpan.FromSeconds(seconds));
+            Log.Info($"Work: {what} advanced the simulation {seconds:0} seconds.");
+        }
+
+        public static void ApplyFlailVisual(SanctumState state)
+        {
+            if (!state.FlailAcquired)
+            {
+                return;
+            }
+            foreach (Transform t in UnityEngine.Object.FindObjectsOfType<Transform>().Where(t => t.name.StartsWith(SanctumDressing.FlailObjectName)))
+            {
+                t.gameObject.SetActive(false);
+            }
+        }
+
+        /// <summary>A real dispel result against one of the sanctum's standing wards. The check itself is native.</summary>
+        public static void OnWardDispel(string fixtureId, bool success, int check, int dc)
+        {
+            SanctumState state = State;
+            Log.Info($"Ward dispel on {fixtureId}: {check} vs DC {dc}: {(success ? "success" : "failure")}.");
+            if (!success)
+            {
+                return;
+            }
+            switch (fixtureId)
+            {
+                case "AlarmWard":
+                    state.Alarm.Dispelled = true;
+                    WardTraps.Alarm?.Deactivate();
+                    break;
+                case "GlyphWard":
+                    state.Glyph.Dispelled = true;
+                    WardTraps.Glyph?.Deactivate();
+                    break;
+                case "Hound":
+                    state.Hound.Dispelled = true;
+                    break;
+                case WardText.DoorId:
+                    // A resetting magical device suppresses for 1d4 rounds rather than being unmade.
+                    FeederRules.Suppress(state.Door.Feeder, RulebookEvent.Dice.D4, Now);
+                    Log.Info($"Feeder suppressed until {state.Door.Feeder.SuppressedUntil:0}.");
+                    break;
+            }
+        }
+
+        private static void EnsureWardMarkers(SanctumState state)
+        {
+            Mark("AlarmWard", state.Alarm.IsActive(Now), WardProfile.ArcaneCasterLevel);
+            Mark("GlyphWard", !state.Glyph.Triggered && !state.Glyph.Disarmed && !state.Glyph.Dispelled, WardProfile.DivineCasterLevel);
+            Mark("Hound", state.Hound.IsActive(Now), WardProfile.ArcaneCasterLevel);
+            Mark("DoorA2", !state.Door.Feeder.Disarmed && !state.Door.Destroyed && FeederRules.IsArmed(state.Door.Feeder, Now), WardProfile.FeederStoredCasterLevel);
+        }
+
+        private static void Mark(string id, bool wanted, int casterLevel)
+        {
+            UnitEntityData proxy = WardFixtures.Find(id);
+            if (proxy == null)
+            {
+                return;
+            }
+            Buff buff = proxy.Buffs.GetBuff(WardBlueprints.WardMarker);
+            if (wanted && buff == null)
+            {
+                proxy.Descriptor.AddBuff(WardBlueprints.WardMarker, WardFixtures.Krune ?? proxy, null, new AbilityParams { CasterLevel = casterLevel, SpellLevel = 1 });
+            }
+            else if (!wanted && buff != null)
+            {
+                buff.Remove();
+            }
+        }
+
+        /// <summary>Discovered wards become visible targets for Dispel Magic; undiscovered ones stay out of the game entirely.</summary>
+        private static void UpdateWardVisibility(SanctumState state, double now)
+        {
+            SetInGame("AlarmWard", WardTraps.Perceived(WardTraps.Alarm) && state.Alarm.IsActive(now));
+            SetInGame("GlyphWard", WardTraps.Perceived(WardTraps.Glyph) && !state.Glyph.Triggered && !state.Glyph.Disarmed && !state.Glyph.Dispelled);
+            SetInGame("Hound", state.Hound.FirstBarkAt >= 0d && state.Hound.IsActive(now));
+        }
+
+        private static void SetInGame(string id, bool wanted)
+        {
+            UnitEntityData proxy = WardFixtures.Find(id);
+            if (proxy != null && proxy.IsInGame != wanted)
+            {
+                proxy.IsInGame = wanted;
+            }
+        }
+
+        private static void RestoreSuppressedFeeder(SanctumState state, double now)
+        {
+            if (state.Door.Feeder.SuppressedUntil >= 0d && now >= state.Door.Feeder.SuppressedUntil)
+            {
+                state.Door.Feeder.SuppressedUntil = -1d;
+                Mark("DoorA2", !state.Door.Feeder.Disarmed && !state.Door.Destroyed, WardProfile.FeederStoredCasterLevel);
+                Log.Info("Feeder suppression ended.");
+            }
         }
 
         public static void ReportRune(RuneFocus focus, RuneOutcome outcome, string what)
@@ -142,6 +311,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 SanctumState state = State;
                 state.RecomputeMask();
+                ApplyRuneVisuals(state);
                 Say($"The {focus.Kind} rune ({focus.Id}) gutters and goes dark.");
                 Log.Info($"RUNE {focus.Id} DISABLED by {outcome.Route}: {what}; {outcome.Detail}; mask now {state.RuneMask}.");
                 WardKrune.Refresh(state, Now);
@@ -292,6 +462,26 @@ namespace KingmakerWakingRune.Sanctum.Wards
             proxy.Descriptor.AddBuff(WardBlueprints.DefenseWard, caster, null, new AbilityParams { CasterLevel = RuneRules.DispelCasterLevel, SpellLevel = 9, DC = 11 + RuneRules.DispelCasterLevel });
         }
 
+
+        /// <summary>The standard action to wake an adjacent sleeper, on every party member while they are here.</summary>
+        private static void GrantWake()
+        {
+            foreach (UnitEntityData unit in Game.Instance.Player.Party)
+            {
+                if (!unit.Descriptor.HasFact(WardBlueprints.WakeAlly))
+                {
+                    unit.Descriptor.AddFact<Ability>(WardBlueprints.WakeAlly);
+                }
+            }
+        }
+
+        public static void OnLeavingSanctum()
+        {
+            foreach (UnitEntityData unit in Game.Instance.Player.Party)
+            {
+                unit.Descriptor.RemoveFact(WardBlueprints.WakeAlly);
+            }
+        }
         public static void Say(string message)
         {
             Game.Instance.UI.BattleLogManager?.HandleOnDialogHistory(message);

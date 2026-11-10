@@ -18,6 +18,36 @@ namespace KingmakerWakingRune.Patches
         }
     }
 
+    /// <summary>
+    /// Out of combat, a click on a fixture proxy opens its inspection instead of the native attack on a neutral. In combat,
+    /// or with a spell selected, it is untouched: the proxy is then an ordinary native target.
+    /// </summary>
+    [HarmonyPatch(typeof(Kingmaker.Controllers.Clicks.Handlers.ClickUnitHandler), nameof(Kingmaker.Controllers.Clicks.Handlers.ClickUnitHandler.OnClick))]
+    internal static class FixtureClickPatch
+    {
+        private static bool Prefix(UnityEngine.GameObject gameObject, int button, bool simulate, ref bool __result)
+        {
+            if (simulate || button != 0)
+            {
+                return true;
+            }
+            var view = gameObject.GetComponent<Kingmaker.View.UnitEntityView>();
+            string id = view != null ? WardFixtures.IdOf(view.EntityData) : null;
+            if (id == null || Kingmaker.Game.Instance.Player.IsInCombat || !WardFixtures.Clickable(id))
+            {
+                return true;
+            }
+            UnitEntityData actor = Kingmaker.Game.Instance.UI.SelectionManager.GetNearestSelectedUnit(view.transform.position);
+            if (actor == null)
+            {
+                return true;
+            }
+            actor.Commands.Run(new Kingmaker.UnitLogic.Commands.UnitInteractWithUnit(view.EntityData) { CreatedByPlayer = true });
+            __result = true;
+            return false;
+        }
+    }
+
     /// <summary>The printed rune plates "receive no saving throw to resist effects to which they are vulnerable". Fixture proxies only.</summary>
     [HarmonyPatch(typeof(RuleSavingThrow), nameof(RuleSavingThrow.IsPassed), MethodType.Getter)]
     internal static class FixtureSaveFailPatch
@@ -46,6 +76,22 @@ namespace KingmakerWakingRune.Patches
         private static bool IsStatueSlot(string id)
         {
             return id != null && System.Linq.Enumerable.Any(KingmakerWakingRune.Sanctum.StatueManifest.Slots, s => s.Id == id);
+        }
+    }
+}
+
+namespace KingmakerWakingRune.Patches
+{
+    /// <summary>Scenery is not a creature to be studied in the bestiary, so a proxy never feeds a knowledge roll or the log.</summary>
+    [HarmonyPatch(typeof(Kingmaker.Inspect.InspectUnitsHelper), nameof(Kingmaker.Inspect.InspectUnitsHelper.IsInspectAllow))]
+    internal static class FixtureNoInspectPatch
+    {
+        private static void Postfix(UnitEntityData unit, ref bool __result)
+        {
+            if (__result && WardFixtures.IdOf(unit) != null)
+            {
+                __result = false;
+            }
         }
     }
 }

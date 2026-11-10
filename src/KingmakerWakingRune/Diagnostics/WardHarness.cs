@@ -48,6 +48,11 @@ namespace KingmakerWakingRune.Diagnostics
                     return Load(args[1]);
                 case "save":
                     return Save(args[1]);
+                case "brand":
+                    Member(args[1]).Descriptor.AddFact(WardBlueprints.SihedronBrand);
+                    return $"INJECTED door credential on {Member(args[1]).CharacterName}: no native Sihedron exists to recognize.";
+                case "kurshu":
+                    return "INJECTED Kurshu defeat fixture: " + RitualRules.DefeatKurshu(WardRuntime.State.Ritual, WardRuntime.Now);
                 case "advance":
                     Game.Instance.AdvanceGameTime(TimeSpan.FromSeconds(double.Parse(args[1])));
                     return $"INJECTED time advance: {args[1]} seconds, now {WardRuntime.Now:0}.";
