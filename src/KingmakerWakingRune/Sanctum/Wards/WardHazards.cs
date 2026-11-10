@@ -359,6 +359,12 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
             s_SleepRemovals.Remove(unit.UniqueId);
             record.Asleep = sleeping;
+            if (record.Asleep)
+            {
+                // A sleeper has nothing left to resist: no save is rolled, so none is shown.
+                record.Exposed = true;
+                return;
+            }
             RuleSavingThrow save = MistSave(unit, state);
             bool sleepImmune = unit.Descriptor.State.HasConditionImmunity(UnitCondition.Sleeping);
             MistExposure result = MistRules.EndRoundInside(record, immune, save.IsPassed, sleepImmune);
