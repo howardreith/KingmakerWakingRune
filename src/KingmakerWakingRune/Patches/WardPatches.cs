@@ -147,6 +147,8 @@ namespace KingmakerWakingRune.Patches
     [HarmonyPatch(typeof(Kingmaker.UnitLogic.Commands.UnitInteractWithObject), "UpdateTarget")]
     internal static class WardDisarmApproachPatch
     {
+        private static Kingmaker.UnitLogic.Commands.UnitInteractWithObject s_LastSeen;
+
         private static void Postfix(Kingmaker.UnitLogic.Commands.UnitInteractWithObject __instance)
         {
             if (__instance.OverrideTarget.HasValue || !(__instance.Interaction is Kingmaker.View.MapObjects.DisableTrapInteractionComponent))
@@ -161,6 +163,11 @@ namespace KingmakerWakingRune.Patches
             }
             UnityEngine.Vector3 direction = (view.transform.position - executor.Position).normalized;
             UnityEngine.Vector3 ahead = executor.Position + direction * (executor.View.Corpulence + 0.25f);
+            if (s_LastSeen != __instance)
+            {
+                s_LastSeen = __instance;
+                Log.Info($"Ward disarm approach: {executor.CharacterName} toward {view.UniqueId}.");
+            }
             if (WardTraps.InTriggerArea(view, ahead))
             {
                 __instance.OverrideTarget = executor.Position + direction * 0.01f;

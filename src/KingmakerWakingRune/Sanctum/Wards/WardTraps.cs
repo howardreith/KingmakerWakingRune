@@ -25,6 +25,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
     internal static class WardTraps
     {
         private const int SelectableLayer = 10;
+        private const string AlarmId = "kwr_trap_alarm";
+        private const string GlyphId = "kwr_trap_glyph";
 
         public static TrapObjectView Alarm { get; private set; }
         public static TrapObjectView Feeder { get; private set; }
@@ -44,9 +46,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
         /// <summary>Built with the doors while the native loader matches views to the save, which is what makes their state persist.</summary>
         public static void CreateUnder(GameObject root)
         {
-            Alarm = Create(root, s_AlarmBlueprint, "kwr_trap_alarm", WardGeometry.AlarmCenter.X, WardGeometry.AlarmCenter.Y, 0.9f);
+            Alarm = Create(root, s_AlarmBlueprint, AlarmId, WardGeometry.AlarmCenter.X, WardGeometry.AlarmCenter.Y, 0.9f);
             Feeder = Create(root, s_FeederBlueprint, "kwr_trap_feeder", 13.15f, 26.05f, 0.9f);
-            Glyph = Create(root, s_GlyphBlueprint, "kwr_trap_glyph", WardGeometry.GlyphCenter.X, WardGeometry.GlyphCenter.Y, 0.9f);
+            Glyph = Create(root, s_GlyphBlueprint, GlyphId, WardGeometry.GlyphCenter.X, WardGeometry.GlyphCenter.Y, 0.9f);
         }
 
         /// <summary>
@@ -58,11 +60,16 @@ namespace KingmakerWakingRune.Sanctum.Wards
         {
             float x = point.x / SanctumPlan.MetersPerSquare + SanctumPlan.OriginX;
             float y = SanctumPlan.OriginY - point.z / SanctumPlan.MetersPerSquare;
-            if (view != null && view == Alarm)
+            // Matched by saved id: the scope filter can build a view more than once, and the one clicked need not be the latest.
+            switch (view?.UniqueId)
             {
-                return WardGeometry.InAlarmZone(x, y, point.y);
+                case AlarmId:
+                    return WardGeometry.InAlarmZone(x, y, point.y);
+                case GlyphId:
+                    return WardGeometry.InGlyphTrigger(x, y);
+                default:
+                    return false;
             }
-            return view != null && view == Glyph && WardGeometry.InGlyphTrigger(x, y);
         }
 
         private static TrapObjectView Create(GameObject root, BlueprintTrap blueprint, string id, float x, float y, float halfSize)
