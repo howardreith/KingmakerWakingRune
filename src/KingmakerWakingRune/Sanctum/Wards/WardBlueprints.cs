@@ -292,7 +292,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 s_PrintedHitPoints = Create<BlueprintFeature>("KWR_CultistPrintedHitPoints");
                 s_PrintedHitPoints.HideInUI = true;
-                var bonus = Component<Kingmaker.Designers.Mechanics.Facts.AddStatBonus>("KWR_CultistPrintedHitPointsBonus");
+                var bonus = Component<Kingmaker.UnitLogic.FactLogic.AddStatBonus>("KWR_CultistPrintedHitPointsBonus");
                 bonus.Stat = Kingmaker.EntitySystem.Stats.StatType.HitPoints;
                 bonus.Value = CultistPrintedHitPoints - (17 + 3 + 3);
                 bonus.Descriptor = Kingmaker.Enums.ModifierDescriptor.UntypedStackable;
