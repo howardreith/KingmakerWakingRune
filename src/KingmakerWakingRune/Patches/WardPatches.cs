@@ -85,7 +85,8 @@ namespace KingmakerWakingRune.Patches
 
         private static void Prefix(TurnBased.Controllers.TurnController __instance)
         {
-            if (ReferenceEquals(s_Last, __instance))
+            // Ordinary campaign turns pass straight through, touching no scenario state.
+            if (!KingmakerWakingRune.Sanctum.SanctumScope.IsSanctumLoaded || ReferenceEquals(s_Last, __instance))
             {
                 return;
             }

@@ -102,7 +102,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
         private static bool s_Subscribed;
         private static double s_NextTick;
 
-        public static SanctumState State => WardStore.State;
+        /// <summary>The existing state only: nothing outside <see cref="OnSanctumLoaded"/> may create scenario state.</summary>
+        public static SanctumState State => WardStore.Existing;
 
         public static double Now => Game.Instance.Player.GameTime.TotalSeconds;
 
@@ -114,7 +115,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 EventBus.Subscribe(s_TurnHandler);
                 s_Subscribed = true;
             }
-            SanctumState state = State;
+            SanctumState state = SanctumScope.IsSanctumLoaded ? WardStore.Create() : null;
             if (state == null)
             {
                 return;

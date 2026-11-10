@@ -34,6 +34,8 @@ namespace KingmakerWakingRune.Diagnostics
             {
                 case "state":
                     return WardStore.Dump();
+                case "wardpart":
+                    return $"area={Game.Instance.CurrentlyLoadedArea?.name} sanctum={SanctumScope.IsSanctumLoaded} SanctumWardPart present={WardStore.HasPart} turnBased={TurnBased.Controllers.CombatController.IsInTurnBasedCombat()} inCombat={Game.Instance.Player.IsInCombat}";
                 case "fixtures":
                     return Fixtures();
                 case "party":

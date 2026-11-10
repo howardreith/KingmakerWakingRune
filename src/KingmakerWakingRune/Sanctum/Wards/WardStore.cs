@@ -37,31 +37,49 @@ namespace KingmakerWakingRune.Sanctum.Wards
         private static SanctumWardPart s_Part;
         private static SanctumState s_State;
 
-        /// <summary>The state for the loaded game, or null while no main character exists (a load in progress).</summary>
-        public static SanctumState State
+        /// <summary>
+        /// The state the loaded game already carries, or null if it has none or no main character exists (a load in
+        /// progress). Reading never adds anything to a campaign: only <see cref="Create"/> does, and only the sanctum calls it.
+        /// </summary>
+        public static SanctumState Existing
         {
             get
             {
                 UnitEntityData main = Game.Instance.Player.MainCharacter.Value;
-                if (main == null)
-                {
-                    return null;
-                }
-                SanctumWardPart part = main.Descriptor.Ensure<SanctumWardPart>();
-                if (part != s_Part)
-                {
-                    s_Part = part;
-                    s_State = Read(part);
-                }
-                return s_State;
+                return main == null ? null : Bind(main.Descriptor.Get<SanctumWardPart>());
             }
+        }
+
+        /// <summary>The scenario's state, created on the main character if absent. Called only once the sanctum has loaded.</summary>
+        public static SanctumState Create()
+        {
+            UnitEntityData main = Game.Instance.Player.MainCharacter.Value;
+            return main == null ? null : Bind(main.Descriptor.Ensure<SanctumWardPart>());
+        }
+
+        private static SanctumState Bind(SanctumWardPart part)
+        {
+            if (part == null)
+            {
+                return null;
+            }
+            if (part != s_Part)
+            {
+                s_Part = part;
+                s_State = Read(part);
+            }
+            return s_State;
         }
 
         /// <summary>The state as the save holds it, for the test harness's reports.</summary>
         public static string Dump()
         {
-            return Write(State, Formatting.Indented);
+            SanctumState state = Existing;
+            return state == null ? "No sanctum state in this game." : Write(state, Formatting.Indented);
         }
+
+        /// <summary>Whether the loaded game carries the part at all, read without creating it.</summary>
+        public static bool HasPart => Game.Instance.Player.MainCharacter.Value?.Descriptor.Get<SanctumWardPart>() != null;
 
         public static void WriteTo(SanctumWardPart part)
         {

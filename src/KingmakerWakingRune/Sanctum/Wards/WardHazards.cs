@@ -389,8 +389,13 @@ namespace KingmakerWakingRune.Sanctum.Wards
         /// </summary>
         public static void TurnEnded(UnitEntityData unit, bool completed)
         {
+            // Area first: a turn anywhere else in the campaign must not even look for scenario state.
+            if (!SanctumScope.IsSanctumLoaded || Kingmaker.EntitySystem.Persistence.LoadingProcess.Instance.IsLoadingInProcess)
+            {
+                return;
+            }
             SanctumState state = WardRuntime.State;
-            if (state == null || unit == null || !unit.IsInGame || unit.Descriptor.State.IsDead || WardFixtures.IdOf(unit) != null || !SanctumScope.IsSanctumLoaded)
+            if (state == null || !state.Initialized || unit == null || !unit.IsInGame || unit.Descriptor.State.IsDead || WardFixtures.IdOf(unit) != null)
             {
                 return;
             }
