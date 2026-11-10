@@ -85,6 +85,38 @@ namespace KingmakerWakingRune.Patches
         }
     }
 
+    /// <summary>
+    /// A rune plate makes no attempt to break free of an effect its own routes name, as it rolls no save against one: the
+    /// printed plates do not resist what they are vulnerable to, and an object has no will to struggle. Native Entangle
+    /// otherwise has the plate roll an escape check every round, so ten unbroken rounds were left to the plate's dice.
+    /// </summary>
+    [HarmonyPatch(typeof(Kingmaker.UnitLogic.UnitHelper), nameof(Kingmaker.UnitLogic.UnitHelper.TryBreakFree))]
+    internal static class FixtureBreakFreePatch
+    {
+        private static object s_LastLogged;
+
+        private static bool Prefix(UnitEntityData _this, Kingmaker.UnitLogic.Mechanics.MechanicsContext context, ref bool __result)
+        {
+            string id = WardFixtures.IdOf(_this);
+            if (id == null)
+            {
+                return true;
+            }
+            long descriptor = (long)(context?.SpellDescriptor ?? Kingmaker.Blueprints.Classes.Spells.SpellDescriptor.None);
+            if (!RuneVulnerability.Denies(id, descriptor, RuneEffectScan.Of(context)))
+            {
+                return true;
+            }
+            __result = false;
+            if (s_LastLogged != context)
+            {
+                s_LastLogged = context;
+                Log.Info($"Rune break-free refused: {id} against {context?.AssociatedBlueprint?.name}; descriptor {context?.SpellDescriptor}.");
+            }
+            return false;
+        }
+    }
+
     /// <summary>A death effect is observed on a rune plate as a route, but a fixture never dies of it: its target must remain.</summary>
     [HarmonyPatch(typeof(Kingmaker.UnitLogic.Mechanics.Actions.ContextActionKillTarget), nameof(Kingmaker.UnitLogic.Mechanics.Actions.ContextActionKillTarget.RunAction))]
     internal static class FixtureNoKillPatch
