@@ -123,10 +123,12 @@ namespace KingmakerWakingRune.Sanctum.Wards
             BearerRole role = BearerManifest.Roles[id];
             BlueprintUnit blueprint = WardBlueprints.Cultists[id];
             UnitEntityData cultist = Game.Instance.EntityCreator.SpawnUnit(blueprint, placed, Quaternion.identity, Game.Instance.State.LoadedAreaState.MainState);
+            LogStats(id, cultist, "spawned");
             cultist.Descriptor.Ensure<WardRestoredPart>().StatueId = id;
             statue.EntityId = cultist.UniqueId;
             statue.Credentialed = CredentialRules.IsMarked(id);
             statue.RouteLeg = 0;
+            LogStats(id, cultist, "before survival save");
             RuleSavingThrow save = Rulebook.Trigger(new RuleSavingThrow(cultist, SavingThrowType.Fortitude, WardProfile.StoneToFleshSurvivalDC));
             Log.Info($"Stone to Flesh on {id}: survival Fortitude {save.RollResult} vs {WardProfile.StoneToFleshSurvivalDC}: {(save.IsPassed ? "survived" : "failed")}; role {role}; credential {statue.Credentialed}.");
             if (save.IsPassed)
@@ -237,10 +239,47 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
         }
 
+        /// <summary>Restored bodies whose statistics were logged since the last load; a reload logs each once again.</summary>
+        private static readonly System.Collections.Generic.HashSet<string> s_StatsLogged = new System.Collections.Generic.HashSet<string>();
+
+        public static void ForgetStatsProbe()
+        {
+            s_StatsLogged.Clear();
+        }
+
+        /// <summary>
+        /// Where a restored body's numbers come from: the blueprint's score, the initialized base, every modifier with its
+        /// source, damage and drain, race, classes and facts. Read only; it never writes a statistic.
+        /// </summary>
+        public static void LogStats(string slot, UnitEntityData unit, string when)
+        {
+            if (unit == null)
+            {
+                return;
+            }
+            var sb = new System.Text.StringBuilder();
+            sb.Append($"Cultist stats {slot} [{when}]: blueprint {unit.Blueprint.name} race {unit.Descriptor.Progression.Race?.name} classes [{string.Join(",", unit.Descriptor.Progression.Classes.Select(c => c.CharacterClass.name + " " + c.Level).ToArray())}] prefab {unit.View?.name}");
+            foreach (StatType type in new[] { StatType.Strength, StatType.Dexterity, StatType.Constitution, StatType.Intelligence, StatType.Wisdom, StatType.Charisma })
+            {
+                var stat = (ModifiableValueAttributeStat)unit.Stats.GetStat(type);
+                int printed = type == StatType.Strength ? unit.Blueprint.Strength : type == StatType.Dexterity ? unit.Blueprint.Dexterity : type == StatType.Constitution ? unit.Blueprint.Constitution : type == StatType.Intelligence ? unit.Blueprint.Intelligence : type == StatType.Wisdom ? unit.Blueprint.Wisdom : unit.Blueprint.Charisma;
+                sb.Append($"; {type} bp {printed} base {stat.BaseValue} mod {stat.ModifiedValue} dmg {stat.Damage} drain {stat.Drain} [{string.Join(",", stat.Modifiers.Select(m => $"{m.ModDescriptor} {m.ModValue:+0;-0} {m.Source?.Blueprint?.name ?? m.ItemSource?.Blueprint?.name ?? "?"}").ToArray())}]");
+            }
+            sb.Append($"; AC {unit.Stats.AC.ModifiedValue} [{string.Join(",", unit.Stats.AC.Modifiers.Select(m => $"{m.ModDescriptor} {m.ModValue:+0;-0}").ToArray())}]");
+            sb.Append($"; Fort {unit.Stats.SaveFortitude.ModifiedValue} Ref {unit.Stats.SaveReflex.ModifiedValue} Will {unit.Stats.SaveWill.ModifiedValue} hp {unit.Descriptor.HPLeft}/{unit.Stats.HitPoints.ModifiedValue}");
+            sb.Append($"; hands {unit.Body.PrimaryHand.MaybeItem?.Blueprint.name}/{unit.Body.SecondaryHand.MaybeItem?.Blueprint.name} armor {unit.Body.Armor.MaybeItem?.Blueprint.name}");
+            sb.Append($"; facts [{string.Join(",", unit.Descriptor.Progression.Features.Enumerable.Select(f => f.Blueprint.name).Concat(unit.Buffs.Enumerable.Select(b => "buff:" + b.Blueprint.name)).ToArray())}]");
+            Log.Info(sb.ToString());
+        }
+
         public static void Tick(SanctumState state, double now)
         {
             foreach (StatueState statue in state.Statues.Values.ToList())
             {
+                if (!string.IsNullOrEmpty(statue.EntityId) && s_StatsLogged.Add(statue.EntityId))
+                {
+                    LogStats(statue.Id, Body(statue), "first tick since load or spawn");
+                }
                 if (statue.Outcome == StatueOutcome.Crumbling)
                 {
                     ApplyVisual(statue.Id, statue, now);

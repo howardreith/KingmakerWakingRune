@@ -131,6 +131,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 Log.Info($"Sanctum state initialized at {Now:0} ({(legacyEntered ? "legacy save" : "fresh")}); profile {state.ProfileSubtier}, {state.ProfilePartyBaseline} PCs, extra challenge {state.ProfileExtraChallenge}.");
             }
             WardHazards.ForgetTurns();
+            WardStatues.ForgetStatsProbe();
             WardFixtures.Ensure();
             WardStatues.MigrateMarked(state);
             WardCredentials.Reconcile(state);

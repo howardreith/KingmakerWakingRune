@@ -254,9 +254,14 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 unit.Wisdom = 15;
                 unit.Charisma = 16;
                 unit.Prefab = new Kingmaker.ResourceLinks.UnitViewLink { AssetId = StatueManifest.Model(StatueManifest.Slot(slot).Model).PrefabId };
-                // The printed block is the target: the donor's difficulty scaling would rewrite its scores and its survival save.
+                // The donor's bandit preset picks a random race and body at every spawn, overriding both the printed human
+                // and the figure's own model: each figure is one known human.
+                unit.CustomizationPreset = null;
+                // The printed block is the target: the donor's difficulty scaling, on the unit and on its feature list,
+                // would rewrite its scores and its survival save.
                 unit.ComponentsArray = unit.ComponentsArray.Where(c => !(c is Kingmaker.Designers.Mechanics.Buffs.DifficultyStatAdvancement)).ToArray();
-                Log.Info($"Cultist {slot}: components [{string.Join(",", unit.ComponentsArray.Select(c => c.GetType().Name).ToArray())}].");
+                unit.AddFacts = unit.AddFacts.Select(WithoutDifficultyScaling).ToArray();
+                Log.Info($"Cultist {slot}: race {unit.Race?.name}, components [{string.Join(",", unit.ComponentsArray.Select(c => c.GetType().Name).ToArray())}], facts [{string.Join(",", unit.AddFacts.Select(f => f?.name).ToArray())}].");
                 unit.Body = new BlueprintUnit.UnitBody
                 {
                     PrimaryHand = items[MasterworkSickle] as Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentHand,
@@ -270,6 +275,28 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 }
                 Cultists[slot] = unit;
             }
+        }
+
+        private static readonly Dictionary<string, BlueprintUnitFact> s_Unscaled = new Dictionary<string, BlueprintUnitFact>();
+
+        /// <summary>A donor fact as it is, or once, a copy without the difficulty stat component. The original is never altered.</summary>
+        private static BlueprintUnitFact WithoutDifficultyScaling(BlueprintUnitFact fact)
+        {
+            if (fact == null || !(fact.ComponentsArray ?? new BlueprintComponent[0]).Any(c => c is Kingmaker.Designers.Mechanics.Buffs.DifficultyStatAdvancement))
+            {
+                return fact;
+            }
+            if (!s_Unscaled.TryGetValue(fact.AssetGuid, out BlueprintUnitFact copy))
+            {
+                copy = UnityEngine.Object.Instantiate(fact);
+                copy.name = "KWR_Unscaled_" + fact.name;
+                copy.AssetGuid = ScenarioIds.Derive("fact.unscaled." + fact.AssetGuid);
+                copy.ComponentsArray = fact.ComponentsArray.Where(c => !(c is Kingmaker.Designers.Mechanics.Buffs.DifficultyStatAdvancement)).ToArray();
+                s_Register(copy);
+                s_Unscaled[fact.AssetGuid] = copy;
+                Log.Info($"Cultist fact {fact.name}: difficulty stat scaling removed in copy {copy.name}.");
+            }
+            return copy;
         }
 
         private static BlueprintItem Item(IEnumerable<BlueprintScriptableObject> all, string name, string display, string description, string iconDonor)
