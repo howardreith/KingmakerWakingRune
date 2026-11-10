@@ -38,6 +38,26 @@ namespace KingmakerWakingRune.Sanctum.Wards
         /// <summary>Read by the buff as it applies, so the amount always comes from saved state.</summary>
         public static int PendingTemporaryHP { get; private set; }
 
+        /// <summary>Writes this source's real consumption into the saved grants, so spent points can never be restored.</summary>
+        public static void Sync(SanctumState state, double now)
+        {
+            Buff buff = WardFixtures.Krune?.Buffs.GetBuff(WardBlueprints.FeederTempHp);
+            KwrFeederTempHp logic = buff?.SelectComponents<KwrFeederTempHp>().FirstOrDefault();
+            if (logic == null)
+            {
+                return;
+            }
+            // An older build's buff: whatever the saved grants show beyond what is left was spent.
+            int spent = logic.Unreconciled ? System.Math.Max(0, FeederRules.ExposedTemporaryHP(state.Door.Feeder, now) - logic.Remaining) : 0;
+            spent += logic.TakeConsumed();
+            if (spent > 0)
+            {
+                int before = FeederRules.ExposedTemporaryHP(state.Door.Feeder, now);
+                FeederRules.Consume(state.Door.Feeder, spent, now);
+                Log.Info($"Krune receiver: {spent} feeder temporary HP spent; {before} -> {FeederRules.ExposedTemporaryHP(state.Door.Feeder, now)}.");
+            }
+        }
+
         public static void Refresh(SanctumState state, double now)
         {
             UnitEntityData krune = WardFixtures.Krune;
@@ -45,11 +65,16 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 return;
             }
+            Sync(state, now);
             FeederRules.Expire(state.Door.Feeder, now);
             int amount = FeederRules.ExposedTemporaryHP(state.Door.Feeder, now);
             Buff buff = krune.Buffs.GetBuff(WardBlueprints.FeederTempHp);
-            int shown = buff == null ? 0 : krune.Stats.TemporaryHitPoints.ModifiedValue;
-            if (amount == shown)
+            int shown = buff?.SelectComponents<KwrFeederTempHp>().FirstOrDefault()?.Remaining ?? 0;
+            if (buff != null && amount == shown)
+            {
+                return;
+            }
+            if (buff == null && amount == 0)
             {
                 return;
             }
@@ -94,11 +119,18 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 return;
             }
+            if (state.Migrate())
+            {
+                Log.Info($"Sanctum state migrated to version {state.Version}; nothing it recorded was reset.");
+            }
             if (state.Initialize(Now, legacyEntered))
             {
                 Log.Info($"Sanctum state initialized at {Now:0} ({(legacyEntered ? "legacy save" : "fresh")}); profile {state.ProfileSubtier}, {state.ProfilePartyBaseline} PCs, extra challenge {state.ProfileExtraChallenge}.");
             }
+            WardHazards.ForgetTurns();
             WardFixtures.Ensure();
+            WardStatues.MigrateMarked(state);
+            WardCredentials.Reconcile(state);
             EnsureDefenseWard(state);
             WardTraps.AfterLoad(state);
             WardDoor.ApplyVisual();
@@ -140,6 +172,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
             s_NextTick = now + TickSeconds;
             state.Clock = now;
+            WardFixtures.Protect();
             foreach (RuneFocus focus in KruneProjection.Foci)
             {
                 RuneFocusState focusState = state.Focus(focus.Id);
@@ -197,17 +230,57 @@ namespace KingmakerWakingRune.Sanctum.Wards
             return state != null && state.Mist.Values.Any(r => r.Exposed);
         }
 
-        /// <summary>Long work only out of combat, and never during a running confrontation clock.</summary>
         public static bool CanSpendWork()
         {
-            SanctumState state = State;
-            return state != null && !Game.Instance.Player.IsInCombat && !TurnBased.Controllers.CombatController.IsInTurnBasedCombat() && !state.Ritual.ConfrontationStarted && !state.Ritual.AwakeningDue;
+            return CanSpendWork(out _);
         }
 
-        public static void SpendWork(double seconds, string what)
+        /// <summary>
+        /// Long work is a single time jump, so it is refused wherever that jump would skip something that must happen in
+        /// order: a fight, anyone standing in the mist, a sentry close enough to bite, or a confrontation already running.
+        /// </summary>
+        public static bool CanSpendWork(out string refusal)
         {
-            Game.Instance.AdvanceGameTime(TimeSpan.FromSeconds(seconds));
-            Log.Info($"Work: {what} advanced the simulation {seconds:0} seconds.");
+            SanctumState state = State;
+            refusal = null;
+            if (state == null)
+            {
+                refusal = "There is no time for that here.";
+            }
+            else if (Game.Instance.Player.IsInCombat || TurnBased.Controllers.CombatController.IsInTurnBasedCombat())
+            {
+                refusal = "Not while there is fighting to be done.";
+            }
+            else if (state.Ritual.ConfrontationStarted || state.Ritual.AwakeningDue)
+            {
+                refusal = "The ritual will not wait for slow work now.";
+            }
+            else if (WardHazards.AnyoneInMist())
+            {
+                refusal = "Not while anyone stands in the mist.";
+            }
+            else if (WardHazards.HoundWouldNotice())
+            {
+                refusal = "Not with the unseen hound baying so close.";
+            }
+            return refusal == null;
+        }
+
+        /// <summary>
+        /// Advances the simulation for completed work, then lets every clock catch up at once: expiries, rune windows, the
+        /// hound, temporary hit points and deadlines. A deadline inside the interval stops the work there; false means no reward.
+        /// </summary>
+        public static bool SpendWork(double seconds, string what)
+        {
+            SanctumState state = State;
+            double now = Now;
+            double? remaining = RitualRules.RemainingSeconds(state.Ritual, now);
+            WorkPlan plan = WorkRules.Plan(now, seconds, remaining.HasValue ? now + remaining.Value : (double?)null);
+            Game.Instance.AdvanceGameTime(TimeSpan.FromSeconds(plan.Advance));
+            s_NextTick = 0d;
+            Tick();
+            Log.Info($"Work: {what} advanced the simulation {plan.Advance:0} of {seconds:0} seconds; {(plan.Completed ? "completed" : "cut short by a deadline")}.");
+            return plan.Completed;
         }
 
         public static void ApplyFlailVisual(SanctumState state)

@@ -177,16 +177,19 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 return;
             }
-            int total = evt.ResultDamage.Where(v => !v.Source.Immune).Sum(v => v.FinalValue);
+            // One resolved hit: every component together, then hardness once. Energy is halved before hardness, as the core
+            // object rules say for most objects; physical and force damage apply in full.
+            int total = evt.ResultDamage.Where(v => !v.Source.Immune && v.FinalValue > 0).Sum(v => ObjectShare(v.Source, v.FinalValue));
             evt.Target.Damage = 0;
+            bool bypass = evt.ResultDamage.Any(v => v.Source is PhysicalDamage physical && HasAdamantine(physical));
             if (fixtureId == WardText.DoorId)
             {
                 var weapon = evt.DamageBundle.Weapon;
-                WardDoor.TakeHit(Attacker(evt), total, weapon != null && weapon.Blueprint.IsMelee);
+                WardDoor.TakeHit(Attacker(evt), total, weapon != null && weapon.Blueprint.IsMelee, bypass);
             }
             else
             {
-                WardGem.TakeHit(total);
+                WardGem.TakeHit(total, bypass);
             }
         }
 
@@ -224,6 +227,20 @@ namespace KingmakerWakingRune.Sanctum.Wards
         {
             UnitPartSummonedMonster summon = unit?.Get<UnitPartSummonedMonster>();
             return summon != null && summon.IsLinkedToSummoner && !unit.Descriptor.IsPet;
+        }
+
+        private static int ObjectShare(BaseDamage damage, int amount)
+        {
+            if (damage is EnergyDamage energy)
+            {
+                // Life energy does not harm stone at all.
+                if (energy.EnergyType == DamageEnergyType.NegativeEnergy || energy.EnergyType == DamageEnergyType.PositiveEnergy)
+                {
+                    return 0;
+                }
+                return amount / 2;
+            }
+            return amount;
         }
 
         private static bool HasAdamantine(PhysicalDamage physical)

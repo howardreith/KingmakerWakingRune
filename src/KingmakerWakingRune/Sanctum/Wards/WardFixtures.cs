@@ -144,6 +144,30 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
         }
 
+        /// <summary>
+        /// No effect may repurpose a proxy: a charm or domination that would hand one to the party is stripped once its cast
+        /// has been observed, and a proxy marked for death is reprieved. A route still sees the effect that qualified.
+        /// </summary>
+        public static void Protect()
+        {
+            foreach (UnitEntityData unit in Live.Values)
+            {
+                if (unit == null || unit.Descriptor == null)
+                {
+                    continue;
+                }
+                foreach (Kingmaker.UnitLogic.Buffs.Buff buff in unit.Buffs.RawFacts.Where(b => b.Blueprint.ComponentsArray.OfType<Kingmaker.UnitLogic.FactLogic.ChangeFaction>().Any()).ToList())
+                {
+                    Log.Info($"Fixture {IdOf(unit)}: {buff.Blueprint.name} would change its faction; removed.");
+                    buff.Remove();
+                }
+                if (unit.Descriptor.State.MarkedForDeath)
+                {
+                    unit.Descriptor.State.MarkedForDeath = false;
+                }
+            }
+        }
+
         private static Vector3 RunePoint(string id)
         {
             RunePlate plate = SanctumPlan.RunePlates.First(p => p.Id == id);

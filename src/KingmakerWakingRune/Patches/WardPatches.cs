@@ -48,15 +48,55 @@ namespace KingmakerWakingRune.Patches
         }
     }
 
-    /// <summary>The printed rune plates "receive no saving throw to resist effects to which they are vulnerable". Fixture proxies only.</summary>
+    /// <summary>
+    /// The printed rune plates "receive no saving throw to resist effects to which they are vulnerable": only a rune plate,
+    /// and only against an effect of the kind its own routes name. Statues, props, Krune and Vandiana save normally.
+    /// </summary>
     [HarmonyPatch(typeof(RuleSavingThrow), nameof(RuleSavingThrow.IsPassed), MethodType.Getter)]
     internal static class FixtureSaveFailPatch
     {
         private static void Postfix(RuleSavingThrow __instance, ref bool __result)
         {
-            if (__result && WardFixtures.IdOf(__instance.Initiator) != null)
+            if (__result && RuneVulnerability.Denies(WardFixtures.IdOf(__instance.Initiator), (long)(__instance.Reason?.Context?.SpellDescriptor ?? Kingmaker.Blueprints.Classes.Spells.SpellDescriptor.None)))
             {
                 __result = false;
+            }
+        }
+    }
+
+    /// <summary>A death effect is observed on a rune plate as a route, but a fixture never dies of it: its target must remain.</summary>
+    [HarmonyPatch(typeof(Kingmaker.UnitLogic.Mechanics.Actions.ContextActionKillTarget), nameof(Kingmaker.UnitLogic.Mechanics.Actions.ContextActionKillTarget.RunAction))]
+    internal static class FixtureNoKillPatch
+    {
+        private static bool Prefix(Kingmaker.UnitLogic.Mechanics.Actions.ContextActionKillTarget __instance)
+        {
+            return WardFixtures.IdOf(Kingmaker.ElementsSystem.ElementsContext.GetData<Kingmaker.UnitLogic.Mechanics.MechanicsContext.Data>()?.CurrentTarget?.Unit) == null;
+        }
+    }
+
+    /// <summary>
+    /// Every turn-based turn ends by disposing its controller: a completed turn, the last turn as combat ends, a unit
+    /// leaving combat or a switch to real time. A delay disposes it too, which the hazards tell apart.
+    /// </summary>
+    [HarmonyPatch(typeof(TurnBased.Controllers.TurnController), nameof(TurnBased.Controllers.TurnController.Dispose))]
+    internal static class TurnEndPatch
+    {
+        private static object s_Last;
+
+        private static void Prefix(TurnBased.Controllers.TurnController __instance)
+        {
+            if (ReferenceEquals(s_Last, __instance))
+            {
+                return;
+            }
+            s_Last = __instance;
+            try
+            {
+                WardHazards.TurnEnded(__instance.Unit, __instance.Status == TurnBased.Controllers.TurnController.TurnStatus.Ended);
+            }
+            catch (System.Exception ex)
+            {
+                Log.Error("Ward turn end failed.", ex);
             }
         }
     }

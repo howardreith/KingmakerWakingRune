@@ -74,6 +74,10 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public const int GemBreakDC = 40;
 
         public const double FlailWorkSeconds = 10d * MinuteSeconds;
+        /// <summary>CRPG adaptation: copying a visible palm mark with the expedition's field kit.</summary>
+        public const double ImpressionWorkSeconds = MinuteSeconds;
+        /// <summary>Metres from a fixture's proxy within which a character's body can reach it.</summary>
+        public const float ContactReachMeters = 1.6f;
         public const double HuskCrumbleSeconds = MinuteSeconds;
         public const int StoneToFleshSurvivalDC = 15;
 

@@ -410,6 +410,124 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(false, WardGeometry.InMist(8.9f, 5.2f), "behind the wall");
         }
 
+        public static void TestDoorHardnessAppliesOncePerIndependentHit()
+        {
+            Assert.Equal(0, DoorRules.HitDamage(7, WardProfile.DoorHardness, false), "7 becomes 0");
+            Assert.Equal(4, DoorRules.HitDamage(12, WardProfile.DoorHardness, false), "12 becomes 4");
+            Assert.Equal(22, DoorRules.HitDamage(30, WardProfile.DoorHardness, false), "30 becomes 22");
+            int two = DoorRules.HitDamage(12, WardProfile.DoorHardness, false) + DoorRules.HitDamage(12, WardProfile.DoorHardness, false);
+            Assert.Equal(8, two, "two 12-point hits deal 4 + 4, not 24 - 8");
+            Assert.Equal(12, DoorRules.HitDamage(12, WardProfile.DoorHardness, true), "a bypassing hit ignores hardness");
+            Assert.Equal(75, WardProfile.DoorHitPoints, "printed hit points");
+            Assert.Equal(28, WardProfile.DoorBreakDC, "printed break DC");
+            Assert.Equal(20, WardProfile.GemHardness, "the emerald keeps its own hardness");
+        }
+
+        public static void TestDoorFeedbackIsRestrained()
+        {
+            Assert.Equal("The blow leaves no more than a scratch.", DoorRules.Describe(0, 75, 75), "ineffective");
+            Assert.Equal(true, DoorRules.Describe(22, 30, 75).Contains("crack"), "meaningful damage shows");
+            Assert.Equal("The stone door breaks and falls.", DoorRules.Describe(10, 0, 75), "destroyed");
+        }
+
+        public static void TestImpressionNeedsAMarkedPetrifiedFigureAndNoHeldImpression()
+        {
+            Assert.Equal(true, CredentialRules.CanTakeImpression("Support-N1", StatueOutcome.Stone, false), "reporter's palm");
+            Assert.Equal(true, CredentialRules.CanTakeImpression("Support-N4", StatueOutcome.Stone, false), "attacker's palm");
+            Assert.Equal(false, CredentialRules.CanTakeImpression("Support-N2", StatueOutcome.Stone, false), "unmarked figure");
+            Assert.Equal(false, CredentialRules.CanTakeImpression("Support-N1", StatueOutcome.Stone, true), "one held impression at a time");
+            Assert.Equal(false, CredentialRules.CanTakeImpression("Support-N1", StatueOutcome.Living, false), "no copying a living hostile");
+            Assert.Equal(BearerRole.Report, BearerManifest.Roles["Support-N1"], "one marked reporter");
+            Assert.Equal(BearerRole.Attack, BearerManifest.Roles["Support-N4"], "one marked attacker");
+        }
+
+        public static void TestLostImpressionCanBeRemadeButHandsAreOnce()
+        {
+            var state = new CredentialState();
+            CredentialRules.RecordImpression(state, "impression:Support-N1:10", "Support-N1", "pc", 10);
+            CredentialRules.Reconcile(state, new HashSet<string> { "impression:Support-N1:10" });
+            Assert.Equal(1, state.Items.Count, "held impression stays recorded");
+            CredentialRules.Reconcile(state, new HashSet<string>());
+            Assert.Equal(0, state.Items.Count, "a lost impression's record goes, so it can be remade");
+            Assert.Equal(false, CredentialRules.CanRecoverHand(state, "Support-N1", false), "no hand from a living or absent body");
+            Assert.Equal(true, CredentialRules.CanRecoverHand(state, "Support-N1", true), "the real corpse");
+            Assert.Equal(true, CredentialRules.RecordHand(state, "hand:Support-N1", "Support-N1", "pc", 20), "first recovery");
+            Assert.Equal(false, CredentialRules.RecordHand(state, "hand:Support-N1", "Support-N1", "pc", 30), "never twice");
+            Assert.Equal(false, CredentialRules.CanRecoverHand(state, "Support-N1", true), "recorded once");
+            CredentialRules.Reconcile(state, new HashSet<string>());
+            Assert.Equal(1, state.Items.Count(r => r.Kind == CredentialKind.Hand), "hand provenance survives");
+        }
+
+        public static void TestLongWorkStopsAtADeadlineWithoutReward()
+        {
+            WorkPlan free = WorkRules.Plan(100, 60, null);
+            Assert.Equal(60d, free.Advance, "full minute");
+            Assert.Equal(true, free.Completed, "reward");
+            WorkPlan cut = WorkRules.Plan(100, 60, 130);
+            Assert.Equal(30d, cut.Advance, "stops at the deadline");
+            Assert.Equal(false, cut.Completed, "no reward after an interrupted interval");
+            Assert.Equal(true, WorkRules.Plan(100, 60, 500).Completed, "a later deadline does not interrupt");
+        }
+
+        public static void TestRunePlatesDenySavesOnlyToTheirOwnVulnerabilities()
+        {
+            Assert.Equal(true, RuneVulnerability.Denies("A3a", RuneVulnerability.Death), "Life against death");
+            Assert.Equal(true, RuneVulnerability.Denies("A3a", RuneVulnerability.Poison), "Life against poison");
+            Assert.Equal(false, RuneVulnerability.Denies("A3a", RuneVulnerability.Compulsion), "Life saves against compulsion");
+            Assert.Equal(true, RuneVulnerability.Denies("A3f", RuneVulnerability.Compulsion), "Control against compulsion");
+            Assert.Equal(true, RuneVulnerability.Denies("A3b", RuneVulnerability.Paralysis), "Alacrity against paralysis");
+            Assert.Equal(true, RuneVulnerability.Denies("A3c", RuneVulnerability.Electricity), "Defense against electricity");
+            Assert.Equal(true, RuneVulnerability.Denies("A3e", RuneVulnerability.Fire), "Armor against fire");
+            Assert.Equal(false, RuneVulnerability.Denies("A3e", RuneVulnerability.Cold), "Armor saves against cold");
+            Assert.Equal(false, RuneVulnerability.Denies("Support-N1", RuneVulnerability.Death), "statues save normally");
+            Assert.Equal(false, RuneVulnerability.Denies("Krune", RuneVulnerability.Compulsion), "Krune saves normally");
+            Assert.Equal(false, RuneVulnerability.Denies(null, RuneVulnerability.Fire), "non-fixtures untouched");
+        }
+
+        public static void TestSpentFeederPointsNeverReturnOrAccelerate()
+        {
+            var feeder = new FeederState();
+            FeederRules.Grant(feeder, 57, 0);
+            FeederRules.Consume(feeder, 20, 10);
+            Assert.Equal(37, FeederRules.ExposedTemporaryHP(feeder, 20), "37 remain after absorbing 20");
+            FeederRules.Grant(feeder, 30, 30);
+            Assert.Equal(37, FeederRules.ExposedTemporaryHP(feeder, 40), "a weaker grant does not stack or replace");
+            FeederRules.Consume(feeder, 37, 50);
+            Assert.Equal(0, FeederRules.ExposedTemporaryHP(feeder, 60), "spent entirely, including the weaker grant");
+            FeederRules.Expire(feeder, WardProfile.FeederTempHpSeconds + 100);
+            Assert.Equal(false, feeder.AccelerationEligible, "a consumed grant earns no acceleration at expiry");
+            Assert.Equal(0, feeder.Grants.Count, "expired");
+
+            var fresh = new FeederState();
+            FeederRules.Grant(fresh, 20, 0);
+            FeederRules.Grant(fresh, 45, 5);
+            Assert.Equal(45, FeederRules.ExposedTemporaryHP(fresh, 10), "a stronger later grant shows");
+            FeederRules.Expire(fresh, WardProfile.FeederTempHpSeconds + 1);
+            Assert.Equal(true, fresh.AccelerationEligible, "an unspent grant running out naturally qualifies once");
+            Assert.Equal(45, FeederRules.ExposedTemporaryHP(fresh, WardProfile.FeederTempHpSeconds + 1), "the later grant still runs");
+        }
+
+        public static void TestMistBonusImprovesButNeverStacksResistance()
+        {
+            Assert.Equal(4, MistRules.KruneSummonResistanceBonus(0), "no existing bonus");
+            Assert.Equal(2, MistRules.KruneSummonResistanceBonus(2), "+2 improved to +4");
+            Assert.Equal(0, MistRules.KruneSummonResistanceBonus(5), "+5 already larger");
+        }
+
+        public static void TestVersionOneStateMigratesWithoutReset()
+        {
+            var state = new SanctumState { Version = 1, RuneMask = 5, Credentials = null };
+            state.Door.HitPoints = 40;
+            state.Door.Latched = false;
+            Assert.Equal(true, state.Migrate(), "migrates");
+            Assert.Equal(SanctumState.CurrentVersion, state.Version, "current");
+            Assert.Equal(5, state.RuneMask, "mask kept");
+            Assert.Equal(40, state.Door.HitPoints, "door damage kept");
+            Assert.Equal(false, state.Door.Latched, "open latch kept");
+            Assert.Equal(true, state.Credentials != null, "credential state added");
+            Assert.Equal(false, state.Migrate(), "once");
+        }
+
         public static void TestBearerManifestIsFiveAndFive()
         {
             Assert.Equal(10, BearerManifest.Roles.Count, "ten bearers");

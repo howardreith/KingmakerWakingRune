@@ -61,6 +61,23 @@ namespace KingmakerWakingRune.Diagnostics
                     return Sound();
                 case "kurshu":
                     return "INJECTED Kurshu defeat fixture: " + RitualRules.DefeatKurshu(WardRuntime.State.Ritual, WardRuntime.Now);
+                case "items":
+                    return Items();
+                case "hitdoor":
+                    return HitDoor(args.Skip(1).Select(int.Parse).ToArray());
+                case "damagekrune":
+                    return DamageKrune(int.Parse(args[1]));
+                case "grantfeeder":
+                    FeederRules.Grant(WardRuntime.State.Door.Feeder, int.Parse(args[1]), WardRuntime.Now);
+                    WardKrune.Refresh(WardRuntime.State, WardRuntime.Now);
+                    return $"INJECTED feeder grant {args[1]}; exposed {FeederRules.ExposedTemporaryHP(WardRuntime.State.Door.Feeder, WardRuntime.Now)}.";
+                case "shield":
+                    return Shield(int.Parse(args[1]));
+                case "units":
+                    return Units();
+                case "move":
+                    Member(args[1]).Commands.Run(new UnitMoveTo(new Vector3(SanctumPlan.ToWorldX(float.Parse(args[2])), SanctumPlan.HeightAt(float.Parse(args[2]), float.Parse(args[3])) ?? 0f, SanctumPlan.ToWorldZ(float.Parse(args[3])))));
+                    return $"SETUP move order: {Member(args[1]).CharacterName} to ({args[2]},{args[3]}).";
                 case "advance":
                     Game.Instance.AdvanceGameTime(TimeSpan.FromSeconds(double.Parse(args[1])));
                     return $"INJECTED time advance: {args[1]} seconds, now {WardRuntime.Now:0}.";
@@ -214,6 +231,62 @@ namespace KingmakerWakingRune.Diagnostics
             WardSkill skill = skillName != null ? (WardSkill)Enum.Parse(typeof(WardSkill), skillName) : check.Skills[0];
             WardInteract.Study(fixtureId, check, skill);
             return $"SETUP studied {key} on {fixtureId} with {skill}.";
+        }
+
+        private static string Items()
+        {
+            var sb = new StringBuilder();
+            foreach (Kingmaker.Items.ItemEntity item in Game.Instance.Player.Inventory.Where(i => i.Blueprint == WardBlueprints.PalmImpression || i.Blueprint == WardBlueprints.BrandedHand || i.Blueprint.name.Contains("Flail")))
+            {
+                sb.AppendLine($"{item.Blueprint.name} count={item.Count} cost={item.Blueprint.Cost} notable={item.Blueprint.IsNotable}");
+            }
+            return sb.Length == 0 ? "no credential items held" : sb.ToString();
+        }
+
+        /// <summary>Independent physical hits on the A2 proxy, each its own rule, to read the hardness pipeline.</summary>
+        private static string HitDoor(int[] amounts)
+        {
+            UnitEntityData attacker = Game.Instance.Player.MainCharacter.Value;
+            var sb = new StringBuilder();
+            foreach (int amount in amounts)
+            {
+                int before = WardRuntime.State.Door.HitPoints;
+                var hit = new Kingmaker.RuleSystem.Rules.Damage.PhysicalDamage(new Kingmaker.RuleSystem.DiceFormula(0, Kingmaker.RuleSystem.DiceType.Zero), Kingmaker.Enums.Damage.PhysicalDamageForm.Bludgeoning);
+                hit.AddBonus(amount);
+                Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.Damage.RuleDealDamage(attacker, WardFixtures.Door, new Kingmaker.RuleSystem.Rules.Damage.DamageBundle(hit)));
+                sb.AppendLine($"INJECTED ranged hit {amount}: door {before} -> {WardRuntime.State.Door.HitPoints}");
+            }
+            return sb.ToString();
+        }
+
+        private static string DamageKrune(int amount)
+        {
+            UnitEntityData krune = WardFixtures.Krune;
+            int before = krune.Stats.TemporaryHitPoints.ModifiedValue;
+            var hit = new Kingmaker.RuleSystem.Rules.Damage.DirectDamage(new Kingmaker.RuleSystem.DiceFormula(0, Kingmaker.RuleSystem.DiceType.Zero), amount);
+            Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.Damage.RuleDealDamage(Game.Instance.Player.MainCharacter.Value, krune, new Kingmaker.RuleSystem.Rules.Damage.DamageBundle(hit)));
+            krune.Damage = 0;
+            WardKrune.Refresh(WardRuntime.State, WardRuntime.Now);
+            return $"INJECTED {amount} damage to the dormant Krune receiver: temp HP {before} -> {krune.Stats.TemporaryHitPoints.ModifiedValue}; ledger exposed {FeederRules.ExposedTemporaryHP(WardRuntime.State.Door.Feeder, WardRuntime.Now)}.";
+        }
+
+        /// <summary>A separate, unrelated temporary-HP source on Krune, to show the feeder ledger ignores it.</summary>
+        private static string Shield(int amount)
+        {
+            UnitEntityData krune = WardFixtures.Krune;
+            krune.Stats.TemporaryHitPoints.AddModifier(amount, null, Kingmaker.Enums.ModifierDescriptor.UntypedStackable);
+            return $"INJECTED unrelated {amount} temporary HP on Krune; total {krune.Stats.TemporaryHitPoints.ModifiedValue}.";
+        }
+
+        private static string Units()
+        {
+            var sb = new StringBuilder();
+            foreach (UnitEntityData unit in Game.Instance.State.Units.Where(u => u.Get<WardRestoredPart>() != null))
+            {
+                Vector3 p = unit.Position;
+                sb.AppendLine($"{unit.Get<WardRestoredPart>().StatueId} '{unit.CharacterName}' {unit.Blueprint.name} id={unit.UniqueId} dead={unit.Descriptor.State.IsDead} hp={unit.Descriptor.HPLeft}/{unit.Stats.HitPoints.ModifiedValue} ac={unit.Stats.AC.ModifiedValue} str={unit.Stats.Strength.ModifiedValue} dex={unit.Stats.Dexterity.ModifiedValue} wis={unit.Stats.Wisdom.ModifiedValue} brand={unit.Descriptor.HasFact(WardBlueprints.SihedronBrand)} grid=({p.x / SanctumPlan.MetersPerSquare + SanctumPlan.OriginX:0.00},{SanctumPlan.OriginY - p.z / SanctumPlan.MetersPerSquare:0.00}) inCombat={unit.IsInCombat} commands=[{string.Join(",", unit.Commands.Raw.Where(c => c != null).Select(c => c.GetType().Name).ToArray())}]");
+            }
+            return sb.Length == 0 ? "no restored units" : sb.ToString();
         }
 
         private static string Attack(UnitEntityData attacker, string target)

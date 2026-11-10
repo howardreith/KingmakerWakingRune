@@ -58,7 +58,25 @@ namespace KingmakerWakingRune.Sanctum.Wards
             { "Support-E2", "A grieving woman, strain cut deep in her face, knees bent beneath the stone." },
         };
 
+        private const string PetrifiedTruth = "These are petrified people, not carvings, their bodies built into the supports. Stone to flesh could restore them; nothing here will do it unasked.";
+
         public static readonly IReadOnlyList<InspectDef> All = Build();
+
+        /// <summary>The cue for a statue slot once its body has changed; null leaves the authored stone description.</summary>
+        public static string BodyLine(string slot, StatueOutcome outcome, bool corpse, bool handTaken)
+        {
+            if (!corpse)
+            {
+                return null;
+            }
+            if (!CredentialRules.IsMarked(slot))
+            {
+                return "The body of a restored cultist lies here.";
+            }
+            return handTaken
+                ? "The body of a restored cultist lies here. The branded hand has been taken."
+                : "The body of a restored cultist lies here. The seven-pointed brand is still plain on its palm.";
+        }
 
         public static InspectDef Find(string id)
         {
@@ -124,14 +142,19 @@ namespace KingmakerWakingRune.Sanctum.Wards
             foreach (StatueSlot slot in StatueManifest.Slots)
             {
                 bool bearer = BearerManifest.IsBearer(slot.Id);
+                string observe = bearer ? "An exceptionally detailed stone figure bearing the ziggurat. " + BearerLines[slot.Id] : "An extraplanar figure, strained and cast in stone, its face set in anger, agony or despair.";
+                if (CredentialRules.IsMarked(slot.Id))
+                {
+                    observe += "\n\nA brand is cut into the palm of one raised hand: a seven-pointed star, crisp and deliberate, every line preserved in the stone. Close enough to touch, it could be copied.";
+                }
                 defs.Add(new InspectDef
                 {
                     Id = slot.Id,
-                    Observe = bearer ? "An exceptionally detailed stone figure bearing the ziggurat. " + BearerLines[slot.Id] : "An extraplanar figure, strained and cast in stone, its face set in anger, agony or despair.",
+                    Observe = observe,
                     Checks =
                     {
                         bearer
-                            ? new InspectCheck { Key = slot.Id, Skills = new[] { WardSkill.Arcana }, DC = 20, Label = "Study the figure", Result = "These are petrified people, not carvings, their bodies built into the supports. Stone to flesh could restore them; nothing here will do it unasked." }
+                            ? new InspectCheck { Key = slot.Id, Skills = new[] { WardSkill.Arcana }, DC = 20, Label = "Study the figure", Result = CredentialRules.IsMarked(slot.Id) ? PetrifiedTruth + " The star on the palm is a true Sihedron, a mark of standing among the runelord's servants, burned in before the stone took him." : PetrifiedTruth }
                             : new InspectCheck { Key = slot.Id, Skills = new[] { WardSkill.Arcana, WardSkill.Religion }, DC = WardProfile.RuneHintDC, Label = "Study the figure", Result = "Its essence was spent maintaining the rune. Unlike the figures in the outer chamber, this being is long dead." },
                     },
                 });
@@ -149,7 +172,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 Checks =
                 {
                     new InspectCheck { Key = "Door.Metal", Skills = new[] { WardSkill.Arcana, WardSkill.Nature }, DC = 18, Label = "Study the disks of blue-green metal", Result = "The metal is abyssium, a skymetal tied to sloth and conjuration. It stores great energy, and prolonged exposure sickens those who carry it." },
-                    new InspectCheck { Key = "Door.Inscription", Skills = new[] { WardSkill.Perception }, DC = WardProfile.DoorClueDC, Label = "Examine the inscription closely", Result = "One word has been recut, crudely and deeper than its neighbours. It once read: \"Only those who bear my sign shall pass.\"" },
+                    new InspectCheck { Key = "Door.Inscription", Skills = new[] { WardSkill.Perception }, DC = WardProfile.DoorClueDC, Label = "Examine the inscription closely", Result = "inscription" },
                 },
             });
             defs.Add(new InspectDef

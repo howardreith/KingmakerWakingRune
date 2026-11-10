@@ -85,6 +85,10 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public double CrumbleStartedAt = -1d;
         public bool Reported;
         public double ReportedAt = -1d;
+        /// <summary>The runner's next route leg, advanced only by a real arrival or a completed door action.</summary>
+        public int RouteLeg;
+        /// <summary>Set once when a marked body gained its Sihedron credential, so a reload never re-grants it.</summary>
+        public bool Credentialed;
     }
 
     internal sealed class GemState
@@ -99,7 +103,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
     /// </summary>
     internal sealed class SanctumState
     {
-        public const int CurrentVersion = 1;
+        public const int CurrentVersion = 2;
 
         public int Version = CurrentVersion;
         public string ProfileSubtier = WardProfile.Subtier;
@@ -128,6 +132,25 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public List<string> AlarmInside = new List<string>();
         public List<string> GlyphInside = new List<string>();
         public string TokenMotif = string.Empty;
+        public CredentialState Credentials = new CredentialState();
+        /// <summary>Krune's own summons get a typed +4 resistance bonus against the mist; filled by the adapters only.</summary>
+        public List<string> KruneSummons = new List<string>();
+
+        /// <summary>
+        /// Brings an older save forward without resetting anything it recorded. Version 1 predates credentials and route
+        /// progress: a runner already under way keeps going from the start of its route, and nothing is re-granted.
+        /// </summary>
+        public bool Migrate()
+        {
+            if (Version >= CurrentVersion)
+            {
+                return false;
+            }
+            Credentials = Credentials ?? new CredentialState();
+            KruneSummons = KruneSummons ?? new List<string>();
+            Version = CurrentVersion;
+            return true;
+        }
 
         public RuneFocusState Focus(string id)
         {

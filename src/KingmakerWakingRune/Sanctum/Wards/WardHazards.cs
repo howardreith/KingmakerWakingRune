@@ -2,18 +2,21 @@ using System.Collections.Generic;
 using System.Linq;
 using Harmony12;
 using Kingmaker;
+using Kingmaker.Blueprints;
+using Kingmaker.Blueprints.Items.Equipment;
 using Kingmaker.EntitySystem.Entities;
 using Kingmaker.EntitySystem.Stats;
+using Kingmaker.Enums;
 using Kingmaker.Enums.Damage;
 using Kingmaker.PubSubSystem;
 using Kingmaker.RuleSystem;
 using Kingmaker.RuleSystem.Rules;
 using Kingmaker.RuleSystem.Rules.Damage;
-using Kingmaker.TurnBasedMode.Controllers;
 using Kingmaker.UnitLogic;
-using Kingmaker.UnitLogic.Buffs;
+using Kingmaker.UnitLogic.Abilities;
+using Kingmaker.UnitLogic.Abilities.Blueprints;
+using Kingmaker.UnitLogic.Mechanics;
 using Kingmaker.UnitLogic.Parts;
-using TurnBased.Controllers;
 using UnityEngine;
 
 namespace KingmakerWakingRune.Sanctum.Wards
@@ -24,7 +27,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
     /// </summary>
     internal static class WardHazards
     {
-        private static UnitEntityData s_LastTurnUnit;
+        /// <summary>The native scroll whose spell carries the glyph's spell-resistance eligibility; the game has no Glyph of Warding.</summary>
+        private const string LightningBoltScroll = "9d6d963e1a2d2474db1a23250abeb170";
+
+        /// <summary>When each unit's current turn began, this session only; cleared on every load so no stale actor survives.</summary>
+        private static readonly Dictionary<string, double> s_TurnStartedAt = new Dictionary<string, double>();
 
         private static IEnumerable<UnitEntityData> Actors()
         {
@@ -57,6 +64,18 @@ namespace KingmakerWakingRune.Sanctum.Wards
                     }
                 }
             }
+        }
+
+        public static bool AnyoneInMist()
+        {
+            return Actors().Any(u => WardGeometry.InMist(GridX(u.Position), GridY(u.Position)));
+        }
+
+        /// <summary>True while the active hound would notice someone of the party: long work beside it is refused.</summary>
+        public static bool HoundWouldNotice()
+        {
+            SanctumState state = WardRuntime.State;
+            return state != null && state.Hound.IsActive(WardRuntime.Now) && Game.Instance.Player.Party.Any(u => HoundNotices(u) && HoundFeet(u) <= WardProfile.HoundNoticeFeet);
         }
 
         /// <summary>A save that entered before these wards existed: nobody already inside one may trigger it by standing still.</summary>
@@ -135,6 +154,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
             return unit.Descriptor.HasFact(WardBlueprints.LissalaWorshipper);
         }
 
+        /// <summary>
+        /// One committed detonation. Its source is Vandiana's divine CL 8 casting, so spell resistance, save bonuses against
+        /// spells and resistances all read the right context. A worshipper's passage never sets it off, but a worshipper
+        /// standing in someone else's blast is caught like anyone.
+        /// </summary>
         public static void DetonateGlyph(Vector3? at)
         {
             SanctumState state = WardRuntime.State;
@@ -147,21 +171,36 @@ namespace KingmakerWakingRune.Sanctum.Wards
             glyph.Triggered = true;
             glyph.TriggeredAt = WardRuntime.Now;
             WardTraps.Glyph?.Deactivate();
-            UnitEntityData source = WardFixtures.Krune;
+            MechanicsContext context = GlyphContext();
             foreach (UnitEntityData unit in Actors().ToList())
             {
                 Vector3 p = unit.Position;
                 if (WardGeometry.InGlyphBurst(GridX(p), GridY(p)))
                 {
-                    GlyphBurst(source, unit);
+                    GlyphBurst(context, unit);
                 }
             }
             Log.Info($"Glyph detonated at {WardRuntime.Now:0}.");
         }
 
-        private static void GlyphBurst(UnitEntityData source, UnitEntityData unit)
+        private static MechanicsContext GlyphContext()
         {
-            RuleSavingThrow save = Rulebook.Trigger(new RuleSavingThrow(unit, SavingThrowType.Reflex, WardProfile.GlyphReflexDC));
+            UnitEntityData caster = WardFixtures.Vandiana ?? WardFixtures.Krune;
+            BlueprintAbility spell = ResourcesLibrary.TryGetBlueprint<BlueprintItemEquipmentUsable>(LightningBoltScroll)?.Ability;
+            var context = new MechanicsContext(caster, caster.Descriptor, spell);
+            AccessTools.Field(typeof(MechanicsContext), "m_Params").SetValue(context, new AbilityParams { CasterLevel = WardProfile.DivineCasterLevel, DC = WardProfile.GlyphReflexDC, SpellLevel = 3 });
+            return context;
+        }
+
+        private static void GlyphBurst(MechanicsContext context, UnitEntityData unit)
+        {
+            RuleSpellResistanceCheck resistance = Rulebook.Trigger(new RuleSpellResistanceCheck(context, unit));
+            if (resistance.IsSpellResisted)
+            {
+                Log.Info($"Glyph: {unit.CharacterName} resists with spell resistance (CL {WardProfile.DivineCasterLevel}).");
+                return;
+            }
+            RuleSavingThrow save = Rulebook.Trigger(new RuleSavingThrow(unit, SavingThrowType.Reflex, WardProfile.GlyphReflexDC) { Reason = context });
             if (save.IsPassed && save.Evasion)
             {
                 Log.Info($"Glyph: {unit.CharacterName} evades (Reflex {save.RollResult}).");
@@ -169,8 +208,35 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
             var energy = new EnergyDamage(new DiceFormula(WardProfile.GlyphDice, DiceType.D8), DamageEnergyType.Electricity);
             energy.Half = save.IsPassed || save.ImprovedEvasion;
-            RuleDealDamage damage = Rulebook.Trigger(new RuleDealDamage(source, unit, new DamageBundle(energy)));
-            Log.Info($"Glyph: {unit.CharacterName} Reflex {save.RollResult} vs {WardProfile.GlyphReflexDC}; took {damage.Damage} electricity.");
+            RuleDealDamage damage = Rulebook.Trigger(new RuleDealDamage(context.MaybeCaster, unit, new DamageBundle(energy)) { Reason = context });
+            Log.Info($"Glyph: {unit.CharacterName} Reflex {save.RollResult} vs {WardProfile.GlyphReflexDC}; took {damage.Damage} electricity from {context.MaybeCaster?.CharacterName}.");
+        }
+
+        private static Vector3 HoundWorld => new Vector3(SanctumPlan.ToWorldX(WardGeometry.HoundPoint.X), SanctumPlan.HeightAt(WardGeometry.HoundPoint.X, WardGeometry.HoundPoint.Y) ?? 0f, SanctumPlan.ToWorldZ(WardGeometry.HoundPoint.Y));
+
+        private static float HoundFeet(UnitEntityData unit)
+        {
+            Vector3 point = HoundWorld;
+            return new Vector2(unit.Position.x - point.x, unit.Position.z - point.z).magnitude / SanctumPlan.MetersPerFoot;
+        }
+
+        /// <summary>
+        /// Whom the sentry reacts to: a Small or larger creature that is not one of Vandiana's own, in the hound's own chamber
+        /// with no wall between. It sees invisible creatures, so invisibility hides no one from it.
+        /// </summary>
+        private static bool HoundNotices(UnitEntityData unit)
+        {
+            if (unit == null || !unit.IsInGame || unit.Descriptor.State.IsDead || WardFixtures.IdOf(unit) != null || IsLissalan(unit) || unit.Descriptor.State.Size < Size.Small)
+            {
+                return false;
+            }
+            Vector3 hound = HoundWorld;
+            if (SanctumPlan.SpaceAt(GridX(unit.Position), GridY(unit.Position)) != SanctumPlan.SpaceAt(WardGeometry.HoundPoint.X, WardGeometry.HoundPoint.Y) || Mathf.Abs(unit.Position.y - hound.y) > 2.5f)
+            {
+                return false;
+            }
+            var eye = new Vector3(0f, 1f, 0f);
+            return !Kingmaker.Visual.FogOfWar.LineOfSightGeometry.Instance.HasObstacle(hound + eye, unit.Position + eye, 0);
         }
 
         private static void TickHound(SanctumState state, double now)
@@ -180,11 +246,17 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 return;
             }
-            var point = new Vector3(SanctumPlan.ToWorldX(WardGeometry.HoundPoint.X), 0f, SanctumPlan.ToWorldZ(WardGeometry.HoundPoint.Y));
-            foreach (UnitEntityData unit in Actors().ToList())
+            // The spell ends if its caster is ever more than 100 feet away.
+            UnitEntityData vandiana = WardFixtures.Vandiana;
+            if (vandiana != null && HoundFeet(vandiana) > WardProfile.HoundCasterSeparationFeet)
             {
-                float distance = new Vector2(unit.Position.x - point.x, unit.Position.z - point.z).magnitude;
-                float feet = distance / SanctumPlan.MetersPerFoot;
+                hound.Dispelled = true;
+                Log.Info("Hound ended: its caster is more than 100 feet away.");
+                return;
+            }
+            foreach (UnitEntityData unit in Actors().Where(HoundNotices).ToList())
+            {
+                float feet = HoundFeet(unit);
                 if (feet <= WardProfile.HoundNoticeFeet && !hound.BarkedAt.Contains(unit.UniqueId))
                 {
                     hound.BarkedAt.Add(unit.UniqueId);
@@ -210,6 +282,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             WardRitual.Raise(AwarenessCause.Hound, unit.CharacterName + " approached the hound");
         }
 
+        /// <summary>The printed bite: +10 against the target's native AC, 2d6+3 piercing, magic for damage reduction.</summary>
         private static void Bite(UnitEntityData unit)
         {
             UnitEntityData source = WardFixtures.Find("Hound") ?? WardFixtures.Krune;
@@ -241,18 +314,43 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 return;
             }
             bool immune = unit == WardFixtures.Krune;
-            int bonus = KruneSummonBonus(unit);
-            RuleSavingThrow save = Rulebook.Trigger(new RuleSavingThrow(unit, SavingThrowType.Will, WardProfile.MistSaveDC));
             record.Asleep = unit.Buffs.GetBuff(WardBlueprints.MistSleep) != null;
-            bool passed = save.IsPassed || (bonus > 0 && save.RollResult + bonus >= WardProfile.MistSaveDC && save.D20 != 1);
+            RuleSavingThrow save = MistSave(unit, state);
             bool sleepImmune = unit.Descriptor.State.HasConditionImmunity(UnitCondition.Sleeping);
-            MistExposure result = MistRules.EndRoundInside(record, immune, passed, sleepImmune);
+            MistExposure result = MistRules.EndRoundInside(record, immune, save.IsPassed, sleepImmune);
             record.Exposed = true;
             if (result != MistExposure.NoEffect)
             {
-                Log.Info($"Mist: {unit.CharacterName} Will {save.RollResult} vs {WardProfile.MistSaveDC}: {result}; streak {record.ConsecutiveFailures}.");
+                Log.Info($"Mist: {unit.CharacterName} Will {save.RollResult} (d20 {save.D20}) vs {WardProfile.MistSaveDC}: {result}; streak {record.ConsecutiveFailures}.");
             }
             ApplyExposure(unit, result);
+        }
+
+        /// <summary>
+        /// The native Will save. Krune's own summons carry a typed +4 resistance bonus for it, so the native stacking rules
+        /// keep only the larger of it and any resistance bonus they already have; natural 1 and 20 stay native.
+        /// </summary>
+        private static RuleSavingThrow MistSave(UnitEntityData unit, SanctumState state)
+        {
+            ModifiableValue.Modifier bonus = null;
+            if (IsKruneSummon(unit, state))
+            {
+                bonus = unit.Stats.SaveWill.AddModifier(WardProfile.MistKruneSummonResistance, null, ModifierDescriptor.Resistance);
+            }
+            try
+            {
+                return Rulebook.Trigger(new RuleSavingThrow(unit, SavingThrowType.Will, WardProfile.MistSaveDC));
+            }
+            finally
+            {
+                bonus?.Remove();
+            }
+        }
+
+        private static bool IsKruneSummon(UnitEntityData unit, SanctumState state)
+        {
+            UnitPartSummonedMonster summon = unit.Get<UnitPartSummonedMonster>();
+            return summon != null && ((summon.Summoner != null && summon.Summoner == WardFixtures.Krune) || state.KruneSummons.Contains(unit.UniqueId));
         }
 
         private static void ApplyExposure(UnitEntityData unit, MistExposure result)
@@ -261,34 +359,54 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 unit.Descriptor.AddBuff(WardBlueprints.MistStagger, unit, System.TimeSpan.FromSeconds(WardProfile.RoundSeconds));
             }
-            else if (result == MistExposure.FellAsleep)
+            else if (result == MistExposure.FellAsleep && unit.Buffs.GetBuff(WardBlueprints.MistSleep) == null)
             {
                 unit.Descriptor.AddBuff(WardBlueprints.MistSleep, unit);
             }
         }
 
-        /// <summary>A real resistance bonus to these saves for Krune's own summons only, topped up against any larger one.</summary>
-        private static int KruneSummonBonus(UnitEntityData unit)
+        public static void ForgetTurns()
         {
-            UnitPartSummonedMonster summon = unit.Get<UnitPartSummonedMonster>();
-            return summon != null && summon.Summoner == WardFixtures.Krune ? MistRules.KruneSummonResistanceBonus(0) : 0;
+            s_TurnStartedAt.Clear();
         }
 
-        /// <summary>Turn-based: the previous unit's turn is over the moment the next begins, so it closes here exactly once.</summary>
-        public static void TurnStarted(UnitEntityData next)
+        public static void TurnStarted(UnitEntityData unit)
+        {
+            if (unit != null && SanctumScope.IsSanctumLoaded)
+            {
+                s_TurnStartedAt[unit.UniqueId] = WardRuntime.Now;
+            }
+        }
+
+        /// <summary>
+        /// A turn really ended, from the native turn controller: the actor's own completed turn, the final turn when combat
+        /// ends, or a switch out of turn-based mode. A delayed turn is not an end. One exposure per turn, never twice.
+        /// </summary>
+        public static void TurnEnded(UnitEntityData unit, bool completed)
         {
             SanctumState state = WardRuntime.State;
-            UnitEntityData ended = s_LastTurnUnit;
-            s_LastTurnUnit = next;
-            if (state == null || ended == null || !ended.IsInGame || WardFixtures.IdOf(ended) != null || !SanctumScope.IsSanctumLoaded)
+            if (state == null || unit == null || !unit.IsInGame || unit.Descriptor.State.IsDead || WardFixtures.IdOf(unit) != null || !SanctumScope.IsSanctumLoaded)
             {
                 return;
             }
-            EndOfRound(ended, state.MistOf(ended.UniqueId), state, WardRuntime.Now);
+            bool stillTurnBased = Game.Instance.Player.IsInCombat && TurnBased.Controllers.CombatController.IsInTurnBasedCombat();
+            if (!completed && stillTurnBased)
+            {
+                return;
+            }
+            MistRecord record = state.MistOf(unit.UniqueId);
+            double lastTick = record.NextDueAt - WardProfile.RoundSeconds;
+            if (s_TurnStartedAt.TryGetValue(unit.UniqueId, out double started) && record.NextDueAt >= 0d && lastTick >= started)
+            {
+                Log.Info($"Turn end for {unit.CharacterName}: already exposed this turn; no second tick.");
+                return;
+            }
+            s_TurnStartedAt.Remove(unit.UniqueId);
+            EndOfRound(unit, record, state, WardRuntime.Now);
         }
     }
 
-    /// <summary>Hands turn-based turn starts to the hazards; this is the only reliable end-of-turn signal the game offers.</summary>
+    /// <summary>Records turn starts for the hazards; turn ends come from the native turn controller's disposal.</summary>
     internal sealed class WardTurnHandler : ITurnBasedModeHandler
     {
         public void HandleSurpriseRoundStarted()

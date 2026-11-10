@@ -27,21 +27,72 @@ namespace KingmakerWakingRune.Sanctum.Wards
     internal static class WardStatues
     {
         private const string StoneToFlesh = "e243740dfdb17a246b116b334ed0b165";
+        private const float WaypointMeters = 1.2f;
         private static readonly Color Ash = new Color(0.28f, 0.27f, 0.26f, 1f);
 
-        // Printed route for a report: through both doors to Vandiana, on foot.
-        private static readonly GridPoint[] RunnerRoute =
+        /// <summary>
+        /// A reporter's printed route to Vandiana, on foot: up to A2, through it with its own hand, round to the east door,
+        /// through that, and on to a point in her chamber where she can hear it. Progress is saved per leg.
+        /// </summary>
+        private static readonly RunnerLeg[] RunnerRoute =
         {
-            new GridPoint(13.15f, 25.9f),
-            new GridPoint(13.15f, 27.6f),
-            new GridPoint(22.2f, 14.65f),
-            new GridPoint(19.6f, 14.65f),
-            new GridPoint(13.9f, 9.6f),
+            new RunnerLeg(13.15f, 25.0f, RunnerStep.Walk),
+            new RunnerLeg(13.15f, 25.0f, RunnerStep.OpenA2),
+            new RunnerLeg(13.15f, 27.6f, RunnerStep.Walk),
+            new RunnerLeg(22.2f, 14.65f, RunnerStep.Walk),
+            new RunnerLeg(22.2f, 14.65f, RunnerStep.OpenEast),
+            new RunnerLeg(19.6f, 14.65f, RunnerStep.Walk),
+            new RunnerLeg(15.2f, 10.6f, RunnerStep.Report),
         };
+
+        private enum RunnerStep
+        {
+            Walk,
+            OpenA2,
+            OpenEast,
+            Report,
+        }
+
+        private struct RunnerLeg
+        {
+            public readonly GridPoint Point;
+            public readonly RunnerStep Step;
+
+            public RunnerLeg(float x, float y, RunnerStep step)
+            {
+                Point = new GridPoint(x, y);
+                Step = step;
+            }
+        }
 
         public static bool IsStoneToFlesh(Kingmaker.UnitLogic.Abilities.Blueprints.BlueprintAbility ability)
         {
             return ability.AssetGuid == StoneToFlesh;
+        }
+
+        public static UnitEntityData Body(StatueState statue)
+        {
+            return string.IsNullOrEmpty(statue.EntityId) ? null : Game.Instance.State.Units.FirstOrDefault(u => u.UniqueId == statue.EntityId);
+        }
+
+        /// <summary>A real dead body stands where the figure was: a failed survival save, a later death, or an old save's remnant.</summary>
+        public static bool BodyIsCorpse(string slot)
+        {
+            SanctumState state = WardRuntime.State;
+            if (state == null || !state.Statues.TryGetValue(slot, out StatueState statue))
+            {
+                return false;
+            }
+            if (state.Credentials.RemnantSlots.Contains(slot))
+            {
+                return true;
+            }
+            if (statue.Outcome != StatueOutcome.Corpse && statue.Outcome != StatueOutcome.Living)
+            {
+                return false;
+            }
+            UnitEntityData body = Body(statue);
+            return body != null && body.Descriptor.State.IsDead;
         }
 
         public static void OnRestored(string statueId, UnitEntityData caster)
@@ -71,12 +122,14 @@ namespace KingmakerWakingRune.Sanctum.Wards
             Vector3 foot = SanctumDressing.StatueFeet[id];
             Vector3 placed = ObstacleAnalyzer.GetNearestNode(foot).clampedPosition;
             BearerRole role = BearerManifest.Roles[id];
-            BlueprintUnit blueprint = role == BearerRole.Attack ? WardBlueprints.CultistAttacker : WardBlueprints.CultistReporter;
+            BlueprintUnit blueprint = WardBlueprints.Cultists[id];
             UnitEntityData cultist = Game.Instance.EntityCreator.SpawnUnit(blueprint, placed, Quaternion.identity, Game.Instance.State.LoadedAreaState.MainState);
             cultist.Descriptor.Ensure<WardRestoredPart>().StatueId = id;
             statue.EntityId = cultist.UniqueId;
+            statue.Credentialed = CredentialRules.IsMarked(id);
+            statue.RouteLeg = 0;
             RuleSavingThrow save = Rulebook.Trigger(new RuleSavingThrow(cultist, SavingThrowType.Fortitude, WardProfile.StoneToFleshSurvivalDC));
-            Log.Info($"Stone to Flesh on {id}: survival Fortitude {save.RollResult} vs {WardProfile.StoneToFleshSurvivalDC}: {(save.IsPassed ? "survived" : "failed")}; role {role}.");
+            Log.Info($"Stone to Flesh on {id}: survival Fortitude {save.RollResult} vs {WardProfile.StoneToFleshSurvivalDC}: {(save.IsPassed ? "survived" : "failed")}; role {role}; credential {statue.Credentialed}.");
             if (save.IsPassed)
             {
                 statue.Outcome = StatueOutcome.Living;
@@ -89,6 +142,36 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 WardRuntime.Say("Stone softens to flesh, but the body beneath is already gone.");
             }
             ApplyVisual(id, statue, WardRuntime.Now);
+        }
+
+        /// <summary>
+        /// Brings marked bodies from older saves up to date: a body restored before credentials existed gains its brand once,
+        /// and a marked body that no longer exists at all leaves one documented remnant at its figure, never regenerated.
+        /// </summary>
+        public static void MigrateMarked(SanctumState state)
+        {
+            foreach (string slot in CredentialRules.MarkedSources)
+            {
+                if (!state.Statues.TryGetValue(slot, out StatueState statue) || statue.Outcome == StatueOutcome.Stone)
+                {
+                    continue;
+                }
+                UnitEntityData body = Body(statue);
+                if (body != null && !statue.Credentialed)
+                {
+                    if (!body.Descriptor.HasFact(WardBlueprints.SihedronBrand))
+                    {
+                        body.Descriptor.AddFact(WardBlueprints.SihedronBrand);
+                    }
+                    statue.Credentialed = true;
+                    Log.Info($"Migration: {slot}'s restored body gained its Sihedron credential.");
+                }
+                else if (body == null && !state.Credentials.HandsRecovered.Contains(slot) && !state.Credentials.RemnantSlots.Contains(slot))
+                {
+                    state.Credentials.RemnantSlots.Add(slot);
+                    Log.Info($"Migration: {slot}'s body is gone from this save; one remnant hand is left at the figure.");
+                }
+            }
         }
 
         public static void ApplyAll(SanctumState state, double now)
@@ -115,10 +198,30 @@ namespace KingmakerWakingRune.Sanctum.Wards
                     renderer.material.color = Color.Lerp(Color.white, Ash, progress);
                 }
             }
-            UnitEntityData fixture = WardFixtures.Find(id);
-            if (fixture != null && hidden && fixture.IsInGame)
+            if (SanctumDressing.PalmMarks.TryGetValue(id, out GameObject mark) && mark != null)
             {
-                fixture.IsInGame = false;
+                mark.SetActive(!hidden);
+            }
+            UnitEntityData fixture = WardFixtures.Find(id);
+            if (fixture == null)
+            {
+                return;
+            }
+            // A marked corpse keeps a readable target on the body itself until its hand is taken.
+            bool corpseTarget = hidden && CredentialRules.IsMarked(id) && BodyIsCorpse(id) && !WardRuntime.State.Credentials.HandsRecovered.Contains(id);
+            if (corpseTarget)
+            {
+                UnitEntityData body = Body(statue);
+                Vector3 at = body != null ? body.Position : SanctumDressing.StatueFeet[id];
+                if ((fixture.Position - at).sqrMagnitude > 0.04f)
+                {
+                    fixture.Position = at;
+                }
+            }
+            bool wanted = !hidden || corpseTarget;
+            if (fixture.IsInGame != wanted)
+            {
+                fixture.IsInGame = wanted;
             }
         }
 
@@ -136,94 +239,123 @@ namespace KingmakerWakingRune.Sanctum.Wards
                         Log.Info($"{statue.Id} crumbled to ash.");
                     }
                 }
-                else if (statue.Outcome == StatueOutcome.Living && !statue.Reported && BearerManifest.Roles.TryGetValue(statue.Id, out BearerRole role) && role == BearerRole.Report)
+                else if (statue.Outcome == StatueOutcome.Living)
                 {
-                    TickRunner(state, statue, now);
+                    UnitEntityData body = Body(statue);
+                    if (body != null && body.Descriptor.State.IsDead && CredentialRules.IsMarked(statue.Id))
+                    {
+                        ApplyVisual(statue.Id, statue, now);
+                    }
+                    if (!statue.Reported && BearerManifest.Roles.TryGetValue(statue.Id, out BearerRole role) && role == BearerRole.Report)
+                    {
+                        TickRunner(statue, body, now);
+                    }
                 }
             }
         }
 
-        /// <summary>A runner really walks: it opens what it may, is stopped by what it cannot, and reports only on arrival.</summary>
-        private static void TickRunner(SanctumState state, StatueState statue, double now)
+        /// <summary>
+        /// A runner really walks its saved route: each leg ends only on arrival or a completed door action, so an
+        /// interruption or reload resumes where it was. Only a living, able runner standing in Vandiana's chamber reports.
+        /// </summary>
+        private static void TickRunner(StatueState statue, UnitEntityData runner, double now)
         {
-            UnitEntityData runner = Game.Instance.State.Units.FirstOrDefault(u => u.UniqueId == statue.EntityId);
-            if (runner == null || runner.Descriptor.State.IsDead || runner.IsInCombat)
+            if (runner == null || runner.Descriptor.State.IsDead || runner.IsInCombat || !runner.Descriptor.State.CanAct || !runner.Descriptor.State.CanMove)
             {
                 return;
             }
+            if (statue.RouteLeg >= RunnerRoute.Length)
+            {
+                return;
+            }
+            RunnerLeg leg = RunnerRoute[statue.RouteLeg];
+            Vector3 point = World(leg.Point);
+            bool arrived = Vector2.Distance(new Vector2(runner.Position.x, runner.Position.z), new Vector2(point.x, point.z)) <= WaypointMeters;
+            switch (leg.Step)
+            {
+                case RunnerStep.Walk:
+                    if (arrived)
+                    {
+                        Advance(statue, runner);
+                    }
+                    else if (runner.Commands.Empty)
+                    {
+                        runner.Commands.Run(new UnitMoveTo(point, 0.3f));
+                    }
+                    break;
+                case RunnerStep.OpenA2:
+                    if (WardRuntime.State.Door.Destroyed || (WardDoor.A2 != null && WardDoor.A2.IsOpen))
+                    {
+                        Advance(statue, runner);
+                    }
+                    else if (runner.Commands.Empty)
+                    {
+                        // The cultist's own brand, through the real door interaction at arm's length.
+                        WardDoor.Order(runner, "open A2 with its own brand", u => !WardRuntime.State.Door.Destroyed, u =>
+                        {
+                            WardDoor.PresentOwnBrand(u, statue.Id);
+                            Advance(statue, u);
+                        });
+                    }
+                    break;
+                case RunnerStep.OpenEast:
+                    SanctumDoor east = UnityEngine.Object.FindObjectsOfType<SanctumDoor>().FirstOrDefault(d => d.Plan.Id == "A4Approach");
+                    if (east == null || east.IsOpen)
+                    {
+                        Advance(statue, runner);
+                    }
+                    else if (runner.Commands.Empty)
+                    {
+                        KwrFixtureCommand.Issue(runner, KwrFixtureCommand.AtPoint(east.transform.position, east.ProximityRadius, "open the east door", false, u => !east.IsOpen, u =>
+                        {
+                            east.Toggle(u);
+                            Advance(statue, u);
+                        }));
+                    }
+                    break;
+                case RunnerStep.Report:
+                    if (!arrived)
+                    {
+                        if (runner.Commands.Empty)
+                        {
+                            runner.Commands.Run(new UnitMoveTo(point, 0.3f));
+                        }
+                        break;
+                    }
+                    if (!InVandianasChamber(runner))
+                    {
+                        break;
+                    }
+                    statue.Reported = true;
+                    statue.ReportedAt = now;
+                    Advance(statue, runner);
+                    WardRitual.Raise(AwarenessCause.Messenger, runner.CharacterName + " reached Vandiana and reported");
+                    break;
+            }
+        }
+
+        private static void Advance(StatueState statue, UnitEntityData runner)
+        {
+            statue.RouteLeg++;
+            Log.Info($"Runner {statue.Id} ({runner.CharacterName}) completed leg {statue.RouteLeg}/{RunnerRoute.Length}.");
+        }
+
+        /// <summary>The same enclosed space as Vandiana, on her floor: never through the rock between A1 and A5.</summary>
+        private static bool InVandianasChamber(UnitEntityData runner)
+        {
             UnitEntityData vandiana = WardFixtures.Vandiana;
-            if (vandiana != null && runner.DistanceTo(vandiana) <= 8f)
+            if (vandiana == null)
             {
-                statue.Reported = true;
-                statue.ReportedAt = now;
-                WardRitual.Raise(AwarenessCause.Messenger, runner.CharacterName + " reached Vandiana");
-                return;
-            }
-            if (!runner.Commands.Empty)
-            {
-                return;
-            }
-            int leg = NextLeg(runner);
-            if (leg < 0)
-            {
-                return;
-            }
-            GridPoint target = RunnerRoute[leg];
-            if (leg == 1 && !PassA2(runner))
-            {
-                return;
-            }
-            if (leg == 3)
-            {
-                OpenEastDoor(runner);
-            }
-            runner.Commands.Run(new UnitMoveTo(new Vector3(SanctumPlan.ToWorldX(target.X), SanctumPlan.HeightAt(target.X, target.Y) ?? 0f, SanctumPlan.ToWorldZ(target.Y))));
-        }
-
-        private static int NextLeg(UnitEntityData runner)
-        {
-            float x = runner.Position.x / SanctumPlan.MetersPerSquare + SanctumPlan.OriginX;
-            float y = SanctumPlan.OriginY - runner.Position.z / SanctumPlan.MetersPerSquare;
-            for (int i = RunnerRoute.Length - 1; i >= 0; i--)
-            {
-                float dx = x - RunnerRoute[i].X, dy = y - RunnerRoute[i].Y;
-                if (dx * dx + dy * dy < 1.2f * 1.2f)
-                {
-                    return i + 1 < RunnerRoute.Length ? i + 1 : -1;
-                }
-            }
-            return 0;
-        }
-
-        /// <summary>A loyal cultist has no brand; a latched door stops it, and it turns on whoever is nearest instead.</summary>
-        private static bool PassA2(UnitEntityData runner)
-        {
-            DoorWardState door = WardRuntime.State.Door;
-            SanctumDoor a2 = UnityEngine.Object.FindObjectsOfType<SanctumDoor>().FirstOrDefault(d => d.Plan.Id == "A2");
-            if (door.Destroyed || a2 == null || a2.IsOpen)
-            {
-                return true;
-            }
-            if (door.Latched)
-            {
-                UnitEntityData nearest = Game.Instance.Player.Party.OrderBy(u => u.DistanceTo(runner)).FirstOrDefault();
-                if (nearest != null)
-                {
-                    runner.Commands.Run(UnitAttack.CreateAttackCommand(runner, nearest));
-                }
                 return false;
             }
-            a2.Toggle(runner);
-            return true;
+            float rx = runner.Position.x / SanctumPlan.MetersPerSquare + SanctumPlan.OriginX, ry = SanctumPlan.OriginY - runner.Position.z / SanctumPlan.MetersPerSquare;
+            float vx = vandiana.Position.x / SanctumPlan.MetersPerSquare + SanctumPlan.OriginX, vy = SanctumPlan.OriginY - vandiana.Position.z / SanctumPlan.MetersPerSquare;
+            return SanctumPlan.SpaceAt(rx, ry) == SanctumPlan.SpaceAt(vx, vy) && Mathf.Abs(runner.Position.y - vandiana.Position.y) < 2f && runner.DistanceTo(vandiana) <= 8f;
         }
 
-        private static void OpenEastDoor(UnitEntityData runner)
+        private static Vector3 World(GridPoint p)
         {
-            SanctumDoor east = UnityEngine.Object.FindObjectsOfType<SanctumDoor>().FirstOrDefault(d => d.Plan.Id == "A4Approach");
-            if (east != null && !east.IsOpen)
-            {
-                east.Toggle(runner);
-            }
+            return new Vector3(SanctumPlan.ToWorldX(p.X), SanctumPlan.HeightAt(p.X, p.Y) ?? 0f, SanctumPlan.ToWorldZ(p.Y));
         }
     }
 }

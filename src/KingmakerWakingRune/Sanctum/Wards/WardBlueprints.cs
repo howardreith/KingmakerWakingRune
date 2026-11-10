@@ -6,6 +6,7 @@ using Kingmaker.Blueprints;
 using Kingmaker.Blueprints.Classes;
 using Kingmaker.Blueprints.Classes.Spells;
 using Kingmaker.Blueprints.Facts;
+using Kingmaker.Blueprints.Items;
 using Kingmaker.Blueprints.Root;
 using Kingmaker.ElementsSystem;
 using Kingmaker.EntitySystem.Stats;
@@ -30,9 +31,29 @@ namespace KingmakerWakingRune.Sanctum.Wards
         [JsonProperty]
         private ModifiableValue.Modifier m_Modifier;
 
+        /// <summary>This modifier's value when last reconciled with the saved grants.</summary>
+        [JsonProperty]
+        private int m_LastSeen = -1;
+
+        /// <summary>A buff saved by an earlier build never recorded what it showed; the first reconcile adopts what is left.</summary>
+        public bool Unreconciled => m_LastSeen < 0;
+
+        /// <summary>What is left of this source alone; a fully spent modifier is removed by the native damage code.</summary>
+        public int Remaining => m_Modifier != null && m_Modifier.AppliedTo != null ? System.Math.Max(0, m_Modifier.ModValue) : 0;
+
+        /// <summary>Points of this source spent since the last call: only native consumption of this modifier, nothing else.</summary>
+        public int TakeConsumed()
+        {
+            int remaining = Remaining;
+            int spent = System.Math.Max(0, m_LastSeen - remaining);
+            m_LastSeen = remaining;
+            return spent;
+        }
+
         public override void OnFactActivate()
         {
             m_Modifier = Owner.Stats.TemporaryHitPoints.AddModifier(WardKrune.PendingTemporaryHP, this, ModifierDescriptor.UntypedStackable);
+            m_LastSeen = WardKrune.PendingTemporaryHP;
         }
 
         public override void OnFactDeactivate()
@@ -55,6 +76,12 @@ namespace KingmakerWakingRune.Sanctum.Wards
         /// <summary>CR2_BanditPositiveClericLevel3: the nearest native body to the GameMastery Guide's cleric 3 cultist.</summary>
         private const string CultistDonor = "9ffceca100e02644ba67cf492c17d351";
         private const string RestorationLesserAbility = "e84fc922ccf952943b5240293669b171";
+        private const string MasterworkSickle = "eae563aae0febbc4e91a1c5d0a6fd82a";
+        private const string LightShield = "a85d51d0fb905f940b951eec60388bac";
+        private const string Chainmail = "02e9f83be5d1c5d4e927b5c44ed34840";
+        /// <summary>Icons only: a crumpled sheet for the impression, the Hand of Magus Dann for the hand.</summary>
+        private const string ImpressionIconDonor = "abf90e9a19190b6428b2cb538b093cdd";
+        private const string HandIconDonor = "9cc0689168b87a244b9432582736349f";
         private const int FixtureHitPoints = 1000000;
         private const int FixtureAbilityScore = 200;
 
@@ -81,6 +108,10 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public static BlueprintUnit HoundFixture { get; private set; }
         public static BlueprintUnit CultistAttacker { get; private set; }
         public static BlueprintUnit CultistReporter { get; private set; }
+        /// <summary>One restored body per A1 figure, wearing that figure's own model; the two marked ones carry the Sihedron.</summary>
+        public static readonly Dictionary<string, BlueprintUnit> Cultists = new Dictionary<string, BlueprintUnit>();
+        public static Kingmaker.Blueprints.Items.BlueprintItem PalmImpression { get; private set; }
+        public static Kingmaker.Blueprints.Items.BlueprintItem BrandedHand { get; private set; }
         public static readonly Dictionary<string, BlueprintUnit> InspectFixtures = new Dictionary<string, BlueprintUnit>();
 
         private static Action<BlueprintScriptableObject> s_Register;
@@ -151,6 +182,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
             BlueprintUnit cultistDonor = all.OfType<BlueprintUnit>().First(u => u.AssetGuid == CultistDonor);
             CultistAttacker = Cultist(cultistDonor, root, "KWR_CultistAttacker", "Restored Lissalan Cultist", root.SystemMechanics.FactionMobs);
             CultistReporter = Cultist(cultistDonor, root, "KWR_CultistReporter", "Fleeing Lissalan Cultist", root.SystemMechanics.FactionNeutrals);
+            BuildCultists(all, cultistDonor, root);
+            PalmImpression = Item(all, "KWR_SihedronPalmImpression", "Sihedron Palm Impression", "A careful impression of a seven-pointed brand, taken from the palm of a petrified cultist in the Sanctum of Sloth. Its lines are exact enough to satisfy a mechanism that knows the sign.", ImpressionIconDonor);
+            BrandedHand = Item(all, "KWR_SihedronBrandedHand", "Sihedron-Branded Hand", "The wrapped hand of a restored cultist, the seven-pointed brand still plain on its palm.", HandIconDonor);
 
             foreach (var pair in AllClickable())
             {
@@ -196,6 +230,68 @@ namespace KingmakerWakingRune.Sanctum.Wards
             target.CheckedFacts = new BlueprintUnitFact[] { MistSleep };
             ability.ComponentsArray = new BlueprintComponent[] { run, target };
             return ability;
+        }
+
+        /// <summary>
+        /// GameMastery Guide p.278 Cultist (human cleric 3, NE): the native level-3 cleric body supplies the class levels and
+        /// spellcasting; scores, alignment and gear are set to the printed block. What the donor cannot match is listed in
+        /// docs/WR-04-RULES.md. Each body keeps its figure's model; the marked two carry the scenario's Sihedron credential.
+        /// </summary>
+        private static void BuildCultists(IEnumerable<BlueprintScriptableObject> all, BlueprintUnit donor, BlueprintRoot root)
+        {
+            Dictionary<string, BlueprintItem> items = all.OfType<BlueprintItem>().GroupBy(i => i.AssetGuid).ToDictionary(g => g.Key, g => g.First());
+            foreach (var pair in BearerManifest.Roles)
+            {
+                string slot = pair.Key;
+                bool attacker = pair.Value == BearerRole.Attack;
+                string name = "KWR_Cultist_" + slot.Replace("-", string.Empty);
+                BlueprintUnit unit = Cultist(donor, root, name, attacker ? "Restored Lissalan Cultist" : "Fleeing Lissalan Cultist", attacker ? root.SystemMechanics.FactionMobs : root.SystemMechanics.FactionNeutrals);
+                unit.Alignment = Alignment.NeutralEvil;
+                unit.Strength = 10;
+                unit.Dexterity = 13;
+                unit.Constitution = 12;
+                unit.Intelligence = 8;
+                unit.Wisdom = 15;
+                unit.Charisma = 16;
+                unit.Prefab = new Kingmaker.ResourceLinks.UnitViewLink { AssetId = StatueManifest.Model(StatueManifest.Slot(slot).Model).PrefabId };
+                unit.Body = new BlueprintUnit.UnitBody
+                {
+                    PrimaryHand = items[MasterworkSickle] as Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentHand,
+                    SecondaryHand = items[LightShield] as Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentHand,
+                    Armor = items[Chainmail] as Kingmaker.Blueprints.Items.Armors.BlueprintItemArmor,
+                    QuickSlots = new Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentUsable[5],
+                };
+                if (CredentialRules.IsMarked(slot))
+                {
+                    unit.AddFacts = unit.AddFacts.Concat(new BlueprintUnitFact[] { SihedronBrand }).ToArray();
+                }
+                Cultists[slot] = unit;
+            }
+        }
+
+        private static BlueprintItem Item(IEnumerable<BlueprintScriptableObject> all, string name, string display, string description, string iconDonor)
+        {
+            var item = Create<BlueprintItem>(name);
+            item.AssetGuid = ScenarioIds.Derive("item." + name);
+            string key = "kwr.item." + name;
+            LocalizedText.Define(key, display);
+            LocalizedText.Define(key + ".description", description);
+            BlueprintItem donor = all.OfType<BlueprintItem>().FirstOrDefault(i => i.AssetGuid == iconDonor);
+            var field = (Func<string, System.Reflection.FieldInfo>)(f => AccessTools.Field(typeof(BlueprintItem), f));
+            field("m_DisplayNameText").SetValue(item, LocalizedText.Create(key));
+            field("m_DescriptionText").SetValue(item, LocalizedText.Create(key + ".description"));
+            field("m_FlavorText").SetValue(item, new LocalizedString());
+            field("m_NonIdentifiedNameText").SetValue(item, LocalizedText.Create(key));
+            field("m_NonIdentifiedDescriptionText").SetValue(item, LocalizedText.Create(key + ".description"));
+            field("m_Icon").SetValue(item, donor?.Icon);
+            // No sale value and notable: it cannot be sold, dropped or farmed.
+            field("m_Cost").SetValue(item, 0);
+            field("m_IsNotable").SetValue(item, true);
+            field("m_InventoryPutSound").SetValue(item, string.Empty);
+            field("m_InventoryTakeSound").SetValue(item, string.Empty);
+            item.ComponentsArray = new BlueprintComponent[0];
+            s_Register(item);
+            return item;
         }
 
         private static BlueprintUnit Cultist(BlueprintUnit donor, BlueprintRoot root, string name, string display, BlueprintFaction faction)

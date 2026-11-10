@@ -34,6 +34,12 @@ namespace KingmakerWakingRune.Sanctum
         /// <summary>Each statue's baked renderers this build, so a figure can be removed without touching its neighbours.</summary>
         public static readonly Dictionary<string, Renderer[]> StatueFigures = new Dictionary<string, Renderer[]>();
 
+        /// <summary>Each cast figure's palm: position, the forearm's direction through it, and the figure's facing.</summary>
+        public static readonly Dictionary<string, Vector3[]> StatuePalms = new Dictionary<string, Vector3[]>();
+
+        /// <summary>The Sihedron brands on the marked figures' palms, hidden with their figure.</summary>
+        public static readonly Dictionary<string, GameObject> PalmMarks = new Dictionary<string, GameObject>();
+
         public static void AddStatueRenderer(string slotId, Renderer renderer)
         {
             StatueFigures[slotId] = StatueFigures.TryGetValue(slotId, out Renderer[] existing) ? existing.Concat(new[] { renderer }).ToArray() : new[] { renderer };
@@ -46,6 +52,8 @@ namespace KingmakerWakingRune.Sanctum
             RuneLights.Clear();
             BrokenRunes.Clear();
             StatueFigures.Clear();
+            StatuePalms.Clear();
+            PalmMarks.Clear();
             s_Root = new GameObject("Dressing").transform;
             s_Root.SetParent(root, false);
             s_Mesh = new SceneryMesh();
@@ -53,6 +61,7 @@ namespace KingmakerWakingRune.Sanctum
             s_Statues = new StatueBuilder(s_Root, materials.Rock);
 
             BuildZiggurat();
+            BuildPalmMarks();
             BuildDoorFrames();
             foreach (RunePlate plate in SanctumPlan.RunePlates)
             {
@@ -63,6 +72,47 @@ namespace KingmakerWakingRune.Sanctum
             s_Mesh.Instantiate(s_Root, "Scenery");
             s_Statues.Finish();
             Log.Info($"Sanctum dressing built in {timer.ElapsedMilliseconds} ms, statues included.");
+        }
+
+        /// <summary>
+        /// A modest burned brand on the palm of each authored marked figure: a dark seven-pointed star, palm-sized, set just
+        /// proud of the stone and turned toward someone standing before the figure. Its own object, so it hides with the figure.
+        /// </summary>
+        private static void BuildPalmMarks()
+        {
+            foreach (string slot in Wards.CredentialRules.MarkedSources)
+            {
+                if (!StatuePalms.TryGetValue(slot, out Vector3[] palm))
+                {
+                    Log.Error($"Palm mark {slot}: the figure's hand was not found when it was cast.");
+                    continue;
+                }
+                Vector3 along = palm[1], facing = palm[2];
+                Vector3 normal = (facing - along * Vector3.Dot(facing, along)).normalized;
+                if (normal.sqrMagnitude < 0.01f)
+                {
+                    normal = facing;
+                }
+                Vector3 center = palm[0] + along * 0.07f + normal * 0.035f;
+                Vector3 u = Vector3.Cross(normal, along).normalized, v = Vector3.Cross(u, normal).normalized;
+                var mesh = new SceneryMesh();
+                mesh.Lathe(s_Palette.Basalt, center, normal, new[] { 0.06f, 0f, 0.06f, 0.004f, 0f, 0.004f }, 18);
+                Vector3 surface = center + normal * 0.005f, previous = Vector3.zero;
+                for (int i = 0; i <= 7; i++)
+                {
+                    float angle = (90f + i * 3 * 360f / 7f) * Mathf.Deg2Rad;
+                    Vector3 point = surface + (u * Mathf.Cos(angle) + v * Mathf.Sin(angle)) * 0.048f;
+                    if (i > 0)
+                    {
+                        mesh.Strip(s_Palette.Void, previous, point, normal, 0.008f, 0.004f);
+                    }
+                    previous = point;
+                }
+                var holder = new GameObject("KWR_PalmMark_" + slot);
+                holder.transform.SetParent(s_Root, false);
+                mesh.Instantiate(holder.transform, "Brand");
+                PalmMarks[slot] = holder;
+            }
         }
 
         private static void BuildZiggurat()
