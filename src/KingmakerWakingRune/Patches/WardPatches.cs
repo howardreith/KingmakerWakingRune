@@ -139,6 +139,36 @@ namespace KingmakerWakingRune.Patches
         }
     }
 
+    /// <summary>
+    /// The native disarm approach to a trap with a trigger zone stops where the next step would enter the zone, and the
+    /// disarm is worked from there. The sanctum's alarm and glyph are polled areas, not native zones, so the same rule is
+    /// applied against their own areas; without it the disarming body walks in and sets off the ward it came to disarm.
+    /// </summary>
+    [HarmonyPatch(typeof(Kingmaker.UnitLogic.Commands.UnitInteractWithObject), "UpdateTarget")]
+    internal static class WardDisarmApproachPatch
+    {
+        private static void Postfix(Kingmaker.UnitLogic.Commands.UnitInteractWithObject __instance)
+        {
+            if (__instance.OverrideTarget.HasValue || !(__instance.Interaction is Kingmaker.View.MapObjects.DisableTrapInteractionComponent))
+            {
+                return;
+            }
+            var view = __instance.Interaction.MapObject as Kingmaker.View.MapObjects.TrapObjectView;
+            UnitEntityData executor = __instance.Executor;
+            if (view == null || executor?.View == null)
+            {
+                return;
+            }
+            UnityEngine.Vector3 direction = (view.transform.position - executor.Position).normalized;
+            UnityEngine.Vector3 ahead = executor.Position + direction * (executor.View.Corpulence + 0.25f);
+            if (WardTraps.InTriggerArea(view, ahead))
+            {
+                __instance.OverrideTarget = executor.Position + direction * 0.01f;
+                Log.Info($"Ward disarm: {executor.CharacterName} works {view.name} from the edge of its area.");
+            }
+        }
+    }
+
     [HarmonyPatch(typeof(Kingmaker.UnitLogic.Buffs.Buff), nameof(Kingmaker.UnitLogic.Buffs.Buff.OnRemove))]
     internal static class MistSleepRemoveTrace
     {
