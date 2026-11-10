@@ -305,6 +305,15 @@ namespace KingmakerWakingRune.Sanctum.Wards
                     {
                         Advance(statue, runner);
                     }
+                    else if (WardRuntime.State.Door.Latched && !runner.Descriptor.HasFact(WardBlueprints.SihedronBrand))
+                    {
+                        // An unmarked cultist has no sign the door knows: it is stopped here and turns on the nearest intruder.
+                        UnitEntityData nearest = Game.Instance.Player.Party.Where(u => !u.Descriptor.State.IsDead).OrderBy(u => u.DistanceTo(runner)).FirstOrDefault();
+                        if (nearest != null && runner.Commands.Empty && nearest.DistanceTo(runner) < 25f)
+                        {
+                            runner.Commands.Run(UnitAttack.CreateAttackCommand(runner, nearest));
+                        }
+                    }
                     else if (runner.Commands.Empty)
                     {
                         // The cultist's own brand, through the real door interaction at arm's length.

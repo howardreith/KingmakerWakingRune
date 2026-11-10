@@ -191,7 +191,8 @@ namespace KingmakerWakingRune.Sanctum
         {
             foreach (UnitEntityData unit in Game.Instance.State.Units)
             {
-                if (unit.IsInGame && unit.View != null)
+                // Ward fixtures are invisible stand-ins, not bodies: one stands in A2's own doorway by design.
+                if (unit.IsInGame && unit.View != null && WardFixtures.IdOf(unit) == null)
                 {
                     float x = unit.Position.x / SanctumPlan.MetersPerSquare + SanctumPlan.OriginX;
                     float y = SanctumPlan.OriginY - unit.Position.z / SanctumPlan.MetersPerSquare;
