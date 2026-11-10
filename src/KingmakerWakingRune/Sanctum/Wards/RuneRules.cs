@@ -83,6 +83,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public RuneCondition Condition;
         public double StartedAt;
         public string Actor = string.Empty;
+        /// <summary>The latest observation that saw the status still on; below zero in saves made before it was kept.</summary>
+        public double LastSeenActiveAt = -1d;
     }
 
     internal sealed class RuneNegativeLevel
@@ -356,8 +358,18 @@ namespace KingmakerWakingRune.Sanctum.Wards
         }
 
         /// <summary>
+        /// True while an attempt on this focus still depends on when things happen: an open window, a sustained status, a
+        /// spell awaiting its effects or expiring negative levels. Skipping time past one would decide it unobserved.
+        /// </summary>
+        public static bool HasTimedAttempt(RuneFocusState state)
+        {
+            return !state.Disabled && (state.Windows.Count > 0 || state.Sustains.Count > 0 || state.PendingCasts.Count > 0 || state.NegativeLevels.Any(l => l.ExpiresAt >= 0d));
+        }
+
+        /// <summary>
         /// Reports whether a status is currently on the focus, from whichever effect applies it. A sustained attempt succeeds
-        /// at its full continuous duration, and fails once when the status lapses early.
+        /// only once an observation has actually seen the status on for the full duration; elapsed time alone never counts,
+        /// because a status that lapsed between two observations leaves no record of when it ended.
         /// </summary>
         public static RuneOutcome ObserveCondition(RuneFocus focus, RuneFocusState state, double now, RuneCondition condition, bool active, string actor, bool originQualifies)
         {
@@ -374,7 +386,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                     return outcome;
                 }
                 state.PendingCasts.RemoveAll(p => p.Actor == actor);
-                state.Sustains.Add(new RuneSustain { Condition = condition, StartedAt = now, Actor = actor });
+                state.Sustains.Add(new RuneSustain { Condition = condition, StartedAt = now, Actor = actor, LastSeenActiveAt = now });
                 outcome.Pending = true;
                 outcome.Detail = $"{condition} begun at {now:0}.";
                 return outcome;
@@ -383,18 +395,22 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 return outcome;
             }
+            if (active)
+            {
+                sustain.LastSeenActiveAt = now;
+            }
             int required = condition == RuneCondition.Entangled ? EntangleRounds : StaggerRounds;
-            double continuous = now - sustain.StartedAt;
-            if (continuous >= required * WardProfile.RoundSeconds)
+            double observed = Math.Max(sustain.StartedAt, sustain.LastSeenActiveAt) - sustain.StartedAt;
+            if (observed >= required * WardProfile.RoundSeconds)
             {
                 state.Sustains.Remove(sustain);
-                return Disable(state, now, sustain.Actor, condition == RuneCondition.Entangled ? RuneRoute.EntangledDuration : RuneRoute.StaggerParalysisDuration, $"{condition} held {continuous / WardProfile.RoundSeconds:0.0} rounds.", outcome);
+                return Disable(state, now, sustain.Actor, condition == RuneCondition.Entangled ? RuneRoute.EntangledDuration : RuneRoute.StaggerParalysisDuration, $"{condition} observed on for {observed / WardProfile.RoundSeconds:0.0} rounds.", outcome);
             }
             if (!active)
             {
                 state.Sustains.Remove(sustain);
                 outcome.FailedActors.Add(sustain.Actor);
-                outcome.Detail = $"{condition} ended after {continuous / WardProfile.RoundSeconds:0.0} of {required} rounds.";
+                outcome.Detail = $"{condition} last observed on after {observed / WardProfile.RoundSeconds:0.0} of {required} rounds; found ended at {(now - sustain.StartedAt) / WardProfile.RoundSeconds:0.0}.";
             }
             else
             {

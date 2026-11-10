@@ -240,7 +240,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         /// <summary>
         /// Long work is a single time jump, so it is refused wherever that jump would skip something that must happen in
-        /// order: a fight, anyone standing in the mist, a sentry close enough to bite, or a confrontation already running.
+        /// order: a fight, anyone standing in the mist, a rune attempt still being timed, a sentry close enough to bite, or a
+        /// confrontation already running.
         /// </summary>
         public static bool CanSpendWork(out string refusal)
         {
@@ -261,6 +262,10 @@ namespace KingmakerWakingRune.Sanctum.Wards
             else if (WardHazards.AnyoneInMist())
             {
                 refusal = "Not while anyone stands in the mist.";
+            }
+            else if (KruneProjection.Foci.Any(f => RuneRules.HasTimedAttempt(state.Focus(f.Id))))
+            {
+                refusal = "Not while a rune is still answering what was done to it.";
             }
             else if (WardHazards.HoundWouldNotice())
             {

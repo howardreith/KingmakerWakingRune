@@ -125,6 +125,45 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(true, RuneRules.ObserveCondition(Alacrity, entangled, 60, RuneCondition.Entangled, true, "w", true).Disabled, "ten rounds");
         }
 
+        public static void TestStatusLapsedUnobservedIsNotASuccess()
+        {
+            // Paralysis seen on at 0 and 12, then the next observation comes after a time jump and finds it gone.
+            var state = new RuneFocusState();
+            RuneRules.ObserveCondition(Alacrity, state, 0, RuneCondition.Paralyzed, true, "w", true);
+            Assert.Equal(true, RuneRules.HasTimedAttempt(state), "a sustained attempt is timed");
+            RuneRules.ObserveCondition(Alacrity, state, 12, RuneCondition.Paralyzed, true, "w", true);
+            RuneOutcome jumped = RuneRules.ObserveCondition(Alacrity, state, 300, RuneCondition.Paralyzed, false, "w", true);
+            Assert.Equal(false, jumped.Disabled, "elapsed time alone is not five observed rounds");
+            Assert.Equal("w", jumped.FailedActors.Single(), "the lapse fails once");
+            Assert.Equal(false, RuneRules.HasTimedAttempt(state), "resolved");
+            // A status seen on through its full duration still succeeds when the next observation finds it just ended.
+            var held = new RuneFocusState();
+            RuneRules.ObserveCondition(Alacrity, held, 0, RuneCondition.Staggered, true, "w", true);
+            RuneRules.ObserveCondition(Alacrity, held, 29.75, RuneCondition.Staggered, true, "w", true);
+            Assert.Equal(true, RuneRules.ObserveCondition(Alacrity, held, 30, RuneCondition.Staggered, true, "w", true).Disabled, "observed on for five rounds");
+            // A sustain saved before observations were recorded starts counting from its next sighting.
+            var legacy = new RuneFocusState();
+            legacy.Sustains.Add(new RuneSustain { Condition = RuneCondition.Paralyzed, StartedAt = 0, Actor = "w" });
+            Assert.Equal(false, RuneRules.ObserveCondition(Alacrity, legacy, 40, RuneCondition.Paralyzed, false, "w", true).Disabled, "legacy lapse unobserved");
+        }
+
+        public static void TestTimedAttemptsBlockLongWork()
+        {
+            var open = new RuneFocusState();
+            RuneRules.ApplyDamage(Life, open, 0, "c", false, false, Hit(RuneDamageType.NegativeEnergy, 20));
+            Assert.Equal(true, RuneRules.HasTimedAttempt(open), "open window");
+            var cast = new RuneFocusState();
+            RuneRules.ApplySpell(Armor, cast, 0, "w", false, false, 5);
+            Assert.Equal(true, RuneRules.HasTimedAttempt(cast), "spell awaiting effects");
+            var levels = new RuneFocusState();
+            RuneRules.ApplyNegativeLevels(Life, levels, 0, "a", 1, 100);
+            Assert.Equal(true, RuneRules.HasTimedAttempt(levels), "expiring negative level");
+            var permanent = new RuneFocusState();
+            RuneRules.ApplyNegativeLevels(Life, permanent, 0, "a", 1, -1);
+            Assert.Equal(false, RuneRules.HasTimedAttempt(permanent), "a level that never expires is not timed");
+            Assert.Equal(false, RuneRules.HasTimedAttempt(new RuneFocusState()), "idle focus");
+        }
+
         public static void TestNonMagicalEntanglementDoesNotStartTheRoute()
         {
             var state = new RuneFocusState();
