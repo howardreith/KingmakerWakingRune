@@ -270,7 +270,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             Buff buff = proxy.Buffs.GetBuff(WardBlueprints.WardMarker);
             if (wanted && buff == null)
             {
-                proxy.Descriptor.AddBuff(WardBlueprints.WardMarker, WardFixtures.Krune ?? proxy, null, new AbilityParams { CasterLevel = casterLevel, SpellLevel = 1 });
+                SetParams(proxy.Descriptor.AddBuff(WardBlueprints.WardMarker, WardFixtures.Krune ?? proxy, null), casterLevel, 11 + casterLevel, 1);
             }
             else if (!wanted && buff != null)
             {
@@ -317,7 +317,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 WardKrune.Refresh(state, Now);
                 return;
             }
-            if (outcome.Pending || outcome.FailedActors.Count > 0 || outcome.Detail.Length > 0)
+            if (outcome.FailedActors.Count > 0 || outcome.Detail.Length > 0)
             {
                 Log.Info($"Rune {focus.Id}: {what}: pending={outcome.Pending} failed=[{string.Join(",", outcome.FailedActors.ToArray())}] {outcome.Detail}");
             }
@@ -431,11 +431,12 @@ namespace KingmakerWakingRune.Sanctum.Wards
             int dc = CurseRules.RemoveDC(record.PlateMask);
             if (buff == null)
             {
-                buff = actor.Descriptor.AddBuff(WardBlueprints.CurseBuff, caster, null, new AbilityParams { CasterLevel = 17, DC = dc, SpellLevel = 7 });
+                buff = actor.Descriptor.AddBuff(WardBlueprints.CurseBuff, caster, null);
+                SetParams(buff, 17, dc, 7);
             }
             else
             {
-                buff.Context.Params.DC = dc;
+                SetParams(buff, buff.Context.Params.CasterLevel, dc, buff.Context.Params.SpellLevel);
             }
         }
 
@@ -459,7 +460,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 return;
             }
             UnitEntityData caster = WardFixtures.Krune ?? proxy;
-            proxy.Descriptor.AddBuff(WardBlueprints.DefenseWard, caster, null, new AbilityParams { CasterLevel = RuneRules.DispelCasterLevel, SpellLevel = 9, DC = 11 + RuneRules.DispelCasterLevel });
+            SetParams(proxy.Descriptor.AddBuff(WardBlueprints.DefenseWard, caster, null), RuneRules.DispelCasterLevel, 11 + RuneRules.DispelCasterLevel, 9);
         }
 
 
@@ -482,6 +483,15 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 unit.Descriptor.RemoveFact(WardBlueprints.WakeAlly);
             }
         }
+        /// <summary>The native add ignores its parameters, so a buff's caster level and DC are set on its context here.</summary>
+        private static void SetParams(Buff buff, int casterLevel, int dc, int spellLevel)
+        {
+            if (buff != null)
+            {
+                Harmony12.AccessTools.Field(typeof(Kingmaker.UnitLogic.Mechanics.MechanicsContext), "m_Params").SetValue(buff.Context, new AbilityParams { CasterLevel = casterLevel, DC = dc, SpellLevel = spellLevel });
+            }
+        }
+
         public static void Say(string message)
         {
             Game.Instance.UI.BattleLogManager?.HandleOnDialogHistory(message);

@@ -243,11 +243,15 @@ namespace KingmakerWakingRune.Sanctum.Wards
             bool immune = unit == WardFixtures.Krune;
             int bonus = KruneSummonBonus(unit);
             RuleSavingThrow save = Rulebook.Trigger(new RuleSavingThrow(unit, SavingThrowType.Will, WardProfile.MistSaveDC));
+            record.Asleep = unit.Buffs.GetBuff(WardBlueprints.MistSleep) != null;
             bool passed = save.IsPassed || (bonus > 0 && save.RollResult + bonus >= WardProfile.MistSaveDC && save.D20 != 1);
             bool sleepImmune = unit.Descriptor.State.HasConditionImmunity(UnitCondition.Sleeping);
             MistExposure result = MistRules.EndRoundInside(record, immune, passed, sleepImmune);
             record.Exposed = true;
-            Log.Info($"Mist: {unit.CharacterName} Will {save.RollResult} vs {WardProfile.MistSaveDC}: {result}; streak {record.ConsecutiveFailures}.");
+            if (result != MistExposure.NoEffect)
+            {
+                Log.Info($"Mist: {unit.CharacterName} Will {save.RollResult} vs {WardProfile.MistSaveDC}: {result}; streak {record.ConsecutiveFailures}.");
+            }
             ApplyExposure(unit, result);
         }
 

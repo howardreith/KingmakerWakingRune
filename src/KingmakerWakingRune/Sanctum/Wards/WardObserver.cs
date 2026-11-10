@@ -164,7 +164,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
             SpellDescriptor descriptor = evt.Context.SpellDescriptor;
             // Heighten and similar change the context; abilities granted outside a spellbook report zero there.
-            int level = evt.Context.Params.SpellLevel > 0 ? evt.Context.Params.SpellLevel : evt.Spell.SpellLevel;
+            int level = Math.Max(evt.Context.Params.SpellLevel, evt.Spell.SpellLevel);
             UnitEntityData actor = evt.Initiator;
             RuneOutcome outcome = RuneRules.ApplySpell(focus, WardRuntime.State.Focus(focus.Id), WardRuntime.Now, Id(actor), (descriptor & SpellDescriptor.Death) != 0, (descriptor & SpellDescriptor.Compulsion) != 0, level);
             WardRuntime.ReportRune(focus, outcome, $"{evt.Spell.Blueprint.name} (effective level {level}, {descriptor}) by {actor?.CharacterName}");

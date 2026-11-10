@@ -44,6 +44,12 @@ namespace KingmakerWakingRune.Diagnostics
                     return Cast(Member(args[1]), args[2], args[3]);
                 case "attack":
                     return Attack(Member(args[1]), args[2]);
+                case "castpoint":
+                    return CastPoint(Member(args[1]), args[2], float.Parse(args[3]), float.Parse(args[4]));
+                case "perform":
+                    return Perform(args[1], args[2]);
+                case "study":
+                    return Study(args[1], args[2], args.Length > 3 ? args[3] : null);
                 case "load":
                     return Load(args[1]);
                 case "save":
@@ -51,6 +57,8 @@ namespace KingmakerWakingRune.Diagnostics
                 case "brand":
                     Member(args[1]).Descriptor.AddFact(WardBlueprints.SihedronBrand);
                     return $"INJECTED door credential on {Member(args[1]).CharacterName}: no native Sihedron exists to recognize.";
+                case "sound":
+                    return Sound();
                 case "kurshu":
                     return "INJECTED Kurshu defeat fixture: " + RitualRules.DefeatKurshu(WardRuntime.State.Ritual, WardRuntime.Now);
                 case "advance":
@@ -131,12 +139,12 @@ namespace KingmakerWakingRune.Diagnostics
             {
                 return $"no ability named {blueprintName}";
             }
-            Ability fact = caster.Descriptor.AddFact<Ability>(ability);
-            AbilityData data = fact.Data;
-            UnitEntityData victim = WardFixtures.Find(target);
-            if (victim == null)
+            AbilityData data = Granted(caster, ability);
+            UnitEntityData victim;
+            string missing = Resolve(target, out victim);
+            if (missing != null)
             {
-                return $"no fixture {target}";
+                return missing;
             }
             TargetWrapper wrapper = victim;
             bool can = data.CanTarget(wrapper);
@@ -145,12 +153,76 @@ namespace KingmakerWakingRune.Diagnostics
             return $"SETUP granted {ability.name}; caster={caster.CharacterName} target={target} canTarget={can}; command issued, native rules resolve it.";
         }
 
+        /// <summary>An ability outside any spellbook reports level zero; this restores its real spell level for the route checks.</summary>
+        private static AbilityData Granted(UnitEntityData caster, BlueprintAbility ability)
+        {
+            AbilityData data = caster.Descriptor.AddFact<Ability>(ability).Data;
+            var spellLists = ability.GetComponents<Kingmaker.Blueprints.Classes.Spells.SpellListComponent>().ToList();
+            data.OverrideSpellLevel = spellLists.Count > 0 ? spellLists.Max(l => l.SpellLevel) : 1;
+            return data;
+        }
+
+        /// <summary>Posts both real door events and reports the playing IDs; zero means the event or its bank is not available.</summary>
+        private static string Sound()
+        {
+            var door = UnityEngine.Object.FindObjectOfType<SanctumDoor>();
+            uint open = AkSoundEngine.PostEvent("DungeonStoneDoorOpen", door.gameObject);
+            uint close = AkSoundEngine.PostEvent("DungeonDoorStone_Close", door.gameObject);
+            return $"door sound playing ids: open={open} close={close}";
+        }
+
+        private static string Resolve(string target, out UnitEntityData unit)
+        {
+            unit = target.StartsWith("party:") ? Member(target.Substring(6)) : WardFixtures.Find(target);
+            return unit == null ? $"no target {target}" : null;
+        }
+
+        private static string CastPoint(UnitEntityData caster, string blueprintName, float x, float y)
+        {
+            BlueprintAbility ability = ResourcesLibrary.GetBlueprints<BlueprintAbility>().FirstOrDefault(a => a.name == blueprintName);
+            if (ability == null)
+            {
+                return $"no ability named {blueprintName}";
+            }
+            AbilityData data = Granted(caster, ability);
+            var point = new Vector3(SanctumPlan.ToWorldX(x), SanctumPlan.HeightAt(x, y) ?? 0f, SanctumPlan.ToWorldZ(y));
+            caster.Commands.Run(UnitUseAbility.CreateCastCommand(data, point));
+            return $"SETUP granted {ability.name}; caster={caster.CharacterName} point=({x},{y}); native rules resolve it.";
+        }
+
+        /// <summary>Runs one fixture's dialogue action as if its answer were clicked; the rolls and effects behind it stay native.</summary>
+        private static string Perform(string fixtureId, string key)
+        {
+            WardAction action = WardActions.For(fixtureId).FirstOrDefault(a => a.Key == key);
+            if (action == null)
+            {
+                return $"no action {key} on {fixtureId}";
+            }
+            action.Run(Game.Instance.Player.MainCharacter.Value);
+            WardInteract.RunPending();
+            return $"SETUP performed {key} on {fixtureId}.";
+        }
+
+        private static string Study(string fixtureId, string key, string skillName)
+        {
+            InspectDef def = WardText.Find(fixtureId);
+            InspectCheck check = def?.Checks.FirstOrDefault(c => c.Key == key);
+            if (check == null)
+            {
+                return $"no check {key} on {fixtureId}";
+            }
+            WardSkill skill = skillName != null ? (WardSkill)Enum.Parse(typeof(WardSkill), skillName) : check.Skills[0];
+            WardInteract.Study(fixtureId, check, skill);
+            return $"SETUP studied {key} on {fixtureId} with {skill}.";
+        }
+
         private static string Attack(UnitEntityData attacker, string target)
         {
-            UnitEntityData victim = WardFixtures.Find(target);
-            if (victim == null)
+            UnitEntityData victim;
+            string missing = Resolve(target, out victim);
+            if (missing != null)
             {
-                return $"no fixture {target}";
+                return missing;
             }
             attacker.Commands.Run(UnitAttack.CreateAttackCommand(attacker, victim));
             return $"SETUP attack command issued: {attacker.CharacterName} -> {target}.";
