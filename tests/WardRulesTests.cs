@@ -147,6 +147,37 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(false, RuneRules.ObserveCondition(Alacrity, legacy, 40, RuneCondition.Paralyzed, false, "w", true).Disabled, "legacy lapse unobserved");
         }
 
+        public static void TestSustainedStatusIsTimedByItsOwnEffect()
+        {
+            // A five-round paralysis applied at 100.10, first polled at 100.25, last seen on at 129.25 and removed by its own
+            // expiry at 130.10: the polls alone saw 29.0 rounds' worth, the effect held exactly five rounds.
+            var exact = new RuneFocusState();
+            RuneRules.ObserveCondition(Alacrity, exact, 100.25, RuneCondition.Paralyzed, true, "w", true, 100.10);
+            Assert.Equal(100.10, exact.Sustains.Single().StartedAt, "the sustain starts when the effect did");
+            RuneRules.ObserveCondition(Alacrity, exact, 129.25, RuneCondition.Paralyzed, true, "w", true);
+            Assert.Equal(true, RuneRules.ObserveCondition(Alacrity, exact, 130.25, RuneCondition.Paralyzed, false, "w", true, -1, 130.10).Disabled, "natural expiry at exactly five rounds");
+            // The same effect broken free a quarter-second short of five rounds fails.
+            var broken = new RuneFocusState();
+            RuneRules.ObserveCondition(Alacrity, broken, 100.25, RuneCondition.Paralyzed, true, "w", true, 100.10);
+            RuneRules.ObserveCondition(Alacrity, broken, 129.75, RuneCondition.Paralyzed, true, "w", true);
+            RuneOutcome shortOutcome = RuneRules.ObserveCondition(Alacrity, broken, 130.00, RuneCondition.Paralyzed, false, "w", true, -1, 129.85);
+            Assert.Equal(false, shortOutcome.Disabled, "interrupted 0.25 s short");
+            Assert.Equal("w", shortOutcome.FailedActors.Single(), "the interruption is a failed attempt");
+            // An end time later than the observation that reports it, or earlier than the last sighting, is not used.
+            var odd = new RuneFocusState();
+            RuneRules.ObserveCondition(Alacrity, odd, 0, RuneCondition.Staggered, true, "w", true);
+            RuneRules.ObserveCondition(Alacrity, odd, 20, RuneCondition.Staggered, true, "w", true);
+            Assert.Equal(false, RuneRules.ObserveCondition(Alacrity, odd, 21, RuneCondition.Staggered, false, "w", true, -1, 40).Disabled, "a future end is ignored");
+            var stale = new RuneFocusState();
+            RuneRules.ObserveCondition(Alacrity, stale, 0, RuneCondition.Staggered, true, "w", true);
+            RuneRules.ObserveCondition(Alacrity, stale, 29.9, RuneCondition.Staggered, true, "w", true);
+            Assert.Equal(false, RuneRules.ObserveCondition(Alacrity, stale, 31, RuneCondition.Staggered, false, "w", true, -1, 10).Disabled, "an end before the last sighting credits the sighting");
+            // An application time after the first sighting is not trusted either.
+            var late = new RuneFocusState();
+            RuneRules.ObserveCondition(Alacrity, late, 5, RuneCondition.Paralyzed, true, "w", true, 9);
+            Assert.Equal(5.0, late.Sustains.Single().StartedAt, "a future application time is ignored");
+        }
+
         public static void TestTimedAttemptsBlockLongWork()
         {
             var open = new RuneFocusState();

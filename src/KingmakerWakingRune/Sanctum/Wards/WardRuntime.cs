@@ -100,6 +100,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         private static readonly WardObserver s_Observer = new WardObserver();
         private static readonly WardTurnHandler s_TurnHandler = new WardTurnHandler();
+        private static readonly RuneConditionClock s_ConditionClock = new RuneConditionClock();
         private static bool s_Subscribed;
         private static double s_NextTick;
 
@@ -114,6 +115,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 EventBus.Subscribe(s_Observer);
                 EventBus.Subscribe(s_TurnHandler);
+                EventBus.Subscribe(s_ConditionClock);
                 s_Subscribed = true;
             }
             SanctumState state = SanctumScope.IsSanctumLoaded ? WardStore.Create() : null;
@@ -133,6 +135,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
             WardHazards.ForgetTurns();
             WardStatues.ForgetStatsProbe();
+            RuneConditionClock.Forget();
             WardFixtures.Ensure();
             WardStatues.MigrateMarked(state);
             WardCredentials.Reconcile(state);
@@ -427,7 +430,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 bool active = source != null;
                 string actor = source?.Context.MaybeCaster?.UniqueId ?? string.Empty;
                 bool origin = source?.Context.SourceAbility != null;
-                ReportRune(focus, RuneRules.ObserveCondition(focus, focusState, now, condition, active, actor, origin), condition.ToString());
+                double appliedAt = RuneConditionClock.AppliedAt(source);
+                double endedAt = active ? -1d : RuneConditionClock.TakeEndedAt(focus.Id, condition);
+                ReportRune(focus, RuneRules.ObserveCondition(focus, focusState, now, condition, active, actor, origin, appliedAt, endedAt), condition.ToString());
             }
         }
 
@@ -438,15 +443,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 return null;
             }
-            foreach (Buff buff in proxy.Buffs.RawFacts)
-            {
-                if (buff.Blueprint.ComponentsArray.OfType<Kingmaker.UnitLogic.FactLogic.AddCondition>().Any(c => c.Condition == native)
-                    || buff.Blueprint.ComponentsArray.OfType<Kingmaker.Designers.Mechanics.Buffs.BuffStatusCondition>().Any(c => c.Condition == native))
-                {
-                    return buff;
-                }
-            }
-            return null;
+            return proxy.Buffs.RawFacts.OfType<Buff>().FirstOrDefault(buff => RuneConditionClock.Supplies(buff, native));
         }
 
         /// <summary>A failed attempt: one real Will save, then at most one new brand on this plate.</summary>

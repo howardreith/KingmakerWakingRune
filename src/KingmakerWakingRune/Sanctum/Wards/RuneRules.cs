@@ -143,6 +143,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public const int DispelCasterLevel = 14;
         public const int EntangleRounds = 10;
         public const int StaggerRounds = 5;
+        /// <summary>Absorbs only the floating-point error of converting engine ticks (100 ns) to seconds; not a grace period.</summary>
+        private const double EngineTimeRounding = 1e-6;
 
         private sealed class DamageRoute
         {
@@ -368,10 +370,12 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         /// <summary>
         /// Reports whether a status is currently on the focus, from whichever effect applies it. A sustained attempt succeeds
-        /// only once an observation has actually seen the status on for the full duration; elapsed time alone never counts,
-        /// because a status that lapsed between two observations leaves no record of when it ended.
+        /// only once the status is known to have held for the full duration; elapsed time alone never counts. The effect's
+        /// own lifecycle settles the boundaries when the engine reports it: <paramref name="appliedAt"/> is when the effect
+        /// began, and <paramref name="endedAt"/> (with the status found off) is when it was removed, no later than its
+        /// scheduled end. Without them, only what an observation saw is credited.
         /// </summary>
-        public static RuneOutcome ObserveCondition(RuneFocus focus, RuneFocusState state, double now, RuneCondition condition, bool active, string actor, bool originQualifies)
+        public static RuneOutcome ObserveCondition(RuneFocus focus, RuneFocusState state, double now, RuneCondition condition, bool active, string actor, bool originQualifies, double appliedAt = -1d, double endedAt = -1d)
         {
             var outcome = new RuneOutcome();
             if (state.Disabled || focus.Kind != RuneKind.Alacrity)
@@ -386,9 +390,10 @@ namespace KingmakerWakingRune.Sanctum.Wards
                     return outcome;
                 }
                 state.PendingCasts.RemoveAll(p => p.Actor == actor);
-                state.Sustains.Add(new RuneSustain { Condition = condition, StartedAt = now, Actor = actor, LastSeenActiveAt = now });
+                double started = appliedAt >= 0d && appliedAt <= now ? appliedAt : now;
+                state.Sustains.Add(new RuneSustain { Condition = condition, StartedAt = started, Actor = actor, LastSeenActiveAt = now });
                 outcome.Pending = true;
-                outcome.Detail = $"{condition} begun at {now:0}.";
+                outcome.Detail = $"{condition} begun at {started:0.00}.";
                 return outcome;
             }
             if (sustain == null)
@@ -400,8 +405,13 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 sustain.LastSeenActiveAt = now;
             }
             int required = condition == RuneCondition.Entangled ? EntangleRounds : StaggerRounds;
-            double observed = Math.Max(sustain.StartedAt, sustain.LastSeenActiveAt) - sustain.StartedAt;
-            if (observed >= required * WardProfile.RoundSeconds)
+            double heldUntil = Math.Max(sustain.StartedAt, sustain.LastSeenActiveAt);
+            if (!active && endedAt >= heldUntil && endedAt <= now)
+            {
+                heldUntil = endedAt;
+            }
+            double observed = heldUntil - sustain.StartedAt;
+            if (observed + EngineTimeRounding >= required * WardProfile.RoundSeconds)
             {
                 state.Sustains.Remove(sustain);
                 return Disable(state, now, sustain.Actor, condition == RuneCondition.Entangled ? RuneRoute.EntangledDuration : RuneRoute.StaggerParalysisDuration, $"{condition} observed on for {observed / WardProfile.RoundSeconds:0.0} rounds.", outcome);
