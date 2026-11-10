@@ -77,6 +77,10 @@ namespace KingmakerWakingRune.Diagnostics
                     return $"INJECTED feeder grant {args[1]}; exposed {FeederRules.ExposedTemporaryHP(WardRuntime.State.Door.Feeder, WardRuntime.Now)}.";
                 case "shield":
                     return Shield(int.Parse(args[1]));
+                case "condition":
+                    return Condition(args[1], args[2], double.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture));
+                case "uncondition":
+                    return Uncondition(args[1], args[2]);
                 case "units":
                     return Units();
                 case "move":
@@ -287,6 +291,35 @@ namespace KingmakerWakingRune.Diagnostics
             krune.Damage = 0;
             WardKrune.Refresh(WardRuntime.State, WardRuntime.Now);
             return $"INJECTED {amount} damage to the dormant Krune receiver: temp HP {before} -> {krune.Stats.TemporaryHitPoints.ModifiedValue}; ledger exposed {FeederRules.ExposedTemporaryHP(WardRuntime.State.Door.Feeder, WardRuntime.Now)}.";
+        }
+
+        /// <summary>
+        /// A native buff on a fixture with an exact duration, cast by the first party member, for the sustained-route
+        /// boundaries: the engine applies, times and expires it; only its length is chosen here.
+        /// </summary>
+        private static string Condition(string fixtureId, string buffName, double seconds)
+        {
+            UnitEntityData fixture = WardFixtures.Find(fixtureId);
+            Kingmaker.UnitLogic.Buffs.Blueprints.BlueprintBuff buff = ResourcesLibrary.GetBlueprints<Kingmaker.UnitLogic.Buffs.Blueprints.BlueprintBuff>().FirstOrDefault(b => b.name == buffName);
+            if (fixture == null || buff == null)
+            {
+                return $"no fixture {fixtureId} or buff {buffName}";
+            }
+            Kingmaker.UnitLogic.Buffs.Buff applied = fixture.Descriptor.AddBuff(buff, Game.Instance.Player.Party[0], TimeSpan.FromSeconds(seconds));
+            return $"INJECTED native {buffName} on {fixtureId} for {seconds} s at {WardRuntime.Now:0.00}: applied={applied != null} ends={(applied == null ? "-" : applied.EndTime.TotalSeconds.ToString("0.00"))}.";
+        }
+
+        /// <summary>Removes a native buff early, as a break-free or dispel would: the interruption boundary.</summary>
+        private static string Uncondition(string fixtureId, string buffName)
+        {
+            UnitEntityData fixture = WardFixtures.Find(fixtureId);
+            Kingmaker.UnitLogic.Buffs.Buff buff = fixture?.Buffs.Enumerable.FirstOrDefault(b => b.Blueprint.name == buffName);
+            if (buff == null)
+            {
+                return $"no {buffName} on {fixtureId}";
+            }
+            buff.Remove();
+            return $"INJECTED removal of {buffName} from {fixtureId} at {WardRuntime.Now:0.00}.";
         }
 
         /// <summary>A separate, unrelated temporary-HP source on Krune, to show the feeder ledger ignores it.</summary>
