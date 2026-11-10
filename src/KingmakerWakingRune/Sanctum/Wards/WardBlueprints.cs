@@ -252,9 +252,6 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 unit.Dexterity = 13;
                 // The printed 12 already includes the human bonus, which the native HumanRace adds to Constitution again.
                 unit.Constitution = 10;
-                // Printed hp 16: the native NPC cleric dice give 17 (6+5+6), Con +3 and the donor's Toughness +3, so the
-                // blueprint's own share is 16 - 23.
-                unit.MaxHP = CultistPrintedHitPoints - 23;
                 unit.Intelligence = 8;
                 unit.Wisdom = 15;
                 unit.Charisma = 16;
@@ -274,12 +271,35 @@ namespace KingmakerWakingRune.Sanctum.Wards
                     Armor = items[Chainmail] as Kingmaker.Blueprints.Items.Armors.BlueprintItemArmor,
                     QuickSlots = new Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentUsable[5],
                 };
+                unit.AddFacts = unit.AddFacts.Concat(new BlueprintUnitFact[] { PrintedHitPoints() }).ToArray();
                 if (CredentialRules.IsMarked(slot))
                 {
                     unit.AddFacts = unit.AddFacts.Concat(new BlueprintUnitFact[] { SihedronBrand }).ToArray();
                 }
                 Cultists[slot] = unit;
             }
+        }
+
+        private static BlueprintFeature s_PrintedHitPoints;
+
+        /// <summary>
+        /// Printed hp 16. The native NPC cleric dice give 17 (6+5+6), Con +3 and the donor's Toughness +3; a blueprint hp
+        /// share below zero is clamped by the engine, so the difference is one hidden fact, saved with the unit like any feat.
+        /// </summary>
+        private static BlueprintFeature PrintedHitPoints()
+        {
+            if (s_PrintedHitPoints == null)
+            {
+                s_PrintedHitPoints = Create<BlueprintFeature>("KWR_CultistPrintedHitPoints");
+                s_PrintedHitPoints.HideInUI = true;
+                var bonus = Component<Kingmaker.Designers.Mechanics.Facts.AddStatBonus>("KWR_CultistPrintedHitPointsBonus");
+                bonus.Stat = Kingmaker.EntitySystem.Stats.StatType.HitPoints;
+                bonus.Value = CultistPrintedHitPoints - (17 + 3 + 3);
+                bonus.Descriptor = Kingmaker.Enums.ModifierDescriptor.UntypedStackable;
+                s_PrintedHitPoints.ComponentsArray = new BlueprintComponent[] { bonus };
+                s_Register(s_PrintedHitPoints);
+            }
+            return s_PrintedHitPoints;
         }
 
         private static readonly Dictionary<string, BlueprintUnitFact> s_Unscaled = new Dictionary<string, BlueprintUnitFact>();
