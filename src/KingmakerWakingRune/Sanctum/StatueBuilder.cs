@@ -62,6 +62,7 @@ namespace KingmakerWakingRune.Sanctum
         public void Place(string slotId, Vector3 foot, float yaw)
         {
             StatueSlot slot = StatueManifest.Slot(slotId);
+            SanctumDressing.StatueFeet[slotId] = foot;
             try
             {
                 Cast(slot, foot, yaw);

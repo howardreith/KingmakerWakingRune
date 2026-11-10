@@ -19,7 +19,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('Begin', 'Reinstall', 'Uninstall', 'Launch', 'Shot', 'State', 'Click', 'DoubleClick', 'Drag', 'Hover', 'Key', 'Type', 'Scroll', 'Close', 'Collect', 'End', 'Status', 'Record', 'Fault')]
+    [ValidateSet('Begin', 'Reinstall', 'Uninstall', 'Launch', 'Shot', 'State', 'Click', 'DoubleClick', 'Drag', 'Hover', 'Key', 'Type', 'Scroll', 'Close', 'Collect', 'End', 'Status', 'Record', 'Fault', 'Command')]
     [string] $Operation,
     [string] $RunId,
     [string] $PackagePath,
@@ -370,6 +370,24 @@ function Invoke-Fault {
     Write-Step "Fault armed: $FaultName"
 }
 
+# Sends one labelled test command through the mod's harness probe and returns its text response.
+function Invoke-Command {
+    $s = Get-State
+    if (-not (Get-OwnedProcess $s)) { throw 'No owned game process is running.' }
+    $file = Join-Path (Get-RunDir $s) ('{0:HHmmss_fff}-cmd.txt' -f (Get-Date))
+    [IO.File]::WriteAllText((Join-Path $ModDir 'command.request'), "$file`n$Text")
+    $deadline = (Get-Date).AddSeconds(30)
+    while ((Get-Date) -lt $deadline) {
+        if ((Test-Path -LiteralPath $file) -and (Get-Item -LiteralPath $file).Length -gt 0) {
+            Start-Sleep -Milliseconds 100
+            Get-Content -LiteralPath $file
+            return
+        }
+        Start-Sleep -Milliseconds 100
+    }
+    throw "The game did not answer command: $Text"
+}
+
 function Invoke-Click {
     $w = Get-GameWindow
     Assert-GameForeground $w
@@ -571,4 +589,5 @@ switch ($Operation) {
     'Status' { $s = Get-State; if ($s) { $s | ConvertTo-Json } else { 'No open transaction.' } }
     'Record' { Invoke-Record }
     'Fault' { Invoke-Fault }
+    'Command' { Invoke-Command }
 }

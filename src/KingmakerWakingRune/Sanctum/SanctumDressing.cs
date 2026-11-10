@@ -22,9 +22,13 @@ namespace KingmakerWakingRune.Sanctum
         private static SanctumPalette s_Palette;
         private static StatueBuilder s_Statues;
 
+        /// <summary>Each statue's floor position this build, where its target proxy stands.</summary>
+        public static readonly Dictionary<string, Vector3> StatueFeet = new Dictionary<string, Vector3>();
+
         public static void Build(Transform root, SanctumMaterials materials)
         {
             System.Diagnostics.Stopwatch timer = System.Diagnostics.Stopwatch.StartNew();
+            StatueFeet.Clear();
             s_Root = new GameObject("Dressing").transform;
             s_Root.SetParent(root, false);
             s_Mesh = new SceneryMesh();

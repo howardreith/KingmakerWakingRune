@@ -56,6 +56,9 @@ namespace KingmakerWakingRune.Sanctum
                 {
                     SanctumScope.RepairRestoredPositions();
                 }
+                // Read before arrival commits: a save that already entered the empty sanctum is the only legacy case.
+                bool legacyEntered = Game.Instance.Player.UnlockableFlags.IsUnlocked(ScenarioBlueprints.SanctumEnteredFlag);
+                Wards.WardRuntime.OnSanctumLoaded(legacyEntered);
                 RefugeTransit.OnSanctumLoaded();
                 Log.Info($"Sanctum loaded: entered={Game.Instance.Player.UnlockableFlags.IsUnlocked(ScenarioBlueprints.SanctumEnteredFlag)} party={Game.Instance.Player.Party.Count} loot={Game.Instance.CurrentlyLoadedArea.LootSetting} indoor={Game.Instance.CurrentlyLoadedArea.IsIndoor}.");
             }
