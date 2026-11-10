@@ -55,9 +55,21 @@ The scenario prints that A1's supports are petrified human cultists, that A2 is 
 | Feeder temporary HP | Consumption of this source's own modifier is written to the saved grants, so spent points never return on refresh or load, and a fully spent grant earns no expiry acceleration. |
 | Glyph | Resolved in Vandiana's divine CL 8 context: spell resistance (Lightning Bolt carries the SR eligibility, since the game has no Glyph of Warding), save bonuses against spells, then 4d8 electricity, Reflex 17 half, evasion. |
 | Mist | Krune's summons get a typed +4 resistance modifier on the save itself, so native stacking keeps the larger of it and any existing resistance bonus. |
-| Long work | Refused in combat, with anyone in the mist, near the active hound, or once the confrontation is running. A deadline inside the interval stops the work there with no reward. Completed work advances every clock at once. |
-| Turn ends | Taken from the native `TurnController.Dispose`: a completed turn, the final turn as combat ends, a unit leaving combat, or a switch to real time. A delayed turn is not an end; a turn already exposed is not exposed twice. |
-| Hound | Notices only Small or larger creatures in its own chamber with no wall between, never Vandiana's worshippers; invisibility does not hide anyone from it. It ends if Vandiana is ever more than 100 feet away. The bite remains a scripted +10 roll against native AC. |
+| Long work | Refused in combat, with anyone in the mist, near the active hound, while any rune attempt is still being timed (R2), or once the confrontation is running. A deadline inside the interval stops the work there with no reward. Completed work advances every clock at once. |
+| Turn ends | Taken from the native `TurnController.Dispose`: a completed turn, the final turn as combat ends, a unit leaving combat, or a switch to real time. A delayed turn is not an end; a turn already exposed is not exposed twice. Outside the sanctum the hook returns before touching any state (R2). |
+| Hound | Notices only Small or larger creatures in its own chamber with no wall between, never Vandiana's worshippers; invisibility does not hide anyone from it. It ends if Vandiana is ever more than 100 feet away. The bite is a native attack roll (R2, below). |
+
+## WR-04-R2: review repairs and rulings
+
+| Topic | Ruling |
+|---|---|
+| Scenario state isolation | Reading state never creates it. `WardStore.Existing` uses `Get<SanctumWardPart>()`; only `WardRuntime.OnSanctumLoaded` (sanctum loaded) calls `WardStore.Create()`. The turn-end patch and `TurnEnded` check the area and loading before reading anything. |
+| Sustained rune routes | A status succeeds only on duration actually observed: each sustain records its last sighting with the status on, and success needs that sighting to be the full 5 or 10 rounds after the start. A status found gone after a gap counts only what was seen, so an unobserved lapse is a failure, never a success. Long work is refused while any focus has an open window, a sustain, a pending cast or expiring negative levels, so the gap cannot arise from work. A native rest during an attempt can still only under-count, never over-count. |
+| Rune saving-throw exception | A plate is matched on the effect's descriptors or on what its action tree does (`RuneEffectScan`): negative-energy damage and energy drain for Life; cold for Alacrity; electricity, sonic and force for Defense; acid and fire for Armor. Harm (no descriptor) is denied its save against Life, never against another plate. Every denial is logged with the ability, descriptors and effects. |
+| Mist sleep | A sleep that ends by any path (the mod's wake, a native rule, a refused application) is a real wake and resets the failure streak. The apply rule and every removal, with its call path, are logged. A sleeper rolls no further save. Under the `ExtraDecline` stats preset, the game itself caps every negative-descriptor effect on party members at three rounds and blocks a repeat of the same descriptor in one combat; the mist's sleep is a sleep effect and obeys that preset like any other. The mod does not override difficulty settings. |
+| Cultist identity (GMG p.278) | The donor's `CustomizationPreset` is cleared: it picked a random race and body at every spawn, the source of R1's varying scores (with helpless or dead bodies reading Dex 1 natively). The printed Con 12 already includes the human bonus, which the native `HumanRace` would add again, so the blueprint sets 10. Printed hp 16 is held by a hidden saved fact, `AddStatBonus` HitPoints −7 (native NPC cleric dice 17 + Con 3 + the donor's Toughness 3 = 23), because the engine clamps a negative blueprint hp share. `DifficultyStatAdvancement` is removed from the unit and from any donor fact that carries it. The game's global `DifficultOpponent` feature, which it gives every enemy, is left alone: AC reads 16 at this save's difficulty rather than 18. Nothing overwrites statistics after spawn. |
+| Hound bite | A native `RuleAttackRoll` with a native natural bite weapon. The hound is `Invisible` for that roll only (so it stays targetable once found), which gives the native +2 and flat-footed target against anyone who cannot see invisible, plus native concealment, mirror images, natural 1 and 20, and critical confirmation. The unconditional bonus is held at the printed +10. Damage is the printed 2d6+3 piercing, magic for damage reduction, doubled on a confirmed critical. |
+| Feeder | A fully spent feeder buff is removed from Krune instead of remaining at zero. |
 
 ## Files
 
@@ -86,6 +98,12 @@ On a save that entered the empty sanctum, the door stays unlatched, the wards ar
 - Only the first initialization decides whether a save is legacy. 0.4.0 re-ran the legacy notice and alarm seeding on every reload inside the sanctum.
 - 0.4.0 also opened A2 (and the east door) on every reload, because its doorway guard counted the invisible fixture standing in the doorway. Doors such an old save recorded as open stay open; their latch state is kept as saved.
 - A runner from 0.4.0 restarts its route from the first leg.
+
+## WR-04-R2 migration
+
+- State stays version 2. The only new saved field, `RuneSustain.LastSeenActiveAt`, defaults to −1 in older saves; such a sustain counts from its next sighting, so an attempt in progress at the upgrade can only under-count.
+- An ordinary campaign that already carries a `SanctumWardPart` from a 0.4.1 turn-based fight keeps it, unread: nothing reads it outside the sanctum. A read-only scan of the owner's 290 saves found the part only in a sanctum save (four saves in an older format could not be opened).
+- Cultists restored under 0.4.0 or 0.4.1 keep the race, scores and hit points they spawned with; only new restorations use the printed block.
 
 ## Not implemented
 

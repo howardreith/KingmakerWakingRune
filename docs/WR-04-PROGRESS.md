@@ -62,3 +62,21 @@ Findings worth keeping:
 - Every turn-based turn ends through `TurnController.Dispose` (completed, combat end, leave combat, delay); `Status == Ended` tells a completed turn from a delay.
 - Dice repeat after a reload only partly; restoring other figures or rolling studies first changes later outcomes.
 - The game's quicksave rotates into existing owner quick slots; the guarded profile restore covers it.
+
+## WR-04-R2 review repairs (2026-11-10)
+
+Commits `52a76c2` … `44a4b78`, one per finding, then docs. Run `wr04r2-a` (builds `923f18e`, `b1f9e45`, `44a4b78`); results in `docs/ACCEPTANCE-WR-04-R2.md`.
+
+Findings worth keeping:
+- `UnitDescriptor.Ensure<T>` creates; `Get<T>` reads. Any state accessor reachable from a global hook must use `Get`.
+- `RuleApplyBuff` under stats preset `ExtraDecline`: a negative-descriptor buff on a player-faction unit lasts at most three rounds, and a repeat of the same descriptor in one combat is refused (`StoryModeImmunity`). The owner's saves use this preset.
+- `RuleDealDamage.ApplyDifficulty` under `ExtraDecline` strips immunity, halving and reduction from damage to the party's enemies.
+- A cloned `BlueprintUnit` keeps the donor's `CustomizationPreset`; `SpawnUnit` then picks a random variation (race and prefab) every time.
+- The native `HumanRace` adds +2 to Constitution on an NPC; printed NPC scores already include it.
+- NPC class hit points are fixed averages (`ApplyClassMechanics`: hit die / 2 + level % 2, + 1 for a base class); a negative `BlueprintUnit.MaxHP` is clamped, so an hp offset needs a fact (`AddStatBonus` on `HitPoints`).
+- The engine gives every enemy `DifficultyAdvancementBaseFeature` and `DifficultOpponent`; under this save's preset that is AC −2.
+- A helpless or dead unit reads Dex 1 through the native `Helpless` modifier; probe a living body.
+- The engine spends one temporary-hp modifier after another, in place, and the cached total can lag by a tick.
+- Faithful hound: a native `RuleAttackRoll` with `UnitCondition.Invisible` on the attacker gives +2 (`ConcealmentBonus`) and a flat-footed target natively.
+- Harness: a unit with a stuck move order overrides an injected position until it gets a new order; the in-game menu pauses everything. Turn-based mode is a game option (Options > Game > Turn-based mode); the hourglass is pause.
+- `Harm` has no spell descriptor; its negative energy is only visible in the action tree.
