@@ -119,8 +119,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         private static void RestoreBearer(string id, StatueState statue, UnitEntityData caster)
         {
-            Vector3 foot = SanctumDressing.StatueFeet[id];
-            Vector3 placed = ObstacleAnalyzer.GetNearestNode(foot).clampedPosition;
+            Vector3 placed = StepOut(id);
             BearerRole role = BearerManifest.Roles[id];
             BlueprintUnit blueprint = WardBlueprints.Cultists[id];
             UnitEntityData cultist = Game.Instance.EntityCreator.SpawnUnit(blueprint, placed, Quaternion.identity, Game.Instance.State.LoadedAreaState.MainState);
@@ -142,6 +141,19 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 WardRuntime.Say("Stone softens to flesh, but the body beneath is already gone.");
             }
             ApplyVisual(id, statue, WardRuntime.Now);
+        }
+
+        /// <summary>
+        /// Where a freed body stands: a step out from the figure along its facing, on the same floor, so it never lands on
+        /// the ziggurat tier the figure was holding up.
+        /// </summary>
+        private static Vector3 StepOut(string id)
+        {
+            Vector3 foot = SanctumDressing.StatueFeet[id];
+            Vector3 facing = SanctumDressing.StatuePalms.TryGetValue(id, out Vector3[] palm) ? palm[2] : Vector3.zero;
+            Vector3 front = foot + new Vector3(facing.x, 0f, facing.z).normalized * 0.7f;
+            Vector3 node = ObstacleAnalyzer.GetNearestNode(front).clampedPosition;
+            return Mathf.Abs(node.y - foot.y) < 0.5f ? node : front;
         }
 
         /// <summary>
@@ -238,6 +250,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
                         ApplyVisual(statue.Id, statue, now);
                         Log.Info($"{statue.Id} crumbled to ash.");
                     }
+                }
+                else if (statue.Outcome == StatueOutcome.Corpse && CredentialRules.IsMarked(statue.Id))
+                {
+                    // A failed survival save dies a moment after the cast: keep the hand's target on the body as it falls.
+                    ApplyVisual(statue.Id, statue, now);
                 }
                 else if (statue.Outcome == StatueOutcome.Living)
                 {

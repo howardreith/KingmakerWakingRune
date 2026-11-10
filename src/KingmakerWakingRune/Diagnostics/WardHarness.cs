@@ -264,7 +264,8 @@ namespace KingmakerWakingRune.Diagnostics
             UnitEntityData krune = WardFixtures.Krune;
             int before = krune.Stats.TemporaryHitPoints.ModifiedValue;
             var hit = new Kingmaker.RuleSystem.Rules.Damage.DirectDamage(new Kingmaker.RuleSystem.DiceFormula(0, Kingmaker.RuleSystem.DiceType.Zero), amount);
-            Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.Damage.RuleDealDamage(Game.Instance.Player.MainCharacter.Value, krune, new Kingmaker.RuleSystem.Rules.Damage.DamageBundle(hit)));
+            // The party cannot harm a peaceful proxy, so the labelled damage comes from the receiver itself.
+            Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.Damage.RuleDealDamage(krune, krune, new Kingmaker.RuleSystem.Rules.Damage.DamageBundle(hit)));
             krune.Damage = 0;
             WardKrune.Refresh(WardRuntime.State, WardRuntime.Now);
             return $"INJECTED {amount} damage to the dormant Krune receiver: temp HP {before} -> {krune.Stats.TemporaryHitPoints.ModifiedValue}; ledger exposed {FeederRules.ExposedTemporaryHP(WardRuntime.State.Door.Feeder, WardRuntime.Now)}.";
@@ -284,7 +285,7 @@ namespace KingmakerWakingRune.Diagnostics
             foreach (UnitEntityData unit in Game.Instance.State.Units.Where(u => u.Get<WardRestoredPart>() != null))
             {
                 Vector3 p = unit.Position;
-                sb.AppendLine($"{unit.Get<WardRestoredPart>().StatueId} '{unit.CharacterName}' {unit.Blueprint.name} id={unit.UniqueId} dead={unit.Descriptor.State.IsDead} hp={unit.Descriptor.HPLeft}/{unit.Stats.HitPoints.ModifiedValue} ac={unit.Stats.AC.ModifiedValue} str={unit.Stats.Strength.ModifiedValue} dex={unit.Stats.Dexterity.ModifiedValue} wis={unit.Stats.Wisdom.ModifiedValue} brand={unit.Descriptor.HasFact(WardBlueprints.SihedronBrand)} grid=({p.x / SanctumPlan.MetersPerSquare + SanctumPlan.OriginX:0.00},{SanctumPlan.OriginY - p.z / SanctumPlan.MetersPerSquare:0.00}) inCombat={unit.IsInCombat} commands=[{string.Join(",", unit.Commands.Raw.Where(c => c != null).Select(c => c.GetType().Name).ToArray())}]");
+                sb.AppendLine($"{unit.Get<WardRestoredPart>().StatueId} '{unit.CharacterName}' {unit.Blueprint.name} id={unit.UniqueId} dead={unit.Descriptor.State.IsDead} hp={unit.Descriptor.HPLeft}/{unit.Stats.HitPoints.ModifiedValue} ac={unit.Stats.AC.ModifiedValue} str={unit.Stats.Strength.ModifiedValue} dex={unit.Stats.Dexterity.ModifiedValue} con={unit.Stats.Constitution.ModifiedValue} wis={unit.Stats.Wisdom.ModifiedValue} dexDmg={unit.Stats.Dexterity.Damage} dexDrain={unit.Stats.Dexterity.Drain} fort={unit.Stats.SaveFortitude.ModifiedValue} level={unit.Descriptor.Progression.CharacterLevel} align={unit.Descriptor.Alignment.Value} weapon={unit.Body.PrimaryHand.MaybeWeapon?.Blueprint.name} armor={unit.Body.Armor.MaybeArmor?.Blueprint.name} buffs=[{string.Join(",", unit.Buffs.Enumerable.Select(b => b.Blueprint.name).ToArray())}] brand={unit.Descriptor.HasFact(WardBlueprints.SihedronBrand)} grid=({p.x / SanctumPlan.MetersPerSquare + SanctumPlan.OriginX:0.00},{SanctumPlan.OriginY - p.z / SanctumPlan.MetersPerSquare:0.00}) inCombat={unit.IsInCombat} commands=[{string.Join(",", unit.Commands.Raw.Where(c => c != null).Select(c => c.GetType().Name).ToArray())}]");
             }
             return sb.Length == 0 ? "no restored units" : sb.ToString();
         }

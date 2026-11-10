@@ -123,7 +123,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 Log.Info($"Sanctum state migrated to version {state.Version}; nothing it recorded was reset.");
             }
-            if (state.Initialize(Now, legacyEntered))
+            // The entered flag is set on every reload inside the sanctum; only the first initialization decides legacy.
+            bool initializedNow = state.Initialize(Now, legacyEntered);
+            if (initializedNow)
             {
                 Log.Info($"Sanctum state initialized at {Now:0} ({(legacyEntered ? "legacy save" : "fresh")}); profile {state.ProfileSubtier}, {state.ProfilePartyBaseline} PCs, extra challenge {state.ProfileExtraChallenge}.");
             }
@@ -140,11 +142,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
             WardRitual.EnsureBaseline(state);
             ApplyRuneVisuals(state);
             GrantWake();
-            if (legacyEntered && state.AlarmInside.Count == 0)
+            if (initializedNow && state.MigratedLegacy)
             {
                 WardHazards.SeedLegacyOccupants(state);
             }
-            if (legacyEntered && !state.LegacyNoticeShown)
+            if (state.MigratedLegacy && !state.LegacyNoticeShown)
             {
                 state.LegacyNoticeShown = true;
                 Say("The sanctum's wards have awakened since you last stood here. For the full challenge, return to a save made before departure.");

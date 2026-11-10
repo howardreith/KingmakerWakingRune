@@ -137,7 +137,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 Log.Info($"A2 break: {user.CharacterName} can no longer complete the attempt.");
                 return;
             }
-            RuleSkillCheck check = Rulebook.Trigger(new RuleSkillCheck(user, StatType.Strength, WardProfile.DoorBreakDC));
+            // The printed break DC holds whatever global difficulty preset the game uses.
+            RuleSkillCheck check = Rulebook.Trigger(new RuleSkillCheck(user, StatType.Strength, WardProfile.DoorBreakDC) { IgnoreDifficultyBonusToDC = true });
             Log.Info($"A2 break: {user.CharacterName} Strength {check.RollResult} (d20 {check.D20}) against DC {check.DC}.");
             if (check.IsPassed)
             {
@@ -290,7 +291,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         private static void Force(UnitEntityData user)
         {
-            RuleSkillCheck check = Rulebook.Trigger(new RuleSkillCheck(user, StatType.Strength, WardProfile.GemBreakDC));
+            RuleSkillCheck check = Rulebook.Trigger(new RuleSkillCheck(user, StatType.Strength, WardProfile.GemBreakDC) { IgnoreDifficultyBonusToDC = true });
             Log.Info($"Emerald break: {user.CharacterName} Strength {check.RollResult} (d20 {check.D20}) against DC {check.DC}.");
             if (check.IsPassed)
             {
