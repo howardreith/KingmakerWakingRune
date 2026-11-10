@@ -317,8 +317,13 @@ namespace KingmakerWakingRune.Sanctum.Wards
             bool sleeping = unit.Buffs.GetBuff(WardBlueprints.MistSleep) != null;
             if (record.Asleep && !sleeping)
             {
-                Log.Info($"Mist: {unit.CharacterName} was recorded asleep but carries no mist sleep now; buffs [{string.Join(",", unit.Buffs.Enumerable.Select(b => b.Blueprint.name).ToArray())}], sleeping condition {unit.Descriptor.State.HasCondition(UnitCondition.Sleeping)}.");
+                // Ended by something other than this mod's wake (that path resets the record itself): still a real wake,
+                // so a later sleep needs a fresh three failures. The removal path was logged when it happened.
+                s_SleepRemovals.TryGetValue(unit.UniqueId, out string path);
+                Log.Info($"Mist: {unit.CharacterName} was recorded asleep but carries no mist sleep now; removed via {path ?? "no observed removal (never applied or lost on load)"}; treated as woken.");
+                MistRules.Wake(record);
             }
+            s_SleepRemovals.Remove(unit.UniqueId);
             record.Asleep = sleeping;
             RuleSavingThrow save = MistSave(unit, state);
             bool sleepImmune = unit.Descriptor.State.HasConditionImmunity(UnitCondition.Sleeping);
@@ -328,7 +333,20 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 Log.Info($"Mist: {unit.CharacterName} Will {save.RollResult} (d20 {save.D20}) vs {WardProfile.MistSaveDC}: {result}; streak {record.ConsecutiveFailures}.");
             }
-            ApplyExposure(unit, result);
+            if (!ApplyExposure(unit, result) && result == MistExposure.FellAsleep)
+            {
+                // The native apply rule refused it (an immunity): the creature never slept, so the record must not say so.
+                record.Asleep = false;
+                Log.Info($"Mist: {unit.CharacterName} did not fall asleep; the sleep effect was refused natively.");
+            }
+        }
+
+        /// <summary>The call path of each mist sleep removal not yet seen by a round, from the removal trace.</summary>
+        private static readonly Dictionary<string, string> s_SleepRemovals = new Dictionary<string, string>();
+
+        public static void NoteSleepRemoval(string unitId, string path)
+        {
+            s_SleepRemovals[unitId] = path;
         }
 
         /// <summary>
@@ -358,16 +376,18 @@ namespace KingmakerWakingRune.Sanctum.Wards
             return summon != null && ((summon.Summoner != null && summon.Summoner == WardFixtures.Krune) || state.KruneSummons.Contains(unit.UniqueId));
         }
 
-        private static void ApplyExposure(UnitEntityData unit, MistExposure result)
+        /// <summary>False when the native rule refused the effect.</summary>
+        private static bool ApplyExposure(UnitEntityData unit, MistExposure result)
         {
             if (result == MistExposure.Staggered)
             {
-                unit.Descriptor.AddBuff(WardBlueprints.MistStagger, unit, System.TimeSpan.FromSeconds(WardProfile.RoundSeconds));
+                return unit.Descriptor.AddBuff(WardBlueprints.MistStagger, unit, System.TimeSpan.FromSeconds(WardProfile.RoundSeconds)) != null;
             }
-            else if (result == MistExposure.FellAsleep && unit.Buffs.GetBuff(WardBlueprints.MistSleep) == null)
+            if (result == MistExposure.FellAsleep && unit.Buffs.GetBuff(WardBlueprints.MistSleep) == null)
             {
-                unit.Descriptor.AddBuff(WardBlueprints.MistSleep, unit);
+                return unit.Descriptor.AddBuff(WardBlueprints.MistSleep, unit) != null;
             }
+            return true;
         }
 
         public static void ForgetTurns()

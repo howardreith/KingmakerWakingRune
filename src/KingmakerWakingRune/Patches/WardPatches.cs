@@ -1,3 +1,4 @@
+using System.Linq;
 using Harmony12;
 using Kingmaker.Controllers;
 using Kingmaker.RuleSystem.Rules;
@@ -119,6 +120,41 @@ namespace KingmakerWakingRune.Patches
             {
                 Log.Error("Ward turn end failed.", ex);
             }
+        }
+    }
+
+    /// <summary>
+    /// The mist sleep's whole lifecycle in the log: how the native apply rule treated it (immunity, the difficulty preset's
+    /// limits on negative effects) and, on removal, the call path that removed it. Read only.
+    /// </summary>
+    [HarmonyPatch(typeof(RuleApplyBuff), nameof(RuleApplyBuff.OnTrigger))]
+    internal static class MistSleepApplyTrace
+    {
+        private static void Postfix(RuleApplyBuff __instance)
+        {
+            if (__instance.Blueprint == WardBlueprints.MistSleep)
+            {
+                Log.Info($"Mist sleep apply on {__instance.Initiator.CharacterName}: applied={__instance.AppliedBuff != null} canApply={__instance.CanApply} immunity={__instance.Immunity} storyModeImmunity={__instance.StoryModeImmunity} duration={(__instance.Duration.HasValue ? __instance.Duration.Value.TotalSeconds.ToString("0") + "s" : "permanent")} difficultyStats={Kingmaker.Game.Instance.Player.Difficulty.StatsAdjustmentsType} inCombat={__instance.Initiator.IsInCombat}.");
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(Kingmaker.UnitLogic.Buffs.Buff), nameof(Kingmaker.UnitLogic.Buffs.Buff.OnRemove))]
+    internal static class MistSleepRemoveTrace
+    {
+        private static void Prefix(Kingmaker.UnitLogic.Buffs.Buff __instance)
+        {
+            if (__instance.Blueprint != WardBlueprints.MistSleep)
+            {
+                return;
+            }
+            string path = string.Join(" < ", new System.Diagnostics.StackTrace(1, false).GetFrames().Take(14).Select(f => f.GetMethod()).Where(m => m != null).Select(m => m.DeclaringType?.Name + "." + m.Name).ToArray());
+            string unitId = __instance.Owner?.Unit?.UniqueId;
+            if (unitId != null)
+            {
+                WardHazards.NoteSleepRemoval(unitId, path);
+            }
+            Log.Info($"Mist sleep removed from {__instance.Owner?.CharacterName} at {Kingmaker.Game.Instance.TimeController.GameTime.TotalSeconds:0}: endTime={(__instance.IsPermanent ? "permanent" : __instance.EndTime.TotalSeconds.ToString("0"))} inCombat={__instance.Owner?.Unit?.IsInCombat}; path {path}.");
         }
     }
 
