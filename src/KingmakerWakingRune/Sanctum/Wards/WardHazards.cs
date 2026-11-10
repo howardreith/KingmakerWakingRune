@@ -314,7 +314,12 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 return;
             }
             bool immune = unit == WardFixtures.Krune;
-            record.Asleep = unit.Buffs.GetBuff(WardBlueprints.MistSleep) != null;
+            bool sleeping = unit.Buffs.GetBuff(WardBlueprints.MistSleep) != null;
+            if (record.Asleep && !sleeping)
+            {
+                Log.Info($"Mist: {unit.CharacterName} was recorded asleep but carries no mist sleep now; buffs [{string.Join(",", unit.Buffs.Enumerable.Select(b => b.Blueprint.name).ToArray())}], sleeping condition {unit.Descriptor.State.HasCondition(UnitCondition.Sleeping)}.");
+            }
+            record.Asleep = sleeping;
             RuleSavingThrow save = MistSave(unit, state);
             bool sleepImmune = unit.Descriptor.State.HasConditionImmunity(UnitCondition.Sleeping);
             MistExposure result = MistRules.EndRoundInside(record, immune, save.IsPassed, sleepImmune);

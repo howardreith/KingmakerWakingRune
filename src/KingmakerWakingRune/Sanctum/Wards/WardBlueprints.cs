@@ -254,6 +254,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 unit.Wisdom = 15;
                 unit.Charisma = 16;
                 unit.Prefab = new Kingmaker.ResourceLinks.UnitViewLink { AssetId = StatueManifest.Model(StatueManifest.Slot(slot).Model).PrefabId };
+                // The printed block is the target: the donor's difficulty scaling would rewrite its scores and its survival save.
+                unit.ComponentsArray = unit.ComponentsArray.Where(c => !(c is Kingmaker.Designers.Mechanics.Buffs.DifficultyStatAdvancement)).ToArray();
+                Log.Info($"Cultist {slot}: components [{string.Join(",", unit.ComponentsArray.Select(c => c.GetType().Name).ToArray())}].");
                 unit.Body = new BlueprintUnit.UnitBody
                 {
                     PrimaryHand = items[MasterworkSickle] as Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentHand,

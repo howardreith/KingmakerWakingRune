@@ -236,6 +236,10 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 return false;
             }
             StatType stat = Stats[skill];
+            if (BearerManifest.IsBearer(check.Key) && state.Statue(check.Key).Outcome != StatueOutcome.Stone)
+            {
+                return false;
+            }
             if (check.Key == WardText.MistId && !WardRuntime.HasBeenExposedToMist())
             {
                 return false;
