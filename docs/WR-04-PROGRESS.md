@@ -36,10 +36,11 @@ Branch `feature/wr-04-sanctum-wards` from accepted `main` (`c503c0e`, the merge 
 ## Tooling
 `KwrRuntime.ps1 Collect` failed when the UMM log had not grown, losing the recon folder when `End` removed the mod; fixed.
 
+## More findings from native runs
+- Native `AddBuff(blueprint, caster, duration, abilityParams)` ignores its parameters; set caster level and DC on the buff's `MechanicsContext.m_Params`.
+- A load must go through `MainMenu.LoadGame` from the menu, which wraps the loader in `EnterGame`; a direct `Game.LoadGame` throws "Destination scene is not valid".
+- A fact-granted ability reports a spell level of 0 or 1; use `AbilityData.OverrideSpellLevel` for harness casts and `Math.Max` of the context and spell level in the observer.
+- Global `JsonConvert` settings merge into `JsonSerializerSettings` passed to `SerializeObject`; build a `JsonSerializer` directly for mod state.
+
 ## Checkpoints
-1. Source/rule manifest and discovery: **done** (pure rules, 38 tests including all 128 Krune masks).
-2. Door audio, inspection, A2 barrier/feeder/alarm, A4 glyph, awareness, Krune receiver: in progress.
-3. Life rune slice: not started.
-4. Remaining runes: not started.
-5. Mist, restoration, husks, flail, hound, gem: not started.
-6. Clocks, A4 commitment, migration, runtime qualification: not started.
+All six delivery checkpoints have code. Native proof is partial: see `ACCEPTANCE-WR-04.md`. Commits: `a0a59d6`, `4f55798`, `87e6277`, `4a109d4`.
