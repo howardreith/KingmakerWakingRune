@@ -80,3 +80,18 @@ Findings worth keeping:
 - Faithful hound: a native `RuleAttackRoll` with `UnitCondition.Invisible` on the attacker gives +2 (`ConcealmentBonus`) and a flat-footed target natively.
 - Harness: a unit with a stuck move order overrides an injected position until it gets a new order; the in-game menu pauses everything. Turn-based mode is a game option (Options > Game > Turn-based mode); the hourglass is pause.
 - `Harm` has no spell descriptor; its negative energy is only visible in the action tree.
+
+## WR-04-R3 completion run (2026-11-10)
+
+Commits `cb59cb5` … `94c820d`, then docs. Run `wr04r3-a`; results in `docs/ACCEPTANCE-WR-04-R3.md`.
+
+Findings worth keeping:
+- Native class **premade builds** fill every level-up: at character creation, choose the class and press "Load premade build" (it turns on auto level-up, which relabels the difficulty "Custom" without changing any combat setting). A Coordinator recruit at the target XP then levels 1 → 11 with one Complete click per level. The six-character seed takes about 25 minutes.
+- Neither the lodge nor the sanctum allows camping, so a freshly levelled party cannot ready its slots without the lodge rest (Quartermaster, 0.4.4). Prepare before resting: `Spellbook.Memorize` leaves a slot unavailable until a rest.
+- The native disarm approach ignores `ProximityRadius` for traps (`UnitInteractWithObject` uses 0.3 m) and stops at the edge of the trap's own `ScriptZoneTrigger` through `UpdateTarget`. Polled wards need the same check against their own areas. Match the view by `UniqueId`: the scope filter can build a view more than once.
+- Native Entangle makes its target roll `UnitHelper.TryBreakFree` every round; a fixture denied its saves still escaped until 0.4.8.
+- Reporters are native Neutrals: enemy-only single-target spells report `canTarget=False` against them, and they outrun melee.
+- A spell-bar variant row (Summon Nature's Ally) and the spellbook popup take the level tab at x≈1118; Esc opens the game menu (which pauses), and right-click does not cancel a variant targeting cursor.
+- A save copied into the profile while the game runs is not seen by `load` until the game restarts.
+- `spawnfoe` places the unit "ahead" of the first party member; facing a wall puts it out of reach. Several goblins at 3 m start a turn-based fight reliably; the end-turn button is the large round button at window (552, 1352).
+- Harness `condition <fixture> <buff> <seconds>` / `uncondition <fixture> <buff>` apply or remove a native buff of exact length for boundary tests.
