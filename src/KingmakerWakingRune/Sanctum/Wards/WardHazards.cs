@@ -282,16 +282,46 @@ namespace KingmakerWakingRune.Sanctum.Wards
             WardRitual.Raise(AwarenessCause.Hound, unit.CharacterName + " approached the hound");
         }
 
-        /// <summary>The printed bite: +10 against the target's native AC, 2d6+3 piercing, magic for damage reduction.</summary>
+        /// <summary>A native natural bite, used only so the attack roll has a real melee weapon; its own damage is not used.</summary>
+        private const string Bite2d6 = "2abc1dc6172759c42971bd04b8c115cb";
+
+        /// <summary>
+        /// The printed bite, resolved by the native attack roll: an invisible attacker (the hound is invisible for the attack
+        /// itself, so it stays targetable once found), so a target that cannot see invisible is flat-footed and grants +2;
+        /// concealment, mirror images, natural 1 and 20 and critical confirmation are all native. The attack bonus is held at
+        /// the printed +10 before those situational terms; damage is the printed 2d6+3 piercing, magic for damage reduction.
+        /// </summary>
         private static void Bite(UnitEntityData unit)
         {
             UnitEntityData source = WardFixtures.Find("Hound") ?? WardFixtures.Krune;
-            int d20 = RulebookEvent.Dice.D20;
-            int attack = d20 + WardProfile.HoundBiteBonus;
-            int ac = Rulebook.Trigger(new RuleCalculateAC(source, unit, Kingmaker.RuleSystem.AttackType.Melee)).TargetAC;
-            bool hit = d20 == 20 || (d20 != 1 && attack >= ac);
-            Log.Info($"Hound bite on {unit.CharacterName}: d20 {d20} + {WardProfile.HoundBiteBonus} = {attack} vs AC {ac}: {(hit ? "hit" : "miss")}.");
-            if (!hit)
+            Kingmaker.Blueprints.Items.Weapons.BlueprintItemWeapon blueprint = ResourcesLibrary.TryGetBlueprint<Kingmaker.Blueprints.Items.Weapons.BlueprintItemWeapon>(Bite2d6);
+            if (source == null || blueprint == null)
+            {
+                Log.Error($"Hound bite unavailable: source {source?.CharacterName}, weapon {blueprint?.name}.", null);
+                return;
+            }
+            var weapon = new Kingmaker.Items.ItemEntityWeapon(blueprint);
+            // The fixture's own scores are an object's: replace its whole unconditional bonus with the printed one.
+            int own = Rulebook.Trigger(new RuleCalculateAttackBonusWithoutTarget(source, weapon, 0)).Result;
+            bool wasInvisible = source.Descriptor.State.HasCondition(UnitCondition.Invisible);
+            if (!wasInvisible)
+            {
+                source.Descriptor.State.AddCondition(UnitCondition.Invisible);
+            }
+            RuleAttackRoll roll;
+            try
+            {
+                roll = Rulebook.Trigger(new RuleAttackRoll(source, unit, weapon, own - WardProfile.HoundBiteBonus));
+            }
+            finally
+            {
+                if (!wasInvisible)
+                {
+                    source.Descriptor.State.RemoveCondition(UnitCondition.Invisible);
+                }
+            }
+            Log.Info($"Hound bite on {unit.CharacterName}: d20 {(int)roll.Roll} + {roll.AttackBonus} vs AC {roll.TargetAC} (flat-footed {roll.IsTargetFlatFooted}): {roll.Result}.");
+            if (!roll.IsHit)
             {
                 return;
             }
@@ -300,7 +330,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
             // Treated as magic for damage reduction, as the spell's bite is.
             bite.Enchantment = 1;
             bite.EnchantmentTotal = 1;
-            Rulebook.Trigger(new RuleDealDamage(source, unit, new DamageBundle(bite)));
+            if (roll.IsCriticalConfirmed)
+            {
+                bite.CriticalModifier = 2;
+            }
+            Rulebook.Trigger(new RuleDealDamage(source, unit, new DamageBundle(bite)) { Reason = new RuleReason(roll) });
         }
 
         /// <summary>One native save per creature per round in the mist, whichever clock delivered the round.</summary>
