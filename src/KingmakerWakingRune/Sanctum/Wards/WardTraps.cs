@@ -25,6 +25,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
     internal static class WardTraps
     {
         private const int SelectableLayer = 10;
+        /// <summary>How far outside a ward's trigger area the disarming body stops; within the native 8 m perception radius.</summary>
+        private const float DisarmEdgeMarginMeters = 0.6f;
 
         public static TrapObjectView Alarm { get; private set; }
         public static TrapObjectView Feeder { get; private set; }
@@ -47,6 +49,22 @@ namespace KingmakerWakingRune.Sanctum.Wards
             Alarm = Create(root, s_AlarmBlueprint, "kwr_trap_alarm", WardGeometry.AlarmCenter.X, WardGeometry.AlarmCenter.Y, 0.9f);
             Feeder = Create(root, s_FeederBlueprint, "kwr_trap_feeder", 13.15f, 26.05f, 0.9f);
             Glyph = Create(root, s_GlyphBlueprint, "kwr_trap_glyph", WardGeometry.GlyphCenter.X, WardGeometry.GlyphCenter.Y, 0.9f);
+            DisarmFromEdge(Alarm, WardGeometry.AlarmRadiusSquares);
+            DisarmFromEdge(Glyph, WardGeometry.GlyphTriggerSquares);
+        }
+
+        /// <summary>
+        /// An area ward is worked on from the edge of the area it guards. The native disarm approach stops 1 m from the
+        /// marker, which for these wards lies inside the trigger, so the disarming body would set off the ward it came to
+        /// disarm. The feeder is touched through the door, not entered, and keeps the native reach.
+        /// </summary>
+        private static void DisarmFromEdge(TrapObjectView view, float triggerSquares)
+        {
+            DisableTrapInteractionComponent interaction = view.GetComponent<DisableTrapInteractionComponent>();
+            if (interaction != null)
+            {
+                interaction.ProximityRadius = triggerSquares * SanctumPlan.MetersPerSquare + DisarmEdgeMarginMeters;
+            }
         }
 
         private static TrapObjectView Create(GameObject root, BlueprintTrap blueprint, string id, float x, float y, float halfSize)
