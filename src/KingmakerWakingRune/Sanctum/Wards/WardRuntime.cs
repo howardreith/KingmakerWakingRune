@@ -70,7 +70,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
             int amount = FeederRules.ExposedTemporaryHP(state.Door.Feeder, now);
             Buff buff = krune.Buffs.GetBuff(WardBlueprints.FeederTempHp);
             int shown = buff?.SelectComponents<KwrFeederTempHp>().FirstOrDefault()?.Remaining ?? 0;
-            if (buff != null && amount == shown)
+            // A spent buff is removed rather than left on the receiver at zero.
+            if (buff != null && amount == shown && amount > 0)
             {
                 return;
             }
