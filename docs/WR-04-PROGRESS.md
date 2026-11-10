@@ -44,3 +44,21 @@ Branch `feature/wr-04-sanctum-wards` from accepted `main` (`c503c0e`, the merge 
 
 ## Checkpoints
 All six delivery checkpoints have code. Native proof is partial: see `ACCEPTANCE-WR-04.md`. Commits: `a0a59d6`, `4f55798`, `87e6277`, `4a109d4`.
+
+## WR-04-R1 continuation (2026-11-09/10)
+
+Checkpoint record, in order:
+
+1. `86fa288` A2 credential route, same-actor commands, hardness pipeline and integration repairs. Run `wr04r1-a`: solo rogue PASS through normal input. The run also found the legacy re-initialisation on reload, the difficulty-adjusted break DC, and that the party cannot damage the peaceful Krune proxy.
+2. `c6d2f08` legacy decided once, bodies step out on the floor, printed break DCs. Run `wr04r1-b`: corpse hand, hand presentation, glyph SR, hound, mist sleep anomaly.
+3. `198b66c` cultist difficulty component removed (not the cause of the low scores), mist diagnostics.
+4. `eeab9d0` doorway guards ignore fixtures, unmarked runners blocked. Run `wr04r1-d`: marked reporter route, mid-route reload, living attacker.
+
+Findings worth keeping:
+- `GameHelper.IsAttackingGreenNPC` silently drops party damage to peaceful-faction units: the Krune, statue and ward proxies cannot be hurt by the party at all.
+- `RuleSkillCheck` adds the difficulty preset's `SkillCheckDCBonus` to every DC unless `IgnoreDifficultyBonusToDC` is set.
+- `RuleSkillCheck.Silent` keeps a check out of the battle log and the voiced success/failure barks.
+- Kingmaker items have no unique id; credential provenance keys on kind and source slot.
+- Every turn-based turn ends through `TurnController.Dispose` (completed, combat end, leave combat, delay); `Status == Ended` tells a completed turn from a delay.
+- Dice repeat after a reload only partly; restoring other figures or rolling studies first changes later outcomes.
+- The game's quicksave rotates into existing owner quick slots; the guarded profile restore covers it.
