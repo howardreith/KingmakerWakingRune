@@ -98,6 +98,7 @@ namespace KingmakerWakingRune.Blueprints
             shopPrompt.Answers = new List<BlueprintAnswerBase>
             {
                 Answer("qm.shop", "Show me what you have.", null, Callback("Open the Quartermaster's shop", QuartermasterService.RequestOpen)),
+                Answer("qm.rest", "We need a night's rest to prepare before we leave.", null, Callback("Rest the party at the lodge", LodgeRestService.RequestRest)),
                 Answer("qm.leave", "Nothing for now.", null),
             };
             AddInteraction(quartermaster, Dialog("quartermaster", shopPrompt, new ActionList()), new ConditionsChecker());

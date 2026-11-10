@@ -81,6 +81,22 @@ namespace KingmakerWakingRune.Party
         }
     }
 
+    /// <summary>
+    /// The lodge's night of rest before departure: the native scripted party rest an inn gives, so prepared casters can
+    /// ready the spells their new levels brought. Neither the lodge's donor area nor the sanctum allows camping.
+    /// </summary>
+    internal static class LodgeRestService
+    {
+        public static void RequestRest()
+        {
+            Game.Instance.ScheduleAction(() =>
+            {
+                Log.Info("Lodge rest: native scripted party rest started.");
+                Game.Instance.RestController.StartScripted(immediate: false);
+            });
+        }
+    }
+
     /// <summary>Opens the native trade window once the Quartermaster's dialogue has closed.</summary>
     internal static class QuartermasterService
     {
