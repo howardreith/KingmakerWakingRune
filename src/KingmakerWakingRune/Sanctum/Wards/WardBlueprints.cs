@@ -76,7 +76,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
         /// <summary>CR2_BanditPositiveClericLevel3: the nearest native body to the GameMastery Guide's cleric 3 cultist.</summary>
         private const string CultistDonor = "9ffceca100e02644ba67cf492c17d351";
         private const string RestorationLesserAbility = "e84fc922ccf952943b5240293669b171";
-        private const string MasterworkSickle = "eae563aae0febbc4e91a1c5d0a6fd82a";
+        private const int CultistPrintedHitPoints = 16;
+        private const string MasterworkSickle ="eae563aae0febbc4e91a1c5d0a6fd82a";
         private const string LightShield = "a85d51d0fb905f940b951eec60388bac";
         private const string Chainmail = "02e9f83be5d1c5d4e927b5c44ed34840";
         /// <summary>Icons only: a crumpled sheet for the impression, the Hand of Magus Dann for the hand.</summary>
@@ -249,7 +250,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 unit.Alignment = Alignment.NeutralEvil;
                 unit.Strength = 10;
                 unit.Dexterity = 13;
-                unit.Constitution = 12;
+                // The printed 12 already includes the human bonus, which the native HumanRace adds to Constitution again.
+                unit.Constitution = 10;
+                // Printed hp 16: the native NPC cleric dice give 17 (6+5+6), Con +3 and the donor's Toughness +3, so the
+                // blueprint's own share is 16 - 23.
+                unit.MaxHP = CultistPrintedHitPoints - 23;
                 unit.Intelligence = 8;
                 unit.Wisdom = 15;
                 unit.Charisma = 16;
