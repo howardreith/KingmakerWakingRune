@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Text;
 using Kingmaker;
@@ -92,6 +92,8 @@ namespace KingmakerWakingRune.Diagnostics
                     return Slots(Member(args[1]));
                 case "cursor":
                     return Cursor();
+                case "spell":
+                    return SpellFromBook(Member(args[1]), args[2], args.Skip(3).ToArray());
                 case "cantarget":
                     return CanTarget(Member(args[1]), args[2], args[3]);
                 case "screen":
@@ -318,6 +320,64 @@ namespace KingmakerWakingRune.Diagnostics
         {
             SanctumState state = WardRuntime.State;
             return state != null && state.Statues.TryGetValue(statueId, out StatueState statue) ? WardStatues.Body(statue) : null;
+        }
+
+        /// <summary>
+        /// Casts a spell the caster has ready in their own spellbook, as choosing it on the action bar would: a prepared slot or a
+        /// spontaneous slot is spent natively, and a variant (a summon's creature list, say) is cast through its base spell.
+        /// Nothing is granted. The target is a unit (as for cast) or a grid point "x y".
+        /// </summary>
+        private static string SpellFromBook(UnitEntityData caster, string name, string[] target)
+        {
+            AbilityData data = null;
+            foreach (Spellbook book in caster.Descriptor.Spellbooks)
+            {
+                for (int level = book.MaxSpellLevel; level >= 0 && data == null; level--)
+                {
+                    System.Collections.Generic.IEnumerable<AbilityData> ready = book.Blueprint.Spontaneous
+                        ? book.GetKnownSpells(level)
+                        : book.GetMemorizedSpells(level).Where(s => s.Available && s.Spell != null).Select(s => s.Spell);
+                    foreach (AbilityData spell in ready)
+                    {
+                        if (spell.Blueprint.name == name)
+                        {
+                            data = spell;
+                            break;
+                        }
+                        BlueprintAbility variant = spell.Blueprint.GetComponent<Kingmaker.UnitLogic.Abilities.Components.AbilityVariants>()?.Variants.FirstOrDefault(v => v.name == name);
+                        if (variant != null)
+                        {
+                            data = new AbilityData(spell, variant);
+                            break;
+                        }
+                    }
+                }
+            }
+            if (data == null)
+            {
+                return $"{caster.CharacterName} has no ready {name} in a spellbook";
+            }
+            TargetWrapper wrapper;
+            string where;
+            if (target.Length >= 2)
+            {
+                float x = float.Parse(target[0]), y = float.Parse(target[1]);
+                wrapper = new Vector3(SanctumPlan.ToWorldX(x), SanctumPlan.HeightAt(x, y) ?? 0f, SanctumPlan.ToWorldZ(y));
+                where = $"point=({x},{y})";
+            }
+            else
+            {
+                string missing = Resolve(target[0], out UnitEntityData victim);
+                if (missing != null)
+                {
+                    return missing;
+                }
+                wrapper = victim;
+                where = $"target={target[0]}";
+            }
+            bool can = data.CanTarget(wrapper);
+            caster.Commands.Run(UnitUseAbility.CreateCastCommand(data, wrapper));
+            return $"SETUP cast from {caster.CharacterName}'s own spellbook: {data.Blueprint.name} ({data.Spellbook?.Blueprint.name}) {where} canTarget={can}; native rules resolve it and spend the slot.";
         }
 
         /// <summary>Read only: whether the native targeting rules let this caster aim this ability at the target. Nothing is granted or cast.</summary>
