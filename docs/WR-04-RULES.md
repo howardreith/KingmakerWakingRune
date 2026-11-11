@@ -92,6 +92,17 @@ The scenario prints that A1's supports are petrified human cultists, that A2 is 
 | Inspection | A plain click on authored scenery examines it, and its cursor is now the native magnifying glass (`InfoCursor`). An aimed spell or ability, combat, and turn-based combat keep the native cursor and targeting. Restored cultists are ordinary units. The deeper rune reading tells the methods as discoveries and replaces the identification. Damage totals, DCs and hardness stay in the rules, diagnostics and acceptance documents. |
 | Ability damage on fixtures | A fixture's ability damage is recorded for its rune (the Life plate's poison and disease route), but the object's own score is put back at once. The engine kills any creature whose score falls below 1, and a plate has an object's Dexterity of 1, so one point of a summon's poison killed the Life plate and left its rune unbreakable (found in the R4 run, fixed in 0.5.5). |
 
+## WR-04-R5: corrections
+
+These supersede the R4 rows they name.
+
+| Topic | Ruling |
+|---|---|
+| Legacy reporters | Migration runs before the control test. A reporter is migrated once if it stands in the neutral faction, is not in the player faction, holds no `ChangeFaction` effect, and is not yet marked `HostileSettled`. It is switched to the hostile faction and its group's cached factions are rebuilt. A reporter held by a charm, domination or other faction effect is left alone until the effect hands its faction back. New restorations are settled at spawn. |
+| Departure retries (supersedes R4) | The rest is remembered as each member's state when it finished: prepared slots and their readiness, spontaneous slots, caster levels, ability resources, hit point and ability damage. A retry after a failed checkpoint departs without resting only if the same members match that record. A member who joined or left, a slot prepared, changed or spent, a resource used or a wound taken sends the party back through notice, review, warning and rest, and the notice says what changed. A load or a committed arrival clears the record. A rest soon after another lasts as long as the game's own minimum rest time requires (24 hours in the R5 run). |
+| Summon orders (supersedes R4) | Orders are saved as summon, summoner and rune identities. On load each one is checked (rune lit, plate present, summon alive, linked to that summoner, not hostile to them, under no faction effect, not confused or panicked) and then resumed or removed. In turn-based combat a resumed order waits for the summon's own turn. Removing an order also stops that summon's attack in hand on the plate and clears the manual target. Only an attack that ran its course is renewed; an interrupted one is not, and a failed one ends the order. The same checks run on every renewal and on faction or control changes. A summon's duration, attacks and the rune's damage window are never restored or extended. |
+| Blocked runners in turn-based combat | A runner whose turn move ends without getting anywhere ends its turn. Bodies in its path can intercept it; it is never moved through them, and the round is never held open. |
+
 ## Files
 
 `WardProfile` numbers · `KruneProjection` masks · `RuneRules`, `CurseRules`, `FeederRules`, `MistRules`, `RitualRules`, `SanctumState` state and rules · `WardGeometry` placements · `WardBlueprints`, `WardDialogs`, `WardText` content · `WardFixtures`, `WardObserver`, `WardRuntime`, `WardTraps`, `WardDoor`, `WardHazards`, `WardRitual`, `WardStatues`, `WardInteract` the native layer · `WardStore` the save-bound state on the main character's `SanctumWardPart`.
@@ -135,6 +146,16 @@ On a save that entered the empty sanctum, the door stays unlatched, the wards ar
 - State stays version 2. A reporter that an older save restored as a neutral switches to the hostile faction once, the first time its flight is ticked; a charmed or dominated one is left to its controller. Its AI is switched off with the same tick.
 - Quartermaster stock reconciles natively on the first visit after the update (see the ruling above): +1 +3 dagger, six Stone to Flesh scrolls, the new exotic lines; nothing else changes.
 - `WardFixtures.Protect` restores a fixture found dead. In the R4 run, the save made while the Life plate was dead loaded under 0.5.5 with the plate whole and its rune active, but the restore's log line did not appear, so what revived it on that load is unconfirmed. Summon orders are not saved: after a reload the summons follow their own AI until the order is given again.
+
+## WR-04-R5 migration
+
+- **State version 3.** It adds the saved summon orders (empty in older saves) and each statue's `HostileSettled` (false in older saves). Nothing recorded earlier is reset.
+- **Reporters.**
+  - The R4 note above is corrected: R4's migration was never reached, because the control test returned first for any neutral reporter.
+  - Under 0.5.7 and later, a neutral reporter from an R1 to R3 save becomes hostile on its first tick and resumes its saved leg.
+  - A reporter restored by R4 (already hostile) is simply marked settled.
+- **Summon orders.** The R4 note that summon orders are not saved no longer holds. Orders given under 0.5.5 or earlier were never saved, so those summons keep following their own AI until ordered again.
+- **Departure.** The readiness record is in memory only and is cleared by any load, so it needs no migration.
 
 ## Not implemented
 

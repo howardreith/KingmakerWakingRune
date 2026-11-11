@@ -109,3 +109,20 @@ Findings worth keeping:
 - The turn-based toggle is the rook icon beside the hourglass, at window (426, 1340). The native turn-based tutorial appears on first use; close it at (2020, 192).
 - Spellbook memorization is a drag from the spell card to a slot; clicks do not memorize. In the Quartermaster shop, filter and scroll with the bar's drag. A click moves one item into the offer, and "Deal" is at (1272, 1202).
 - Stone to Flesh restorations are native survival saves, and in this run they failed often (Fortitude 6 or 13 against 15). Script the reload-and-restore when a living reporter is needed.
+
+## WR-04-R5 corrections (2026-11-11)
+
+Commits `c30be66` … `0a7407b` (0.5.6 to 0.5.15), then docs. Run `wr04r5-a`; results in `docs/ACCEPTANCE-WR-04-R5.md`; cumulative status in `docs/WR-04-LEDGER.md`.
+
+Findings worth keeping:
+- **A unit's group holds a cached copy of its members' attack factions.** `SwitchFactions` on a unit that keeps its group id (setting the same id does nothing) leaves the group, and so `IsPlayersEnemy`, reading the old factions until a reload. Rebuild the cache with `Group.UpdateAttackFactionsCache()` and `ResetFactionSet()`.
+- **A summon's group id is not saved.** `RuleSummonUnit` puts a summon in its summoner's group, but after a load it stands in a group of its own. Its faction is its blueprint's. Read a summon's allegiance from hostility either way (`IsEnemy`) and from any `ChangeFaction` effect, never from the group or faction.
+- **`UnitCommand.Result` tells an interrupted command from a finished one.** `Commands.Run` interrupts the running command, and `IUnitCommandEndHandler` fires for that too. A renewal that runs on every command end and re-issues the same command loops forever, and because `Game.ScheduleAction` runs actions as they are added, the game hangs. Renew only on `ResultType.Success`.
+- **A native scripted rest uses the game's own minimum rest time** (`Camping.GetMinimumRestTime`). A second rest within a day of the last took 24 hours.
+- **Mouse input stopped reaching the game in-world** this run. Main-menu clicks registered, but in-game hovers and clicks did not: `cursor` reported nothing hovered. Keyboard input worked. The same harness had worked in R4; the cause was not found. Harness commands that call the UI's own entry points kept the run going: `token`, `answer`, `memorize`, `spell`, `tbm`, `endturn`, `perform … <member>`.
+- **The message box answers No to ESC**, and Yes only by its button (`DialogMessageBox.OnButtonYes`). ESC closes the spellbook window.
+- **A pet is `Party[i].Descriptor.Pet`.** Marra the druid owns the party's bear. Harness `pet:<owner index>` addresses it.
+- **Turn-based mode is the global setting `SettingsRoot.EnableTurnBasedMode`.** The rook calls `IngameMenuController.OnTBMToggle`. The registry snapshot restores it at `End`.
+- **A restored cultist has 16 hit points.** Leaving a party member's reach provokes attacks of opportunity, and the party's own real-time AI attacks it, so tests that need it alive must start with the party clear of its path.
+- **Hold Person allows a new save each round** (native), so a held runner left alone breaks free and escapes. Interception means acting during the held rounds.
+- **PowerShell's `Get-Content -Raw` reads a BOM-less UTF-8 file as ANSI**, and `Set-Content -Encoding utf8` adds a BOM. Edit text files with `[IO.File]` and a BOM-less `UTF8Encoding`, or with the Edit tool.

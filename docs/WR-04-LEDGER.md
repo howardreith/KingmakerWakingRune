@@ -1,10 +1,10 @@
-# WR-04 acceptance ledger (draft)
+# WR-04 acceptance ledger
 
-This is the **cumulative** ledger for the original WR-04 scope (package `tests/ACCEPTANCE.md`, A01–A31) and the review items added since, **through R4**. Each row is credited from the report that actually recorded a native result; a later report that does not repeat a test does not reset it. Finishing a review round does not by itself verify the rest of the original scope: rows not shown natively stay Partial or Not run.
+This is the **cumulative** ledger for the original WR-04 scope (package `tests/ACCEPTANCE.md`, A01–A31) and the review items added since, **through R5**. Each row is credited from the report that actually recorded a native result; a later report that does not repeat a test does not reset it. Finishing a review round does not by itself verify the rest of the original scope: rows not shown natively stay Partial or Not run.
 
-**R5 rows are not here yet.** The R5 run (0.5.6, `c30be66`) will add: legacy neutral reporter migration, departure readiness revalidation on retry, summon order save/load and ownership release, the blocked turn-based runner, and the R5 interaction checks.
+R5 (0.5.6 to 0.5.15, run `wr04r5-a`) is credited below; see `ACCEPTANCE-WR-04-R5.md`. In R5 mouse input did not reach the game in-world, so its steps were labelled harness calls to the UI's own entry points, with native resolution; R5 rows are therefore "with setup".
 
-Builds: 0.4.0 = `4a109d4` (`ACCEPTANCE-WR-04.md`) · R1 = `86fa288`, `c6d2f08`, `198b66c`, `eeab9d0` · R2 = 0.4.2 (`923f18e`, `b1f9e45`, `44a4b78`) · R3 = 0.4.3–0.4.9 (`cb59cb5` … `94c820d`) · R4 = `f718c4c`, 0.5.1–0.5.5 (`5e05519`).
+Builds: 0.4.0 = `4a109d4` (`ACCEPTANCE-WR-04.md`) · R1 = `86fa288`, `c6d2f08`, `198b66c`, `eeab9d0` · R2 = 0.4.2 (`923f18e`, `b1f9e45`, `44a4b78`) · R3 = 0.4.3–0.4.9 (`cb59cb5` … `94c820d`) · R4 = `f718c4c`, 0.5.1–0.5.5 (`5e05519`) · R5 = 0.5.6–0.5.15 (`c30be66` … `0a7407b`; gameplay last changed in 0.5.11 `4fbef87`).
 
 Status values: **Proven (native play)** · **Proven (with setup/injection — named)** · **Partial** · **Not run** · **Owner**. "Pure" means unit tests of rule code, never counted as a native pass. "Setup" covers labelled HARNESS/SETUP moves, positioning, spawns or dialogue-action openers; "injection" covers granted spells, credentials, damage, buffs or events.
 
@@ -30,11 +30,11 @@ Status values: **Proven (native play)** · **Proven (with setup/injection — na
 | Defense: 35 eligible energy | Proven (with injection — harness-granted Lightning Bolt) | R3 | |
 | Defense: 35 single bludgeoning hit | Not run | | |
 | Armor: 35 acid/fire | Proven (native play) | R3, Fireball + Lesser Empower rod | R2 28/35 failed correctly. |
-| Armor: Trickery 35 | Partial | 0.4.0 Trickery 25 failed correctly | Success not run. |
+| Armor: Trickery 35 | Proven (with setup — harness dialogue answer for Tessa) | R5 0.5.15: 23, 24, 31 failed and cursed correctly; 35 disabled A3e | 0.4.0 Trickery 25 failed correctly. |
 | Armor: 35 single piercing/slashing | Partial | 0.4.0 9-point slash failed correctly | Success not run. |
 | Control: compulsion 4+ | Proven (native play) | R3, prepared Serenity | 0.4.0 Dominate Monster was harness-granted. |
-| Control: 50 summoned damage within the window | Proven (native play) | R4 0.5.x, Summon Monster VI + summon order | Proven on 0.5.x; summon-order code changed in 0.5.6 (R5). |
-| Control: UMD 35 | Partial | 0.4.0 UMD failed and cursed | Success not run. |
+| Control: 50 summoned damage within the window | Proven (native play) | R4 0.5.x, Summon Monster VI + summon order | Re-proven on 0.5.10/0.5.11 across a full restart (R5, with setup): 42/50 saved, resumed, disabled; no double count. |
+| Control: UMD 35 | Proven (with setup — harness dialogue answer for Kael) | R5 0.5.15: UMD 41 disabled A3f | 0.4.0 failure cursed correctly. |
 | Control: window timeout / descriptor negatives | Not run | | R4 call-off at 32/50 left A3f active (related, not this test). |
 | Damage pipeline: hardness once, thresholds | Proven (native play) | 0.4.0; R1; every R3/R4 hit logged | |
 | Adamantine bypass; physical break leaves functional rune | Partial | pure only | |
@@ -62,12 +62,14 @@ Status values: **Proven (native play)** · **Proven (with setup/injection — na
 | Stone to Flesh, Fort 15 once, corpse or living, no duplicate | Proven (native play) | R4 0.5.x, bought scroll | 0.4.0 and R1 used granted StF. |
 | Living attacker uses native abilities | Proven (with injection — harness Stone to Flesh) | R1 run d | |
 | Cultist statistics (GMG p.278) | Proven (with injection — harness restoration) | R2 `44a4b78`; R3 | AC follows preset `DifficultOpponent` (ruling). |
-| Marked reporter opens A2, reports only on arrival | Proven (native play) | R4 0.5.x, real time and turn-based | R1/R3 with harness StF. Code changed in 0.5.6 (legacy migration, blocked runner). |
+| Marked reporter opens A2, reports only on arrival | Proven (native play) | R4 0.5.x, real time and turn-based | R1/R3 with harness StF. The R5 legacy runner did the same after migration. |
 | Runner route survives mid-route reload | Proven (native play) | R1 run d; R4 `R4_RUNNER_MIDROUTE2` | |
 | Hostile and targetable; Hold Person interception, no messenger | Proven (native play) | R4 0.5.3 | Real time only. |
-| Turn-based flight | Proven (with setup — party moved off the stair) | R4 0.5.4 | Blocked runner fixed in 0.5.6 (R5). |
-| Turn-based interception | Not run | | |
-| Unmarked reporter stopped by latched A2 | Not run | code `eeab9d0` | Pre-fix run c showed N3 passing. |
+| Turn-based flight | Proven (with setup — party moved off the stair) | R4 0.5.4 | |
+| Blocked turn-based runner ends its turn | Proven (with setup — party placed on the stair, turn-based toggled by harness) | R5 0.5.15: "blocked where it stands; its turn ends", rounds 1–6 in 60 s | Not pushed through bodies. |
+| Legacy neutral reporter migrates and resumes | Proven (with setup — legacy save made on 0.4.9 with injected StF) | R5 0.5.7+: hostile True, resumed leg 3/7, reported on arrival; canTarget True | 0.5.6 left the group hostility stale (fixed 0.5.7). A controlled legacy reporter cannot arise; not run. |
+| Turn-based interception | Proven (with setup — turn-based toggle, positions, ended party turns, attack order; spells from own slots; injected StF) | R5 0.5.15: Hold Person round 1, killed round 2, leg 0, no messenger | A held runner breaks free on a later save if left alone (native). |
+| Unmarked reporter stopped by latched A2 | Proven (with setup — turn-based, party moved clear; injected StF) | R5 0.5.15: N3 reached leg 1, door stayed latched, turned on the party, no report in 7 rounds | In real time the party's own AI killed it first (twice). |
 | Corpse hand recovered once and presented | Proven (with setup — harness StF; R2 harness dialogue action) | R1 run b; R2 | |
 | A3 husks: all 21 targetable, ash, no XP/loot; rune unaffected | Partial | 0.4.0, one husk to Ash | |
 | **Credentials and door A2** | | | |
@@ -122,7 +124,8 @@ Status values: **Proven (native play)** · **Proven (with setup/injection — na
 | **Departure and transit** | | | |
 | Belt token departure, checkpoint, arrival | Proven (native play) | R1 run a; R3; R4 | |
 | Lodge night's rest (Quartermaster) | Proven (native play) | R3 0.4.4 | |
-| Departure readiness: notice, cancel, spellbook, warning, rest, transfer | Proven (native play) | R4 0.5.x | Retry revalidation changed in 0.5.6 (R5). |
+| Departure readiness: notice, cancel, spellbook, warning, rest, transfer | Proven (native play) | R4 0.5.x | |
+| Departure retry: changed preparation re-rests; unchanged retry does not | Proven (with setup — harness token/answer/memorize; injected save-failed) | R5 0.5.15: changed Brena re-rested with a notice naming her; unchanged retry departed in 8 s of game time | A recruit joining was not run. |
 | No departure rest on sanctum reload | Proven (native play) | R4 | |
 | Inventory route, checkpoint recovery, Favored Terrain, stock spells | Not run | | |
 | Ordinary campaign untouched (incl. turn-based) | Proven (with setup — harness goblin spawn) | R2 `923f18e` | |
@@ -135,6 +138,8 @@ Status values: **Proven (native play)** · **Proven (with setup/injection — na
 | **Save, load and migration** | | | |
 | Mid-state reload: mask, windows, Krune, cures, corpse | Proven (with setup — 0.4.0 harness run) | 0.4.0 | |
 | Mid-state reload: runner, destroyed door, impression, sleep, sustain, feeder ledger, spent slots | Proven (native play) | R1; R2; R3; R4 | Individual rows above. |
-| Mid-state reload: curse, entangle and summon windows, husk crumbling | Not run | | Summon orders are R5. |
+| Summon orders saved, resumed, recalled after a full restart | Proven (with setup — harness spell from own slot, dialogue answers) | R5 0.5.10/0.5.11 | 0.5.9 dropped the order on load (fixed 0.5.10). |
+| Summon order released on control loss or expiry; redirect safe | Proven (with injection — granted Confusion) | R5 0.5.11: confused wolf released, Axiomite kept its order; expiry ended an order; redirect no longer hangs | 0.5.10 redirect hung the game (fixed 0.5.11). Domination of a summon not run. |
+| Mid-state reload: curse, entangle windows, husk crumbling | Not run | | |
 | Legacy saves initialise once; no retroactive triggers; no re-init on reload | Proven (native play) | 0.4.0; R1 fixes | |
 | A real 0.4.0 save on a later build; pre-arrival lodge saves | Not run | | |
