@@ -261,8 +261,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
         /// </summary>
         private static string OutOfControl(UnitEntityData summon, UnitEntityData summoner)
         {
-            // A summon joins its summoner's group natively; its faction is its own blueprint's and is not compared.
-            if (summon.GroupId != summoner.GroupId || summon.IsEnemy(summoner) || summon.Buffs.RawFacts.Any(b => b.Blueprint.ComponentsArray.OfType<Kingmaker.UnitLogic.FactLogic.ChangeFaction>().Any()))
+            // A summon's faction is its own blueprint's, and its group is not saved (a reload puts it in a group of its own), so
+            // allegiance is read from hostility either way and from any effect that has taken its faction.
+            if (summon.IsEnemy(summoner) || summoner.IsEnemy(summon) || summon.Buffs.RawFacts.Any(b => b.Blueprint.ComponentsArray.OfType<Kingmaker.UnitLogic.FactLogic.ChangeFaction>().Any()))
             {
                 return "it has changed allegiance";
             }
