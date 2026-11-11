@@ -352,6 +352,10 @@ namespace KingmakerWakingRune.Diagnostics
                 .Select(f =>
                 {
                     object value = f.GetValue(o);
+                    if (value is Kingmaker.Blueprints.Classes.Spells.SpellDescriptorWrapper wrapper)
+                    {
+                        value = wrapper.Value;
+                    }
                     string text = value is System.Collections.IEnumerable list && !(value is string)
                         ? "[" + string.Join(",", list.Cast<object>().Select(x => (x as UnityEngine.Object)?.name ?? x?.ToString()).ToArray()) + "]"
                         : (value as UnityEngine.Object)?.name ?? value?.ToString();

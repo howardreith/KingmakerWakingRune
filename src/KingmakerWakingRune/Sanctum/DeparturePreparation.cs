@@ -234,7 +234,7 @@ namespace KingmakerWakingRune.Sanctum
             }
             m_Stage = Stage.Warning;
             Log.Info($"Departure: empty prepared slots: {string.Join("; ", empty.ToArray())}.");
-            Ask("Some prepared spell slots are still empty, and resting will not fill them:\n\n" + string.Join("\n", empty.ToArray()) + "\n\nRest and depart anyway? Choose Cancel to return to the spellbooks.", yes =>
+            Ask("Some prepared spell slots are still empty, and resting will not fill them:\n\n" + string.Join("\n", empty.ToArray()) + "\n\nRest anyway? Choose Cancel to return to the spellbooks.", yes =>
             {
                 if (yes)
                 {
