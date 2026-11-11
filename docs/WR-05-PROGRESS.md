@@ -50,4 +50,25 @@ Outcome:
   - The A2 Alarm afterwards.
   - The legacy policy.
 
-Results and labels are in `ACCEPTANCE-WR-05.md`. Open: a legitimate victory, the stock-campaign run, a live mid-fight reload (the game refuses saves in combat), and the CMB/CMD calibration.
+At the end of the first round the open items were: a legitimate victory, the stock-campaign run, a live mid-fight reload (the game refuses saves in combat), and the CMB/CMD calibration.
+
+## Review round (run `wr05-b`, 0.6.8 to 0.6.15)
+The owner's review kept PR #5 in draft and asked for fidelity repairs and the completion proof, not a weaker Kurshu.
+
+1. **Preparation.** The departure rest no longer departs. Control returns in the lodge for preparation that stays spent, and a second token use departs on an explicit OK without another rest. The record compares only selections, never spending, and is saved with the game (`DepartureRecord`, `DepartureRecordPart`). `WR-04-RULES.md` is updated.
+2. **Grapple.** A bounded, encounter-local grapple:
+   - She holds one creature, and both sides are grappled.
+   - Each turn she maintains with a standard action (+5, tail and constrict), or lets go to cast while she has offensive spell-like abilities.
+   - Freedom of movement defeats the grab and frees a held creature.
+   - The hold ends on any lapse.
+3. **Feats.** The native Combat Casting and Combat Reflexes, and the printed Improved Iron Will reroll built from the native d20 reroll. The game's own Improved Iron Will is a flat +2, so it is not used.
+4. **CMB/CMD.** Traced through the decompiled maneuver rules. The engine already counts Large once (+2 table, −1 size). The +1 `AdditionalCMD` correction was the only unintended point and is removed. The chain printed → hard mode → preset → native matches, before and after Feed.
+5. **Intelligence drain.** Drain past 0 leaves the victim comatose instead of dead; restoration wakes it.
+6. **Completion proof:**
+   - a legitimate victory by ordinary input;
+   - defeat to A2;
+   - reloads after a full restart, dead and alive (the live one through a labelled combat pause);
+   - stock isolation;
+   - the legacy notice on screen.
+
+Each build has its own version and zip. 0.6.8 to 0.6.15 are listed with their defects in `ACCEPTANCE-WR-05.md`, and none replaced an earlier package. Results and labels are in `ACCEPTANCE-WR-05.md`.

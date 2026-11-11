@@ -1,75 +1,92 @@
 # Status: The Waking Rune
 
-**Milestone:** WR-05, Kurshu the Undying in A1. Candidate 0.6.7 is ready for owner review.
+**Milestone:** WR-05, Kurshu the Undying in A1. The review round is done. Candidate 0.6.15 is ready for owner review.
 
-**Branch:** `feature/wr-05-kurshu`, a child of `feature/wr-04-sanctum-wards`. PR #4 (WR-04) is still open and unmerged, so the WR-05 draft PR targets the WR-04 branch and shows only the encounter. Do not merge, tag or release without owner review, and merge PR #4 first.
+**Branch:** `feature/wr-05-kurshu`, a child of `feature/wr-04-sanctum-wards`.
+- PR #4 (WR-04) is still open and unmerged, so the WR-05 draft PR #5 targets the WR-04 branch and shows only WR-05.
+- Do not merge, tag or release without owner review. Merge PR #4 first.
 
 Results:
-- `docs/ACCEPTANCE-WR-05.md`: this cycle, PASS / PARTIAL / NOT RUN by check.
-- `docs/WR-05-KURSHU.md`: the source-to-runtime stat sheet and every adaptation.
-- `docs/WR-05-PROGRESS.md`: checkpoint A (input) and the run record.
-- `docs/WR-04-LEDGER.md`: the cumulative ledger, now with a WR-05 section.
-- The WR-04 documents are unchanged.
+- `docs/ACCEPTANCE-WR-05.md`: both rounds, PASS / PARTIAL / NOT RUN by check, and the victory.
+- `docs/WR-05-KURSHU.md`: the source-to-runtime sheet, the maneuver chain, the feats, and every adaptation (grapple, Intelligence drain).
+- `docs/WR-05-PROGRESS.md`: checkpoint A and both rounds.
+- `docs/WR-04-LEDGER.md`: the cumulative ledger, with both WR-05 sections.
+- `docs/WR-04-RULES.md`: the departure row, revised for the two-step departure.
 
 ## Candidate
-- Version 0.6.7, commit `15f1c71`.
-- DLL SHA-256 `07a6823c490b57418d775a2852f26d3af4377e8b09dcb9807b581da71e9baa06`.
-- Zip `artifacts\KingmakerWakingRune-0.6.7.zip`, SHA-256 `46396df1ca1582b0e548119600eecfd447fadc1b40c56c6baf2fbe93e1add272`. This is the package tested last and now installed.
-- 163 unit tests pass (12 new).
-- Earlier test builds 0.6.0–0.6.6 have their own versions and zips; none were replaced.
+- Version 0.6.15, commit `1891bf0`.
+- DLL SHA-256 `271255e9650b0f6880ab22b34602cffdce54f220c843a35a37195f1ce39305c2`.
+- Zip `artifacts\KingmakerWakingRune-0.6.15.zip`, SHA-256 `94b05fc78eb9b0b0d59018b27e9bb6b01e3c6a5d7447fcfa07d8291b94a8dc1e`. This is the package tested last and now installed.
+- 170 unit tests pass (19 for WR-05).
+- Earlier test builds 0.6.0–0.6.14 have their own versions and zips; none were replaced.
 
 ## What WR-05 adds
-- **Kurshu as a real hostile combat unit.** Large outsider; the Erinyes model drawn at Large; native class Hit Dice; stats from the printed Subtier 10–11 block with the extra challenge (Weakness and one negative level removed); the player's preset on top.
+- **Kurshu as a real hostile combat unit.**
+  - Large outsider, drawn with the Erinyes model at Large size.
+  - Native class Hit Dice.
+  - Stats from the printed Subtier 10–11 block with the extra challenge (Weakness and one negative level removed); the player's preset applies on top.
 - **Native defenses:** regeneration 5 (acid), DR 10/cold iron and magic, resistance 30, SR 26, trip immunity.
-- **Attacks:** two slams with 1d4 Intelligence drain, and a tail grab with constrict.
+- **Feats:** native Combat Casting and Combat Reflexes, and the printed Improved Iron Will reroll.
+- **Attacks:**
+  - Two slams with 1d4 Intelligence drain. Drain to 0 leaves the victim comatose; restoration wakes it.
+  - A tail grab: a real grapple with its costs (maintain or let go each turn, one hold, freedom of movement defeats it), with constrict.
 - **Spell-like abilities** with saved daily uses, including bounded limited wishes, one already spent.
 - **Power Surge, Divine Separation and Feed.**
-- **Her tactics** run through the native brain, with considerations for her printed priorities, plus a bounded director for feeding and a self-only teleport.
-- **Narrative:** the wound speech, the blood message, and the existing 90-minute deadline started once on her defeat.
-- **Saves:** version 4. Pre-departure saves get the fight; saves already inside the sanctum keep their state, with a notice.
+- **Tactics:** her tactics run through the native brain, with considerations for her printed priorities, plus a bounded director for feeding, the grapple and a self-only teleport.
+- **Narrative:** the wound speech, the blood message, and the existing 90-minute deadline, started once on her defeat.
+- **Departure:** rest, then prepare in the lodge, then depart by a second use of the token. Spending never forces another rest.
+- **Saves:** version 4. Pre-departure saves get the fight. Saves already inside the sanctum keep their state, with a notice.
 
-## Proven this cycle
-- Ordinary input, the fresh shop, the arrival gate, the hidden check, spell-like abilities and finite uses, and Power Surge.
-- Drain, grab, DR, resistance and SR, regeneration and acid, the wound, the defeat and deadline, and death.
-- Feed valid and invalid in both modes, turn-based turns, the reload after the fight, the A2 Alarm afterwards, and the legacy policy.
+## Proven
+Both rounds, in native play unless labelled:
+- ordinary input, the fresh shop, arrival gating, the hidden check, finite spell-like abilities and the pre-spent wish, Power Surge (including a lapse);
+- DR, resistance and SR, regeneration and acid;
+- the grapple, with injected tail hits;
+- comatose drain and restoration, with injected drains;
+- the maneuver chain before and after Feed, and Feed in both modes;
+- a **legitimate victory**, then defeat to A2;
+- reloads after a full restart, dead and alive (the live save through a labelled one-frame combat pause);
+- stock isolation and the legacy notice.
 
 Details and labels are in the acceptance report.
 
 ## Not done or not proven
-- **A legitimate victory.** The one fight run to its end was a native defeat with the printed values intact. A winning party needs the printed counters (+3 weapons, acid, Freedom of Movement).
-- **A stock-campaign run.**
-- **A reload with Kurshu alive mid-fight.** The game refuses saves in combat.
-- **CMB and CMD:** 23/27/42 against the authored 21/25/39. Calibration is open.
 - **Not implemented, deliberately:** plane shift and the non-combat at-will abilities.
-- Earlier ledger rows that are still open.
+- **A held creature's escape attempt** is automatic and costs it no action (no grapple interface). This favours the party.
+- **Balance:** two fights, one won with the printed counters and one lost without them, are not a balance study.
+- **Carried forward:** earlier ledger rows that are still open.
 
 ## Owner decisions
 - **Merge order:** PR #4, then the WR-05 PR.
-- **Victory test:** whether to authorize a victory test with a party re-equipped from the Quartermaster.
 - **Python 3.15 removal** remains yours to authorize. None was used.
 
 ## Environment state
-- **Installed:** candidate 0.6.7, per the owner's standing preference.
-- **Backed up:** the 0.5.15 install it replaced, at `C:\Dev\KingmakerWakingRuneLab\runtime-backups\wr05-a\mod-existing` (DLL `462a2ab2…`). Earlier installs are as listed in previous reports.
-- **Restored and verified:** transactions `wr05-input-a` and `wr05-a`, covering the profile, Steam mirror, registry (turn-based setting reset), UMM Params and Mods.
+- **Installed:** candidate 0.6.15, per the owner's standing preference.
+- **Backed up:** the 0.6.7 install it replaced, at `C:\Dev\KingmakerWakingRuneLab\runtime-backups\wr05-b\mod-existing` (DLL `07a6823c…`).
+- **Restored and verified:** transaction `wr05-b` (profile, Steam mirror, registry with the turn-based setting reset, UMM Params and Mods).
 - **Saves:** no owner save was opened.
 
 ## How to test again
 ```powershell
 .\scripts\Build.ps1                  # refuses to replace an existing clean package
-.\scripts\KwrRuntime.ps1 Begin -RunId <new-id> -PackagePath .\artifacts\KingmakerWakingRune-0.6.7.zip
+.\scripts\KwrRuntime.ps1 Begin -RunId <new-id> -PackagePath .\artifacts\KingmakerWakingRune-0.6.15.zip
 .\scripts\KwrRuntime.ps1 Launch      # then Shot / Click / Key / Command ..., Close, Collect
 .\scripts\KwrRuntime.ps1 End -KeepInstalled
 ```
 
-**Seeds:**
-- `runtime-evidence\wr05-a\saves\Manual_327_Before_the_Sanctum_of_Sloth_1.zks`: rested, about 74 prepared slots, pre-departure.
-- `Manual_332_KWR_AUTOMATION_WR05_KURSHU_SLAIN.zks`: after her death.
-- The earlier seeds remain under `wr04r*`.
+**Seeds** (in `runtime-evidence\wr05-b\saves`):
+- `Manual_334_Before_the_Sanctum_of_Sloth_2.zks`: the departure checkpoint of the buffed, re-equipped party. The token departs without a rest.
+- `Manual_335_KWR_AUTOMATION_WR05B_KURSHU_VICTORY.zks`: after her death.
+- `Manual_337_KWR_AUTOMATION_WR05B_LIVE_DAMAGED.zks`: alive mid-fight at 159/219.
+- `Manual_960_KWR_AUTOMATION_WR05B_STOCK_TBM.zks`: the stock-campaign check.
+- The first-round seeds remain in `wr05-a`.
 
-**WR-05 harness additions:**
-- Read-only: `kurshu`, `known <member>`, `paused`.
-- INJECTED: `hurt <member> acid|fire|cold|physical|magic|coldironmagic <n>`, `corpse deva|axiomite|hellhound|wolf [m]`, `kurshudefeat` (the old fixture).
+**Harness additions in WR-05:**
+- **Read-only:** `kurshu` (with the maneuver chain, hold and feats), `known <member>`, `paused`, `blueprint <name>`, `builds`.
+- **INJECTED:**
+  - `hurt <member> <kind> <n>`, `corpse <kind> [m]`, `kurshudefeat`;
+  - `grab <member>` (a tail hit), `drain <member> <n>`;
+  - `kurshufixture <damage> <uses…>`, `combatsave <name>`.
 
 ## Next exact action
-Owner review of PR #4, then of the WR-05 draft PR.
+Owner review of PR #4, then of the WR-05 draft PR #5.

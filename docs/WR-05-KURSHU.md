@@ -18,7 +18,7 @@ The printed Subtier 10–11 block already includes three negative levels and the
 - **Hard mode removes the Weakness itself.** Removing her separation levels by feeding does not "restore" its penalties a second time.
 
 ## Stat sheet
-"Final observed" is the live unit in run `wr05-a` on 0.6.0/0.6.1, under the default **Normal** preset ("somewhat easier enemies", enemy difficulty Normal).
+"Final observed" is the live unit in runs `wr05-a` (0.6.0–0.6.7) and `wr05-b` (0.6.8–0.6.15), under the default **Normal** preset ("somewhat easier enemies", enemy difficulty Normal). Only CMB/CMD changed between them.
 
 | Statistic | Printed (10–11) | Hard-mode change | Authored | Final observed (Normal) | Native preset part |
 |---|---:|---|---:|---:|---|
@@ -32,8 +32,8 @@ The printed Subtier 10–11 block already includes three negative levels and the
 | Regeneration | 5 (acid) | — | 5 (acid) | native `AddEffectRegeneration` | the enemy-difficulty setting can halve or disable it natively |
 | Slam ×2 | +18, 1d6+5 plus 1d4 Int drain | +1 | +19 | +21, 1d6+5 | Difficulty +2 |
 | Tail slap | +13, 1d8+2 plus grab | +1 | +14 | +16, 1d8+2 | Difficulty +2 |
-| CMB / grapple | +20 / +24 | +1 | +21 / +25 | 23 / 27 (0.6.2): **open** | |
-| CMD | 38 | +1 | 39 | 42 (0.6.2): **open** | |
+| CMB / grapple | +20 / +24 | +1 | +21 / +25 | 23 / 27; after Feed 25 / 29 | Difficulty +2 (attack) |
+| CMD | 38 | +1 | 39 | 41 (0.6.8 on); after Feed 43 | Difficulty +2 (touch AC) |
 | Spell-like CL / concentration | 12 / +19 | +1 | 13 / +20 | 13 / +20 | |
 | Initiative | +10 | — (printed without the negative-level penalty) | +10 | +10 | |
 | Perception / Stealth | +22 / +19 | +1 | +23 / +20 | 25 / +20 (hidden checks 23, 27, 35 on d20+20) | Perception Difficulty +2 |
@@ -44,10 +44,44 @@ The printed Subtier 10–11 block already includes three negative levels and the
 
 How the numbers are reached, with nothing counted twice:
 - **Class levels.** The donor's own native class (`OutsiderClass`, d10) at 17 levels supplies Hit Dice, base attack +17 and base saves 5/10/10.
-- **Corrections.** A hidden fact adds only the difference to the printed totals before negative levels: BAB +0, Fort +7, Ref −5, Will +1, hit points −1, natural armor +13, deflection +2, Improved Initiative +4, Perception +20, Stealth +20 (the engine applies the Large −4 itself), and CMD +1.
-- **CMD.** The engine's CMD counts the Large AC penalty inside touch AC as well as its +1 size bonus; the +1 offsets that second count.
+- **Corrections.** A hidden fact adds only the difference to the printed totals before negative levels: BAB +0, Fort +7, Ref −5, Will +1, hit points −1, natural armor +13, deflection +2, Improved Initiative +4, Perception +20, Stealth +20 (the engine applies the Large −4 itself). Nothing is added to CMB or CMD (see the maneuver chain below).
 - **Divine Separation** then applies the two levels exactly as the native negative-level buff does: skills, saves, attacks, CMD, 5 hp each, ability checks and caster level.
 - **The preset.** The game adds its own difficulty features to every enemy (`DifficultyAdvancementBaseFeature`, `DifficultOpponent`). The Erinyes donor has no `DifficultyStatAdvancement` of its own, so nothing further is copied.
+
+### Combat maneuver chain (resolved in 0.6.8)
+The printed values are consistent once Large's special size modifier (+1) is used: CMB 17 + 5 + 1 − 3 = 20, grapple 20 + 4 (grab) = 24, CMD 10 + 17 + 5 + 6 + 1 + 2 (deflection) − 3 = 38. Hard mode removes one negative level: 21 / 25 / 39.
+
+The engine (`RuleCalculateBaseCMB`, `RuleCalculateBaseCMD`, decompiled) computes:
+- **CMB** = BAB + Str + the size table's maneuver modifier + `AdditionalAttackBonus` + `AdditionalCMB`. The table gives Large **+2**, and the −1 attack size modifier sits in `AdditionalAttackBonus`, so size nets the printed +1.
+- **CMD** = 10 + BAB + Str + Dex + dodge + size (+2) + (touch AC − 10 − Dex − dodge) + `AdditionalCMD`. Touch AC carries the −1 size modifier, so size nets +1 here too.
+
+So the engine already counts size once. The +1 `AdditionalCMD` the first builds added (0.6.0–0.6.7) assumed a double count that does not exist: that, and nothing else, was the unintended point. 0.6.8 removes it.
+
+The remaining +2 on each is the player's preset (`Difficulty` +2 on attack, which CMB includes, and +2 on AC, which reaches CMD through touch AC). It applies to every enemy and is kept. The live sheet shows the chain (`kurshu` report, `maneuver chain` line), in run `wr05-b`:
+
+| | CMB | Grapple | CMD |
+|---|---:|---:|---:|
+| Printed | 20 | 24 | 38 |
+| Hard mode (2 separation levels) | 21 | 25 | 39 |
+| + preset Difficulty | 23 | 27 | 41 |
+| Native, observed (0.6.9 on) | **23** | **27** | **41** |
+| Native after Feed removes both separation levels | **25** | **29** | **43** |
+
+Breakdown observed: CMB = BAB 17 + Str 5 + size 2 + misc −1 (`AdditionalAttackBonus`: Size −1, Difficulty +2, NegativeEnergyPenalty −2); CMD = BAB 17 + Str 5 + Dex 6 + size 2 + misc 1 (touch 19 − 10 − 6, `AdditionalCMD` −2).
+
+### Feats
+Printed (Subtier 10–11): Combat Casting, Combat Reflexes, Craft Wondrous Item, Great Fortitude, Hover, Improved Initiative, Improved Iron Will, Iron Will, Scribe Scroll.
+
+| Feat | Runtime |
+|---|---|
+| Great Fortitude, Iron Will, Improved Initiative | Already in the calibrated Fortitude, Will and initiative; not added again. |
+| **Combat Casting** | The game's own `CombatCasting` feat (`ConcentrationBonus` +4). Observed in play: "casting defensively check succeeded". |
+| **Combat Reflexes** | The game's own `CombatReflexes` feat (`DerivativeStatBonus` Dex → attacks of opportunity). Observed: `AttackOfOpportunityCount 7 (base 1) [Feat +6]`. |
+| **Improved Iron Will** | The game's own `IronWillImproved` is a flat +2 on Will (it is Iron Will again, with Iron Will as a prerequisite), not the printed once-a-day reroll, and would lift her Will above the printed value. Her reroll is a one-use buff built from the native `ModifyD20`: Will saves only, reroll only on a failure, removed by its own use. It is given once, when she appears; a reload carries its absence. |
+| Craft Wondrous Item, Scribe Scroll | Nothing to act on in this encounter. |
+| Hover | No flight in this game; not implemented. |
+
+The `kurshu` report lists the native feats with "present" or "MISSING", and whether the reroll is unused.
 
 ## The unit
 - **Identity.** `KWR_KurshuTheUndying`, a real hostile Mobs unit marked by a `KurshuPart` identity (`A1-Kurshu`). She has no ward fixture part and none of the fixture protections.
@@ -64,14 +98,21 @@ How the numbers are reached, with nothing counted twice:
 - **Position.** She is placed on the navigation node nearest the apex rune (grid 13, 19.6, height 20 ft). Nothing in the geometry was changed.
 
 ## Attacks and special attacks
-- **Intelligence drain (high tier).** Each slam hit drains 1d4 Intelligence with a native `RuleDealStatDamage` (`IsDrain`): saved with the stat, not healed by rest, removed by restoration.
-  - The lower tier's fixed 1 drain plus 1d4−1 damage is not used.
-  - **Engine rule:** the game kills a creature whose ability score falls below 1 (`MarkedForDeath`), where the tabletop would leave Intelligence 0 helpless.
-- **Grab and constrict (adaptation).** The game has a grapple roll but no grab, constrict or grapple condition that leaves the grappler free to act.
-  - A tail hit makes a free native grapple maneuver roll (CMB +4 to grapple, printed) against a creature of her size or smaller.
-  - Success holds the target: cannot move, −4 Dexterity, −2 on attacks. The target constricts once for 1d8+5 bludgeoning, on the same check, as constrict deals damage on a successful grapple check.
-  - Each round the held creature makes its own native maneuver roll against her CMD to break free. The hold ends if she falls, is held herself, or is out of reach.
-  - She holds with the tail only, so she keeps acting. She does not spend standard actions to maintain the grapple and constrict again, because her tactics favor spells.
+- **Intelligence drain (high tier).** Each slam hit drains 1d4 Intelligence with a native `RuleDealStatDamage` (`IsDrain`): saved with the stat, not healed by rest, removed by restoration. The lower tier's fixed 1 drain plus 1d4−1 damage is not used.
+- **Intelligence 0 is comatose, not death (adaptation, 0.6.8–0.6.15).** In the source a creature at Intelligence 0 is comatose and helpless. The engine instead kills any creature whose ability score falls below 1 (`RuleDealStatDamage` sets `MarkedForDeath`). The 0.6.0–0.6.7 builds let that happen; a character died at Intelligence 1. Only her drain is changed, nothing global:
+  - Drain that would take the score below 1 is applied only down to 1, and the rest is **held back** on a comatose buff (the native `Unconscious` condition: helpless, cannot act). Further slams add to the held-back points.
+  - The true drain is the engine's drain plus the held-back points. **Restoration** (the game's restores "all points permanently drained from a single ability score") clears the engine's drain, and that clears the held-back points too: the creature wakes. A smaller restoration pays the held-back points first. Lesser restoration does not touch drain.
+  - Recovery is checked from the encounter's tick about once a second of game time, as well as on the creature's own round, because turn-based combat skips a helpless creature's turn.
+  - The held-back points are saved with the buff (as fields; 0.6.11–0.6.14 used properties, which the game does not save).
+  - A comatose creature can still die from hit point damage; she keeps slamming a helpless target.
+- **Grab, grapple and constrict (0.6.8).** A bounded, encounter-local grapple with the normal costs:
+  - **Grab.** A tail hit makes a free grapple check (native `RuleCombatManeuver`, grapple +27 including the printed +4) against a creature of her size or smaller, only while her tail holds no one. Freedom of movement makes the attempt fail outright (in this game's own words, "all combat maneuver checks made to grapple the target automatically fail").
+  - **Both grappled.** She grapples normally: the victim and she both take the grappled condition (no movement, −4 Dexterity, −2 on attacks, no attacks of opportunity, and a spell needs the native concentration check for difficult casting). The −2 does not apply to checks to grapple or escape. The body-part-only hold (−20, not grappled herself) is not used: at +7 she would almost never hold, and her tactics release to cast anyway.
+  - **Constrict** 1d8+5 on the successful grab check.
+  - **Each turn** (turn-based: at her turn start, before her brain acts; real time: when her standard action is ready) she decides. While she has any offensive spell-like ability left, she lets go as a free action and casts ("she lets go to cast"). When she has none, she **maintains** with a standard action: a grapple check at +5, and on a success the tail's damage and constrict.
+  - **The hold ends** when a maintenance chosen last turn was never made, a maintenance check fails, she casts or attacks with that action instead, the victim is out of reach or dead, she cannot act, or freedom of movement reaches the victim.
+  - **The victim** tries to break free on each of its rounds with its own maneuver roll against her CMD. This attempt costs it no action (there is no grapple interface for the player), which favours the party.
+  - **Saved:** the held creature, the owed maintenance and the counts. A reload re-checks the hold and ends one that no longer stands.
 - **Power Surge.** Three per day, swift, a one-round buff: +2 to the DC of her next spell-like ability (native `AddBonusDC`). It is removed by that ability's cast, and an unused surge lapses at the end of its round. The use is spent either way; nothing stays.
 
 ## Spell-like abilities
@@ -125,5 +166,8 @@ Each is the native spell cloned as a spell-like ability, with its own daily reso
 - **A pre-departure save** gets the fight on arrival.
 - **A save already inside the sanctum** from an earlier build keeps its sanctum as it was. She is not inserted, nothing is marked defeated, no clock starts, and a one-time notice says why.
 
-## Known deviation
-The native CMB, grapple and CMD on 0.6.2 were 23, 27 and 42, against authored 21, 25 and 39. The engine's maneuver formulas count size and deflection differently from the printed totals, which are themselves not fully consistent (printed CMD 38 = 10 + BAB 17 + Str 5 + Dex 6 + deflection 2 − size 1 − 3 negative levels would be 36). The difference is recorded, not silently corrected; the calibration is open.
+## Known deviations and notes
+- **CMB/CMD (0.6.0–0.6.7):** CMD was one point high through an unneeded correction; resolved in 0.6.8 (see the maneuver chain). The earlier note here, which called the printed CMD inconsistent, used the size modifier with the wrong sign and was wrong.
+- **Plane shift** is not implemented (above); her spell-like coverage is complete except for it and the non-combat at-will abilities.
+- **Spell level of two utility abilities.** Her dispel magic and self-only teleport show spell level 6–7 in the sheet (the engine's default for an ability without a spell list). Neither allows a save, so no DC is affected; dispel uses her caster level.
+- **Divine Separation on load.** Its count is re-applied from the saved encounter state on every load ("now 2 negative level(s) (was 0)" in the log); the effect is identical.

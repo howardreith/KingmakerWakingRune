@@ -168,3 +168,26 @@ The WR-04 rows above are carried forward unchanged. WR-05 changes only A1 and th
 | Legitimate victory | Not run | | A native defeat is recorded. |
 | Stock campaign unaffected | Not run | | Scoped by construction. |
 | Live CMB and CMD calibration | Partial | 23 / 27 / 42 vs 21 / 25 / 39 | |
+## WR-05 review round, 0.6.8–0.6.15, run `wr05-b`
+
+Rows above that this round changes are restated here. Everything else carries forward.
+
+| Item | Status | Evidence | Notes |
+|---|---|---|---|
+| Preparation after the departure rest; explicit departure without a second rest | Proven (native play; buff casts by setup) | 0.6.8–0.6.11 | Spending never forces a rest; a changed selection is named, with a choice. `WR-04-RULES.md` revised. |
+| Departure checkpoint is the prepared party; no rest on load | Proven (native play) | 0.6.10, 0.6.11 | |
+| Grab refused by freedom of movement | Proven (with injection: tail hit) | 0.6.11 | |
+| Grab, constrict, both grappled; one hold | Proven (with injection: tail hit); one hold pure | 0.6.11 | Grab 46 vs CMD 26, constrict 13. |
+| She lets go to cast; maintains with a standard action when out of spells | Proven (with injection: tail hit, spent uses) | 0.6.11 | Maintain 48 vs 29, constrict and tail 18. |
+| Hold ends out of reach, or by freedom of movement on the victim | Proven (native scroll; setup placement) | 0.6.11 | |
+| Combat Casting, Combat Reflexes, Improved Iron Will | Proven (native play) for the first two; reroll present, unused | 0.6.9 | The game's Improved Iron Will is a flat +2, so not used. |
+| CMB / grapple / CMD chain | Proven (native play) | 23/27/41; after Feed 25/29/43 | Replaces "Live CMB and CMD calibration: Partial". |
+| Intelligence drain to 0 is comatose; restoration wakes | Proven (with injection: drain; native restoration) | 0.6.15 | Held-back count persists through a reload from 0.6.15. |
+| Legitimate victory | Proven (native play; pre-buffs by setup) | 0.6.10 | Replaces "Not run". |
+| Defeat to A2 Alarm | Proven (native play) | 0.6.10 | |
+| Reload after a full restart, dead | Proven (with setup: save) | 0.6.11 | |
+| Reload after a full restart, alive mid-fight | Proven (with injection: one-frame combat pause for the save) | 0.6.11 → 0.6.12 | Replaces the refused mid-combat save. |
+| Stock campaign unaffected | Proven (native play; disposable stock save; setup foe) | 0.6.15 | Replaces "Not run". |
+| Legacy notice on screen | Proven (native play) | 0.6.9 | Replaces "partial". |
+| Power Surge lapse | Proven (native play) | 0.6.11 | Was unit-tested only. |
+| Plane shift | Not implemented | | Deliberate. |
