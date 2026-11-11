@@ -90,6 +90,8 @@ namespace KingmakerWakingRune.Diagnostics
                     return Stock();
                 case "slots":
                     return Slots(Member(args[1]));
+                case "cursor":
+                    return Cursor();
                 case "advance":
                     Game.Instance.AdvanceGameTime(TimeSpan.FromSeconds(double.Parse(args[1])));
                     return $"INJECTED time advance: {args[1]} seconds, now {WardRuntime.Now:0}.";
@@ -162,6 +164,19 @@ namespace KingmakerWakingRune.Diagnostics
                 }
             }
             return sb.ToString();
+        }
+
+        /// <summary>Read only: which native cursor the game is drawing now (screenshots do not capture it), and over what.</summary>
+        private static string Cursor()
+        {
+            Texture2D shown = Kingmaker.UI.AbilityTarget.PCCursor.Instance?.Background?.sprite?.texture;
+            var cursors = Game.Instance.BlueprintRoot.Cursors;
+            string name = typeof(Kingmaker.Blueprints.Root.CursorRoot).GetFields()
+                .Where(f => f.FieldType == typeof(Texture2D) && (Texture2D)f.GetValue(cursors) == shown)
+                .Select(f => f.Name)
+                .FirstOrDefault() ?? shown?.name ?? "none";
+            UnitEntityData hovered = Game.Instance.State.Units.FirstOrDefault(u => u.View != null && u.View.MouseHighlighted);
+            return $"cursor={name} hovered={(hovered == null ? "none" : $"{hovered.CharacterName} ({WardFixtures.IdOf(hovered) ?? "not scenery"})")} pointerMode={Game.Instance.ClickEventsController?.Mode} inCombat={Game.Instance.Player.IsInCombat}";
         }
 
         /// <summary>Read only: every prepared slot by level, its chosen spell and whether it is ready to cast.</summary>
