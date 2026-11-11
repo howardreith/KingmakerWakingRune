@@ -86,6 +86,10 @@ namespace KingmakerWakingRune.Diagnostics
                 case "move":
                     Member(args[1]).Commands.Run(new UnitMoveTo(new Vector3(SanctumPlan.ToWorldX(float.Parse(args[2])), SanctumPlan.HeightAt(float.Parse(args[2]), float.Parse(args[3])) ?? 0f, SanctumPlan.ToWorldZ(float.Parse(args[3])))));
                     return $"SETUP move order: {Member(args[1]).CharacterName} to ({args[2]},{args[3]}).";
+                case "stock":
+                    return Stock();
+                case "slots":
+                    return Slots(Member(args[1]));
                 case "advance":
                     Game.Instance.AdvanceGameTime(TimeSpan.FromSeconds(double.Parse(args[1])));
                     return $"INJECTED time advance: {args[1]} seconds, now {WardRuntime.Now:0}.";
@@ -111,6 +115,71 @@ namespace KingmakerWakingRune.Diagnostics
         private static UnitEntityData Member(string index)
         {
             return Game.Instance.Player.Party[int.Parse(index)];
+        }
+
+        /// <summary>
+        /// Read only: the Quartermaster table as the save recorded it (shelf counts and the catalogue counts it was last
+        /// reconciled against), then the live shelf after the native reconciliation, with every line that differs.
+        /// </summary>
+        private static string Stock()
+        {
+            var tables = Game.Instance.Player.SharedVendorTables;
+            var built = (System.Collections.IDictionary)Harmony12.AccessTools.Field(tables.GetType(), "m_Dictionary").GetValue(tables);
+            bool wasBuilt = built.Contains(Blueprints.QuartermasterStock.Table);
+            var saved = new System.Collections.Generic.Dictionary<Kingmaker.Blueprints.Items.BlueprintItem, int>();
+            var known = new System.Collections.Generic.Dictionary<Kingmaker.Blueprints.Items.BlueprintItem, int>();
+            bool persisted = false;
+            foreach (object data in (System.Collections.IEnumerable)Harmony12.AccessTools.Field(tables.GetType(), "m_PersistentTables").GetValue(tables))
+            {
+                var t = Harmony12.Traverse.Create(data);
+                if (t.Field("Table").GetValue<Kingmaker.Blueprints.Items.BlueprintSharedVendorTable>() != Blueprints.QuartermasterStock.Table)
+                {
+                    continue;
+                }
+                persisted = true;
+                foreach (Kingmaker.Blueprints.Loot.LootEntry entry in t.Field("Entries").GetValue<System.Collections.Generic.List<Kingmaker.Blueprints.Loot.LootEntry>>())
+                {
+                    saved[entry.Item] = saved.Get(entry.Item, 0) + entry.Count;
+                }
+                foreach (var pair in t.Field("KnownItems").GetValue<System.Collections.Generic.Dictionary<Kingmaker.Blueprints.Items.BlueprintItem, int>>() ?? new System.Collections.Generic.Dictionary<Kingmaker.Blueprints.Items.BlueprintItem, int>())
+                {
+                    known[pair.Key] = pair.Value;
+                }
+            }
+            var live = new System.Collections.Generic.Dictionary<Kingmaker.Blueprints.Items.BlueprintItem, int>();
+            foreach (Kingmaker.Items.ItemEntity item in tables.GetTable(Blueprints.QuartermasterStock.Table).Items)
+            {
+                live[item.Blueprint] = live.Get(item.Blueprint, 0) + item.Count;
+            }
+            var sb = new StringBuilder();
+            sb.AppendLine($"Quartermaster stock: persisted={persisted} builtBeforeThisCall={wasBuilt} savedLines={saved.Count} savedItems={saved.Values.Sum()} knownLines={known.Count} knownItems={known.Values.Sum()} liveLines={live.Count} liveItems={live.Values.Sum()}");
+            foreach (var item in saved.Keys.Union(live.Keys).Union(known.Keys).Distinct().OrderBy(i => i.Name))
+            {
+                int s = saved.Get(item, 0), k = known.Get(item, 0), l = live.Get(item, 0);
+                if (s != l || (persisted && s != k))
+                {
+                    sb.AppendLine($"  {item.Name}: saved {s}, catalogue then {k}, live {l}");
+                }
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>Read only: every prepared slot by level, its chosen spell and whether it is ready to cast.</summary>
+        private static string Slots(UnitEntityData unit)
+        {
+            var sb = new StringBuilder($"Slots of {unit.CharacterName} at game time {Game.Instance.Player.GameTime.TotalSeconds:0}:\n");
+            foreach (Spellbook book in unit.Descriptor.Spellbooks)
+            {
+                sb.AppendLine($"  {book.Blueprint.name} spontaneous={book.Blueprint.Spontaneous} max={book.MaxSpellLevel}");
+                for (int level = 1; level <= book.MaxSpellLevel; level++)
+                {
+                    string slots = book.Blueprint.Spontaneous
+                        ? $"{book.GetSpontaneousSlots(level)}/{book.GetSpellsPerDay(level)} left"
+                        : string.Join(", ", book.GetMemorizedSpellSlots(level).Select(s => s.Spell == null ? "(empty)" : $"{s.Spell.Blueprint.name}{(s.Available ? "" : " [spent]")}").ToArray());
+                    sb.AppendLine($"    L{level}: {slots}");
+                }
+            }
+            return sb.ToString();
         }
 
         private static string Fixtures()
