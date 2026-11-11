@@ -103,6 +103,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
         private static readonly RuneConditionClock s_ConditionClock = new RuneConditionClock();
         private static readonly SummonOrders s_SummonOrders = new SummonOrders();
         private static readonly WardStatues.RunnerTurnPacer s_RunnerPacer = new WardStatues.RunnerTurnPacer();
+        private static readonly Encounter.KurshuTurns s_KurshuTurns = new Encounter.KurshuTurns();
         private static bool s_Subscribed;
         private static double s_NextTick;
 
@@ -120,6 +121,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 EventBus.Subscribe(s_ConditionClock);
                 EventBus.Subscribe(s_SummonOrders);
                 EventBus.Subscribe(s_RunnerPacer);
+                EventBus.Subscribe(s_KurshuTurns);
                 s_Subscribed = true;
             }
             SanctumState state = SanctumScope.IsSanctumLoaded ? WardStore.Create() : null;

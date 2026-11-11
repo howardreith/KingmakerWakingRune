@@ -425,15 +425,9 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             {
                 return;
             }
-            UnitEntityData corpse = FindEligibleCorpse(unit);
-            if (corpse != null && (!turnBased || unit.HasFullRoundAction()))
+            if (TryFeed(unit, turnBased))
             {
-                AbilityData feed = unit.Descriptor.Abilities.GetAbility(KurshuBlueprints.FeedAbility)?.Data;
-                if (feed != null && feed.IsAvailableForCast)
-                {
-                    Issue(unit, UnitUseAbility.CreateCastCommand(feed, new Kingmaker.Utility.TargetWrapper(corpse.Position)), $"moves to feed on {corpse.CharacterName}", corpse.UniqueId);
-                    return;
-                }
+                return;
             }
             int round = (int)(now / WardProfile.RoundSeconds);
             if (round == s_TeleportRound || unit.Descriptor.HPLeft >= unit.Descriptor.MaxHP / 2)
@@ -462,6 +456,36 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             }
         }
 
+        /// <summary>An eligible corpse in reach of a full round: she goes to eat it. Returns true when the command was issued.</summary>
+        private static bool TryFeed(UnitEntityData unit, bool turnBased)
+        {
+            UnitEntityData corpse = FindEligibleCorpse(unit);
+            if (corpse == null || (turnBased && !unit.HasFullRoundAction()))
+            {
+                return false;
+            }
+            AbilityData feed = unit.Descriptor.Abilities.GetAbility(KurshuBlueprints.FeedAbility)?.Data;
+            if (feed == null || !feed.IsAvailableForCast)
+            {
+                return false;
+            }
+            Issue(unit, UnitUseAbility.CreateCastCommand(feed, new Kingmaker.Utility.TargetWrapper(corpse.Position)), $"moves to feed on {corpse.CharacterName}", corpse.UniqueId);
+            return true;
+        }
+
+        /// <summary>
+        /// Turn-based: her own turn has begun and nothing has acted yet. Feeding needs the whole turn, so it is decided here,
+        /// before her brain spends the standard action.
+        /// </summary>
+        public static void OnTurnStarted(UnitEntityData unit)
+        {
+            SanctumState state = State;
+            if (state == null || unit == null || unit != Kurshu || state.Kurshu.Slain || !state.Kurshu.HiddenCheckDone || !unit.Descriptor.State.IsConscious || !unit.Descriptor.State.CanAct || s_DirectorCommand)
+            {
+                return;
+            }
+            TryFeed(unit, turnBased: true);
+        }
         private static void Issue(UnitEntityData unit, Kingmaker.UnitLogic.Commands.Base.UnitCommand command, string what, string target = null)
         {
             unit.Commands.InterruptAiCommands();
