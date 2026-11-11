@@ -159,7 +159,8 @@ namespace KingmakerWakingRune.Diagnostics
 
         private static UnitEntityData Member(string index)
         {
-            return Game.Instance.Player.Party[int.Parse(index)];
+            // "pet:5" is the animal companion of party member 5.
+            return index.StartsWith("pet:") ? Game.Instance.Player.Party[int.Parse(index.Substring(4))].Descriptor.Pet : Game.Instance.Player.Party[int.Parse(index)];
         }
 
         /// <summary>
