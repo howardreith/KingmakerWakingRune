@@ -205,6 +205,12 @@ namespace KingmakerWakingRune.Sanctum.Encounter
         /// <summary>Read by the buff as it applies.</summary>
         public static int Pending0 { get; set; }
 
+        /// <summary>
+        /// Every comatose creature in the loaded game. A helpless creature's turn is skipped in turn-based combat, so its own
+        /// round tick cannot be relied on; the encounter checks these each tick as well.
+        /// </summary>
+        public static readonly HashSet<KwrMindDrained> Active = new HashSet<KwrMindDrained>();
+
         [JsonProperty]
         public int Pending { get; set; }
 
@@ -218,9 +224,20 @@ namespace KingmakerWakingRune.Sanctum.Encounter
                 Pending = Pending0;
                 DrainWhenHeldBack = Owner.Stats.Intelligence.Drain;
             }
+            Active.Add(this);
+        }
+
+        public override void OnFactDeactivate()
+        {
+            Active.Remove(this);
         }
 
         public void OnNewRound()
+        {
+            CheckRecovery();
+        }
+
+        public void CheckRecovery()
         {
             var stat = Owner.Stats.Intelligence;
             int before = stat.Drain;

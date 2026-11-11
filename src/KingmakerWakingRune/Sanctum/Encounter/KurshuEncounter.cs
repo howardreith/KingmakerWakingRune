@@ -132,6 +132,16 @@ namespace KingmakerWakingRune.Sanctum.Encounter
 
         public static void Tick(SanctumState state, double now)
         {
+            foreach (KwrMindDrained comatose in KwrMindDrained.Active.ToList())
+            {
+                // A load replaces the world without deactivating the old one's facts; those entries are dropped here.
+                if (comatose.Owner?.Unit == null || !Game.Instance.State.Units.Contains(comatose.Owner.Unit) || comatose.Owner.Unit.Buffs.GetBuff(KurshuBlueprints.MindDrained) == null)
+                {
+                    KwrMindDrained.Active.Remove(comatose);
+                    continue;
+                }
+                comatose.CheckRecovery();
+            }
             KurshuState kurshu = state.Kurshu;
             if (kurshu.Policy == KurshuPolicy.LegacyNotInserted && !kurshu.LegacyNoticeShown)
             {
