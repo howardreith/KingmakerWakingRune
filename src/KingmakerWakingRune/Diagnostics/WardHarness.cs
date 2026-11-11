@@ -75,6 +75,8 @@ namespace KingmakerWakingRune.Diagnostics
                     return Hurt(Member(args[1]), args[2], int.Parse(args[3]));
                 case "blueprint":
                     return DumpBlueprint(args[1]);
+                case "builds":
+                    return Builds();
                 case "grab":
                 {
                     // INJECTED: a tail hit on this member is supplied; whether she may grab, the roll and the hold are hers.
@@ -302,6 +304,28 @@ namespace KingmakerWakingRune.Diagnostics
                 }
             }
             return $"INJECTED live-state fixture: {damage} damage written to her hit points ({kurshu.Descriptor.HPLeft}/{kurshu.Descriptor.MaxHP}), uses spent:{spent}; in combat {Game.Instance.Player.IsInCombat}.";
+        }
+
+        /// <summary>Read only: each member's classes, equipment and defenses, then the party's money and shared inventory.</summary>
+        private static string Builds()
+        {
+            var sb = new StringBuilder("READ party builds\n");
+            foreach (UnitEntityData u in Game.Instance.Player.Party)
+            {
+                UnitDescriptor d = u.Descriptor;
+                string classes = string.Join(" ", d.Progression.Classes.Select(c => c.CharacterClass.name.Replace("Class", string.Empty) + c.Level).ToArray());
+                var weapons = new[] { d.Body.PrimaryHand.MaybeWeapon, d.Body.SecondaryHand.MaybeWeapon }.Where(w => w != null)
+                    .Select(w => $"{w.Blueprint.name}(+{w.EnchantmentValue} {string.Join("/", w.Enchantments.Select(e => e.Blueprint.name).ToArray())})");
+                string worn = string.Join(", ", d.Body.AllSlots.Where(s => s.HasItem && !(s.Item is Kingmaker.Items.ItemEntityWeapon)).Select(s => s.Item.Blueprint.name).ToArray());
+                sb.AppendLine($"{u.CharacterName}: {classes}; BAB {d.Stats.BaseAttackBonus.ModifiedValue} AC {d.Stats.AC.ModifiedValue} hp {d.HPLeft}/{d.MaxHP} Fort {d.Stats.SaveFortitude.ModifiedValue} Ref {d.Stats.SaveReflex.ModifiedValue} Will {d.Stats.SaveWill.ModifiedValue} Str {d.Stats.Strength.ModifiedValue} Dex {d.Stats.Dexterity.ModifiedValue} Int {d.Stats.Intelligence.ModifiedValue} Wis {d.Stats.Wisdom.ModifiedValue} Cha {d.Stats.Charisma.ModifiedValue}");
+                sb.AppendLine($"  weapons: {string.Join("; ", weapons.ToArray())}");
+                sb.AppendLine($"  worn: {worn}");
+                sb.AppendLine($"  books: {string.Join("; ", d.Spellbooks.Select(b => $"{b.Blueprint.name} CL{b.CasterLevel} max L{b.MaxSpellLevel}").ToArray())}");
+                sb.AppendLine($"  feats: {string.Join(", ", d.Progression.Features.Enumerable.Where(f => f.Blueprint.Groups.Contains(Kingmaker.Blueprints.Classes.FeatureGroup.Feat) || f.Blueprint.Groups.Contains(Kingmaker.Blueprints.Classes.FeatureGroup.CombatFeat)).Select(f => f.Blueprint.name).ToArray())}");
+            }
+            sb.AppendLine($"money {Game.Instance.Player.Money}");
+            sb.AppendLine("inventory: " + string.Join(", ", Game.Instance.Player.Inventory.Where(i => i.Wielder == null).GroupBy(i => i.Blueprint.name).Select(g => $"{g.Key}x{g.Sum(i => i.Count)}").ToArray()));
+            return sb.ToString();
         }
 
         /// <summary>Read only: a blueprint by name, with its components and their public fields, to check a native implementation.</summary>

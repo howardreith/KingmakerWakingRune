@@ -53,6 +53,8 @@ namespace KingmakerWakingRune.Sanctum.Encounter
         public static BlueprintBuff Held { get; private set; }
         public static BlueprintBuff Grappling { get; private set; }
         public static BlueprintBuff MindDrained { get; private set; }
+        /// <summary>Her once-a-day Will reroll; removed by its own use, and given only when she first appears.</summary>
+        public static BlueprintBuff ImprovedIronWill { get; private set; }
         public static BlueprintAbility MaintainGrapple { get; private set; }
         /// <summary>The native feats she carries from her printed list (the others are calibrated, crafting, or flight).</summary>
         public static readonly List<BlueprintFeature> NativeFeats = new List<BlueprintFeature>();
@@ -200,6 +202,17 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             MaintainGrapple.CanTargetEnemies = true;
             MaintainGrapple.CanTargetSelf = false;
             granted.Add(MaintainGrapple);
+            var reroll = Component<ModifyD20>("KWR_KurshuImprovedIronWillReroll");
+            reroll.Rule = RuleType.SavingThrow;
+            reroll.RollsAmount = 1;
+            reroll.RerollOnlyIfFailed = true;
+            reroll.DispellOnRerollFinished = true;
+            reroll.Chance = Simple(0);
+            reroll.Value = Simple(0);
+            reroll.Skill = new StatType[0];
+            var saves = AccessTools.Field(typeof(ModifyD20), "m_SavingThrowType");
+            saves.SetValue(reroll, Enum.ToObject(saves.FieldType, 4));
+            ImprovedIronWill = Buff(buffDonor, "KWR_KurshuImprovedIronWill", "Improved Iron Will", "Once per day, Kurshu may reroll a Will save. She uses it on the first Will save she would fail, and the reroll stands.", false, reroll);
             MindDrained = Buff(buffDonor, "KWR_KurshuMindDrained", "Comatose (Intelligence 0)", "Kurshu's slams have drained this creature's Intelligence to 0: it lies comatose and helpless. Restoration that removes the drain wakes it.", true,
                 Condition(UnitCondition.Unconscious), Component<KwrMindDrained>("KWR_KurshuMindDrainedLogic"));
 
@@ -259,9 +272,11 @@ namespace KingmakerWakingRune.Sanctum.Encounter
                 }
             }
             // Printed feats: Great Fortitude, Iron Will and Improved Initiative are already in the calibrated saves and
-            // initiative, the crafting feats have nothing to act on here, and Hover has no flight to modify. The three whose
-            // effect is conditional are the game's own feats, so they act exactly as they do for anyone else.
-            foreach (string feat in new[] { "CombatCasting", "CombatReflexes", "ImprovedIronWill" })
+            // initiative, the crafting feats have nothing to act on here, and Hover has no flight to modify. Combat Casting
+            // and Combat Reflexes are the game's own feats, acting as they do for anyone. The game's own Improved Iron Will
+            // (IronWillImproved) is a flat +2 Will, not the printed once-a-day reroll, and would lift her Will above the
+            // printed value; her reroll is built from the native d20 component instead (ImprovedIronWill, below).
+            foreach (string feat in new[] { "CombatCasting", "CombatReflexes" })
             {
                 if (features.TryGetValue(feat, out BlueprintFeature feature))
                 {

@@ -265,6 +265,8 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             s_Bound = unit;
             Note($"appears at the apex ({at.x:0.00},{at.y:0.00},{at.z:0.00}) as {unit.UniqueId}, control restored at {now:0}.");
             EnsureNature(kurshu, unit);
+            // Once a day; its own use removes it, and nothing gives it back (a reload carries its absence).
+            unit.Descriptor.AddBuff(KurshuBlueprints.ImprovedIronWill, unit);
             Reconcile(kurshu, unit);
             LogSheet(unit, "spawned");
             HiddenCheck(kurshu, unit);
@@ -1079,7 +1081,7 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             sb.Append($"  maneuver chain: printed CMB {KurshuProfile.Sheet.First(l => l.Name == "CMB").Printed}/grapple {KurshuProfile.Sheet.First(l => l.Name == "CMB to grapple").Printed}/CMD {KurshuProfile.Sheet.First(l => l.Name == "CMD").Printed}; hard mode {KurshuProfile.Authored("CMB")}/{KurshuProfile.Authored("CMB to grapple")}/{KurshuProfile.Authored("CMD")}; separation now {separation} (authored {KurshuProfile.HardModeNegativeLevels}); preset attack {presetAttack:+0;-0} AC {presetAC:+0;-0}; expected {KurshuProfile.Undrained("CMB") - separation + presetAttack}/{KurshuProfile.Undrained("CMB to grapple") - separation + presetAttack}/{KurshuProfile.Undrained("CMD") - separation + presetAC}; native {cmb.Result}/{grapple}/{cmd.Result}\n");
             KurshuState held = State?.Kurshu;
             sb.Append($"  hold: {(held == null || string.IsNullOrEmpty(held.HeldId) ? "none" : held.HeldName + " since " + held.HeldSince.ToString("0") + (held.MaintainDue ? ", maintenance due" : string.Empty))}; grabs {held?.Grabs} maintains {held?.Maintains}; last release '{held?.LastRelease}'; grappling buff {unit.Buffs.GetBuff(KurshuBlueprints.Grappling) != null}\n");
-            sb.Append($"  native feats [{string.Join(", ", KurshuBlueprints.NativeFeats.Select(f => f.name + (d.HasFact(f) ? " present" : " MISSING")).ToArray())}]\n");
+            sb.Append($"  native feats [{string.Join(", ", KurshuBlueprints.NativeFeats.Select(f => f.name + (d.HasFact(f) ? " present" : " MISSING")).ToArray())}]; Improved Iron Will reroll {(unit.Buffs.GetBuff(KurshuBlueprints.ImprovedIronWill) != null ? "unused" : "spent or absent")}\n");
             sb.Append($"  SR {unit.Descriptor.Get<UnitPartSpellResistance>()?.GetValue(null)}\n");
             foreach (var limb in unit.Body.AdditionalLimbs.Select(l => l.MaybeWeapon).Where(w => w != null))
             {
