@@ -95,3 +95,17 @@ Findings worth keeping:
 - A save copied into the profile while the game runs is not seen by `load` until the game restarts.
 - `spawnfoe` places the unit "ahead" of the first party member; facing a wall puts it out of reach. Several goblins at 3 m start a turn-based fight reliably; the end-turn button is the large round button at window (552, 1352).
 - Harness `condition <fixture> <buff> <seconds>` / `uncondition <fixture> <buff>` apply or remove a native buff of exact length for boundary tests.
+
+## WR-04-R4 player-facing gaps (2026-11-10/11)
+
+Commits `4d7b72b` … `5e05519`, then docs. Run `wr04r4-a`; results in `docs/ACCEPTANCE-WR-04-R4.md`.
+
+Findings worth keeping:
+- The native shared vendor table already migrates an existing save. `SharedVendorTables.GetTable` compares the saved `KnownItems` with the blueprint's current fixed items and applies only the difference. Adding stock to the CSV needs no migration code. Harness `stock` shows saved, reconciled and live counts.
+- Screenshots do not capture the mouse cursor. Harness `cursor` reads the texture the native `PCCursor` is drawing. The magnifying glass is `BlueprintRoot.Cursors.InfoCursor`, chosen in `CursorController.SetUnitCursor`.
+- A unit spawned hostile acts in its first moments. Turn its AI off (`IsBrainActive = false`) at the spawn, not on the first ward tick, and drop commands with an `AiAction`.
+- In turn-based combat the engine wipes a unit's commands at its turn start, and an idle AI turn ends after 0.2 s. A scripted runner must act from `ITurnBasedModeHandler.HandleTurnStarted` and on each command end, not on the 0.25 s ward tick. A move there needs a `ForcedPath`. The party standing on the stair blocks the runner's path.
+- `RuleDealStatDamage` marks any unit for death when an ability score falls below 1. Fixtures have Dexterity 1, so ability damage on them must be put back (0.5.5).
+- The turn-based toggle is the rook icon beside the hourglass, at window (426, 1340). The native turn-based tutorial appears on first use; close it at (2020, 192).
+- Spellbook memorization is a drag from the spell card to a slot; clicks do not memorize. In the Quartermaster shop, filter and scroll with the bar's drag. A click moves one item into the offer, and "Deal" is at (1272, 1202).
+- Stone to Flesh restorations are native survival saves, and in this run they failed often (Fortitude 6 or 13 against 15). Script the reload-and-restore when a living reporter is needed.

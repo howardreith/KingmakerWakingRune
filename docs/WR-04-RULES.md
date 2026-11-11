@@ -81,6 +81,17 @@ The scenario prints that A1's supports are petrified human cultists, that A2 is 
 | Lodge rest | The Quartermaster offers "a night's rest" before departure: the native scripted party rest an inn gives (8 hours, spells and resources restored). Neither the lodge's donor area nor the sanctum allows camping, so prepared casters had no way to ready the spells their new levels brought. |
 | Difficulty presets (owner ruling) | The scenario respects the chosen native preset. Under `ExtraDecline` the mist's sleep lasts three rounds and is reconciled as a wake when the engine removes it. Restored cultists carry the preset's `DifficultOpponent` AC adjustment (−2 under Decline, +2 under Challenging). No compensating patch is applied. |
 
+## WR-04-R4: player-facing rulings
+
+| Topic | Ruling |
+|---|---|
+| Reporters (owner ruling) | A restored reporter is hostile (`FactionMobs`), so enemy-only spells such as Hold Person can target it. Allegiance is separate from behaviour: its own AI is off from the moment it is restored (`IsBrainActive = false`), so it flees rather than fights. Combat does not stop the flight; being unable to move or act does, through the engine's own `CanMove`/`CanAct`. In turn-based combat it moves only in its own turn, along a precomputed path, within that turn's movement. A charmed, dominated, confused or panicked reporter is left to whoever controls it and its AI returns. The messenger warning is raised only when an able reporter stands in Vandiana's chamber. |
+| Summon orders | Every active rune plate offers "Direct my summoned creatures to attack this rune" whenever the speaker has living summons of their own. It gives each of them a native attack command, renewed after each round of attacks and at each of their turn-based turns, until the rune goes dark, the plate is gone, the summon ends or the player chooses "Call the summoned creatures off this rune". Nothing else changes: summons are not made selectable, and they walk, attack, meet hardness and expire natively. |
+| Departure readiness | Using the token now opens a departure step in the lodge: a notice that leaving includes a night's rest (effects already cast will run out; scrolls, potions and wand charges are not restored), the native spellbook for review, a warning listing any empty prepared slots (not filled for the player), then the native scripted party rest, and only then the checkpoint and transfer. Cancelling at any point spends nothing. A retry after a failed checkpoint or load departs without a second rest; a save load or a completed arrival clears that record. Nothing in the sanctum rests: a sanctum load never reaches this code. The Quartermaster's manual rest remains. |
+| Quartermaster stock | Adds every exotic weapon family the installed game supports and the shop lacked (fauchard, sai, dwarven waraxe, estoc, falcata, tongi, orc double axe, two-bladed sword, dwarven urgrosh, gnome hooked hammer, sling staff; +1 to +3), the missing +3 kama and nunchaku, six Stone to Flesh scrolls and a second +3 dagger. Existing lodges take the change through the native shared-vendor reconciliation, which applies only the difference between the saved catalogue counts and the new ones. Purchases, sales and money are kept, and nothing is refilled on rest or reload. |
+| Inspection | A plain click on authored scenery examines it, and its cursor is now the native magnifying glass (`InfoCursor`). An aimed spell or ability, combat, and turn-based combat keep the native cursor and targeting. Restored cultists are ordinary units. The deeper rune reading tells the methods as discoveries and replaces the identification. Damage totals, DCs and hardness stay in the rules, diagnostics and acceptance documents. |
+| Ability damage on fixtures | A fixture's ability damage is recorded for its rune (the Life plate's poison and disease route), but the object's own score is put back at once. The engine kills any creature whose score falls below 1, and a plate has an object's Dexterity of 1, so one point of a summon's poison killed the Life plate and left its rune unbreakable (found in the R4 run, fixed in 0.5.5). |
+
 ## Files
 
 `WardProfile` numbers · `KruneProjection` masks · `RuneRules`, `CurseRules`, `FeederRules`, `MistRules`, `RitualRules`, `SanctumState` state and rules · `WardGeometry` placements · `WardBlueprints`, `WardDialogs`, `WardText` content · `WardFixtures`, `WardObserver`, `WardRuntime`, `WardTraps`, `WardDoor`, `WardHazards`, `WardRitual`, `WardStatues`, `WardInteract` the native layer · `WardStore` the save-bound state on the main character's `SanctumWardPart`.
@@ -118,6 +129,12 @@ On a save that entered the empty sanctum, the door stays unlatched, the wards ar
 ## WR-04-R3 migration
 
 - State stays version 2; nothing new is saved. A sustain already in progress keeps its saved start; the native application time is used only for effects applied after the update.
+
+## WR-04-R4 migration
+
+- State stays version 2. A reporter that an older save restored as a neutral switches to the hostile faction once, the first time its flight is ticked; a charmed or dominated one is left to its controller. Its AI is switched off with the same tick.
+- Quartermaster stock reconciles natively on the first visit after the update (see the ruling above): +1 +3 dagger, six Stone to Flesh scrolls, the new exotic lines; nothing else changes.
+- `WardFixtures.Protect` restores a fixture found dead. In the R4 run, the save made while the Life plate was dead loaded under 0.5.5 with the plate whole and its rune active, but the restore's log line did not appear, so what revived it on that load is unconfirmed. Summon orders are not saved: after a reload the summons follow their own AI until the order is given again.
 
 ## Not implemented
 
