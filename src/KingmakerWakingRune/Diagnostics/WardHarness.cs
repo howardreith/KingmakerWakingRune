@@ -98,6 +98,26 @@ namespace KingmakerWakingRune.Diagnostics
                     // The Refuge Token ability's own callback, for when the action bar cannot be clicked.
                     KingmakerWakingRune.Sanctum.RefugeTransit.Request();
                     return "SETUP Refuge Token used through the ability's own entry point.";
+                case "tbm":
+                    // The rook button's own handler; the setting it flips is restored with the registry at the run's end.
+                    UnityEngine.Object.FindObjectOfType<Kingmaker.UI.IngameMenu.IngameMenuController>().OnTBMToggle();
+                    return $"SETUP turn-based mode toggled through the rook button's handler: now {Kingmaker.UI.SettingsUI.SettingsRoot.Instance.EnableTurnBasedMode.CurrentValue}.";
+                case "endturn":
+                {
+                    TurnBased.Controllers.TurnController turn = Game.Instance.TurnBasedCombatController.CurrentTurn;
+                    if (turn == null || !turn.Unit.IsDirectlyControllable || !turn.CanEndTurn())
+                    {
+                        return $"no party turn to end (current {turn?.Unit.CharacterName ?? "none"})";
+                    }
+                    string who = turn.Unit.CharacterName;
+                    turn.ForceToEnd();
+                    return $"SETUP ended {who}'s turn, as the end-turn button would.";
+                }
+                case "turn":
+                {
+                    TurnBased.Controllers.TurnController turn = Game.Instance.TurnBasedCombatController.CurrentTurn;
+                    return $"READ turn: {turn?.Unit.CharacterName ?? "none"} party={turn?.Unit.IsDirectlyControllable} status={turn?.Status} inTBCombat={TurnBased.Controllers.CombatController.IsInTurnBasedCombat()} round={Game.Instance.TurnBasedCombatController.RoundNumber}.";
+                }
                 case "answer":
                     return AnswerBox(args[1] == "yes");
                 case "memorize":
