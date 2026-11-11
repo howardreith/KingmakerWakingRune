@@ -125,6 +125,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
             UnitEntityData cultist = Game.Instance.EntityCreator.SpawnUnit(blueprint, placed, Quaternion.identity, Game.Instance.State.LoadedAreaState.MainState);
             LogStats(id, cultist, "spawned");
             cultist.Descriptor.Ensure<WardRestoredPart>().StatueId = id;
+            if (role == BearerRole.Report)
+            {
+                // A reporter flees from its first moment: its AI never gets a turn to choose a fight.
+                cultist.IsBrainActive = false;
+            }
             statue.EntityId = cultist.UniqueId;
             statue.Credentialed = CredentialRules.IsMarked(id);
             statue.RouteLeg = 0;
@@ -475,9 +480,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
         /// </summary>
         private static void KeepFleeing(string id, UnitEntityData runner)
         {
-            if (runner.IsBrainActive)
+            if (runner.IsBrainActive || runner.Commands.Raw.Any(c => c != null && c.AiAction != null))
             {
+                // Whatever its AI had already chosen is dropped with it; only the flight's own commands remain.
                 runner.IsBrainActive = false;
+                runner.Commands.InterruptAll(c => c.AiAction != null);
                 Log.Info($"Runner {id} ({runner.CharacterName}) flees: its own AI is off; hostile {runner.IsPlayersEnemy}.");
             }
             if (!runner.IsPlayersEnemy && runner.Descriptor.Faction == Game.Instance.BlueprintRoot.SystemMechanics.FactionNeutrals)
