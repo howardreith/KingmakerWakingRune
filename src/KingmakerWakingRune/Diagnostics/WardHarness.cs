@@ -69,7 +69,7 @@ namespace KingmakerWakingRune.Diagnostics
                 {
                     // Read only: the encounter's saved state and her live sheet.
                     UnitEntityData kurshu = KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu;
-                    return "READ Kurshu state: " + JsonConvert.SerializeObject(WardRuntime.State?.Kurshu, Formatting.Indented) + "\n" + (kurshu == null ? "no Kurshu entity" : KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Report(kurshu));
+                    return "READ Kurshu state: " + WardStore.Dump(WardRuntime.State?.Kurshu) + "\n" + (kurshu == null ? "no Kurshu entity" : KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Report(kurshu));
                 }
                 case "corpse":
                     return Corpse(args[1], args.Length > 2 ? float.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture) : 3f);
@@ -98,6 +98,20 @@ namespace KingmakerWakingRune.Diagnostics
                     return Stock();
                 case "slots":
                     return Slots(Member(args[1]));
+                case "known":
+                {
+                    // Read only: every spell each spellbook knows, by level.
+                    UnitEntityData member = Member(args[1]);
+                    var sb = new StringBuilder($"READ known spells of {member.CharacterName}:\n");
+                    foreach (Spellbook book in member.Descriptor.Spellbooks)
+                    {
+                        for (int level = 0; level <= book.MaxSpellLevel; level++)
+                        {
+                            sb.AppendLine($"  {book.Blueprint.name} L{level}: {string.Join(", ", book.GetKnownSpells(level).Select(s => s.Blueprint.name).ToArray())}");
+                        }
+                    }
+                    return sb.ToString();
+                }
                 case "cursor":
                     return Cursor();
                 case "spell":

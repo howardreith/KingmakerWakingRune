@@ -78,6 +78,17 @@ namespace KingmakerWakingRune.Sanctum.Wards
             return state == null ? "No sanctum state in this game." : Write(state, Formatting.Indented);
         }
 
+        /// <summary>One part of the state as the save holds it, for the test harness's reports.</summary>
+        public static string Dump(object part)
+        {
+            using (var text = new StringWriter())
+            using (var writer = new JsonTextWriter(text) { Formatting = Formatting.Indented })
+            {
+                Serializer.Serialize(writer, part);
+                return text.ToString();
+            }
+        }
+
         /// <summary>Whether the loaded game carries the part at all, read without creating it.</summary>
         public static bool HasPart => Game.Instance.Player.MainCharacter.Value?.Descriptor.Get<SanctumWardPart>() != null;
 

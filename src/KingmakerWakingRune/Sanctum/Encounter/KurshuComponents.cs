@@ -294,8 +294,17 @@ namespace KingmakerWakingRune.Sanctum.Encounter
     }
 
     /// <summary>Read only: every spell resistance check against her, every hit she takes and every cast she makes, for the record.</summary>
-    public sealed class KwrKurshuObserver : OwnedGameLogicComponent<UnitDescriptor>, ITargetRulebookHandler<RuleDealDamage>, IRulebookHandler<RuleDealDamage>, ITargetRulebookSubscriber, ITargetRulebookHandler<RuleSpellResistanceCheck>, IRulebookHandler<RuleSpellResistanceCheck>, IInitiatorRulebookHandler<RuleCastSpell>, IRulebookHandler<RuleCastSpell>, IInitiatorRulebookSubscriber
+    public sealed class KwrKurshuObserver : OwnedGameLogicComponent<UnitDescriptor>, ITargetRulebookHandler<RuleDealDamage>, IRulebookHandler<RuleDealDamage>, ITargetRulebookSubscriber, ITargetRulebookHandler<RuleSpellResistanceCheck>, IRulebookHandler<RuleSpellResistanceCheck>, IInitiatorRulebookHandler<RuleCastSpell>, IRulebookHandler<RuleCastSpell>, IInitiatorRulebookSubscriber, IInitiatorRulebookHandler<RuleAttackWithWeapon>, IRulebookHandler<RuleAttackWithWeapon>
     {
+        public void OnEventAboutToTrigger(RuleAttackWithWeapon evt)
+        {
+        }
+
+        public void OnEventDidTrigger(RuleAttackWithWeapon evt)
+        {
+            KurshuEncounter.Note($"attacks {evt.Target?.CharacterName} with {evt.Weapon?.Blueprint?.name}: {evt.AttackRoll?.Roll}+{evt.AttackRoll?.AttackBonus} vs AC {evt.AttackRoll?.TargetAC}: {(evt.AttackRoll != null && evt.AttackRoll.IsHit ? "hit" : "miss")}; combat {Owner.Unit.IsInCombat}, turn-based {TurnBased.Controllers.CombatController.IsInTurnBasedCombat()}.");
+        }
+
         public void OnEventAboutToTrigger(RuleDealDamage evt)
         {
         }

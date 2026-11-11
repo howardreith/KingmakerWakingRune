@@ -281,9 +281,13 @@ namespace KingmakerWakingRune.Sanctum.Encounter
                 Stat(StatType.AC, 2, ModifierDescriptor.Deflection),
                 // Improved Initiative's +4 on Dex +6: printed +10.
                 Stat(StatType.Initiative, 4, ModifierDescriptor.UntypedStackable),
-                // Ranks, class bonus and Wisdom or Dexterity make the printed totals; the size modifier, if any, is native.
+                // Ranks and class bonus on Wisdom +5 make printed Perception; Stealth's printed total already carries the Large
+                // -4, which the engine applies itself, so it is added back here once.
                 Stat(StatType.SkillPerception, KurshuProfile.Undrained("Perception") - 5, ModifierDescriptor.UntypedStackable),
-                Stat(StatType.SkillStealth, KurshuProfile.Undrained("Stealth") - 6, ModifierDescriptor.UntypedStackable),
+                Stat(StatType.SkillStealth, KurshuProfile.Undrained("Stealth") - 6 + 4, ModifierDescriptor.UntypedStackable),
+                // The engine's CMD counts the Large AC penalty (inside touch AC) as well as its +1 size bonus; printed CMD
+                // counts the size once. One point offsets the engine's second count.
+                Stat(StatType.AdditionalCMD, 1, ModifierDescriptor.UntypedStackable),
             };
             if (hitPoints - s_MaxHP != 0)
             {

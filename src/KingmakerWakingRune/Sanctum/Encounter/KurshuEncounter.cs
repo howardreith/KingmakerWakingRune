@@ -89,7 +89,7 @@ namespace KingmakerWakingRune.Sanctum.Encounter
 
         public static void Note(string text)
         {
-            Log.Info("Kurshu: " + text);
+            Log.Info($"Kurshu [{WardRuntime.Now:0.0}]: {text}");
         }
 
         /// <summary>Every load: nothing is spawned, refilled or repeated here. Saved uses and levels are pressed onto the unit.</summary>
@@ -101,11 +101,9 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             s_DirectorCommand = false;
             s_TeleportRound = -1;
             KurshuState kurshu = state.Kurshu;
-            if (kurshu.Policy == KurshuPolicy.LegacyNotInserted && !kurshu.LegacyNoticeShown)
+            if (kurshu.Policy == KurshuPolicy.LegacyNotInserted)
             {
-                kurshu.LegacyNoticeShown = true;
-                WardRuntime.Say("This save was made inside the sanctum before Kurshu the Undying guarded it; she is not added to it. To meet her, load a save from before the Refuge Token was used.");
-                Note("legacy save: encounter not inserted; notice shown once.");
+                Note($"legacy save: encounter not inserted (notice shown before: {kurshu.LegacyNoticeShown}).");
             }
             UnitEntityData unit = Kurshu;
             if (unit != null)
@@ -125,6 +123,13 @@ namespace KingmakerWakingRune.Sanctum.Encounter
         public static void Tick(SanctumState state, double now)
         {
             KurshuState kurshu = state.Kurshu;
+            if (kurshu.Policy == KurshuPolicy.LegacyNotInserted && !kurshu.LegacyNoticeShown)
+            {
+                // Said at the first tick, once the loaded game's log is showing, rather than lost during the load.
+                kurshu.LegacyNoticeShown = true;
+                WardRuntime.Say("This save was made inside the sanctum before Kurshu the Undying guarded it, so she is not added to it. To meet her, load a save from before the Refuge Token was used.");
+                Note("legacy notice shown once.");
+            }
             if (kurshu.Policy != KurshuPolicy.Active)
             {
                 return;
@@ -156,6 +161,7 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             {
                 return;
             }
+            ApplyScale(unit);
             if (!s_Logged)
             {
                 s_Logged = true;
@@ -234,6 +240,25 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             HiddenCheck(kurshu, unit);
         }
 
+        /// <summary>
+        /// The donor's model is a Medium figure and the engine scales a view only for a change from the blueprint's size, so
+        /// her Large body is drawn at the engine's own one-size step (1 / 0.66). Rules size, reach and weapons are untouched,
+        /// and any native size change (enlarge, reduce) still applies on top.
+        /// </summary>
+        private static void ApplyScale(UnitEntityData unit)
+        {
+            UnitEntityView view = unit.View;
+            if (view == null)
+            {
+                return;
+            }
+            Vector3 wanted = view.OriginalScale * (view.GetSizeScale() / 0.66f);
+            if ((view.transform.localScale - wanted).sqrMagnitude > 1e-4f)
+            {
+                view.transform.localScale = wanted;
+            }
+        }
+
         /// <summary>Her regeneration and her separation's saved count, applied once; a reload finds them already there.</summary>
         private static void EnsureNature(KurshuState kurshu, UnitEntityData unit)
         {
@@ -260,6 +285,13 @@ namespace KingmakerWakingRune.Sanctum.Encounter
         {
             foreach (var pair in KurshuBlueprints.Resources)
             {
+                // A resource the unit does not yet carry, or carries at another maximum, says nothing about what was spent.
+                int max = pair.Value.GetMaxAmount(unit.Descriptor);
+                if (!unit.Descriptor.Resources.ContainsResource(pair.Value) || max != KurshuUses.PerDay[pair.Key])
+                {
+                    Note($"resource {pair.Key} not reconciled: present {unit.Descriptor.Resources.ContainsResource(pair.Value)}, maximum {max} of {KurshuUses.PerDay[pair.Key]}.");
+                    continue;
+                }
                 int native = unit.Descriptor.Resources.GetResourceAmount(pair.Value);
                 int wanted = KurshuRules.Reconcile(kurshu, pair.Key, native);
                 if (native != wanted)
@@ -658,7 +690,11 @@ namespace KingmakerWakingRune.Sanctum.Encounter
                 ModifiableValue stat = unit.Stats.GetStat(type);
                 sb.Append($"  {type} {stat.ModifiedValue} (base {stat.BaseValue}) [{string.Join(", ", stat.Modifiers.Select(m => $"{m.ModDescriptor} {m.ModValue:+0;-0}").ToArray())}]\n");
             }
-            sb.Append($"  AC touch {unit.Stats.AC.Touch} flat-footed {unit.Stats.AC.FlatFooted}; CMB {unit.Stats.AdditionalCMB.ModifiedValue + unit.Stats.BaseAttackBonus.ModifiedValue + unit.Stats.Strength.Bonus + 1} (approx.), CMD {Rulebook.Trigger(new RuleCalculateCMD(unit, unit, CombatManeuver.Trip)).Result}\n");
+            var cmb = Rulebook.Trigger(new RuleCalculateBaseCMB(unit));
+            var cmd = Rulebook.Trigger(new RuleCalculateBaseCMD(unit));
+            UnitEntityData foe = Game.Instance.Player.Party.FirstOrDefault();
+            string grapple = foe == null ? "?" : Rulebook.Trigger(new RuleCalculateCMB(unit, foe, CombatManeuver.Grapple)).Result.ToString();
+            sb.Append($"  AC touch {unit.Stats.AC.Touch} flat-footed {unit.Stats.AC.FlatFooted}; CMB {cmb.Result} (grapple {grapple}); CMD {cmd.Result} (BAB {cmd.ResultBAB} Str {cmd.ResultStrengthBonus} Dex {cmd.ResultDexterityBonus} size {cmd.ResultSizeBonus} misc {cmd.ResultMiscBonus})\n");
             sb.Append($"  SR {unit.Descriptor.Get<UnitPartSpellResistance>()?.GetValue(null)}\n");
             foreach (var limb in unit.Body.AdditionalLimbs.Select(l => l.MaybeWeapon).Where(w => w != null))
             {
