@@ -102,6 +102,8 @@ namespace KingmakerWakingRune.Diagnostics
                 }
                 case "kurshufixture":
                     return KurshuFixture(int.Parse(args[1]), args.Skip(2).ToArray());
+                case "combatsave":
+                    return CombatSave(args[1]);
                 case "paused":
                     return $"READ paused={Game.Instance.IsPaused} mode={Game.Instance.CurrentMode} turnBased={TurnBased.Controllers.CombatController.IsInTurnBasedCombat()} time={WardRuntime.Now:0.0}";
                 case "corpse":
@@ -304,6 +306,29 @@ namespace KingmakerWakingRune.Diagnostics
                 }
             }
             return $"INJECTED live-state fixture: {damage} damage written to her hit points ({kurshu.Descriptor.HPLeft}/{kurshu.Descriptor.MaxHP}), uses spent:{spent}; in combat {Game.Instance.Player.IsInCombat}.";
+        }
+
+        /// <summary>
+        /// INJECTED combat pause for a save: the game refuses every save while anyone is in combat, so every unit leaves combat
+        /// in this one frame and the save is requested at once. Her hit points and spent uses are whatever the real fight left;
+        /// a load re-binds her and native awareness starts the fight again.
+        /// </summary>
+        private static string CombatSave(string name)
+        {
+            int left = 0;
+            foreach (UnitEntityData unit in Game.Instance.State.Units.Where(u => u.CombatState.IsInCombat).ToList())
+            {
+                unit.CombatState.LeaveCombat();
+                left++;
+            }
+            Game.Instance.Player.UpdateIsInCombat();
+            if (!Game.Instance.SaveManager.IsSaveAllowed())
+            {
+                return $"INJECTED combat pause: {left} unit(s) left combat, but the game still refuses to save (in combat {Game.Instance.Player.IsInCombat}).";
+            }
+            var save = Game.Instance.SaveManager.CreateNewSave("KWR_AUTOMATION_" + name);
+            Game.Instance.SaveGame(save);
+            return $"INJECTED combat pause: {left} unit(s) left combat for one frame; SETUP save requested: '{save.Name}'.";
         }
 
         /// <summary>Read only: each member's classes, equipment and defenses, then the party's money and shared inventory.</summary>

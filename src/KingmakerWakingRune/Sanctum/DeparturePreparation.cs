@@ -116,7 +116,7 @@ namespace KingmakerWakingRune.Sanctum
                 }
                 string list = string.Join("; ", changed.ToArray());
                 Log.Info($"Departure: since the departure rest: {list}.");
-                Ask("Since the party's rest: " + list + ". Spells chosen since then are not ready.\n\nDepart now as the party stands? (Choose No to rest again instead.)", yes =>
+                Ask("Since the party's rest: " + list + ". Spells chosen since then are not ready.\n\nDepart now as the party stands? (Choose Cancel to rest again instead.)", yes =>
                 {
                     if (yes)
                     {
