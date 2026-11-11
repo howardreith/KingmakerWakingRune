@@ -51,7 +51,7 @@ namespace KingmakerWakingRune.Diagnostics
                 case "castpoint":
                     return CastPoint(Member(args[1]), args[2], float.Parse(args[3]), float.Parse(args[4]));
                 case "perform":
-                    return Perform(args[1], args[2]);
+                    return Perform(args[1], args[2], args.Length > 3 ? Member(args[3]) : null);
                 case "study":
                     return Study(args[1], args[2], args.Length > 3 ? args[3] : null);
                 case "load":
@@ -480,16 +480,16 @@ namespace KingmakerWakingRune.Diagnostics
         }
 
         /// <summary>Runs one fixture's dialogue action as if its answer were clicked; the rolls and effects behind it stay native.</summary>
-        private static string Perform(string fixtureId, string key)
+        private static string Perform(string fixtureId, string key, UnitEntityData actor)
         {
             WardAction action = WardActions.For(fixtureId).FirstOrDefault(a => a.Key == key);
             if (action == null)
             {
                 return $"no action {key} on {fixtureId}";
             }
-            action.Run(Game.Instance.Player.MainCharacter.Value);
+            action.Run(actor ?? Game.Instance.Player.MainCharacter.Value);
             WardInteract.RunPending();
-            return $"SETUP performed {key} on {fixtureId}.";
+            return $"SETUP performed {key} on {fixtureId} as {(actor ?? Game.Instance.Player.MainCharacter.Value).CharacterName}.";
         }
 
         private static string Study(string fixtureId, string key, string skillName)
