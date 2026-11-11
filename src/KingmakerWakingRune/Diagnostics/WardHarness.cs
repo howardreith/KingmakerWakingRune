@@ -94,6 +94,14 @@ namespace KingmakerWakingRune.Diagnostics
                     return Cursor();
                 case "spell":
                     return SpellFromBook(Member(args[1]), args[2], args.Skip(3).ToArray());
+                case "token":
+                    // The Refuge Token ability's own callback, for when the action bar cannot be clicked.
+                    KingmakerWakingRune.Sanctum.RefugeTransit.Request();
+                    return "SETUP Refuge Token used through the ability's own entry point.";
+                case "answer":
+                    return AnswerBox(args[1] == "yes");
+                case "memorize":
+                    return Memorize(Member(args[1]), args[2], int.Parse(args[3]));
                 case "cantarget":
                     return CanTarget(Member(args[1]), args[2], args[3]);
                 case "screen":
@@ -378,6 +386,34 @@ namespace KingmakerWakingRune.Diagnostics
             bool can = data.CanTarget(wrapper);
             caster.Commands.Run(UnitUseAbility.CreateCastCommand(data, wrapper));
             return $"SETUP cast from {caster.CharacterName}'s own spellbook: {data.Blueprint.name} ({data.Spellbook?.Blueprint.name}) {where} canTarget={can}; native rules resolve it and spend the slot.";
+        }
+
+        /// <summary>Presses the open message box's Yes or No through the box's own button handler, as a click would.</summary>
+        private static string AnswerBox(bool yes)
+        {
+            Kingmaker.UI.DialogMessageBox box = UnityEngine.Object.FindObjectsOfType<Kingmaker.UI.DialogMessageBox>().FirstOrDefault(b => b.IsShown);
+            if (box == null)
+            {
+                return "no message box is open";
+            }
+            Harmony12.AccessTools.Method(typeof(Kingmaker.UI.DialogMessageBox), yes ? "OnButtonYes" : "OnButtonNo").Invoke(box, null);
+            return $"SETUP message box answered {(yes ? "Yes" : "No")} through its own button handler.";
+        }
+
+        /// <summary>Prepares a known spell into an empty slot of its level, as dragging it into the spellbook would.</summary>
+        private static string Memorize(UnitEntityData unit, string name, int level)
+        {
+            foreach (Spellbook book in unit.Descriptor.Spellbooks.Where(b => !b.Blueprint.Spontaneous))
+            {
+                AbilityData spell = book.GetKnownSpells(level).FirstOrDefault(s => s.Blueprint.name == name);
+                SpellSlot empty = book.GetMemorizedSpellSlots(level).FirstOrDefault(s => s.Spell == null);
+                if (spell != null && empty != null)
+                {
+                    bool done = book.Memorize(spell, empty);
+                    return $"SETUP memorize {name} at level {level} for {unit.CharacterName}: {done}; ready now={empty.Available}.";
+                }
+            }
+            return $"{unit.CharacterName} cannot prepare {name} at level {level} into an empty slot";
         }
 
         /// <summary>Read only: whether the native targeting rules let this caster aim this ability at the target. Nothing is granted or cast.</summary>
