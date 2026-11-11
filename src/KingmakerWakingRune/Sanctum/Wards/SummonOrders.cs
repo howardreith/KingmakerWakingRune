@@ -114,8 +114,20 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public void HandleUnitCommandDidEnd(UnitCommand command)
         {
             UnitEntityData summon = command?.Executor;
-            if (summon == null || !(command is UnitAttack) || OrderOf(summon) == null)
+            SummonOrderRecord order = OrderOf(summon);
+            if (summon == null || !(command is UnitAttack) || order == null)
             {
+                return;
+            }
+            // Only an attack that ran its course is renewed. An interrupted one was replaced or stopped by someone (a new order,
+            // a turn start, a recall) whose own step decides what follows; renewing it would replace the replacement, forever.
+            if (command.Result == UnitCommand.ResultType.Interrupt)
+            {
+                return;
+            }
+            if (command.Result == UnitCommand.ResultType.Fail)
+            {
+                End(order, "it could not carry out the attack", interrupt: false);
                 return;
             }
             // Renewed once this command has fully left the queue, never from inside its own completion.
@@ -217,6 +229,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 return;
             }
             UnitEntityData target = WardFixtures.Find(order.TargetId);
+            if (summon.Commands.Raw.Any(c => c is UnitAttack attack && !attack.IsFinished && attack.TargetUnit == target))
+            {
+                // Already on its way or striking: replacing a running attack with the same one would only interrupt it.
+                return;
+            }
             try
             {
                 summon.Commands.Run(UnitAttack.CreateAttackCommand(summon, target));
