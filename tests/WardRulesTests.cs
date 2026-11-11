@@ -21,6 +21,25 @@ namespace KingmakerWakingRune.Tests
             return new[] { new RuneDamageComponent(type, amount) };
         }
 
+        public static void TestRuneReadingsTellDiscoveriesWithoutRulesNumbers()
+        {
+            foreach (RuneKind kind in Enum.GetValues(typeof(RuneKind)))
+            {
+                foreach (bool disabled in new[] { false, true })
+                {
+                    string deep = WardText.RuneUnderstanding(kind, disabled);
+                    string basic = WardText.RuneIdentity(KruneProjection.Foci.First(f => f.Kind == kind), new RuneFocusState { Disabled = disabled });
+                    foreach (string text in new[] { deep, basic })
+                    {
+                        Assert.Equal(true, !text.Any(char.IsDigit), $"{kind} reading has no numbers: {text}");
+                        Assert.Equal(true, text.IndexOf("hardness", StringComparison.OrdinalIgnoreCase) < 0 && text.IndexOf("DC ", StringComparison.Ordinal) < 0 && text.IndexOf("threshold", StringComparison.OrdinalIgnoreCase) < 0, $"{kind} reading has no rules terms");
+                    }
+                    Assert.Equal(true, deep.StartsWith(disabled ? "This is a spent" : "This is an active", StringComparison.Ordinal), $"{kind} deeper reading opens with its state");
+                    Assert.Equal(true, deep.Length > basic.Length, $"{kind} deeper reading says more than the identification");
+                }
+            }
+        }
+
         public static void TestAllKruneMasksMatchTheReferenceTable()
         {
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "krune_mask_expected.json");

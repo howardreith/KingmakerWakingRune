@@ -106,21 +106,56 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
         }
 
-        public static string RuneRoutes(RuneKind kind)
+        /// <summary>
+        /// The deeper reading, which replaces the identification rather than following it: the ways the rune can be undone,
+        /// told as discoveries. Thresholds, DCs and hardness stay in the rules and the diagnostics, never in this text.
+        /// </summary>
+        public static string RuneUnderstanding(RuneKind kind, bool disabled)
         {
-            const string pipeline = "\nAfter hardness 8 per hit, the listed energies apply at full value. Physical thresholds count one hit only; energy thresholds gather across the party for one round.";
+            return RuneOpening(kind, disabled) + " " + RuneMethods(kind);
+        }
+
+        private static string RuneOpening(RuneKind kind, bool disabled)
+        {
             switch (kind)
             {
                 case RuneKind.Life:
-                    return "It fails to 27 negative-energy damage in one round; to two or more negative levels; to 3 points of damage to a single ability score by poison or disease in one round; or to a death spell of 4th level or higher." + pipeline;
+                    return disabled
+                        ? "This is a spent Thassilonian Rune of Life; it once channeled vitality into Krune, and its inlay is now cold and inert. Closer study shows that forces associated with death could unravel its magic."
+                        : "This is an active Thassilonian Rune of Life, apparently channeling vitality into Krune. Closer study reveals that forces associated with death could unravel its magic.";
                 case RuneKind.Alacrity:
-                    return "It fails to magical or alchemical entanglement held 10 rounds; to being staggered or paralyzed for 5 rounds (it does not count as a humanoid); or to 35 cold damage in one round." + pipeline;
+                    return disabled
+                        ? "This is a spent Thassilonian Rune of Alacrity; it once lent Krune unnatural speed and anticipation, and its inlay is now cold and inert. Its magic was vulnerable to effects that impede movement."
+                        : "This is an active Thassilonian Rune of Alacrity, apparently lending Krune unnatural speed and anticipation. Its magic is vulnerable to effects that impede movement.";
                 case RuneKind.Defense:
-                    return "It fails to 35 electricity, force or sonic damage in one round; to 35 bludgeoning damage from a single attack; or to a dispel magic against caster level 14." + pipeline;
+                    return disabled
+                        ? "This is a spent Thassilonian Rune of Defense; it once shielded Krune against both physical and magical threats, and its inlay is now cold and inert. Its protections could be overwhelmed by a concentrated surge of electricity, magical force, or resonant sound delivered within a single round."
+                        : "This is an active Thassilonian Rune of Defense, apparently shielding Krune against both physical and magical threats. Its protections could be overwhelmed by a concentrated surge of electricity, magical force, or resonant sound delivered within a single round.";
                 case RuneKind.Armor:
-                    return "It fails to 35 acid or fire damage in one round; to a DC 35 Trickery check; or to 35 piercing or slashing damage from a single attack." + pipeline;
+                    return disabled
+                        ? "This is a spent Thassilonian Rune of Armor; it once hardened Krune's flesh against injury, and its inlay is now cold and inert. Closer examination shows weaknesses in both its magical bindings and its physical construction."
+                        : "This is an active Thassilonian Rune of Armor, apparently hardening Krune's flesh against injury. Closer examination reveals weaknesses in both its magical bindings and its physical construction.";
                 default:
-                    return "It fails to a compulsion spell of 4th level or higher; to 50 damage dealt by summoned or called creatures within one minute; or to a DC 35 Use Magic Device check." + pipeline;
+                    return disabled
+                        ? "This is a spent Thassilonian Rune of Control; it once reinforced Krune's command over his servants, and its inlay is now cold and inert. Its bindings were vulnerable to powerful commands, and to being turned against the very creatures they govern."
+                        : "This is an active Thassilonian Rune of Control, apparently reinforcing Krune's command over his servants. Its bindings are vulnerable to powerful commands, and to being turned against the very creatures they govern.";
+            }
+        }
+
+        private static string RuneMethods(RuneKind kind)
+        {
+            switch (kind)
+            {
+                case RuneKind.Life:
+                    return "\n\nA concentrated burst of negative energy delivered within a single round could overwhelm it. So could inflicting multiple negative levels, or rapidly damaging a single ability through poison or disease. A death spell of fourth level or higher would strike directly at the enchantment sustaining it.";
+                case RuneKind.Alacrity:
+                    return "\n\nMagical or alchemical bindings maintained without interruption could bring it to a halt. Sustained staggering or paralysis could achieve the same result more quickly, while an overwhelming burst of cold delivered within a single round could shatter its enchantment. Despite these vulnerabilities, the rune is not a person: magic that binds only humanoids will not hold it.";
+                case RuneKind.Defense:
+                    return "\n\nAn exceptionally powerful bludgeoning strike could also break its defenses, but the force must come in a single blow. Alternatively, a sufficiently effective dispelling could unravel the powerful enchantment bound into the stone.";
+                case RuneKind.Armor:
+                    return "\n\nAn overwhelming amount of acid or fire delivered within a single round could destroy it. So could a heavy piercing or slashing blow, provided the damage is delivered in a single strike. Someone with exceptional skill in Trickery might instead sabotage the plate's intricate workings.";
+                default:
+                    return "\n\nA compulsion spell of fourth level or higher could overturn its authority. A sustained assault by summoned or called creatures, concentrated within a minute, could also tear the enchantment apart. Someone exceptionally skilled in Use Magic Device might instead impose their own command upon the rune.";
             }
         }
 

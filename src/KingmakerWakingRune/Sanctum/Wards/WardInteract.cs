@@ -374,11 +374,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 return;
             }
             RuneFocus focus = KruneProjection.Focus(id);
-            text.Append("\n\n").Append(WardText.RuneIdentity(focus, state.Focus(id)));
-            if (tier == 2)
-            {
-                text.Append("\n\n").Append(WardText.RuneRoutes(focus.Kind));
-            }
+            // The deeper reading replaces the identification: it opens with the rune's identity and state itself.
+            text.Append("\n\n").Append(tier == 2 ? WardText.RuneUnderstanding(focus.Kind, state.Focus(id).Disabled) : WardText.RuneIdentity(focus, state.Focus(id)));
         }
     }
 }

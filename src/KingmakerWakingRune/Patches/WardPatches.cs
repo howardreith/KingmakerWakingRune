@@ -33,8 +33,7 @@ namespace KingmakerWakingRune.Patches
                 return true;
             }
             var view = gameObject.GetComponent<Kingmaker.View.UnitEntityView>();
-            string id = view != null ? WardFixtures.IdOf(view.EntityData) : null;
-            if (id == null || Kingmaker.Game.Instance.Player.IsInCombat || !WardFixtures.Clickable(id))
+            if (view == null || !FixtureCursorPatch.Examines(view.EntityData))
             {
                 return true;
             }
@@ -46,6 +45,39 @@ namespace KingmakerWakingRune.Patches
             actor.Commands.Run(new Kingmaker.UnitLogic.Commands.UnitInteractWithUnit(view.EntityData) { CreatedByPlayer = true });
             __result = true;
             return false;
+        }
+    }
+
+    /// <summary>
+    /// The cursor agrees with <see cref="FixtureClickPatch"/>: hovering authored scenery out of combat shows the native
+    /// magnifying glass, because a click there examines it. An aimed spell, combat (where a click attacks natively) and
+    /// turn-based combat keep the native cursor, and so does every other unit, a restored cultist included.
+    /// </summary>
+    [HarmonyPatch(typeof(Kingmaker.UI.CursorController), nameof(Kingmaker.UI.CursorController.SetUnitCursor))]
+    internal static class FixtureCursorPatch
+    {
+        private static readonly System.Reflection.FieldInfo MoveOn = AccessTools.Field(typeof(Kingmaker.UI.CursorController), "m_MoveOn");
+        private static readonly System.Reflection.FieldInfo CastMode = AccessTools.Field(typeof(Kingmaker.UI.CursorController), "m_CastMode");
+        private static readonly System.Reflection.MethodInfo SetCursor = AccessTools.Method(typeof(Kingmaker.UI.CursorController), "SetCursor");
+
+        private static void Postfix(Kingmaker.UI.CursorController __instance, bool isUnitHighlighted, UnitEntityData unit)
+        {
+            if (!isUnitHighlighted || !Examines(unit) || (bool)MoveOn.GetValue(__instance) || (bool)CastMode.GetValue(__instance))
+            {
+                return;
+            }
+            SetCursor.Invoke(__instance, new object[] { Kingmaker.Game.Instance.BlueprintRoot.Cursors.InfoCursor, null, false, false, null });
+        }
+
+        /// <summary>A plain click on this unit examines it rather than attacking or selecting a target.</summary>
+        public static bool Examines(UnitEntityData unit)
+        {
+            string id = WardFixtures.IdOf(unit);
+            return id != null
+                && WardFixtures.Clickable(id)
+                && !Kingmaker.Game.Instance.Player.IsInCombat
+                && !TurnBased.Controllers.CombatController.IsInTurnBasedCombat()
+                && Kingmaker.Game.Instance.ClickEventsController?.Mode == Kingmaker.Controllers.Clicks.PointerMode.Default;
         }
     }
 
