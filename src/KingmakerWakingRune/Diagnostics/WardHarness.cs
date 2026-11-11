@@ -71,6 +71,10 @@ namespace KingmakerWakingRune.Diagnostics
                     UnitEntityData kurshu = KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu;
                     return "READ Kurshu state: " + WardStore.Dump(WardRuntime.State?.Kurshu) + "\n" + (kurshu == null ? "no Kurshu entity" : KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Report(kurshu));
                 }
+                case "hurt":
+                    return Hurt(Member(args[1]), args[2], int.Parse(args[3]));
+                case "paused":
+                    return $"READ paused={Game.Instance.IsPaused} mode={Game.Instance.CurrentMode} turnBased={TurnBased.Controllers.CombatController.IsInTurnBasedCombat()} time={WardRuntime.Now:0.0}";
                 case "corpse":
                     return Corpse(args[1], args.Length > 2 ? float.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture) : 3f);
                 case "items":
@@ -205,6 +209,46 @@ namespace KingmakerWakingRune.Diagnostics
             body.Descriptor.State.MarkedForDeath = true;
             var facts = KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Facts(body);
             return $"INJECTED corpse fixture {kind}: {body.CharacterName} {body.UniqueId} at ({at.x:0.0},{at.z:0.0}), {kurshu.DistanceTo(body):0.0} m from Kurshu; outsider {facts.Outsider}, HD {facts.HitDice}, summoned {facts.Summoned}; killed by the harness.";
+        }
+
+        /// <summary>
+        /// INJECTED damage to Kurshu: one native damage rule of the named kind (acid, fire, cold, physical, magic for a +1
+        /// slashing hit, coldironmagic for a +1 cold iron hit), from a party member. Her DR, resistances and regeneration
+        /// apply exactly as they would to a real hit; only the hit itself is supplied.
+        /// </summary>
+        private static string Hurt(UnitEntityData source, string kind, int amount)
+        {
+            UnitEntityData kurshu = KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu;
+            if (kurshu == null)
+            {
+                return "no Kurshu entity";
+            }
+            Kingmaker.RuleSystem.Rules.Damage.BaseDamage damage;
+            var dice = new Kingmaker.RuleSystem.DiceFormula(amount, Kingmaker.RuleSystem.DiceType.One);
+            switch (kind)
+            {
+                case "acid": damage = new Kingmaker.RuleSystem.Rules.Damage.EnergyDamage(dice, Kingmaker.Enums.Damage.DamageEnergyType.Acid); break;
+                case "fire": damage = new Kingmaker.RuleSystem.Rules.Damage.EnergyDamage(dice, Kingmaker.Enums.Damage.DamageEnergyType.Fire); break;
+                case "cold": damage = new Kingmaker.RuleSystem.Rules.Damage.EnergyDamage(dice, Kingmaker.Enums.Damage.DamageEnergyType.Cold); break;
+                default:
+                {
+                    var physical = new Kingmaker.RuleSystem.Rules.Damage.PhysicalDamage(dice, Kingmaker.Enums.Damage.PhysicalDamageForm.Slashing);
+                    if (kind == "magic" || kind == "coldironmagic")
+                    {
+                        physical.Enchantment = 1;
+                        physical.EnchantmentTotal = 1;
+                    }
+                    if (kind == "coldironmagic")
+                    {
+                        physical.AddMaterial(Kingmaker.Enums.Damage.PhysicalDamageMaterial.ColdIron);
+                    }
+                    damage = physical;
+                    break;
+                }
+            }
+            int before = kurshu.Descriptor.HPLeft;
+            var rule = Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.Damage.RuleDealDamage(source, kurshu, new Kingmaker.RuleSystem.Rules.Damage.DamageBundle(damage)));
+            return $"INJECTED {kind} {amount} from {source.CharacterName}: dealt {rule.Damage}; hp {before} -> {kurshu.Descriptor.HPLeft}/{kurshu.Descriptor.MaxHP}; life {kurshu.Descriptor.State.LifeState}.";
         }
 
         private static UnitEntityData Member(string index)
