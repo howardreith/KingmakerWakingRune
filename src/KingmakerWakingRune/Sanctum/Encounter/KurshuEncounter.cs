@@ -67,6 +67,7 @@ namespace KingmakerWakingRune.Sanctum.Encounter
         private static bool s_DirectorCommand;
         private static int s_TeleportRound = -1;
         private static double s_DirectorIssuedAt;
+        private static double s_LastComaCheck = -1d;
         private static string s_DirectorWhat;
         private static string s_DirectorTarget;
         private static readonly Dictionary<string, double> s_RetryAfter = new Dictionary<string, double>();
@@ -132,15 +133,14 @@ namespace KingmakerWakingRune.Sanctum.Encounter
 
         public static void Tick(SanctumState state, double now)
         {
-            foreach (KwrMindDrained comatose in KwrMindDrained.Active.ToList())
+            if (Math.Abs(now - s_LastComaCheck) >= 1d && KurshuBlueprints.MindDrained != null)
             {
-                // A load replaces the world without deactivating the old one's facts; those entries are dropped here.
-                if (comatose.Owner?.Unit == null || !Game.Instance.State.Units.Contains(comatose.Owner.Unit) || comatose.Owner.Unit.Buffs.GetBuff(KurshuBlueprints.MindDrained) == null)
+                // A helpless creature's own round can be skipped (turn-based combat), so recovery is also checked from here.
+                s_LastComaCheck = now;
+                foreach (UnitEntityData unit in Game.Instance.State.Units.ToList())
                 {
-                    KwrMindDrained.Active.Remove(comatose);
-                    continue;
+                    unit.Buffs.GetBuff(KurshuBlueprints.MindDrained)?.SelectComponents<KwrMindDrained>().FirstOrDefault()?.CheckRecovery();
                 }
-                comatose.CheckRecovery();
             }
             KurshuState kurshu = state.Kurshu;
             if (kurshu.Policy == KurshuPolicy.LegacyNotInserted && !kurshu.LegacyNoticeShown)

@@ -98,7 +98,8 @@ namespace KingmakerWakingRune.Diagnostics
                         return "no Kurshu entity";
                     }
                     KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.DrainIntelligence(kurshu, member, new Kingmaker.RuleSystem.DiceFormula(int.Parse(args[2]), Kingmaker.RuleSystem.DiceType.One), "INJECTED drain fixture on");
-                    return $"INJECTED drain {args[2]} on {member.CharacterName}: Intelligence {member.Stats.Intelligence.ModifiedValue} (raw {member.Stats.Intelligence.ModifiedValueRaw}, drain {member.Stats.Intelligence.Drain}), life {member.Descriptor.State.LifeState}, helpless {member.Descriptor.State.IsHelpless}, comatose {member.Buffs.GetBuff(KingmakerWakingRune.Sanctum.Encounter.KurshuBlueprints.MindDrained) != null}.";
+                    var coma = member.Buffs.GetBuff(KingmakerWakingRune.Sanctum.Encounter.KurshuBlueprints.MindDrained)?.SelectComponents<KingmakerWakingRune.Sanctum.Encounter.KwrMindDrained>().FirstOrDefault();
+                    return $"INJECTED drain {args[2]} on {member.CharacterName}: Intelligence {member.Stats.Intelligence.ModifiedValue} (raw {member.Stats.Intelligence.ModifiedValueRaw}, drain {member.Stats.Intelligence.Drain}), life {member.Descriptor.State.LifeState}, helpless {member.Descriptor.State.IsHelpless}, comatose {coma != null}{(coma == null ? string.Empty : $" (held back {coma.Pending}, visible drain when held back {coma.DrainWhenHeldBack})")}.";
                 }
                 case "kurshufixture":
                     return KurshuFixture(int.Parse(args[1]), args.Skip(2).ToArray());
