@@ -205,11 +205,12 @@ namespace KingmakerWakingRune.Sanctum.Encounter
         /// <summary>Read by the buff as it applies.</summary>
         public static int Pending0 { get; set; }
 
+        // Fields, not properties: a fact's component data is saved from its fields.
         [JsonProperty]
-        public int Pending { get; set; }
+        public int Pending;
 
         [JsonProperty]
-        public int DrainWhenHeldBack { get; private set; }
+        public int DrainWhenHeldBack;
 
         public override void OnFactActivate()
         {
@@ -229,6 +230,13 @@ namespace KingmakerWakingRune.Sanctum.Encounter
         public void CheckRecovery()
         {
             var stat = Owner.Stats.Intelligence;
+            if (Pending <= 0)
+            {
+                // Nothing is held back (a save from a build that lost the count): the score the engine shows is the true one.
+                KurshuEncounter.Note($"{Owner.CharacterName} wakes: no Intelligence drain is held back; Intelligence {stat.ModifiedValue}, drain {stat.Drain}.");
+                Buff.Remove();
+                return;
+            }
             int before = stat.Drain;
             bool awake = MindDrainRules.Restore(DrainWhenHeldBack, before, Pending, out int drain, out int pending);
             if (drain == before && pending == Pending)
