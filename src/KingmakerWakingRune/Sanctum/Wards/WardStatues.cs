@@ -526,13 +526,13 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 return;
             }
-            runner.GroupId = runner.UniqueId;
             runner.Descriptor.SwitchFactions(mobs, true);
-            runner.UpdateGroup();
+            // The runner keeps its own group, so the group's cached factions are rebuilt here rather than by a regrouping.
+            runner.Group.UpdateAttackFactionsCache();
             runner.Group.ResetFactionSet();
             Kingmaker.PubSubSystem.EventBus.RaiseEvent(delegate(Kingmaker.PubSubSystem.IUnitFactionHandler h) { h.HandleFactionChanged(runner); });
             statue.HostileSettled = true;
-            Log.Info($"Migration: runner {statue.Id} ({runner.CharacterName}), restored as a neutral by an older build, is now hostile and resumes its route at leg {statue.RouteLeg}/{RunnerRoute.Length}.");
+            Log.Info($"Migration: runner {statue.Id} ({runner.CharacterName}), restored as a neutral by an older build, is now hostile ({runner.IsPlayersEnemy}) and resumes its route at leg {statue.RouteLeg}/{RunnerRoute.Length}.");
         }
 
         /// <summary>
