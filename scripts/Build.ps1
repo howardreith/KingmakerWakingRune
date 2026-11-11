@@ -32,12 +32,12 @@ Copy-Item (Join-Path $Root 'Info.json') $stage
 Copy-Item (Join-Path $Root 'bin\Release\KingmakerWakingRune.dll') $stage
 Copy-Item (Join-Path $Root 'assets\portraits') (Join-Path $stage 'Portraits') -Recurse
 Copy-Item (Join-Path $Root 'assets\icons') (Join-Path $stage 'Icons') -Recurse
-$zip = Join-Path $Root ("artifacts\KingmakerWakingRune-{0}.zip" -f $info.Version)
-Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
-Compress-Archive -Path $stage -DestinationPath $zip
-
 $commit = (& git -C $Root rev-parse HEAD).Trim()
 $dirty = [bool](& git -C $Root status --porcelain)
+# A working-tree build never replaces a version's package: it goes to its own -dirty file, so a tested zip survives.
+$zip = Join-Path $Root ("artifacts\KingmakerWakingRune-{0}{1}.zip" -f $info.Version, $(if ($dirty) { '-dirty' } else { '' }))
+Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
+Compress-Archive -Path $stage -DestinationPath $zip
 [ordered]@{
     commit = $commit
     dirty = $dirty
