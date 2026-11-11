@@ -137,9 +137,9 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             {
                 // A helpless creature's own round can be skipped (turn-based combat), so recovery is also checked from here.
                 s_LastComaCheck = now;
-                foreach (UnitEntityData unit in Game.Instance.State.Units.ToList())
+                foreach (UnitEntityData creature in Game.Instance.State.Units.ToList())
                 {
-                    unit.Buffs.GetBuff(KurshuBlueprints.MindDrained)?.SelectComponents<KwrMindDrained>().FirstOrDefault()?.CheckRecovery();
+                    creature.Buffs.GetBuff(KurshuBlueprints.MindDrained)?.SelectComponents<KwrMindDrained>().FirstOrDefault()?.CheckRecovery();
                 }
             }
             KurshuState kurshu = state.Kurshu;
