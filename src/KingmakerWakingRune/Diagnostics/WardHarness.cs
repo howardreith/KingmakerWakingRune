@@ -63,8 +63,16 @@ namespace KingmakerWakingRune.Diagnostics
                     return $"INJECTED door credential on {Member(args[1]).CharacterName}: no native Sihedron exists to recognize.";
                 case "sound":
                     return Sound();
-                case "kurshu":
+                case "kurshudefeat":
                     return "INJECTED Kurshu defeat fixture: " + RitualRules.DefeatKurshu(WardRuntime.State.Ritual, WardRuntime.Now);
+                case "kurshu":
+                {
+                    // Read only: the encounter's saved state and her live sheet.
+                    UnitEntityData kurshu = KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu;
+                    return "READ Kurshu state: " + JsonConvert.SerializeObject(WardRuntime.State?.Kurshu, Formatting.Indented) + "\n" + (kurshu == null ? "no Kurshu entity" : KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Report(kurshu));
+                }
+                case "corpse":
+                    return Corpse(args[1], args.Length > 2 ? float.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture) : 3f);
                 case "items":
                     return Items();
                 case "hitdoor":
@@ -155,6 +163,34 @@ namespace KingmakerWakingRune.Diagnostics
             Vector3 at = lead.Position + lead.OrientationDirection * meters;
             UnitEntityData foe = Game.Instance.EntityCreator.SpawnUnit(blueprint, at, Quaternion.identity, Game.Instance.State.LoadedAreaState.MainState);
             return $"SETUP spawned hostile {foe.CharacterName} ({blueprint.name}) {meters} m ahead of {lead.CharacterName} in {Game.Instance.CurrentlyLoadedArea?.name}.";
+        }
+
+        /// <summary>
+        /// INJECTED Feed fixture: a stock creature placed a few meters in front of Kurshu and killed at once, so a real corpse of
+        /// a known kind lies within her reach. "deva" (12 HD outsider) and "axiomite" are eligible; "hellhound" (too few Hit Dice)
+        /// and "wolf" (not an outsider) are the controls. What she does with it is her own choice and native rules.
+        /// </summary>
+        private static string Corpse(string kind, float meters)
+        {
+            string guid;
+            switch (kind)
+            {
+                case "deva": guid = "6af99c59cc046dc42be46ab1ebbf38d5"; break;
+                case "axiomite": guid = "a97cc6e80fe9a454db9c0fb519fa4087"; break;
+                case "hellhound": guid = "9c72fff76fc033640b747145c7456be6"; break;
+                case "wolf": guid = "ea610d9e540af4243b1310a3e6833d9f"; break;
+                default: return $"unknown corpse kind {kind}";
+            }
+            UnitEntityData kurshu = KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu;
+            if (kurshu == null)
+            {
+                return "no Kurshu entity";
+            }
+            Vector3 at = Kingmaker.View.ObstacleAnalyzer.GetNearestNode(kurshu.Position + kurshu.OrientationDirection * meters).clampedPosition;
+            UnitEntityData body = Game.Instance.EntityCreator.SpawnUnit(ResourcesLibrary.TryGetBlueprint<BlueprintUnit>(guid), at, Quaternion.identity, Game.Instance.State.LoadedAreaState.MainState);
+            body.Descriptor.State.MarkedForDeath = true;
+            var facts = KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Facts(body);
+            return $"INJECTED corpse fixture {kind}: {body.CharacterName} {body.UniqueId} at ({at.x:0.0},{at.z:0.0}), {kurshu.DistanceTo(body):0.0} m from Kurshu; outsider {facts.Outsider}, HD {facts.HitDice}, summoned {facts.Summoned}; killed by the harness.";
         }
 
         private static UnitEntityData Member(string index)
@@ -340,7 +376,7 @@ namespace KingmakerWakingRune.Diagnostics
 
         private static string Resolve(string target, out UnitEntityData unit)
         {
-            unit = target.StartsWith("party:") ? Member(target.Substring(6)) : target.StartsWith("body:") ? BodyOf(target.Substring(5)) : WardFixtures.Find(target);
+            unit = target == "kurshu" ? KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu : target.StartsWith("party:") ? Member(target.Substring(6)) : target.StartsWith("body:") ? BodyOf(target.Substring(5)) : WardFixtures.Find(target);
             return unit == null ? $"no target {target}" : null;
         }
 
