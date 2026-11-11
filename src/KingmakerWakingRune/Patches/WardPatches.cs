@@ -149,6 +149,34 @@ namespace KingmakerWakingRune.Patches
         }
     }
 
+    /// <summary>
+    /// Ability damage on a fixture is a route signal, not harm to a creature: the rune rules read the rolled damage, and the
+    /// object's own scores are put back at once. The native rule kills any creature whose score falls below 1, and a plate
+    /// has the Dexterity of an object, so one point of a summon's poison would otherwise destroy the plate and its rune.
+    /// </summary>
+    [HarmonyPatch(typeof(RuleDealStatDamage), nameof(RuleDealStatDamage.OnTrigger))]
+    internal static class FixtureStatDamagePatch
+    {
+        private static void Postfix(RuleDealStatDamage __instance)
+        {
+            string id = WardFixtures.IdOf(__instance.Target);
+            if (id == null || __instance.Stat == null || __instance.Damage <= 0)
+            {
+                return;
+            }
+            if (__instance.IsDrain)
+            {
+                __instance.Stat.Drain = System.Math.Max(0, __instance.Stat.Drain - __instance.Damage);
+            }
+            else
+            {
+                __instance.Stat.Damage = System.Math.Max(0, __instance.Stat.Damage - __instance.Damage);
+            }
+            __instance.Target.Descriptor.State.MarkedForDeath = false;
+            Log.Info($"Fixture {id}: {__instance.Damage} {__instance.Stat.Type} {(__instance.IsDrain ? "drain" : "damage")} recorded for its rune; the object's own score is unchanged.");
+        }
+    }
+
     /// <summary>A death effect is observed on a rune plate as a route, but a fixture never dies of it: its target must remain.</summary>
     [HarmonyPatch(typeof(Kingmaker.UnitLogic.Mechanics.Actions.ContextActionKillTarget), nameof(Kingmaker.UnitLogic.Mechanics.Actions.ContextActionKillTarget.RunAction))]
     internal static class FixtureNoKillPatch

@@ -165,6 +165,12 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 {
                     unit.Descriptor.State.MarkedForDeath = false;
                 }
+                if (unit.Descriptor.State.IsDead)
+                {
+                    // A save from before ability damage was kept off fixtures can hold a plate the engine killed.
+                    unit.Descriptor.ResurrectAndFullRestore();
+                    Log.Info($"Fixture {IdOf(unit)}: found dead (native ability-score death in an older save); restored.");
+                }
             }
         }
 
