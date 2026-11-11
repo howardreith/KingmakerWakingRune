@@ -65,6 +65,10 @@ namespace KingmakerWakingRune.Sanctum.Encounter
         private static bool s_Precasting;
         private static bool s_DirectorCommand;
         private static int s_TeleportRound = -1;
+        private static double s_DirectorIssuedAt;
+        private static string s_DirectorWhat;
+        private static string s_DirectorTarget;
+        private static readonly Dictionary<string, double> s_RetryAfter = new Dictionary<string, double>();
 
         private static SanctumState State => WardRuntime.State;
 
@@ -100,6 +104,7 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             s_Precasting = false;
             s_DirectorCommand = false;
             s_TeleportRound = -1;
+            s_RetryAfter.Clear();
             KurshuState kurshu = state.Kurshu;
             if (kurshu.Policy == KurshuPolicy.LegacyNotInserted)
             {
@@ -188,9 +193,20 @@ namespace KingmakerWakingRune.Sanctum.Encounter
                 unit.IsBrainActive = true;
                 Note($"preparation done; her brain takes over (displacement {Displaced(unit)}).");
             }
-            if (s_DirectorCommand && unit.Commands.Empty)
+            if (s_DirectorCommand && (unit.Commands.Empty || now - s_DirectorIssuedAt > 2 * WardProfile.RoundSeconds))
             {
+                if (!unit.Commands.Empty)
+                {
+                    // A path that never arrives (bodies on the stair, say) is given up rather than holding her still.
+                    unit.Commands.InterruptAll(c => c.AiAction == null);
+                    if (!string.IsNullOrEmpty(s_DirectorTarget))
+                    {
+                        s_RetryAfter[s_DirectorTarget] = now + 3 * WardProfile.RoundSeconds;
+                    }
+                    Note($"gave up on '{s_DirectorWhat}' after two rounds; her brain takes over.");
+                }
                 s_DirectorCommand = false;
+                s_DirectorTarget = null;
                 unit.IsBrainActive = true;
             }
             if (!kurshu.Slain && unit.Descriptor.State.IsConscious && kurshu.HiddenCheckDone && !s_Precasting && !s_DirectorCommand)
@@ -410,7 +426,7 @@ namespace KingmakerWakingRune.Sanctum.Encounter
                 AbilityData feed = unit.Descriptor.Abilities.GetAbility(KurshuBlueprints.FeedAbility)?.Data;
                 if (feed != null && feed.IsAvailableForCast)
                 {
-                    Issue(unit, UnitUseAbility.CreateCastCommand(feed, new Kingmaker.Utility.TargetWrapper(corpse.Position)), $"moves to feed on {corpse.CharacterName}");
+                    Issue(unit, UnitUseAbility.CreateCastCommand(feed, new Kingmaker.Utility.TargetWrapper(corpse.Position)), $"moves to feed on {corpse.CharacterName}", corpse.UniqueId);
                     return;
                 }
             }
@@ -441,11 +457,14 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             }
         }
 
-        private static void Issue(UnitEntityData unit, Kingmaker.UnitLogic.Commands.Base.UnitCommand command, string what)
+        private static void Issue(UnitEntityData unit, Kingmaker.UnitLogic.Commands.Base.UnitCommand command, string what, string target = null)
         {
             unit.Commands.InterruptAiCommands();
             unit.IsBrainActive = false;
             s_DirectorCommand = true;
+            s_DirectorIssuedAt = WardRuntime.Now;
+            s_DirectorWhat = what;
+            s_DirectorTarget = target;
             unit.Commands.Run(command);
             Note(what + ".");
         }
@@ -487,6 +506,7 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             return Game.Instance.State.Units
                 .Where(u => u != unit && u.IsInGame && u.Descriptor.State.IsDead && u.DistanceTo(unit) <= FeedScanMeters)
                 .Where(u => KurshuRules.CanFeed(kurshu, Facts(u)) == FeedVerdict.Eligible)
+                .Where(u => !s_RetryAfter.TryGetValue(u.UniqueId, out double after) || WardRuntime.Now >= after)
                 .OrderBy(u => u.DistanceTo(unit))
                 .FirstOrDefault();
         }
