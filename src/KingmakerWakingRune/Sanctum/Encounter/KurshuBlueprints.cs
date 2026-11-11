@@ -357,6 +357,12 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             ability.AssetGuid = ScenarioIds.Derive("ability." + ability.name);
             ability.Type = AbilityType.SpellLike;
             ability.MaterialComponent = new BlueprintAbility.MaterialComponentData();
+            if (ability.CanTargetPoint && !ability.CanTargetEnemies && ability.Range != AbilityRange.Personal && spec.Aim.HasValue)
+            {
+                // A point-only area has no enemy list for the native brain, which then aims it at herself: it is centred on
+                // a foe's position instead, which the point targeting would also allow.
+                ability.CanTargetEnemies = true;
+            }
             if (spec.Display != null)
             {
                 string key = "kwr.ability." + ability.name;

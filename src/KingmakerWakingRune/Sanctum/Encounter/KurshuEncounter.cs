@@ -655,11 +655,12 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             UnitEntityData target = context.Target?.Unit;
             if (target == null)
             {
-                return 1f;
+                return 0f;
             }
             if (target == unit)
             {
-                return 1f;
+                // Only her own defenses are aimed at herself; an attack or an area is never centred on her.
+                return aim == KurshuAim.Displacement || aim == KurshuAim.CureSelf || aim == KurshuAim.BreakEnchantmentSelf || aim == KurshuAim.PowerSurge ? 1f : 0f;
             }
             Func<float, int> within = feet => enemies.Count(e => Vector3.Distance(e.Position, target.Position) <= feet * 0.3048f);
             var facts = new TacticsTarget
