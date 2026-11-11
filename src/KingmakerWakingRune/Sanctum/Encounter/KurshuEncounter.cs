@@ -167,6 +167,11 @@ namespace KingmakerWakingRune.Sanctum.Encounter
                 s_Logged = true;
                 LogSheet(unit, "first tick since load or spawn");
             }
+            if (!kurshu.HiddenCheckDone && !s_Precasting)
+            {
+                // Spawned but not yet past her before-combat moment (an interrupted spawn or a save in between).
+                HiddenCheck(kurshu, unit);
+            }
             if (KurshuRules.ExpireSurge(kurshu, now, WardProfile.RoundSeconds))
             {
                 Note("Power Surge lapsed unused; the use stays spent.");

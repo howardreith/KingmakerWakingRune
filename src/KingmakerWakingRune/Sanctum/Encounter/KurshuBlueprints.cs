@@ -415,6 +415,11 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             var field = AccessTools.Field(typeof(BlueprintAbilityResource), "m_MaxAmount");
             object amount = field.GetValue(resource);
             AccessTools.Field(amount.GetType(), "BaseValue").SetValue(amount, perDay);
+            // A blueprint made in code has null class lists, which the native maximum walks: every list starts empty.
+            foreach (var list in amount.GetType().GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic).Where(f => f.FieldType.IsArray))
+            {
+                list.SetValue(amount, Array.CreateInstance(list.FieldType.GetElementType(), 0));
+            }
             field.SetValue(resource, amount);
             s_Register(resource);
             return resource;

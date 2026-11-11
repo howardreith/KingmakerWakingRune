@@ -163,7 +163,14 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 Say("The sanctum's wards have awakened since you last stood here. For the full challenge, return to a save made before departure.");
             }
             WardKrune.Refresh(state, Now);
-            Encounter.KurshuEncounter.AfterLoad(state);
+            try
+            {
+                Encounter.KurshuEncounter.AfterLoad(state);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Kurshu encounter could not be re-bound after load.", ex);
+            }
             s_NextTick = 0d;
             Log.Info($"Wards ready: mask={state.RuneMask} clock={Now:0} focusWindows={state.Foci.Values.Sum(f => f.Windows.Count)}.");
         }
@@ -203,7 +210,15 @@ namespace KingmakerWakingRune.Sanctum.Wards
             WardHazards.Tick(state, now);
             WardStatues.Tick(state, now);
             SummonOrders.Tick();
-            Encounter.KurshuEncounter.Tick(state, now);
+            try
+            {
+                Encounter.KurshuEncounter.Tick(state, now);
+            }
+            catch (Exception ex)
+            {
+                // The native tick swallows exceptions; the encounter's own must reach the log.
+                Log.Error("Kurshu encounter tick failed.", ex);
+            }
             WardRitual.Tick(state, now);
             WardTraps.Tick();
             UpdateWardVisibility(state, now);
