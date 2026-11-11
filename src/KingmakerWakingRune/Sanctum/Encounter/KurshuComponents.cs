@@ -223,12 +223,21 @@ namespace KingmakerWakingRune.Sanctum.Encounter
         public void OnNewRound()
         {
             var stat = Owner.Stats.Intelligence;
-            if (!MindDrainRules.Recovered(DrainWhenHeldBack, stat.Drain, Pending))
+            int before = stat.Drain;
+            bool awake = MindDrainRules.Restore(DrainWhenHeldBack, before, Pending, out int drain, out int pending);
+            if (drain == before && pending == Pending)
             {
                 return;
             }
-            stat.Drain = MindDrainRules.DrainOnWaking(stat.Drain, Pending);
-            KurshuEncounter.Note($"{Owner.CharacterName} wakes: restoration removed enough drain; Intelligence {stat.ModifiedValue}, drain {stat.Drain}.");
+            stat.Drain = drain;
+            Pending = pending;
+            DrainWhenHeldBack = drain;
+            if (!awake)
+            {
+                KurshuEncounter.Note($"{Owner.CharacterName}: {before} visible drain left after a partial restoration; {Pending} point(s) still held back, still comatose.");
+                return;
+            }
+            KurshuEncounter.Note($"{Owner.CharacterName} wakes: restoration restored the drained Intelligence; Intelligence {stat.ModifiedValue}, drain {stat.Drain}.");
             Buff.Remove();
         }
     }

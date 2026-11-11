@@ -574,7 +574,8 @@ namespace KingmakerWakingRune.Sanctum.Encounter
     /// <summary>
     /// Intelligence drain to zero. In the source a creature at Intelligence 0 is comatose, not dead; the engine kills any creature
     /// whose ability score falls below 1. Only her drain is changed: the engine keeps the score at 1, the points it cannot show
-    /// are held back as pending drain, and the victim lies comatose until restoration has removed at least that much drain.
+    /// are held back as pending drain, and the victim lies comatose until restoration brings its true score back above 0.
+    /// The true drain is the engine's drain plus the pending points.
     /// </summary>
     internal static class MindDrainRules
     {
@@ -584,16 +585,36 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             return scoreAfterDrain >= 1 ? 0 : 1 - scoreAfterDrain;
         }
 
-        /// <summary>Awake again once restoration has removed at least as much drain as was held back.</summary>
-        public static bool Recovered(int drainWhenHeldBack, int drainNow, int pending)
+        /// <summary>
+        /// The engine's drain has fallen from <paramref name="drainAtHoldBack"/> to <paramref name="drainNow"/>: something restored
+        /// it. Restoration (and greater restoration) restores every drained point of one score, and the engine shows that as its
+        /// drain reaching 0: then all of the true drain is gone. A smaller restoration of r points pays the held-back points first,
+        /// and the engine's drain is put back so the score stays at 1 while any remain. Returns true when the creature wakes, with
+        /// the engine drain to set and the points still pending.
+        /// </summary>
+        public static bool Restore(int drainAtHoldBack, int drainNow, int pending, out int newDrain, out int newPending)
         {
-            return drainWhenHeldBack - drainNow >= pending;
-        }
-
-        /// <summary>On waking, the held-back points become real drain, so the score shows what restoration truly left.</summary>
-        public static int DrainOnWaking(int drainNow, int pending)
-        {
-            return drainNow + pending;
+            newDrain = drainNow;
+            newPending = pending;
+            if (drainNow >= drainAtHoldBack)
+            {
+                return false;
+            }
+            if (drainNow == 0)
+            {
+                newPending = 0;
+                return true;
+            }
+            int restored = drainAtHoldBack - drainNow;
+            if (restored < pending)
+            {
+                newPending = pending - restored;
+                newDrain = drainAtHoldBack;
+                return false;
+            }
+            newPending = 0;
+            newDrain = drainAtHoldBack + pending - restored;
+            return true;
         }
     }
 

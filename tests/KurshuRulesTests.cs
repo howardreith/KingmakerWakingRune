@@ -276,14 +276,25 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(1, MindDrainRules.Excess(0), "exactly 0: comatose, one point held back");
             Assert.Equal(4, MindDrainRules.Excess(-3), "past 0: the rest is held back too");
 
-            // Intelligence 12 with 11 drain shows 1; a 4-point slam would leave -3: drain stays 11, 4 held back.
-            int drainWhenHeldBack = 11, pending = 4;
-            Assert.Equal(false, MindDrainRules.Recovered(drainWhenHeldBack, 11, pending), "no restoration yet");
-            Assert.Equal(false, MindDrainRules.Recovered(drainWhenHeldBack, 8, pending), "3 restored is not enough");
-            Assert.Equal(true, MindDrainRules.Recovered(drainWhenHeldBack, 0, pending), "all drain removed");
-            int after = MindDrainRules.DrainOnWaking(0, pending);
-            Assert.Equal(4, after, "the held-back points become drain");
-            Assert.Equal(8, 12 - after, "Intelligence 12 - 15 drain + 11 restored = 8");
+            // Intelligence 12 with 11 drain shows 1; a 4-point slam would leave -3: drain stays 11, 4 held back (true drain 15).
+            Assert.Equal(false, MindDrainRules.Restore(11, 11, 4, out int drain, out int pending), "no restoration yet");
+            Assert.Equal(4, pending, "nothing changes");
+
+            Assert.Equal(false, MindDrainRules.Restore(11, 8, 4, out drain, out pending), "3 points restored: still at 0");
+            Assert.Equal(1, pending, "the held-back points are paid first");
+            Assert.Equal(11, drain, "the visible score stays at 1");
+
+            Assert.Equal(true, MindDrainRules.Restore(11, 5, 4, out drain, out pending), "6 points restored: true drain 9");
+            Assert.Equal(0, pending, "nothing held back");
+            Assert.Equal(9, drain, "Intelligence 12 - 9 = 3");
+
+            Assert.Equal(true, MindDrainRules.Restore(11, 0, 4, out drain, out pending), "restoration restores every drained point of the score");
+            Assert.Equal(0, drain, "all of the true drain is gone");
+            Assert.Equal(0, pending, "including the held-back points");
+
+            // The bear in play: Intelligence 2, a 5-point slam: visible drain 1, 4 held back; the scroll of restoration clears it.
+            Assert.Equal(true, MindDrainRules.Restore(1, 0, 4, out drain, out pending), "restoration wakes the bear");
+            Assert.Equal(0, drain, "Intelligence 2 again");
         }
 
         public static void TestTacticsPreferOutsidersAndUseAreasOnlyWhereTheyPay()
