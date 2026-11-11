@@ -313,14 +313,27 @@ namespace KingmakerWakingRune.Sanctum.Wards
         /// <summary>
         /// A runner really walks its saved route: each leg ends only on arrival or a completed door action, so an
         /// interruption or reload resumes where it was. Only a living, able runner standing in Vandiana's chamber reports.
+        /// It is hostile, so hostile magic can stop it, but it flees rather than fights: its own AI is off while it runs,
+        /// combat does not halt it, and in turn-based combat it moves only in its own turn and within that turn's movement.
         /// </summary>
         private static void TickRunner(StatueState statue, UnitEntityData runner, double now)
         {
-            if (runner == null || runner.Descriptor.State.IsDead || runner.IsInCombat || !runner.Descriptor.State.CanAct || !runner.Descriptor.State.CanMove)
+            if (runner == null || runner.Descriptor.State.IsDead || statue.RouteLeg >= RunnerRoute.Length)
             {
                 return;
             }
-            if (statue.RouteLeg >= RunnerRoute.Length)
+            if (ControlledElsewhere(runner))
+            {
+                // Charmed, dominated, confused or panicked: its commands are someone else's, and its own AI returns.
+                if (!runner.IsBrainActive)
+                {
+                    runner.IsBrainActive = true;
+                    Log.Info($"Runner {statue.Id} ({runner.CharacterName}) is under other control; its flight is suspended.");
+                }
+                return;
+            }
+            KeepFleeing(statue.Id, runner);
+            if (!runner.Descriptor.State.CanAct || !runner.Descriptor.State.CanMove || !MayActNow(runner))
             {
                 return;
             }
@@ -336,7 +349,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                     }
                     else if (runner.Commands.Empty)
                     {
-                        runner.Commands.Run(new UnitMoveTo(point, 0.3f));
+                        Move(runner, point);
                     }
                     break;
                 case RunnerStep.OpenA2:
@@ -383,7 +396,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                     {
                         if (runner.Commands.Empty)
                         {
-                            runner.Commands.Run(new UnitMoveTo(point, 0.3f));
+                            Move(runner, point);
                         }
                         break;
                     }
@@ -403,6 +416,109 @@ namespace KingmakerWakingRune.Sanctum.Wards
         {
             statue.RouteLeg++;
             Log.Info($"Runner {statue.Id} ({runner.CharacterName}) completed leg {statue.RouteLeg}/{RunnerRoute.Length}.");
+        }
+
+        /// <summary>
+        /// A runner's turn-based turn starts here, not at the next ward tick: with its AI off, an idle turn would otherwise
+        /// end before the ward clock came round.
+        /// </summary>
+        public static void RunnerTurnStarted(UnitEntityData unit)
+        {
+            SanctumState state = WardRuntime.State;
+            if (unit == null || state == null)
+            {
+                return;
+            }
+            StatueState statue = state.Statues.Values.FirstOrDefault(s => s.EntityId == unit.UniqueId);
+            if (statue == null || statue.Outcome != StatueOutcome.Living || statue.Reported || !BearerManifest.Roles.TryGetValue(statue.Id, out BearerRole role) || role != BearerRole.Report)
+            {
+                return;
+            }
+            // A completed leg goes straight on to the next, so the turn's remaining movement is not lost between them.
+            for (int i = 0; i < RunnerRoute.Length; i++)
+            {
+                int leg = statue.RouteLeg;
+                TickRunner(statue, unit, WardRuntime.Now);
+                if (statue.RouteLeg == leg)
+                {
+                    break;
+                }
+            }
+        }
+
+        /// <summary>In a runner's own turn-based turn, a finished move or door action leads at once to its next step.</summary>
+        internal sealed class RunnerTurnPacer : Kingmaker.PubSubSystem.IUnitCommandEndHandler
+        {
+            public void HandleUnitCommandDidEnd(Kingmaker.UnitLogic.Commands.Base.UnitCommand command)
+            {
+                UnitEntityData unit = command?.Executor;
+                if (unit != null && TurnBased.Controllers.CombatController.IsInTurnBasedCombat() && TurnBased.Controllers.CombatController.CurrentUnit == unit && !unit.IsBrainActive)
+                {
+                    Game.Instance.ScheduleAction(() => RunnerTurnStarted(unit));
+                }
+            }
+        }
+
+        /// <summary>Someone else decides what it does: a charm or dominate, or a condition whose own controller moves it.</summary>
+        private static bool ControlledElsewhere(UnitEntityData runner)
+        {
+            return runner.IsPlayerFaction
+                || runner.Descriptor.Faction != Game.Instance.BlueprintRoot.SystemMechanics.FactionMobs
+                || runner.Buffs.RawFacts.Any(b => b.Blueprint.ComponentsArray.OfType<Kingmaker.UnitLogic.FactLogic.ChangeFaction>().Any())
+                || runner.Descriptor.State.IsPanicked
+                || runner.Descriptor.State.HasCondition(UnitCondition.Confusion);
+        }
+
+        /// <summary>
+        /// The runner's own AI stays off while it flees, so it never stops to fight; a reporter from an older save, restored
+        /// as a neutral, becomes hostile once. Leaving combat never walks it back to where it joined.
+        /// </summary>
+        private static void KeepFleeing(string id, UnitEntityData runner)
+        {
+            if (runner.IsBrainActive)
+            {
+                runner.IsBrainActive = false;
+                Log.Info($"Runner {id} ({runner.CharacterName}) flees: its own AI is off; hostile {runner.IsPlayersEnemy}.");
+            }
+            if (!runner.IsPlayersEnemy && runner.Descriptor.Faction == Game.Instance.BlueprintRoot.SystemMechanics.FactionNeutrals)
+            {
+                runner.Descriptor.SwitchFactions(Game.Instance.BlueprintRoot.SystemMechanics.FactionMobs, true);
+                Log.Info($"Migration: runner {id} ({runner.CharacterName}) restored as a neutral is now hostile.");
+            }
+            if (runner.IsInCombat)
+            {
+                runner.CombatState.ReturnPosition = null;
+            }
+        }
+
+        /// <summary>In turn-based combat a runner acts only in its own turn, while that turn still has movement.</summary>
+        private static bool MayActNow(UnitEntityData runner)
+        {
+            if (!TurnBased.Controllers.CombatController.IsInTurnBasedCombat())
+            {
+                return true;
+            }
+            TurnBased.Controllers.TurnController turn = Game.Instance.TurnBasedCombatController.CurrentTurn;
+            return turn != null && turn.Unit == runner && turn.IsActing && runner.Commands.Empty && turn.GetRemainingMovementRange(total: true, singleActionMove: false) > 0f;
+        }
+
+        /// <summary>A real move; in turn-based combat it follows a precomputed path, ending where the turn's movement runs out.</summary>
+        private static void Move(UnitEntityData runner, Vector3 point)
+        {
+            var move = new UnitMoveTo(point, 0.3f);
+            if (TurnBased.Controllers.CombatController.IsInTurnBasedCombat())
+            {
+                Pathfinding.Path path = runner.View.AgentASP.FindPath(move.ApproachPoint, delegate { }, move.ApproachRadius);
+                AstarPath.WaitForPath(path);
+                if (path.error)
+                {
+                    Log.Info($"Runner {runner.CharacterName} has no path this turn; the turn ends.");
+                    Game.Instance.TurnBasedCombatController.CurrentTurn?.ForceToEnd();
+                    return;
+                }
+                move.ForcedPath = path;
+            }
+            runner.Commands.Run(move);
         }
 
         /// <summary>The same enclosed space as Vandiana, on her floor: never through the rock between A1 and A5.</summary>

@@ -182,7 +182,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
             BlueprintUnit cultistDonor = all.OfType<BlueprintUnit>().First(u => u.AssetGuid == CultistDonor);
             CultistAttacker = Cultist(cultistDonor, root, "KWR_CultistAttacker", "Restored Lissalan Cultist", root.SystemMechanics.FactionMobs);
-            CultistReporter = Cultist(cultistDonor, root, "KWR_CultistReporter", "Fleeing Lissalan Cultist", root.SystemMechanics.FactionNeutrals);
+            CultistReporter = Cultist(cultistDonor, root, "KWR_CultistReporter", "Fleeing Lissalan Cultist", root.SystemMechanics.FactionMobs);
             BuildCultists(all, cultistDonor, root);
             PalmImpression = Item(all, "KWR_SihedronPalmImpression", "Sihedron Palm Impression", "A careful impression of a seven-pointed brand, taken from the palm of a petrified cultist in the Sanctum of Sloth. Its lines are exact enough to satisfy a mechanism that knows the sign.", ImpressionIconDonor);
             BrandedHand = Item(all, "KWR_SihedronBrandedHand", "Sihedron-Branded Hand", "The wrapped hand of a restored cultist, the seven-pointed brand still plain on its palm.", HandIconDonor);
@@ -246,7 +246,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 string slot = pair.Key;
                 bool attacker = pair.Value == BearerRole.Attack;
                 string name = "KWR_Cultist_" + slot.Replace("-", string.Empty);
-                BlueprintUnit unit = Cultist(donor, root, name, attacker ? "Restored Lissalan Cultist" : "Fleeing Lissalan Cultist", attacker ? root.SystemMechanics.FactionMobs : root.SystemMechanics.FactionNeutrals);
+                // A reporter is hostile like an attacker, so hostile magic can stop it; its flight is WardStatues' doing.
+                BlueprintUnit unit = Cultist(donor, root, name, attacker ? "Restored Lissalan Cultist" : "Fleeing Lissalan Cultist", root.SystemMechanics.FactionMobs);
                 unit.Alignment = Alignment.NeutralEvil;
                 unit.Strength = 10;
                 unit.Dexterity = 13;

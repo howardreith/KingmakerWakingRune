@@ -101,6 +101,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
         private static readonly WardObserver s_Observer = new WardObserver();
         private static readonly WardTurnHandler s_TurnHandler = new WardTurnHandler();
         private static readonly RuneConditionClock s_ConditionClock = new RuneConditionClock();
+        private static readonly SummonOrders s_SummonOrders = new SummonOrders();
+        private static readonly WardStatues.RunnerTurnPacer s_RunnerPacer = new WardStatues.RunnerTurnPacer();
         private static bool s_Subscribed;
         private static double s_NextTick;
 
@@ -116,6 +118,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 EventBus.Subscribe(s_Observer);
                 EventBus.Subscribe(s_TurnHandler);
                 EventBus.Subscribe(s_ConditionClock);
+                EventBus.Subscribe(s_SummonOrders);
+                EventBus.Subscribe(s_RunnerPacer);
                 s_Subscribed = true;
             }
             SanctumState state = SanctumScope.IsSanctumLoaded ? WardStore.Create() : null;
@@ -136,6 +140,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             WardHazards.ForgetTurns();
             WardStatues.ForgetStatsProbe();
             RuneConditionClock.Forget();
+            SummonOrders.Forget();
             WardFixtures.Ensure();
             WardStatues.MigrateMarked(state);
             WardCredentials.Reconcile(state);
@@ -196,6 +201,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
             WardHazards.Tick(state, now);
             WardStatues.Tick(state, now);
+            SummonOrders.Tick();
             WardRitual.Tick(state, now);
             WardTraps.Tick();
             UpdateWardVisibility(state, now);

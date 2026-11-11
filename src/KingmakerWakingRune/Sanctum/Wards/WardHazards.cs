@@ -490,6 +490,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public void HandleTurnStarted(UnitEntityData unit)
         {
             WardHazards.TurnStarted(unit);
+            WardStatues.RunnerTurnStarted(unit);
         }
 
         public void HandleUnitControlChanged(UnitEntityData unit)
