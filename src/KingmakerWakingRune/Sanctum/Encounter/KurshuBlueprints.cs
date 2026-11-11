@@ -5,6 +5,7 @@ using Harmony12;
 using Kingmaker.Blueprints;
 using Kingmaker.Blueprints.Classes;
 using Kingmaker.Blueprints.Classes.Selection;
+using Kingmaker.Blueprints.Classes.Spells;
 using Kingmaker.Blueprints.Facts;
 using Kingmaker.Blueprints.Items.Weapons;
 using Kingmaker.Blueprints.Root;
@@ -50,6 +51,11 @@ namespace KingmakerWakingRune.Sanctum.Encounter
         public static BlueprintBuff Separation { get; private set; }
         public static BlueprintBuff Surge { get; private set; }
         public static BlueprintBuff Held { get; private set; }
+        public static BlueprintBuff Grappling { get; private set; }
+        public static BlueprintBuff MindDrained { get; private set; }
+        public static BlueprintAbility MaintainGrapple { get; private set; }
+        /// <summary>The native feats she carries from her printed list (the others are calibrated, crafting, or flight).</summary>
+        public static readonly List<BlueprintFeature> NativeFeats = new List<BlueprintFeature>();
         public static BlueprintAbility PowerSurge { get; private set; }
         public static BlueprintAbility FeedAbility { get; private set; }
         public static BlueprintAbility Displacement { get; private set; }
@@ -182,8 +188,20 @@ namespace KingmakerWakingRune.Sanctum.Encounter
                 Regenerate());
             Separation = Buff(buffDonor, "KWR_KurshuDivineSeparation", "Divine Separation", "Separated from Lissala for thousands of years, Kurshu carries negative levels that no restoration can remove. Only feeding on an outsider's corpse removes them.", false,
                 Component<KwrDivineSeparation>("KWR_KurshuDivineSeparationLogic"));
-            Held = Buff(buffDonor, "KWR_KurshuHeld", "Held in Kurshu's Coils", "Grabbed by the herald's tail: cannot move, -4 Dexterity, -2 on attack rolls. Each round the creature tries to break free.", true,
-                Condition(UnitCondition.CantMove), Component<KwrKurshuHold>("KWR_KurshuHoldLogic"));
+            // Both sides of her grapple carry the grappled condition: no movement, -4 Dexterity, -2 on attacks, no attacks of
+            // opportunity, and a spell needs the native concentration check for difficult casting.
+            Held = Buff(buffDonor, "KWR_KurshuHeld", "Held in Kurshu's Coils", "Grappled by the herald's tail: cannot move, -4 Dexterity, -2 on attack rolls, no attacks of opportunity, and casting a spell needs a concentration check. Each round the creature tries to break free; freedom of movement frees it.", true,
+                Condition(UnitCondition.CantMove), Condition(UnitCondition.DisableAttacksOfOpportunity), Condition(UnitCondition.SpellCastingIsDifficult), Descriptor(SpellDescriptor.MovementImpairing), Component<KwrKurshuHold>("KWR_KurshuHoldLogic"));
+            Grappling = Buff(buffDonor, "KWR_KurshuGrappling", "Grappling", "Kurshu holds a creature in her tail and is grappled herself: she cannot move, takes -4 Dexterity and -2 on attack rolls, makes no attacks of opportunity, and needs a concentration check to cast. Each round she must spend a standard action to keep the hold, or let go.", false,
+                Condition(UnitCondition.CantMove), Condition(UnitCondition.DisableAttacksOfOpportunity), Condition(UnitCondition.SpellCastingIsDifficult), Component<KwrKurshuGrappling>("KWR_KurshuGrapplingLogic"));
+            MaintainGrapple = OwnAbility("KWR_KurshuMaintainGrapple", "Maintain Grapple", "As a standard action, the herald squeezes the creature held in her tail: a grapple check at +5, and on a success tail and constrict damage.", null, Kingmaker.UnitLogic.Commands.Base.UnitCommand.CommandType.Standard, AbilityRange.Custom, Run<KwrMaintainGrappleAction>());
+            MaintainGrapple.Type = AbilityType.Extraordinary;
+            MaintainGrapple.CustomRange = 15.Feet();
+            MaintainGrapple.CanTargetEnemies = true;
+            MaintainGrapple.CanTargetSelf = false;
+            granted.Add(MaintainGrapple);
+            MindDrained = Buff(buffDonor, "KWR_KurshuMindDrained", "Comatose (Intelligence 0)", "Kurshu's slams have drained this creature's Intelligence to 0: it lies comatose and helpless. Restoration that removes the drain wakes it.", true,
+                Condition(UnitCondition.Unconscious), Component<KwrMindDrained>("KWR_KurshuMindDrainedLogic"));
 
             BlueprintFeature nature = Feature("KWR_KurshuNature", NatureComponents(features));
             BlueprintFeature calibration = Feature("KWR_KurshuPrintedStatistics", Calibration(donor, all, out BlueprintCharacterClass outsiderClass));
@@ -240,6 +258,21 @@ namespace KingmakerWakingRune.Sanctum.Encounter
                     Log.Info($"Kurshu: native {subtype} not found; her subtype is recorded in the rules document only.");
                 }
             }
+            // Printed feats: Great Fortitude, Iron Will and Improved Initiative are already in the calibrated saves and
+            // initiative, the crafting feats have nothing to act on here, and Hover has no flight to modify. The three whose
+            // effect is conditional are the game's own feats, so they act exactly as they do for anyone else.
+            foreach (string feat in new[] { "CombatCasting", "CombatReflexes", "ImprovedIronWill" })
+            {
+                if (features.TryGetValue(feat, out BlueprintFeature feature))
+                {
+                    NativeFeats.Add(feature);
+                    facts.Add(feature);
+                }
+                else
+                {
+                    throw new InvalidOperationException($"native feat {feat} not found");
+                }
+            }
             facts.Add(nature);
             facts.Add(calibration);
             facts.Add(spellLike);
@@ -285,9 +318,8 @@ namespace KingmakerWakingRune.Sanctum.Encounter
                 // -4, which the engine applies itself, so it is added back here once.
                 Stat(StatType.SkillPerception, KurshuProfile.Undrained("Perception") - 5, ModifierDescriptor.UntypedStackable),
                 Stat(StatType.SkillStealth, KurshuProfile.Undrained("Stealth") - 6 + 4, ModifierDescriptor.UntypedStackable),
-                // The engine's CMD counts the Large AC penalty (inside touch AC) as well as its +1 size bonus; printed CMD
-                // counts the size once. One point offsets the engine's second count.
-                Stat(StatType.AdditionalCMD, 1, ModifierDescriptor.UntypedStackable),
+                // CMB and CMD need nothing: the engine's Large maneuver bonus is +2 and it also applies the -1 size modifier
+                // (to attack, so CMB, and to touch AC, so CMD), which nets the printed +1. See docs/WR-05-KURSHU.md.
             };
             if (hitPoints - s_MaxHP != 0)
             {
@@ -398,13 +430,17 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             ability.CanTargetSelf = range == AbilityRange.Personal;
             ability.LocalizedDuration = new Kingmaker.Localization.LocalizedString();
             ability.LocalizedSavingThrow = new Kingmaker.Localization.LocalizedString();
-            var logic = Component<AbilityResourceLogic>("KWR_KurshuUse_" + name);
-            logic.RequiredResource = Resources[use];
-            logic.IsSpendResource = true;
-            logic.Amount = 1;
-            ability.ComponentsArray = components.Concat(new BlueprintComponent[] { logic }).ToArray();
+            ability.ComponentsArray = components;
+            if (use != null)
+            {
+                var logic = Component<AbilityResourceLogic>("KWR_KurshuUse_" + name);
+                logic.RequiredResource = Resources[use];
+                logic.IsSpendResource = true;
+                logic.Amount = 1;
+                ability.ComponentsArray = components.Concat(new BlueprintComponent[] { logic }).ToArray();
+                UseKeys[ability] = use;
+            }
             s_Register(ability);
-            UseKeys[ability] = use;
             return ability;
         }
 
@@ -531,6 +567,14 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             var add = Component<AddCondition>("KWR_KurshuCondition" + condition);
             add.Condition = condition;
             return add;
+        }
+
+        /// <summary>The buff's descriptor, which native immunities (freedom of movement's among them) check as it applies.</summary>
+        private static SpellDescriptorComponent Descriptor(SpellDescriptor descriptor)
+        {
+            var component = Component<SpellDescriptorComponent>("KWR_KurshuDescriptor" + descriptor);
+            component.Descriptor = descriptor;
+            return component;
         }
 
         private static ContextValue Simple(int value)

@@ -174,7 +174,10 @@ namespace KingmakerWakingRune.Sanctum.Encounter
         }
     }
 
-    /// <summary>A slam drains 1d4 Intelligence: real drain, which rest does not heal and restoration does.</summary>
+    /// <summary>
+    /// A slam drains 1d4 Intelligence: real drain, which rest does not heal and restoration does. Drain that would take the
+    /// score below 1, where the engine would kill, is held back instead and leaves the victim comatose (see <see cref="MindDrainRules"/>).
+    /// </summary>
     public sealed class KwrIntelligenceDrain : RuleInitiatorLogicComponent<RuleAttackWithWeapon>
     {
         public override void OnEventAboutToTrigger(RuleAttackWithWeapon evt)
@@ -183,19 +186,56 @@ namespace KingmakerWakingRune.Sanctum.Encounter
 
         public override void OnEventDidTrigger(RuleAttackWithWeapon evt)
         {
-            if (evt.AttackRoll == null || !evt.AttackRoll.IsHit || evt.Weapon?.Blueprint != KurshuBlueprints.Slam || evt.Target == null || evt.Target.Descriptor.State.IsDead)
+            UnitEntityData target = evt.Target;
+            if (evt.AttackRoll == null || !evt.AttackRoll.IsHit || evt.Weapon?.Blueprint != KurshuBlueprints.Slam || target == null || target.Descriptor.State.IsDead)
             {
                 return;
             }
-            var drain = new RuleDealStatDamage(Owner.Unit, evt.Target, StatType.Intelligence, new DiceFormula(1, DiceType.D4), 0) { IsDrain = true };
-            Rulebook.Trigger(drain);
-            KurshuEncounter.Note($"Slam hit {evt.Target.CharacterName}: Intelligence drain {drain.Damage} (immune {drain.Immune}); Intelligence now {evt.Target.Stats.Intelligence.ModifiedValue}, drain {evt.Target.Stats.Intelligence.Drain}.");
+            KurshuEncounter.DrainIntelligence(Owner.Unit, target, new DiceFormula(1, DiceType.D4), "Slam hit");
         }
     }
 
     /// <summary>
-    /// The tail's grab: a free grapple check, made with the native maneuver roll, against a creature of her size or smaller.
-    /// Success holds the target and constricts it once for 1d8+5. Holding with the tail leaves her free to act; see the rules.
+    /// Intelligence 0 from her drain: comatose (the native unconscious condition, so helpless and unable to act) while the
+    /// held-back drain stands. Each round it checks whether restoration has removed at least that much drain; then the
+    /// victim wakes, and the held-back points become ordinary drain.
+    /// </summary>
+    public sealed class KwrMindDrained : BuffLogic, ITickEachRound
+    {
+        /// <summary>Read by the buff as it applies.</summary>
+        public static int Pending0 { get; set; }
+
+        [JsonProperty]
+        public int Pending { get; set; }
+
+        [JsonProperty]
+        public int DrainWhenHeldBack { get; private set; }
+
+        public override void OnFactActivate()
+        {
+            if (Pending == 0)
+            {
+                Pending = Pending0;
+                DrainWhenHeldBack = Owner.Stats.Intelligence.Drain;
+            }
+        }
+
+        public void OnNewRound()
+        {
+            var stat = Owner.Stats.Intelligence;
+            if (!MindDrainRules.Recovered(DrainWhenHeldBack, stat.Drain, Pending))
+            {
+                return;
+            }
+            stat.Drain = MindDrainRules.DrainOnWaking(stat.Drain, Pending);
+            KurshuEncounter.Note($"{Owner.CharacterName} wakes: restoration removed enough drain; Intelligence {stat.ModifiedValue}, drain {stat.Drain}.");
+            Buff.Remove();
+        }
+    }
+
+    /// <summary>
+    /// The tail's grab: a free grapple check, with the native maneuver roll, against a creature of her size or smaller while
+    /// her tail holds no one else. She grapples normally, so she too is grappled. A success constricts once for 1d8+5.
     /// </summary>
     public sealed class KwrTailGrab : RuleInitiatorLogicComponent<RuleAttackWithWeapon>
     {
@@ -210,27 +250,32 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             {
                 return;
             }
-            if (target.Descriptor.State.Size > Owner.State.Size || target.Buffs.GetBuff(KurshuBlueprints.Held) != null)
-            {
-                return;
-            }
-            var grab = Rulebook.Trigger(new RuleCombatManeuver(Owner.Unit, target, CombatManeuver.Grapple));
-            KurshuEncounter.Note($"Tail grab on {target.CharacterName}: {grab.InitiatorCMValue} vs CMD {grab.TargetCMD}: {(grab.Success ? "held" : "slips free")}.");
-            if (!grab.Success)
-            {
-                return;
-            }
-            target.Descriptor.AddBuff(KurshuBlueprints.Held, Owner.Unit, null);
-            var damage = new PhysicalDamage(new DiceFormula(1, DiceType.D8), PhysicalDamageForm.Bludgeoning);
-            damage.AddBonus(5);
-            var constrict = Rulebook.Trigger(new RuleDealDamage(Owner.Unit, target, new DamageBundle(damage)));
-            KurshuEncounter.Note($"Constrict on {target.CharacterName}: {constrict.Damage} bludgeoning.");
+            KurshuEncounter.TryGrab(Owner.Unit, target);
         }
     }
 
     /// <summary>
-    /// Held in her coils: cannot move, -4 Dexterity, -2 on attacks. Each new round the target tries to break free with its
-    /// own maneuver roll against her CMD; it is released at once if she falls, is held herself, or is out of reach.
+    /// The grappled condition's penalties: -4 Dexterity and -2 on attack rolls. The attack penalty also lowers combat
+    /// maneuver checks natively, so a check to grapple or escape adds the 2 back, as the grappled condition excepts them.
+    /// </summary>
+    internal static class Grappled
+    {
+        public const int AttackPenalty = 2;
+
+        public static List<ModifiableValue.Modifier> Apply(BuffLogic logic, UnitDescriptor owner)
+        {
+            return new List<ModifiableValue.Modifier>
+            {
+                owner.Stats.Dexterity.AddModifier(-4, logic, ModifierDescriptor.UntypedStackable),
+                owner.Stats.AdditionalAttackBonus.AddModifier(-AttackPenalty, logic, ModifierDescriptor.UntypedStackable),
+            };
+        }
+    }
+
+    /// <summary>
+    /// Held in her coils, grappled: cannot move, -4 Dexterity, -2 on attacks, no attacks of opportunity, and a spell needs a
+    /// concentration check. Each new round the creature tries to break free with its own maneuver roll against her CMD, and
+    /// freedom of movement frees it outright.
     /// </summary>
     public sealed class KwrKurshuHold : BuffLogic, ITickEachRound
     {
@@ -239,11 +284,7 @@ namespace KingmakerWakingRune.Sanctum.Encounter
 
         public override void OnFactActivate()
         {
-            m_Modifiers = new List<ModifiableValue.Modifier>
-            {
-                Owner.Stats.Dexterity.AddModifier(-4, this, ModifierDescriptor.UntypedStackable),
-                Owner.Stats.AdditionalAttackBonus.AddModifier(-2, this, ModifierDescriptor.UntypedStackable),
-            };
+            m_Modifiers = Grappled.Apply(this, Owner);
         }
 
         public override void OnFactDeactivate()
@@ -254,19 +295,43 @@ namespace KingmakerWakingRune.Sanctum.Encounter
 
         public void OnNewRound()
         {
-            UnitEntityData holder = Context.MaybeCaster;
-            if (holder == null || !holder.Descriptor.State.IsConscious || !holder.Descriptor.State.CanAct || holder.DistanceTo(Owner.Unit) > KurshuTactics.ReachMeters + holder.Corpulence + Owner.Unit.Corpulence + 0.5f)
-            {
-                KurshuEncounter.Note($"{Owner.CharacterName} is released from the coils.");
-                Buff.Remove();
-                return;
-            }
-            var escape = Rulebook.Trigger(new RuleCombatManeuver(Owner.Unit, holder, CombatManeuver.Grapple));
-            KurshuEncounter.Note($"{Owner.CharacterName} struggles against the coils: {escape.InitiatorCMValue} vs CMD {escape.TargetCMD}: {(escape.Success ? "breaks free" : "still held")}.");
-            if (escape.Success)
-            {
-                Buff.Remove();
-            }
+            KurshuEncounter.OnHeldRound(Owner.Unit, Context.MaybeCaster);
+        }
+    }
+
+    /// <summary>
+    /// Kurshu grappling the creature she holds: the same grappled condition on her. Whenever her standard action is ready
+    /// again (real time) or her turn begins (turn-based), she maintains the hold with it or lets go; see the encounter.
+    /// </summary>
+    public sealed class KwrKurshuGrappling : BuffLogic
+    {
+        [JsonProperty]
+        private List<ModifiableValue.Modifier> m_Modifiers;
+
+        public override void OnFactActivate()
+        {
+            m_Modifiers = Grappled.Apply(this, Owner);
+        }
+
+        public override void OnFactDeactivate()
+        {
+            m_Modifiers?.ForEach(m => m.Remove());
+            m_Modifiers = null;
+        }
+
+    }
+
+    /// <summary>Maintaining the hold, a standard action: the grapple check again at +5, and on a success the tail and constrict.</summary>
+    public sealed class KwrMaintainGrappleAction : ContextAction
+    {
+        public override string GetCaption()
+        {
+            return "Maintain grapple";
+        }
+
+        public override void RunAction()
+        {
+            KurshuEncounter.Maintain(Context?.MaybeCaster);
         }
     }
 
@@ -303,6 +368,7 @@ namespace KingmakerWakingRune.Sanctum.Encounter
         public void OnEventDidTrigger(RuleAttackWithWeapon evt)
         {
             KurshuEncounter.Note($"attacks {evt.Target?.CharacterName} with {evt.Weapon?.Blueprint?.name}: {evt.AttackRoll?.Roll}+{evt.AttackRoll?.AttackBonus} vs AC {evt.AttackRoll?.TargetAC}: {(evt.AttackRoll != null && evt.AttackRoll.IsHit ? "hit" : "miss")}; combat {Owner.Unit.IsInCombat}, turn-based {TurnBased.Controllers.CombatController.IsInTurnBasedCombat()}.");
+            KurshuEncounter.OnAttack(Owner.Unit, evt);
         }
 
         public void OnEventAboutToTrigger(RuleDealDamage evt)

@@ -215,6 +215,77 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(false, KurshuRules.DecideOnInitialize(loaded, legacyEntered: false), "no re-initialization");
         }
 
+        public static void TestTheTailHoldsOneCreatureAndFreedomOfMovementDefeatsTheGrab()
+        {
+            var state = Fresh();
+            Assert.Equal(GrabVerdict.FreedomOfMovement, KurshuRules.CanGrab(state, targetNoLarger: true, targetFreeOfMovement: true), "freedom of movement resists automatically");
+            Assert.Equal(GrabVerdict.TooLarge, KurshuRules.CanGrab(state, targetNoLarger: false, targetFreeOfMovement: false), "larger than her");
+            Assert.Equal(GrabVerdict.Eligible, KurshuRules.CanGrab(state, targetNoLarger: true, targetFreeOfMovement: false), "medium foe");
+            Assert.Equal(true, KurshuRules.Hold(state, "brena", "Brena", 10d), "held");
+            Assert.Equal(GrabVerdict.AlreadyHolding, KurshuRules.CanGrab(state, targetNoLarger: true, targetFreeOfMovement: false), "never a second hold");
+            Assert.Equal(false, KurshuRules.Hold(state, "dorn", "Dorn", 11d), "a second hold is refused");
+            Assert.Equal("brena", state.HeldId, "still the first");
+            Assert.Equal(HoldChoice.Release, KurshuRules.DecideHold(state, holdStillStands: false, offensiveSpellsLeft: false, reason: out string why), "freed by freedom of movement after the grab");
+            Assert.Equal("the hold no longer stands", why, "reason");
+            Assert.Equal(string.Empty, state.HeldId, "nothing held");
+            Assert.Equal(HoldChoice.None, KurshuRules.DecideHold(state, holdStillStands: true, offensiveSpellsLeft: false, reason: out why), "nothing to decide");
+        }
+
+        public static void TestTheHoldCostsAStandardActionEachTurnOrEnds()
+        {
+            var state = Fresh();
+            KurshuRules.Hold(state, "brena", "Brena", 10d);
+            Assert.Equal(HoldChoice.Release, KurshuRules.DecideHold(state, holdStillStands: true, offensiveSpellsLeft: true, reason: out string why), "spells left: she lets go to cast");
+            Assert.Equal("she lets go to cast", why, "her tactics");
+
+            KurshuRules.Hold(state, "brena", "Brena", 20d);
+            Assert.Equal(HoldChoice.Maintain, KurshuRules.DecideHold(state, holdStillStands: true, offensiveSpellsLeft: false, reason: out why), "nothing left to cast: she squeezes");
+            Assert.Equal(true, state.MaintainDue, "the standard action is owed");
+            KurshuRules.Maintained(state, success: true);
+            Assert.Equal(false, state.MaintainDue, "paid");
+            Assert.Equal("brena", state.HeldId, "held on a success");
+
+            Assert.Equal(HoldChoice.Maintain, KurshuRules.DecideHold(state, holdStillStands: true, offensiveSpellsLeft: false, reason: out why), "next turn");
+            Assert.Equal(HoldChoice.Release, KurshuRules.DecideHold(state, holdStillStands: true, offensiveSpellsLeft: false, reason: out why), "a maintenance never made ends it");
+            Assert.Equal("last turn's maintenance was never made", why, "no free hold");
+
+            KurshuRules.Hold(state, "brena", "Brena", 30d);
+            KurshuRules.DecideHold(state, holdStillStands: true, offensiveSpellsLeft: false, reason: out why);
+            KurshuRules.Maintained(state, success: false);
+            Assert.Equal(string.Empty, state.HeldId, "a failed maintenance ends it");
+            Assert.Equal(3, state.Grabs, "grabs counted");
+            Assert.Equal(true, state.LastRelease.Contains("maintenance check failed"), "recorded");
+        }
+
+        public static void TestTheHoldSurvivesASaveRoundTrip()
+        {
+            var state = Fresh();
+            KurshuRules.Hold(state, "brena", "Brena", 10d);
+            KurshuRules.DecideHold(state, holdStillStands: true, offensiveSpellsLeft: false, reason: out string _);
+            var json = new JavaScriptSerializer();
+            KurshuState loaded = json.Deserialize<KurshuState>(json.Serialize(state));
+            Assert.Equal("brena", loaded.HeldId, "same victim");
+            Assert.Equal(true, loaded.MaintainDue, "the owed action is not forgiven by a load");
+            Assert.Equal(GrabVerdict.AlreadyHolding, KurshuRules.CanGrab(loaded, targetNoLarger: true, targetFreeOfMovement: false), "no second hold after a load");
+        }
+
+        public static void TestIntelligenceDrainToZeroIsComatoseUntilRestored()
+        {
+            Assert.Equal(0, MindDrainRules.Excess(4), "score stays above 0");
+            Assert.Equal(0, MindDrainRules.Excess(1), "1 is still awake");
+            Assert.Equal(1, MindDrainRules.Excess(0), "exactly 0: comatose, one point held back");
+            Assert.Equal(4, MindDrainRules.Excess(-3), "past 0: the rest is held back too");
+
+            // Intelligence 12 with 11 drain shows 1; a 4-point slam would leave -3: drain stays 11, 4 held back.
+            int drainWhenHeldBack = 11, pending = 4;
+            Assert.Equal(false, MindDrainRules.Recovered(drainWhenHeldBack, 11, pending), "no restoration yet");
+            Assert.Equal(false, MindDrainRules.Recovered(drainWhenHeldBack, 8, pending), "3 restored is not enough");
+            Assert.Equal(true, MindDrainRules.Recovered(drainWhenHeldBack, 0, pending), "all drain removed");
+            int after = MindDrainRules.DrainOnWaking(0, pending);
+            Assert.Equal(4, after, "the held-back points become drain");
+            Assert.Equal(8, 12 - after, "Intelligence 12 - 15 drain + 11 restored = 8");
+        }
+
         public static void TestTacticsPreferOutsidersAndUseAreasOnlyWhereTheyPay()
         {
             var outsider = new TacticsTarget { Distance = 10f, Outsider = true, EnemiesWithin20Feet = 1 };

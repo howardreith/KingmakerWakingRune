@@ -107,10 +107,12 @@ namespace KingmakerWakingRune.Sanctum
             }
         }
 
-        /// <summary>A save load replaces the world; any in-flight transfer ends with it.</summary>
+        /// <summary>
+        /// A save load replaces the world; any in-flight transfer ends with it. The departure rest's record is part of the save
+        /// and travels with it, so it is left alone here.
+        /// </summary>
         public static void Reset(string reason)
         {
-            DeparturePreparation.Forget(reason);
             if (s_Instance != null)
             {
                 s_Instance.m_Preparation.Cancel(reason);

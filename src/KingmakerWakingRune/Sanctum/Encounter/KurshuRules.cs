@@ -236,7 +236,35 @@ namespace KingmakerWakingRune.Sanctum.Encounter
         public int SurgesConsumed;
         public int SurgesExpired;
 
+        /// <summary>The one creature her tail holds, or empty. She never holds two.</summary>
+        public string HeldId = string.Empty;
+        public string HeldName = string.Empty;
+        public double HeldSince = -1d;
+        /// <summary>She chose to maintain the hold this turn and its standard action has not been spent yet.</summary>
+        public bool MaintainDue;
+        public int Grabs;
+        public int Maintains;
+        public string LastRelease = string.Empty;
+
         public List<string> Log = new List<string>();
+    }
+
+    internal enum GrabVerdict
+    {
+        Eligible,
+        AlreadyHolding,
+        TooLarge,
+        FreedomOfMovement,
+    }
+
+    internal enum HoldChoice
+    {
+        /// <summary>Nothing is held.</summary>
+        None,
+        /// <summary>A standard action this turn: the grapple check again, and constrict on a success.</summary>
+        Maintain,
+        /// <summary>A free action: the hold ends and she acts as she likes.</summary>
+        Release,
     }
 
     internal enum HealthEvent
@@ -448,6 +476,124 @@ namespace KingmakerWakingRune.Sanctum.Encounter
                 events.Add(HealthEvent.Slain);
             }
             return events;
+        }
+
+        /// <summary>
+        /// Grab, on a tail hit: a creature her size or smaller, while her tail holds no one else. Freedom of movement wins any
+        /// grapple check to resist, so the attempt fails outright.
+        /// </summary>
+        public static GrabVerdict CanGrab(KurshuState state, bool targetNoLarger, bool targetFreeOfMovement)
+        {
+            if (!string.IsNullOrEmpty(state.HeldId))
+            {
+                return GrabVerdict.AlreadyHolding;
+            }
+            if (!targetNoLarger)
+            {
+                return GrabVerdict.TooLarge;
+            }
+            return targetFreeOfMovement ? GrabVerdict.FreedomOfMovement : GrabVerdict.Eligible;
+        }
+
+        /// <summary>A successful grab: she now holds this one creature, and is grappling it herself.</summary>
+        public static bool Hold(KurshuState state, string id, string name, double now)
+        {
+            if (!string.IsNullOrEmpty(state.HeldId))
+            {
+                return false;
+            }
+            state.HeldId = id;
+            state.HeldName = name;
+            state.HeldSince = now;
+            state.MaintainDue = false;
+            state.Grabs++;
+            return true;
+        }
+
+        /// <summary>
+        /// Her decision at the start of each of her turns while she holds someone. A grapple lasts only while she spends a
+        /// standard action each round to maintain it, and her tactics favor spells: she lets go to cast while she has an
+        /// offensive spell-like ability left, and keeps squeezing only when she has none. A maintenance chosen last turn but
+        /// never made, or a hold that no longer stands (the victim gone, out of reach or free to move), ends it.
+        /// </summary>
+        public static HoldChoice DecideHold(KurshuState state, bool holdStillStands, bool offensiveSpellsLeft, out string reason)
+        {
+            reason = null;
+            if (string.IsNullOrEmpty(state.HeldId))
+            {
+                return HoldChoice.None;
+            }
+            if (!holdStillStands)
+            {
+                reason = "the hold no longer stands";
+            }
+            else if (state.MaintainDue)
+            {
+                reason = "last turn's maintenance was never made";
+            }
+            else if (offensiveSpellsLeft)
+            {
+                reason = "she lets go to cast";
+            }
+            if (reason != null)
+            {
+                Release(state, reason);
+                return HoldChoice.Release;
+            }
+            state.MaintainDue = true;
+            return HoldChoice.Maintain;
+        }
+
+        /// <summary>The maintenance check was made: a success keeps the hold; a failure ends it.</summary>
+        public static void Maintained(KurshuState state, bool success)
+        {
+            state.MaintainDue = false;
+            state.Maintains++;
+            if (!success)
+            {
+                Release(state, "the maintenance check failed");
+            }
+        }
+
+        /// <summary>Ends the hold; false when nothing was held.</summary>
+        public static bool Release(KurshuState state, string reason)
+        {
+            if (string.IsNullOrEmpty(state.HeldId))
+            {
+                return false;
+            }
+            state.LastRelease = $"{state.HeldName}: {reason}";
+            state.HeldId = string.Empty;
+            state.HeldName = string.Empty;
+            state.HeldSince = -1d;
+            state.MaintainDue = false;
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Intelligence drain to zero. In the source a creature at Intelligence 0 is comatose, not dead; the engine kills any creature
+    /// whose ability score falls below 1. Only her drain is changed: the engine keeps the score at 1, the points it cannot show
+    /// are held back as pending drain, and the victim lies comatose until restoration has removed at least that much drain.
+    /// </summary>
+    internal static class MindDrainRules
+    {
+        /// <summary>The points of drain held back so the engine's score stays at 1, given the score the drain would leave.</summary>
+        public static int Excess(int scoreAfterDrain)
+        {
+            return scoreAfterDrain >= 1 ? 0 : 1 - scoreAfterDrain;
+        }
+
+        /// <summary>Awake again once restoration has removed at least as much drain as was held back.</summary>
+        public static bool Recovered(int drainWhenHeldBack, int drainNow, int pending)
+        {
+            return drainWhenHeldBack - drainNow >= pending;
+        }
+
+        /// <summary>On waking, the held-back points become real drain, so the score shows what restoration truly left.</summary>
+        public static int DrainOnWaking(int drainNow, int pending)
+        {
+            return drainNow + pending;
         }
     }
 

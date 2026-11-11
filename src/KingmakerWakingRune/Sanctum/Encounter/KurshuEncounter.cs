@@ -7,6 +7,7 @@ using Kingmaker.Controllers.Brain.Blueprints.Considerations;
 using Kingmaker.EntitySystem.Entities;
 using Kingmaker.EntitySystem.Persistence;
 using Kingmaker.EntitySystem.Stats;
+using Kingmaker.Enums.Damage;
 using Kingmaker.GameModes;
 using Kingmaker.PubSubSystem;
 using Kingmaker.RuleSystem;
@@ -115,6 +116,10 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             {
                 Reconcile(kurshu, unit);
                 EnsureNature(kurshu, unit);
+                if (!unit.Descriptor.State.IsDead)
+                {
+                    CheckHold(kurshu, unit);
+                }
                 // The brain is hers again after a load, unless the unit is still waiting for its first, prepared turn.
                 unit.IsBrainActive = kurshu.HiddenCheckDone;
                 Note($"re-bound after load: {unit.UniqueId} hp {unit.Descriptor.HPLeft}/{unit.Descriptor.MaxHP} defeated={kurshu.Defeated} slain={kurshu.Slain} separation={kurshu.SeparationLevels}.");
@@ -182,6 +187,10 @@ namespace KingmakerWakingRune.Sanctum.Encounter
                 Note("Power Surge lapsed unused; the use stays spent.");
             }
             Observe(kurshu, unit, now);
+            if (!unit.Descriptor.State.IsDead)
+            {
+                CheckHold(kurshu, unit);
+            }
             if (kurshu.EngagedAt < 0d && unit.IsInCombat)
             {
                 kurshu.EngagedAt = now;
@@ -425,6 +434,16 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             {
                 return;
             }
+            if (!string.IsNullOrEmpty(kurshu.HeldId))
+            {
+                // While she holds someone, nothing else is chosen for her until she has maintained or let go. In turn-based
+                // combat that was decided at her turn's start; in real time it is decided as her standard action comes ready.
+                if (!turnBased && unit.CombatState.Cooldown.StandardAction <= 0f && unit.Commands.Empty)
+                {
+                    DecideHold(unit, "her action is ready");
+                }
+                return;
+            }
             if (TryFeed(unit, turnBased))
             {
                 return;
@@ -483,6 +502,14 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             if (state == null || unit == null || unit != Kurshu || state.Kurshu.Slain || !state.Kurshu.HiddenCheckDone || !unit.Descriptor.State.IsConscious || !unit.Descriptor.State.CanAct || s_DirectorCommand)
             {
                 return;
+            }
+            if (!string.IsNullOrEmpty(state.Kurshu.HeldId))
+            {
+                DecideHold(unit, "her turn begins");
+                if (s_DirectorCommand)
+                {
+                    return;
+                }
             }
             TryFeed(unit, turnBased: true);
         }
@@ -600,6 +627,285 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             }
         }
 
+        /// <summary>
+        /// Her Intelligence drain on one creature, through the native stat-damage rule. Where the engine would kill (a score
+        /// below 1), the points it cannot show are held back and the creature lies comatose instead; see <see cref="MindDrainRules"/>.
+        /// </summary>
+        public static void DrainIntelligence(UnitEntityData unit, UnitEntityData target, DiceFormula dice, string what)
+        {
+            KwrMindDrained comatose = target.Buffs.GetBuff(KurshuBlueprints.MindDrained)?.SelectComponents<KwrMindDrained>().FirstOrDefault();
+            if (comatose != null)
+            {
+                // Already at Intelligence 0: the drain still lands, and restoration will have that much more to undo.
+                int more = Rulebook.Trigger(new RuleRollDice(unit, dice)).Result;
+                comatose.Pending += more;
+                Note($"{what} {target.CharacterName}, already comatose: {more} more Intelligence drain held back ({comatose.Pending} in all).");
+                return;
+            }
+            bool markedBefore = target.Descriptor.State.MarkedForDeath;
+            ModifiableValueAttributeStat stat = target.Stats.Intelligence;
+            var drain = new RuleDealStatDamage(unit, target, StatType.Intelligence, dice, 0) { IsDrain = true };
+            Rulebook.Trigger(drain);
+            int excess = MindDrainRules.Excess(stat.ModifiedValueRaw);
+            if (excess > 0 && !markedBefore)
+            {
+                stat.Drain -= excess;
+                target.Descriptor.State.MarkedForDeath = false;
+                KwrMindDrained.Pending0 = excess;
+                target.Descriptor.AddBuff(KurshuBlueprints.MindDrained, unit, null);
+                Note($"{what} {target.CharacterName}: Intelligence drain {drain.Damage} reaches 0: comatose, not dead; {excess} point(s) held back (score shown {stat.ModifiedValue}, drain {stat.Drain}, life {target.Descriptor.State.LifeState}).");
+                return;
+            }
+            Note($"{what} {target.CharacterName}: Intelligence drain {drain.Damage} (immune {drain.Immune}); Intelligence now {stat.ModifiedValue}, drain {stat.Drain}.");
+        }
+
+        /// <summary>Printed: grab adds +4 to her grapple checks (in her CMB to grapple); maintaining an existing hold adds +5.</summary>
+        private const int MaintainBonus = 5;
+
+        /// <summary>Her offensive spell-like abilities: while any has a use left, her tactics prefer casting to squeezing.</summary>
+        private static readonly string[] OffensiveUses = { KurshuUses.Fireball, KurshuUses.LightningBolt, KurshuUses.StinkingCloud, KurshuUses.Slow, KurshuUses.HoldPerson, KurshuUses.MagicMissile, KurshuUses.VampiricTouch, KurshuUses.DispelMagic, KurshuUses.LimitedWish };
+
+        /// <summary>
+        /// Freedom of movement however it is granted (spell, scroll, wand or item): the native immunity to being held in place,
+        /// or to movement-impairing effects, which her hold carries as its descriptor.
+        /// </summary>
+        public static bool FreeOfMovement(UnitEntityData unit)
+        {
+            UnitState state = unit.Descriptor.State;
+            if (state.HasConditionImmunity(UnitCondition.CantMove) || state.HasConditionImmunity(UnitCondition.MovementBan))
+            {
+                return true;
+            }
+            return unit.Buffs.Enumerable.Cast<Kingmaker.Blueprints.Facts.Fact>().Concat(unit.Descriptor.Progression.Features.Enumerable.Cast<Kingmaker.Blueprints.Facts.Fact>())
+                .Any(f => f.SelectComponents<Kingmaker.UnitLogic.FactLogic.BuffDescriptorImmunity>().Any(c => c.Descriptor.HasAnyFlag(Kingmaker.Blueprints.Classes.Spells.SpellDescriptor.MovementImpairing)));
+        }
+
+        /// <summary>A grapple check with the native maneuver roll. The grappled condition's -2 does not apply to checks to grapple or escape.</summary>
+        private static RuleCombatManeuver GrappleCheck(UnitEntityData initiator, UnitEntityData target, int bonus)
+        {
+            var check = new RuleCombatManeuver(initiator, target, CombatManeuver.Grapple);
+            if (initiator.Buffs.GetBuff(KurshuBlueprints.Held) != null || initiator.Buffs.GetBuff(KurshuBlueprints.Grappling) != null)
+            {
+                check.AddBonus(Grappled.AttackPenalty, null);
+            }
+            if (bonus != 0)
+            {
+                check.AddBonus(bonus, null);
+            }
+            return Rulebook.Trigger(check);
+        }
+
+        private static UnitEntityData HeldUnit(KurshuState kurshu)
+        {
+            return string.IsNullOrEmpty(kurshu.HeldId) ? null : Game.Instance.State.Units.FirstOrDefault(u => u.UniqueId == kurshu.HeldId);
+        }
+
+        /// <summary>The hold stands while both are up, she can act, the victim is in her reach and not free to move, and both carry the condition.</summary>
+        private static bool HoldStands(UnitEntityData unit, UnitEntityData victim, out string why)
+        {
+            why = null;
+            if (victim == null || !victim.IsInGame || victim.Descriptor.State.IsDead)
+            {
+                why = "the held creature is gone or dead";
+            }
+            else if (!unit.Descriptor.State.IsConscious || !unit.Descriptor.State.CanAct)
+            {
+                why = "she can no longer act";
+            }
+            else if (unit.DistanceTo(victim) > KurshuTactics.ReachMeters + unit.Corpulence + victim.Corpulence + 0.5f)
+            {
+                why = "the held creature is out of her reach";
+            }
+            else if (FreeOfMovement(victim))
+            {
+                why = $"freedom of movement frees {victim.CharacterName}";
+            }
+            else if (victim.Buffs.GetBuff(KurshuBlueprints.Held) == null || unit.Buffs.GetBuff(KurshuBlueprints.Grappling) == null)
+            {
+                why = "the grappled condition is gone";
+            }
+            return why == null;
+        }
+
+        /// <summary>A tail hit: grab, if she may. A success holds the target, grapples her too, and constricts once.</summary>
+        public static void TryGrab(UnitEntityData unit, UnitEntityData target)
+        {
+            SanctumState state = State;
+            if (state == null)
+            {
+                return;
+            }
+            KurshuState kurshu = state.Kurshu;
+            GrabVerdict verdict = KurshuRules.CanGrab(kurshu, target.Descriptor.State.Size <= unit.Descriptor.State.Size, FreeOfMovement(target));
+            if (verdict != GrabVerdict.Eligible)
+            {
+                Note($"Tail hit on {target.CharacterName}: no grab ({verdict}{(verdict == GrabVerdict.AlreadyHolding ? ", holding " + kurshu.HeldName : string.Empty)}).");
+                return;
+            }
+            RuleCombatManeuver grab = GrappleCheck(unit, target, 0);
+            Note($"Tail grab on {target.CharacterName}: {grab.InitiatorCMValue} (CMB {grab.InitiatorCMB}) vs CMD {grab.TargetCMD}: {(grab.Success ? "held" : "slips free")}.");
+            if (!grab.Success)
+            {
+                return;
+            }
+            target.Descriptor.AddBuff(KurshuBlueprints.Held, unit, null);
+            if (target.Buffs.GetBuff(KurshuBlueprints.Held) == null)
+            {
+                Note($"{target.CharacterName}'s own immunity refuses the hold.");
+                return;
+            }
+            KurshuRules.Hold(kurshu, target.UniqueId, target.CharacterName, WardRuntime.Now);
+            unit.Descriptor.AddBuff(KurshuBlueprints.Grappling, unit, null);
+            Constrict(unit, target, false);
+        }
+
+        /// <summary>Constrict on a successful grapple check; a maintained hold also deals the tail's damage, as a grapple's damage option.</summary>
+        private static void Constrict(UnitEntityData unit, UnitEntityData target, bool withTail)
+        {
+            var constrict = new PhysicalDamage(new DiceFormula(1, DiceType.D8), PhysicalDamageForm.Bludgeoning);
+            constrict.AddBonus(5);
+            var bundle = new List<BaseDamage> { constrict };
+            if (withTail)
+            {
+                var tail = new PhysicalDamage(new DiceFormula(1, DiceType.D8), PhysicalDamageForm.Bludgeoning);
+                tail.AddBonus(2);
+                bundle.Add(tail);
+            }
+            var rule = Rulebook.Trigger(new RuleDealDamage(unit, target, new DamageBundle(bundle.ToArray())));
+            Note($"Constrict{(withTail ? " and tail" : string.Empty)} on {target.CharacterName}: {rule.Damage} bludgeoning.");
+        }
+
+        /// <summary>
+        /// Her decision while she holds someone, when her standard action is ready (real time) or her turn begins
+        /// (turn-based): maintain with that standard action, or let go as a free action and act as she likes.
+        /// </summary>
+        public static void DecideHold(UnitEntityData unit, string when)
+        {
+            SanctumState state = State;
+            if (state == null || unit == null)
+            {
+                return;
+            }
+            KurshuState kurshu = state.Kurshu;
+            if (string.IsNullOrEmpty(kurshu.HeldId))
+            {
+                RemoveHoldBuffs(unit, null);
+                return;
+            }
+            UnitEntityData victim = HeldUnit(kurshu);
+            bool stands = HoldStands(unit, victim, out string why);
+            bool offensive = OffensiveUses.Any(k => KurshuRules.Remaining(kurshu, k) > 0);
+            string name = kurshu.HeldName;
+            HoldChoice choice = KurshuRules.DecideHold(kurshu, stands, offensive, out string reason);
+            if (choice == HoldChoice.Release)
+            {
+                RemoveHoldBuffs(unit, victim);
+                Note($"{when}: she lets go of {name}: {(why ?? reason)}.");
+                return;
+            }
+            AbilityData maintain = unit.Descriptor.Abilities.GetAbility(KurshuBlueprints.MaintainGrapple)?.Data;
+            if (maintain == null)
+            {
+                return;
+            }
+            Issue(unit, UnitUseAbility.CreateCastCommand(maintain, victim), $"{when}: no offensive spell-like ability left, so she maintains the hold on {name} (standard action)");
+        }
+
+        /// <summary>Maintaining: the grapple check at +5; on a success the tail and constrict damage, on a failure the hold ends.</summary>
+        public static void Maintain(UnitEntityData unit)
+        {
+            SanctumState state = State;
+            if (state == null || unit == null)
+            {
+                return;
+            }
+            KurshuState kurshu = state.Kurshu;
+            UnitEntityData victim = HeldUnit(kurshu);
+            if (!HoldStands(unit, victim, out string why))
+            {
+                ReleaseHold(unit, victim, why);
+                return;
+            }
+            RuleCombatManeuver check = GrappleCheck(unit, victim, MaintainBonus);
+            KurshuRules.Maintained(kurshu, check.Success);
+            Note($"Maintains the hold on {victim.CharacterName}: {check.InitiatorCMValue} (CMB {check.InitiatorCMB}) vs CMD {check.TargetCMD}: {(check.Success ? "squeezes" : "loses the hold")}.");
+            if (check.Success)
+            {
+                Constrict(unit, victim, true);
+            }
+            else
+            {
+                RemoveHoldBuffs(unit, victim);
+            }
+        }
+
+        /// <summary>The held creature's round: the hold is checked, and then it struggles with its own maneuver roll.</summary>
+        public static void OnHeldRound(UnitEntityData victim, UnitEntityData holder)
+        {
+            SanctumState state = State;
+            if (state == null || victim == null)
+            {
+                return;
+            }
+            KurshuState kurshu = state.Kurshu;
+            if (holder == null || kurshu.HeldId != victim.UniqueId)
+            {
+                RemoveHoldBuffs(holder, victim);
+                return;
+            }
+            if (!HoldStands(holder, victim, out string why))
+            {
+                ReleaseHold(holder, victim, why);
+                return;
+            }
+            RuleCombatManeuver escape = GrappleCheck(victim, holder, 0);
+            Note($"{victim.CharacterName} struggles against the coils: {escape.InitiatorCMValue} (CMB {escape.InitiatorCMB}) vs CMD {escape.TargetCMD}: {(escape.Success ? "breaks free" : "still held")}.");
+            if (escape.Success)
+            {
+                ReleaseHold(holder, victim, "broke free");
+            }
+        }
+
+        private static void ReleaseHold(UnitEntityData unit, UnitEntityData victim, string reason)
+        {
+            SanctumState state = State;
+            string name = state?.Kurshu.HeldName;
+            if (state != null && KurshuRules.Release(state.Kurshu, reason))
+            {
+                Note($"The hold on {name} ends: {reason}.");
+            }
+            RemoveHoldBuffs(unit, victim);
+        }
+
+        private static void RemoveHoldBuffs(UnitEntityData unit, UnitEntityData victim)
+        {
+            unit?.Buffs.GetBuff(KurshuBlueprints.Grappling)?.Remove();
+            victim?.Buffs.GetBuff(KurshuBlueprints.Held)?.Remove();
+        }
+
+        /// <summary>After a load or each tick: the saved hold and the two conditions agree, and a hold that no longer stands ends at once.</summary>
+        private static void CheckHold(KurshuState kurshu, UnitEntityData unit)
+        {
+            if (string.IsNullOrEmpty(kurshu.HeldId))
+            {
+                if (unit.Buffs.GetBuff(KurshuBlueprints.Grappling) != null)
+                {
+                    RemoveHoldBuffs(unit, null);
+                }
+                foreach (UnitEntityData stray in Game.Instance.Player.Party.Where(u => u.Buffs.GetBuff(KurshuBlueprints.Held) != null))
+                {
+                    stray.Buffs.GetBuff(KurshuBlueprints.Held).Remove();
+                    Note($"{stray.CharacterName}: a hold the saved state does not record is removed.");
+                }
+                return;
+            }
+            UnitEntityData victim = HeldUnit(kurshu);
+            if (!HoldStands(unit, victim, out string why))
+            {
+                ReleaseHold(unit, victim, why);
+            }
+        }
+
         public static void ArmSurge(UnitEntityData caster)
         {
             SanctumState state = State;
@@ -649,8 +955,23 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             {
                 state.Kurshu.DisplacementPrepared = true;
             }
+            if (!string.IsNullOrEmpty(state.Kurshu.HeldId) && ability != KurshuBlueprints.MaintainGrapple && ability.ActionType != Kingmaker.UnitLogic.Commands.Base.UnitCommand.CommandType.Swift && evt.Success)
+            {
+                // A grapple held past her turn needs that turn's standard action; spending it on a spell ends the hold.
+                ReleaseHold(unit, HeldUnit(state.Kurshu), $"she spent her action on {ability.name} instead of maintaining the hold");
+            }
             var p = evt.Context?.Params;
             Note($"casts {ability.name} at {evt.Context?.MainTarget?.Unit?.CharacterName ?? evt.Context?.MainTarget?.Point.ToString()}: success {evt.Success}, CL {p?.CasterLevel}, DC {p?.DC}, spell level {p?.SpellLevel}; {(key == null ? "no daily use" : $"{key} left {KurshuRules.Remaining(state.Kurshu, key)}")}; in combat {unit.IsInCombat}.");
+        }
+
+        /// <summary>An attack after the round of the grab is an action not spent on maintaining it: the hold ends.</summary>
+        public static void OnAttack(UnitEntityData unit, RuleAttackWithWeapon evt)
+        {
+            SanctumState state = State;
+            if (state != null && !string.IsNullOrEmpty(state.Kurshu.HeldId) && WardRuntime.Now - state.Kurshu.HeldSince > 1d && evt.Weapon?.Blueprint != KurshuBlueprints.Tail)
+            {
+                ReleaseHold(unit, HeldUnit(state.Kurshu), "she attacks instead of maintaining the hold");
+            }
         }
 
         public static void OnDamaged(UnitEntityData unit, RuleDealDamage evt)
@@ -740,7 +1061,7 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             var sb = new System.Text.StringBuilder();
             UnitDescriptor d = unit.Descriptor;
             sb.Append($"{unit.CharacterName} {unit.UniqueId} size {d.State.Size} HD {d.Progression.CharacterLevel} hp {d.HPLeft}/{d.MaxHP} life {d.State.LifeState} regenerating {d.State.IsRegenerate} brain {unit.IsBrainActive} combat {unit.IsInCombat} pos ({unit.Position.x:0.0},{unit.Position.y:0.0},{unit.Position.z:0.0})\n");
-            foreach (StatType type in new[] { StatType.Strength, StatType.Dexterity, StatType.Constitution, StatType.Intelligence, StatType.Wisdom, StatType.Charisma, StatType.BaseAttackBonus, StatType.AC, StatType.SaveFortitude, StatType.SaveReflex, StatType.SaveWill, StatType.Initiative, StatType.SkillPerception, StatType.SkillStealth, StatType.AdditionalAttackBonus, StatType.AdditionalCMB, StatType.AdditionalCMD, StatType.HitPoints })
+            foreach (StatType type in new[] { StatType.Strength, StatType.Dexterity, StatType.Constitution, StatType.Intelligence, StatType.Wisdom, StatType.Charisma, StatType.BaseAttackBonus, StatType.AC, StatType.SaveFortitude, StatType.SaveReflex, StatType.SaveWill, StatType.Initiative, StatType.SkillPerception, StatType.SkillStealth, StatType.AdditionalAttackBonus, StatType.AdditionalCMB, StatType.AdditionalCMD, StatType.HitPoints, StatType.AttackOfOpportunityCount })
             {
                 ModifiableValue stat = unit.Stats.GetStat(type);
                 sb.Append($"  {type} {stat.ModifiedValue} (base {stat.BaseValue}) [{string.Join(", ", stat.Modifiers.Select(m => $"{m.ModDescriptor} {m.ModValue:+0;-0}").ToArray())}]\n");
@@ -749,7 +1070,16 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             var cmd = Rulebook.Trigger(new RuleCalculateBaseCMD(unit));
             UnitEntityData foe = Game.Instance.Player.Party.FirstOrDefault();
             string grapple = foe == null ? "?" : Rulebook.Trigger(new RuleCalculateCMB(unit, foe, CombatManeuver.Grapple)).Result.ToString();
-            sb.Append($"  AC touch {unit.Stats.AC.Touch} flat-footed {unit.Stats.AC.FlatFooted}; CMB {cmb.Result} (grapple {grapple}); CMD {cmd.Result} (BAB {cmd.ResultBAB} Str {cmd.ResultStrengthBonus} Dex {cmd.ResultDexterityBonus} size {cmd.ResultSizeBonus} misc {cmd.ResultMiscBonus})\n");
+            sb.Append($"  AC touch {unit.Stats.AC.Touch} flat-footed {unit.Stats.AC.FlatFooted}; CMB {cmb.Result} (BAB {cmb.ResultBAB} Str {cmb.ResultStrengthBonus} size {cmb.ResultSizeBonus} misc {cmb.ResultMiscBonus}; grapple {grapple}); CMD {cmd.Result} (BAB {cmd.ResultBAB} Str {cmd.ResultStrengthBonus} Dex {cmd.ResultDexterityBonus} size {cmd.ResultSizeBonus} misc {cmd.ResultMiscBonus})\n");
+            // The chain from the printed block: the authored value with no separation level, less each level she still has,
+            // plus the preset's own Difficulty modifiers, which reach CMB through attack and CMD through touch AC natively.
+            int separation = unit.Buffs.GetBuff(KurshuBlueprints.Separation)?.SelectComponents<KwrDivineSeparation>().FirstOrDefault()?.Count ?? 0;
+            int presetAttack = unit.Stats.AdditionalAttackBonus.Modifiers.Where(m => m.ModDescriptor == Kingmaker.Enums.ModifierDescriptor.Difficulty).Sum(m => m.ModValue);
+            int presetAC = unit.Stats.AC.Modifiers.Where(m => m.ModDescriptor == Kingmaker.Enums.ModifierDescriptor.Difficulty).Sum(m => m.ModValue);
+            sb.Append($"  maneuver chain: printed CMB {KurshuProfile.Sheet.First(l => l.Name == "CMB").Printed}/grapple {KurshuProfile.Sheet.First(l => l.Name == "CMB to grapple").Printed}/CMD {KurshuProfile.Sheet.First(l => l.Name == "CMD").Printed}; hard mode {KurshuProfile.Authored("CMB")}/{KurshuProfile.Authored("CMB to grapple")}/{KurshuProfile.Authored("CMD")}; separation now {separation} (authored {KurshuProfile.HardModeNegativeLevels}); preset attack {presetAttack:+0;-0} AC {presetAC:+0;-0}; expected {KurshuProfile.Undrained("CMB") - separation + presetAttack}/{KurshuProfile.Undrained("CMB to grapple") - separation + presetAttack}/{KurshuProfile.Undrained("CMD") - separation + presetAC}; native {cmb.Result}/{grapple}/{cmd.Result}\n");
+            KurshuState held = State?.Kurshu;
+            sb.Append($"  hold: {(held == null || string.IsNullOrEmpty(held.HeldId) ? "none" : held.HeldName + " since " + held.HeldSince.ToString("0") + (held.MaintainDue ? ", maintenance due" : string.Empty))}; grabs {held?.Grabs} maintains {held?.Maintains}; last release '{held?.LastRelease}'; grappling buff {unit.Buffs.GetBuff(KurshuBlueprints.Grappling) != null}\n");
+            sb.Append($"  native feats [{string.Join(", ", KurshuBlueprints.NativeFeats.Select(f => f.name + (d.HasFact(f) ? " present" : " MISSING")).ToArray())}]\n");
             sb.Append($"  SR {unit.Descriptor.Get<UnitPartSpellResistance>()?.GetValue(null)}\n");
             foreach (var limb in unit.Body.AdditionalLimbs.Select(l => l.MaybeWeapon).Where(w => w != null))
             {
