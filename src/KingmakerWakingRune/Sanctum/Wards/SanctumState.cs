@@ -89,6 +89,23 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public int RouteLeg;
         /// <summary>Set once when a marked body gained its Sihedron credential, so a reload never re-grants it.</summary>
         public bool Credentialed;
+        /// <summary>
+        /// A reporter's faction is known to be the hostile one it flees under. False in saves from before reporters were
+        /// hostile, where a neutral body is migrated once, never while an effect holds its faction.
+        /// </summary>
+        public bool HostileSettled;
+    }
+
+    /// <summary>
+    /// A player's standing order for one summoned creature to attack one rune plate. Only identities are kept: the summon's
+    /// duration, its attacks and the rune's damage stay with the game and the focus window, so a reload restores none of them.
+    /// </summary>
+    internal sealed class SummonOrderRecord
+    {
+        public string SummonId = string.Empty;
+        public string SummonerId = string.Empty;
+        public string SummonerName = string.Empty;
+        public string TargetId = string.Empty;
     }
 
     internal sealed class GemState
@@ -103,7 +120,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
     /// </summary>
     internal sealed class SanctumState
     {
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
 
         public int Version = CurrentVersion;
         public string ProfileSubtier = WardProfile.Subtier;
@@ -135,10 +152,13 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public CredentialState Credentials = new CredentialState();
         /// <summary>Krune's own summons get a typed +4 resistance bonus against the mist; filled by the adapters only.</summary>
         public List<string> KruneSummons = new List<string>();
+        /// <summary>Standing summon orders against rune plates, revalidated on every load before any is resumed.</summary>
+        public List<SummonOrderRecord> SummonOrders = new List<SummonOrderRecord>();
 
         /// <summary>
         /// Brings an older save forward without resetting anything it recorded. Version 1 predates credentials and route
-        /// progress: a runner already under way keeps going from the start of its route, and nothing is re-granted.
+        /// progress: a runner already under way keeps going from the start of its route, and nothing is re-granted. Version 2
+        /// predates saved summon orders and settled reporter hostility; its reporters are checked on their next tick.
         /// </summary>
         public bool Migrate()
         {
@@ -148,6 +168,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
             Credentials = Credentials ?? new CredentialState();
             KruneSummons = KruneSummons ?? new List<string>();
+            SummonOrders = SummonOrders ?? new List<SummonOrderRecord>();
             Version = CurrentVersion;
             return true;
         }

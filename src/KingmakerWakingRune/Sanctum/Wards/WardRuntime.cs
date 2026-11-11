@@ -140,7 +140,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             WardHazards.ForgetTurns();
             WardStatues.ForgetStatsProbe();
             RuneConditionClock.Forget();
-            SummonOrders.Forget();
+            SummonOrders.AfterLoad();
             WardFixtures.Ensure();
             WardStatues.MigrateMarked(state);
             WardCredentials.Reconcile(state);

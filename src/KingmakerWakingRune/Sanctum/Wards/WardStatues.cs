@@ -28,6 +28,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
     {
         private const string StoneToFlesh = "e243740dfdb17a246b116b334ed0b165";
         private const float WaypointMeters = 1.2f;
+        private const float BlockedMoveMeters = 0.15f;
         private static readonly Color Ash = new Color(0.28f, 0.27f, 0.26f, 1f);
 
         /// <summary>
@@ -129,6 +130,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 // A reporter flees from its first moment: its AI never gets a turn to choose a fight.
                 cultist.IsBrainActive = false;
+                statue.HostileSettled = true;
             }
             statue.EntityId = cultist.UniqueId;
             statue.Credentialed = CredentialRules.IsMarked(id);
@@ -327,6 +329,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 return;
             }
+            SettleHostility(statue, runner);
             if (ControlledElsewhere(runner))
             {
                 // Charmed, dominated, confused or panicked: its commands are someone else's, and its own AI returns.
@@ -453,16 +456,40 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
         }
 
-        /// <summary>In a runner's own turn-based turn, a finished move or door action leads at once to its next step.</summary>
+        /// <summary>Where each runner's current turn-based move began, to tell a blocked move from a short one.</summary>
+        private static readonly System.Collections.Generic.Dictionary<string, Vector3> s_TurnMoveFrom = new System.Collections.Generic.Dictionary<string, Vector3>();
+
+        /// <summary>
+        /// In a runner's own turn-based turn, a finished move or door action leads at once to its next step. A move that
+        /// ended without getting anywhere (someone stands in the way) ends the turn instead, so a blocked runner is
+        /// intercepted by the bodies in its path rather than holding the round open.
+        /// </summary>
         internal sealed class RunnerTurnPacer : Kingmaker.PubSubSystem.IUnitCommandEndHandler
         {
             public void HandleUnitCommandDidEnd(Kingmaker.UnitLogic.Commands.Base.UnitCommand command)
             {
                 UnitEntityData unit = command?.Executor;
-                if (unit != null && TurnBased.Controllers.CombatController.IsInTurnBasedCombat() && TurnBased.Controllers.CombatController.CurrentUnit == unit && !unit.IsBrainActive)
+                if (unit == null || !TurnBased.Controllers.CombatController.IsInTurnBasedCombat() || TurnBased.Controllers.CombatController.CurrentUnit != unit || unit.IsBrainActive)
                 {
-                    Game.Instance.ScheduleAction(() => RunnerTurnStarted(unit));
+                    return;
                 }
+                if (command is UnitMoveTo && s_TurnMoveFrom.TryGetValue(unit.UniqueId, out Vector3 from))
+                {
+                    s_TurnMoveFrom.Remove(unit.UniqueId);
+                    if ((unit.Position - from).magnitude < BlockedMoveMeters)
+                    {
+                        Log.Info($"Runner {unit.CharacterName} is blocked where it stands; its turn ends.");
+                        Game.Instance.ScheduleAction(() =>
+                        {
+                            if (TurnBased.Controllers.CombatController.CurrentUnit == unit)
+                            {
+                                Game.Instance.TurnBasedCombatController.CurrentTurn?.ForceToEnd();
+                            }
+                        });
+                        return;
+                    }
+                }
+                Game.Instance.ScheduleAction(() => RunnerTurnStarted(unit));
             }
         }
 
@@ -477,8 +504,40 @@ namespace KingmakerWakingRune.Sanctum.Wards
         }
 
         /// <summary>
-        /// The runner's own AI stays off while it flees, so it never stops to fight; a reporter from an older save, restored
-        /// as a neutral, becomes hostile once. Leaving combat never walks it back to where it joined.
+        /// Runs before the control test, so an older save's reporter is not mistaken for a charmed one. A reporter restored
+        /// before reporters were hostile stands in the neutral faction with no effect holding it there; it becomes hostile
+        /// once, the way a native faction change does it. While a charm, domination or other faction effect is on it, nothing
+        /// changes, and the migration waits until the effect has handed its faction back.
+        /// </summary>
+        private static void SettleHostility(StatueState statue, UnitEntityData runner)
+        {
+            if (statue.HostileSettled)
+            {
+                return;
+            }
+            BlueprintFaction mobs = Game.Instance.BlueprintRoot.SystemMechanics.FactionMobs;
+            if (runner.Descriptor.Faction == mobs)
+            {
+                statue.HostileSettled = true;
+                return;
+            }
+            bool heldByEffect = runner.IsPlayerFaction || runner.Buffs.RawFacts.Any(b => b.Blueprint.ComponentsArray.OfType<Kingmaker.UnitLogic.FactLogic.ChangeFaction>().Any());
+            if (heldByEffect || runner.Descriptor.Faction != Game.Instance.BlueprintRoot.SystemMechanics.FactionNeutrals)
+            {
+                return;
+            }
+            runner.GroupId = runner.UniqueId;
+            runner.Descriptor.SwitchFactions(mobs, true);
+            runner.UpdateGroup();
+            runner.Group.ResetFactionSet();
+            Kingmaker.PubSubSystem.EventBus.RaiseEvent(delegate(Kingmaker.PubSubSystem.IUnitFactionHandler h) { h.HandleFactionChanged(runner); });
+            statue.HostileSettled = true;
+            Log.Info($"Migration: runner {statue.Id} ({runner.CharacterName}), restored as a neutral by an older build, is now hostile and resumes its route at leg {statue.RouteLeg}/{RunnerRoute.Length}.");
+        }
+
+        /// <summary>
+        /// The runner's own AI stays off while it flees, so it never stops to fight. Leaving combat never walks it back to
+        /// where it joined.
         /// </summary>
         private static void KeepFleeing(string id, UnitEntityData runner)
         {
@@ -488,11 +547,6 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 runner.IsBrainActive = false;
                 runner.Commands.InterruptAll(c => c.AiAction != null);
                 Log.Info($"Runner {id} ({runner.CharacterName}) flees: its own AI is off; hostile {runner.IsPlayersEnemy}.");
-            }
-            if (!runner.IsPlayersEnemy && runner.Descriptor.Faction == Game.Instance.BlueprintRoot.SystemMechanics.FactionNeutrals)
-            {
-                runner.Descriptor.SwitchFactions(Game.Instance.BlueprintRoot.SystemMechanics.FactionMobs, true);
-                Log.Info($"Migration: runner {id} ({runner.CharacterName}) restored as a neutral is now hostile.");
             }
             if (runner.IsInCombat)
             {
@@ -526,6 +580,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                     return;
                 }
                 move.ForcedPath = path;
+                s_TurnMoveFrom[runner.UniqueId] = runner.Position;
                 Log.Info($"Runner {runner.CharacterName} turn move: path of {path.vectorPath?.Count ?? 0} points toward ({point.x:0.0},{point.z:0.0}).");
             }
             runner.Commands.Run(move);

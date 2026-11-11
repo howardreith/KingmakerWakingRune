@@ -631,6 +631,17 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(false, state.Migrate(), "once");
         }
 
+        public static void TestVersionTwoStateGainsSummonOrdersAndLeavesReportersUnsettled()
+        {
+            var state = new SanctumState { Version = 2, SummonOrders = null };
+            state.Statue("Support-N1").Outcome = StatueOutcome.Living;
+            state.Statue("Support-N1").RouteLeg = 3;
+            Assert.Equal(true, state.Migrate(), "migrates");
+            Assert.Equal(true, state.SummonOrders != null && state.SummonOrders.Count == 0, "empty summon orders added");
+            Assert.Equal(false, state.Statue("Support-N1").HostileSettled, "an older reporter is settled by the runtime, not assumed");
+            Assert.Equal(3, state.Statue("Support-N1").RouteLeg, "route progress kept");
+        }
+
         public static void TestBearerManifestIsFiveAndFive()
         {
             Assert.Equal(10, BearerManifest.Roles.Count, "ten bearers");

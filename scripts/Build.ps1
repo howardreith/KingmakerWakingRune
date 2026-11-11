@@ -4,7 +4,7 @@
   Output: artifacts\KingmakerWakingRune-<version>.zip containing KingmakerWakingRune\{Info.json,KingmakerWakingRune.dll}.
 #>
 [CmdletBinding()]
-param([switch] $SkipTests)
+param([switch] $SkipTests, [switch] $ReplacePackage)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -36,6 +36,10 @@ $commit = (& git -C $Root rev-parse HEAD).Trim()
 $dirty = [bool](& git -C $Root status --porcelain)
 # A working-tree build never replaces a version's package: it goes to its own -dirty file, so a tested zip survives.
 $zip = Join-Path $Root ("artifacts\KingmakerWakingRune-{0}{1}.zip" -f $info.Version, $(if ($dirty) { '-dirty' } else { '' }))
+# A clean package, once written, is a candidate: it is never replaced unless the owner explicitly authorizes it.
+if (-not $dirty -and (Test-Path -LiteralPath $zip) -and -not $ReplacePackage) {
+    throw "$zip already exists and may be a tested candidate; bump the version, or pass -ReplacePackage only with the owner's authorization."
+}
 Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
 Compress-Archive -Path $stage -DestinationPath $zip
 [ordered]@{

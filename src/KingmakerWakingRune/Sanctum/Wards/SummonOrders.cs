@@ -5,6 +5,7 @@ using Kingmaker;
 using Kingmaker.EntitySystem.Entities;
 using Kingmaker.PubSubSystem;
 using Kingmaker.RuleSystem.Rules;
+using Kingmaker.UnitLogic;
 using Kingmaker.UnitLogic.Commands;
 using Kingmaker.UnitLogic.Commands.Base;
 using Kingmaker.UnitLogic.Parts;
@@ -14,23 +15,20 @@ namespace KingmakerWakingRune.Sanctum.Wards
     /// <summary>
     /// "Direct my summoned creatures to attack this rune": a character's own living summons are given real native attack
     /// commands against one plate, renewed after each round of attacks and at each of their turn-based turns, until the
-    /// rune goes dark, the plate is gone, the summon ends, or the player recalls them. Nothing else about the summons
-    /// changes: they walk, attack, meet hardness and expire as natively as ever, and are never made selectable.
+    /// rune goes dark, the plate is gone, the summon ends or leaves its summoner's control, or the player recalls them.
+    /// Nothing else about the summons changes: they walk, attack, meet hardness and expire as natively as ever, and are
+    /// never made selectable. Orders are saved by identity and checked again on every load before any is resumed.
     /// </summary>
-    internal sealed class SummonOrders : IUnitCommandEndHandler, ITurnBasedModeHandler, IUnitHandler
+    internal sealed class SummonOrders : IUnitCommandEndHandler, ITurnBasedModeHandler, IUnitHandler, IUnitFactionHandler
     {
-        private sealed class Assignment
-        {
-            public string TargetId;
-            public string SummonerName;
-        }
+        /// <summary>Set by a load; the first tick afterwards checks every saved order and resumes the ones still valid.</summary>
+        private static bool s_ResumeDue;
 
-        /// <summary>Summon unique id to its standing order. Orders live for the session; a reload leaves the summons to their AI.</summary>
-        private static readonly Dictionary<string, Assignment> s_Orders = new Dictionary<string, Assignment>();
+        private static List<SummonOrderRecord> Orders => WardRuntime.State?.SummonOrders;
 
-        public static void Forget()
+        public static void AfterLoad()
         {
-            s_Orders.Clear();
+            s_ResumeDue = true;
         }
 
         /// <summary>A character's own summons that could take an order now: linked to them, in the area, alive and able.</summary>
@@ -43,13 +41,13 @@ namespace KingmakerWakingRune.Sanctum.Wards
             return Game.Instance.State.Units.Where(u =>
             {
                 UnitPartSummonedMonster part = u.Get<UnitPartSummonedMonster>();
-                return part != null && part.IsLinkedToSummoner && part.Summoner == summoner && !u.Descriptor.IsPet && u.IsInGame && !u.Descriptor.State.IsDead && u.Descriptor.State.IsConscious;
+                return part != null && part.IsLinkedToSummoner && part.Summoner == summoner && !u.Descriptor.IsPet && u.IsInGame && !u.Descriptor.State.IsDead && u.Descriptor.State.IsConscious && OutOfControl(u, summoner) == null;
             }).ToList();
         }
 
         public static bool HasOrders(string targetId)
         {
-            return s_Orders.Values.Any(o => o.TargetId == targetId);
+            return Orders != null && Orders.Any(o => o.TargetId == targetId);
         }
 
         public static void Direct(UnitEntityData summoner, string targetId)
@@ -62,7 +60,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
             foreach (UnitEntityData summon in summons)
             {
-                s_Orders[summon.UniqueId] = new Assignment { TargetId = targetId, SummonerName = summoner.CharacterName };
+                Orders.RemoveAll(o => o.SummonId == summon.UniqueId);
+                Orders.Add(new SummonOrderRecord { SummonId = summon.UniqueId, SummonerId = summoner.UniqueId, SummonerName = summoner.CharacterName, TargetId = targetId });
                 Issue(summon, "ordered");
             }
             WardRuntime.Say(summons.Count == 1
@@ -72,26 +71,42 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         public static void Recall(string targetId)
         {
-            foreach (KeyValuePair<string, Assignment> order in s_Orders.Where(o => o.Value.TargetId == targetId).ToList())
+            foreach (SummonOrderRecord order in Orders.Where(o => o.TargetId == targetId).ToList())
             {
-                End(order.Key, "recalled by the player", interrupt: true);
+                End(order, "recalled by the player", interrupt: true);
             }
             WardRuntime.Say("The summoned creatures break off from the rune plate.");
         }
 
-        /// <summary>Ends orders whose rune has gone dark or whose plate has gone, stopping the attack in hand.</summary>
+        /// <summary>
+        /// Ends orders whose rune has gone dark, whose plate or summon has gone, or whose summon is no longer its summoner's
+        /// to command, stopping the attack in hand; after a load, resumes the orders that survive those checks.
+        /// </summary>
         public static void Tick()
         {
-            if (s_Orders.Count == 0)
+            List<SummonOrderRecord> orders = Orders;
+            if (orders == null || orders.Count == 0)
             {
+                s_ResumeDue = false;
                 return;
             }
-            foreach (KeyValuePair<string, Assignment> order in s_Orders.ToList())
+            bool resume = s_ResumeDue;
+            s_ResumeDue = false;
+            foreach (SummonOrderRecord order in orders.ToList())
             {
-                string reason = TargetGone(order.Value.TargetId);
+                UnitEntityData summon = Find(order.SummonId);
+                string reason = TargetGone(order.TargetId) ?? SummonGone(summon, order);
                 if (reason != null)
                 {
-                    End(order.Key, reason, interrupt: true);
+                    End(order, reason, interrupt: true);
+                }
+                else if (resume)
+                {
+                    Log.Info($"Summon order: {summon.CharacterName} ({summon.UniqueId}) of {order.SummonerName} against {order.TargetId} found in the save and still valid.");
+                    if (MayIssueNow(summon))
+                    {
+                        Issue(summon, "resumed after loading");
+                    }
                 }
             }
         }
@@ -99,7 +114,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public void HandleUnitCommandDidEnd(UnitCommand command)
         {
             UnitEntityData summon = command?.Executor;
-            if (summon == null || !(command is UnitAttack) || !s_Orders.ContainsKey(summon.UniqueId))
+            if (summon == null || !(command is UnitAttack) || OrderOf(summon) == null)
             {
                 return;
             }
@@ -109,7 +124,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         public void HandleTurnStarted(UnitEntityData unit)
         {
-            if (unit == null || !s_Orders.ContainsKey(unit.UniqueId))
+            if (unit == null || OrderOf(unit) == null)
             {
                 return;
             }
@@ -120,18 +135,30 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         public void HandleUnitDeath(UnitEntityData unit)
         {
-            if (unit != null && s_Orders.ContainsKey(unit.UniqueId))
+            SummonOrderRecord order = OrderOf(unit);
+            if (order != null)
             {
-                End(unit.UniqueId, "the summon died", interrupt: false);
+                End(order, "the summon died", interrupt: false);
             }
         }
 
         public void HandleUnitDestroyed(UnitEntityData unit)
         {
-            if (unit != null && s_Orders.ContainsKey(unit.UniqueId))
+            SummonOrderRecord order = OrderOf(unit);
+            if (order != null)
             {
-                End(unit.UniqueId, "the summon is gone", interrupt: false);
+                End(order, "the summon is gone", interrupt: false);
             }
+        }
+
+        public void HandleUnitControlChanged(UnitEntityData unit)
+        {
+            Recheck(unit);
+        }
+
+        public void HandleFactionChanged(UnitEntityData unit)
+        {
+            Recheck(unit);
         }
 
         public void HandleUnitSpawned(UnitEntityData unit)
@@ -146,24 +173,47 @@ namespace KingmakerWakingRune.Sanctum.Wards
         {
         }
 
-        public void HandleUnitControlChanged(UnitEntityData unit)
-        {
-        }
-
         public void HandleUnitNotSurprised(UnitEntityData unit, RuleSkillCheck perceptionCheck)
         {
         }
 
+        private static void Recheck(UnitEntityData unit)
+        {
+            SummonOrderRecord order = OrderOf(unit);
+            string reason = order == null ? null : SummonGone(unit, order);
+            if (reason != null)
+            {
+                End(order, reason, interrupt: true);
+            }
+        }
+
+        private static SummonOrderRecord OrderOf(UnitEntityData unit)
+        {
+            return unit == null ? null : Orders?.FirstOrDefault(o => o.SummonId == unit.UniqueId);
+        }
+
+        private static UnitEntityData Find(string id)
+        {
+            return Game.Instance.State.Units.FirstOrDefault(u => u.UniqueId == id);
+        }
+
+        /// <summary>Outside turn-based combat at once; inside it only in the summon's own turn, so no action is added.</summary>
+        private static bool MayIssueNow(UnitEntityData summon)
+        {
+            return !TurnBased.Controllers.CombatController.IsInTurnBasedCombat() || TurnBased.Controllers.CombatController.CurrentUnit == summon;
+        }
+
         private static void Issue(UnitEntityData summon, string why)
         {
-            if (!s_Orders.TryGetValue(summon.UniqueId, out Assignment order))
+            SummonOrderRecord order = OrderOf(summon);
+            if (order == null)
             {
                 return;
             }
-            string gone = TargetGone(order.TargetId) ?? SummonGone(summon);
+            string gone = TargetGone(order.TargetId) ?? SummonGone(summon, order);
             if (gone != null)
             {
-                End(summon.UniqueId, gone, interrupt: false);
+                End(order, gone, interrupt: true);
                 return;
             }
             UnitEntityData target = WardFixtures.Find(order.TargetId);
@@ -177,7 +227,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 // A creature with no attack of its own cannot follow the order; it is released, not forced.
                 Log.Error($"Summon order: {summon.CharacterName} cannot attack {order.TargetId}.", ex);
-                End(summon.UniqueId, "it has no attack", interrupt: false);
+                End(order, "it has no attack", interrupt: false);
             }
         }
 
@@ -191,33 +241,55 @@ namespace KingmakerWakingRune.Sanctum.Wards
             return WardRuntime.State != null && WardRuntime.State.Focus(targetId).Disabled ? "the rune is dark" : null;
         }
 
-        private static string SummonGone(UnitEntityData summon)
+        private static string SummonGone(UnitEntityData summon, SummonOrderRecord order)
         {
-            UnitPartSummonedMonster part = summon.Get<UnitPartSummonedMonster>();
+            UnitPartSummonedMonster part = summon?.Get<UnitPartSummonedMonster>();
             if (part == null || !summon.IsInGame || summon.Descriptor.State.IsDead)
             {
                 return "the summon has ended";
             }
-            return summon.Descriptor.State.IsConscious ? null : "the summon cannot act";
+            if (!part.IsLinkedToSummoner || part.Summoner == null || part.Summoner.UniqueId != order.SummonerId)
+            {
+                return "it is no longer bound to the character who gave the order";
+            }
+            return OutOfControl(summon, part.Summoner) ?? (summon.Descriptor.State.IsConscious ? null : "the summon cannot act");
         }
 
-        private static void End(string summonId, string reason, bool interrupt)
+        /// <summary>
+        /// Someone or something else now decides what the summon does: it has changed allegiance away from its summoner, a
+        /// faction effect holds it, or a condition with its own controller (confusion, panic) moves it.
+        /// </summary>
+        private static string OutOfControl(UnitEntityData summon, UnitEntityData summoner)
         {
-            if (!s_Orders.TryGetValue(summonId, out Assignment order))
+            // A summon joins its summoner's group natively; its faction is its own blueprint's and is not compared.
+            if (summon.GroupId != summoner.GroupId || summon.IsEnemy(summoner) || summon.Buffs.RawFacts.Any(b => b.Blueprint.ComponentsArray.OfType<Kingmaker.UnitLogic.FactLogic.ChangeFaction>().Any()))
+            {
+                return "it has changed allegiance";
+            }
+            if (summon.Descriptor.State.IsPanicked || summon.Descriptor.State.HasCondition(UnitCondition.Confusion))
+            {
+                return "it is under another effect's control";
+            }
+            return null;
+        }
+
+        /// <summary>Removes the order and, where asked, the attack on that plate in hand and the manual target it set.</summary>
+        private static void End(SummonOrderRecord order, string reason, bool interrupt)
+        {
+            if (Orders == null || !Orders.Remove(order))
             {
                 return;
             }
-            s_Orders.Remove(summonId);
-            UnitEntityData summon = Game.Instance.State.Units.FirstOrDefault(u => u.UniqueId == summonId);
+            UnitEntityData summon = Find(order.SummonId);
             if (summon != null && interrupt)
             {
                 summon.Commands.InterruptAll(c => c is UnitAttack attack && attack.TargetUnit != null && WardFixtures.IdOf(attack.TargetUnit) == order.TargetId);
-                if (summon.CombatState.ManualTarget != null && WardFixtures.IdOf(summon.CombatState.ManualTarget) == order.TargetId)
-                {
-                    summon.CombatState.ManualTarget = null;
-                }
             }
-            Log.Info($"Summon order ended: {summon?.CharacterName ?? summonId} against {order.TargetId}: {reason}.");
+            if (summon != null && summon.CombatState.ManualTarget != null && WardFixtures.IdOf(summon.CombatState.ManualTarget) == order.TargetId)
+            {
+                summon.CombatState.ManualTarget = null;
+            }
+            Log.Info($"Summon order ended: {summon?.CharacterName ?? order.SummonId} against {order.TargetId}: {reason}.");
         }
     }
 }

@@ -34,10 +34,12 @@ namespace KingmakerWakingRune.Sanctum
         }
 
         /// <summary>
-        /// The party has rested for the departure in progress. A failed checkpoint or load leaves the party in the lodge and
-        /// a retry departs without resting again; a save load or a completed arrival clears it.
+        /// What the party looked like, member by member, when its departure rest finished. A failed checkpoint or load leaves
+        /// the party in the lodge; a retry departs without a second rest only while every member still matches this record.
+        /// A member who joined or left, a prepared slot changed or spent, a spontaneous slot or resource used, or a wound
+        /// taken since sends the party back through review and rest. A save load or a completed arrival clears it.
         /// </summary>
-        private static bool s_Rested;
+        private static Dictionary<string, string> s_RestedAs;
 
         private readonly Action m_Depart;
         private readonly Action<string> m_Cancel;
@@ -56,23 +58,30 @@ namespace KingmakerWakingRune.Sanctum
 
         public static void Forget(string reason)
         {
-            if (s_Rested)
+            if (s_RestedAs != null)
             {
                 Log.Info($"Departure rest record cleared: {reason}.");
             }
-            s_Rested = false;
+            s_RestedAs = null;
         }
 
         public void Begin()
         {
-            if (s_Rested)
+            string intro = "Before the token carries you away, the party takes a full night's rest here in the lodge and prepares its spells.";
+            if (s_RestedAs != null)
             {
-                Log.Info("Departure: the party already rested for this departure; leaving without a second rest.");
-                m_Depart();
-                return;
+                List<string> changed = ChangedSinceRest();
+                if (changed.Count == 0)
+                {
+                    Log.Info("Departure: the party already rested for this departure and nothing has changed since; leaving without a second rest.");
+                    m_Depart();
+                    return;
+                }
+                Log.Info($"Departure: the earlier departure rest no longer holds: {string.Join("; ", changed.ToArray())}.");
+                intro = "The party has changed since its last rest for this journey (" + string.Join("; ", changed.ToArray()) + "), so it rests again before departing.";
             }
             m_Stage = Stage.Confirming;
-            Ask("Before the token carries you away, the party takes a full night's rest here in the lodge and prepares its spells.\n\nSpells and effects already cast will run out during the night. Spent scrolls, potions and wand charges are not restored. Spells you choose in the spellbook become ready with the rest.\n\nReview your spellbooks now, then rest and depart?", yes =>
+            Ask(intro + "\n\nSpells and effects already cast will run out during the night. Spent scrolls, potions and wand charges are not restored. Spells you choose in the spellbook become ready with the rest.\n\nReview your spellbooks now, then rest and depart?", yes =>
             {
                 if (!yes)
                 {
@@ -129,7 +138,7 @@ namespace KingmakerWakingRune.Sanctum
                     // The native rest ends with its own autosave; the departure checkpoint waits for that to be committed.
                     if (m_SawRest && Game.Instance.CurrentMode == GameModeType.Default && !LoadingProcess.Instance.IsLoadingInProcess && !LoadingProcess.Instance.IsLoadingScreenActive && !Game.Instance.SaveManager.CommitInProgress)
                     {
-                        s_Rested = true;
+                        s_RestedAs = Game.Instance.Player.Party.ToDictionary(u => u.UniqueId, Fingerprint);
                         m_Stage = Stage.Idle;
                         Log.Info($"Departure rest complete: {string.Join("; ", Game.Instance.Player.Party.Select(Readiness).ToArray())}.");
                         m_Depart();
@@ -220,6 +229,62 @@ namespace KingmakerWakingRune.Sanctum
                 }
             }
             return parts.Count == 0 ? null : $"{unit.CharacterName}: {string.Join(", ", parts.ToArray())}";
+        }
+
+        /// <summary>Each way the current party differs from the one that rested, by name; empty when it is the same party, as ready.</summary>
+        private static List<string> ChangedSinceRest()
+        {
+            var changed = new List<string>();
+            List<UnitEntityData> party = Game.Instance.Player.Party.ToList();
+            foreach (UnitEntityData unit in party)
+            {
+                if (!s_RestedAs.TryGetValue(unit.UniqueId, out string before))
+                {
+                    changed.Add($"{unit.CharacterName} joined");
+                }
+                else if (before != Fingerprint(unit))
+                {
+                    changed.Add($"{unit.CharacterName}'s spells, abilities or health changed");
+                }
+            }
+            if (s_RestedAs.Keys.Any(id => party.All(u => u.UniqueId != id)))
+            {
+                changed.Add("a member left");
+            }
+            return changed;
+        }
+
+        /// <summary>
+        /// Everything a night's rest restores or a spellbook review decides, for one member: each prepared slot's spell and
+        /// whether it is ready, spontaneous slots left, caster levels, ability resources, hit point and ability damage.
+        /// </summary>
+        private static string Fingerprint(UnitEntityData unit)
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.Append($"hp {unit.Descriptor.Damage}");
+            foreach (Kingmaker.EntitySystem.Stats.StatType type in new[] { Kingmaker.EntitySystem.Stats.StatType.Strength, Kingmaker.EntitySystem.Stats.StatType.Dexterity, Kingmaker.EntitySystem.Stats.StatType.Constitution, Kingmaker.EntitySystem.Stats.StatType.Intelligence, Kingmaker.EntitySystem.Stats.StatType.Wisdom, Kingmaker.EntitySystem.Stats.StatType.Charisma })
+            {
+                var stat = (Kingmaker.EntitySystem.Stats.ModifiableValueAttributeStat)unit.Stats.GetStat(type);
+                sb.Append($" {type} {stat.Damage}/{stat.Drain}");
+            }
+            foreach (Spellbook book in unit.Descriptor.Spellbooks)
+            {
+                sb.Append($" | {book.Blueprint.AssetGuid} cl {book.CasterLevel}");
+                for (int level = 0; level <= book.MaxSpellLevel; level++)
+                {
+                    if (book.Blueprint.Spontaneous)
+                    {
+                        sb.Append($" {level}:{book.GetSpontaneousSlots(level)}/{book.GetSpellsPerDay(level)}");
+                    }
+                    else
+                    {
+                        sb.Append($" {level}:[{string.Join(",", book.GetMemorizedSpellSlots(level).Select(s => (s.Spell?.Blueprint.AssetGuid ?? "-") + (s.Available ? "+" : "!")).ToArray())}]");
+                    }
+                }
+            }
+            sb.Append(" | ");
+            sb.Append(string.Join(",", unit.Descriptor.Resources.PersistantResources.OrderBy(r => r.Blueprint.AssetGuid).Select(r => $"{r.Blueprint.AssetGuid}={r.Amount}").ToArray()));
+            return sb.ToString();
         }
 
         /// <summary>For the log: each prepared book's ready and total slots at its highest level, and current hit points.</summary>
