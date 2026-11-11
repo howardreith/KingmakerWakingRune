@@ -92,6 +92,19 @@ namespace KingmakerWakingRune.Diagnostics
                     return Slots(Member(args[1]));
                 case "cursor":
                     return Cursor();
+                case "cantarget":
+                    return CanTarget(Member(args[1]), args[2], args[3]);
+                case "screen":
+                    return ScreenPoint(args[1]);
+                case "look":
+                    // The camera only, as a player's own scrolling would: no unit, rule or state changes.
+                    Resolve(args[1], out UnitEntityData seen);
+                    if (seen == null)
+                    {
+                        return $"no target {args[1]}";
+                    }
+                    Game.Instance.UI.GetCameraRig().ScrollToImmediately(seen.Position);
+                    return $"CAMERA moved to {args[1]}.";
                 case "advance":
                     Game.Instance.AdvanceGameTime(TimeSpan.FromSeconds(double.Parse(args[1])));
                     return $"INJECTED time advance: {args[1]} seconds, now {WardRuntime.Now:0}.";
@@ -296,8 +309,44 @@ namespace KingmakerWakingRune.Diagnostics
 
         private static string Resolve(string target, out UnitEntityData unit)
         {
-            unit = target.StartsWith("party:") ? Member(target.Substring(6)) : WardFixtures.Find(target);
+            unit = target.StartsWith("party:") ? Member(target.Substring(6)) : target.StartsWith("body:") ? BodyOf(target.Substring(5)) : WardFixtures.Find(target);
             return unit == null ? $"no target {target}" : null;
+        }
+
+        /// <summary>The restored or dead body that replaced a statue, by the statue's id.</summary>
+        private static UnitEntityData BodyOf(string statueId)
+        {
+            SanctumState state = WardRuntime.State;
+            return state != null && state.Statues.TryGetValue(statueId, out StatueState statue) ? WardStatues.Body(statue) : null;
+        }
+
+        /// <summary>Read only: whether the native targeting rules let this caster aim this ability at the target. Nothing is granted or cast.</summary>
+        private static string CanTarget(UnitEntityData caster, string blueprintName, string target)
+        {
+            BlueprintAbility ability = ResourcesLibrary.GetBlueprints<BlueprintAbility>().FirstOrDefault(a => a.name == blueprintName);
+            if (ability == null)
+            {
+                return $"no ability named {blueprintName}";
+            }
+            string missing = Resolve(target, out UnitEntityData victim);
+            if (missing != null)
+            {
+                return missing;
+            }
+            var data = new AbilityData(ability, caster.Descriptor);
+            return $"READ canTarget {ability.name} by {caster.CharacterName} on {target} ({victim.CharacterName}): {data.CanTarget(victim)}; enemy={victim.IsPlayersEnemy} faction={victim.Descriptor.Faction.name}.";
+        }
+
+        /// <summary>Read only: where a fixture, body or party member stands in game-window pixels, for aiming real clicks.</summary>
+        private static string ScreenPoint(string target)
+        {
+            string missing = Resolve(target, out UnitEntityData unit);
+            if (missing != null)
+            {
+                return missing;
+            }
+            Vector3 p = Camera.main.WorldToScreenPoint(unit.Position);
+            return $"READ screen {target}: x={p.x:0} y={Screen.height - p.y:0} onScreen={p.z > 0 && p.x >= 0 && p.x <= Screen.width && p.y >= 0 && p.y <= Screen.height} ({Screen.width}x{Screen.height}).";
         }
 
         private static string CastPoint(UnitEntityData caster, string blueprintName, float x, float y)
