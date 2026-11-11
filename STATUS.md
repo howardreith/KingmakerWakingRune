@@ -1,92 +1,75 @@
 # Status: The Waking Rune
 
-**Milestone:** WR-04-R5 corrections, on top of WR-04, R1, R2, R3 and R4. Candidate 0.5.15 is ready for owner review.
+**Milestone:** WR-05, Kurshu the Undying in A1. Candidate 0.6.7 is ready for owner review.
 
-**Branch:** `feature/wr-04-sanctum-wards` (draft PR #4). Do not merge, tag or release without owner review.
+**Branch:** `feature/wr-05-kurshu`, a child of `feature/wr-04-sanctum-wards`. PR #4 (WR-04) is still open and unmerged, so the WR-05 draft PR targets the WR-04 branch and shows only the encounter. Do not merge, tag or release without owner review, and merge PR #4 first.
 
 Results:
-- `docs/ACCEPTANCE-WR-04-R5.md`: this cycle.
-- `docs/WR-04-LEDGER.md`: the cumulative ledger of the whole WR-04 scope.
-- `docs/ACCEPTANCE-WR-04-R4.md`, `-R3.md`, `-R2.md`, `-R1.md` and `ACCEPTANCE-WR-04.md`: earlier rows.
-
-Rules, adaptations and migration are in `docs/WR-04-RULES.md`; the progress record is in `docs/WR-04-PROGRESS.md`.
+- `docs/ACCEPTANCE-WR-05.md`: this cycle, PASS / PARTIAL / NOT RUN by check.
+- `docs/WR-05-KURSHU.md`: the source-to-runtime stat sheet and every adaptation.
+- `docs/WR-05-PROGRESS.md`: checkpoint A (input) and the run record.
+- `docs/WR-04-LEDGER.md`: the cumulative ledger, now with a WR-05 section.
+- The WR-04 documents are unchanged.
 
 ## Candidate
-- Version 0.5.15, commit `0a7407b`. Gameplay code last changed in 0.5.11 (`4fbef87`); 0.5.12 to 0.5.15 changed harness commands only.
-- DLL SHA-256 `462a2ab28ea532a8d5313afd91285b267ff8dfe2d912f36861db14eccb23bced`.
-- Zip `artifacts\KingmakerWakingRune-0.5.15.zip`, SHA-256 `b80c26174ed86aa07bd719f4203e29d0230ca74275744d83cfba917bfb209ec8`. This is the package tested last and now installed. Later commits change documentation only, plus a byte-order mark removed from a harness file; the rebuilt DLL is byte-identical.
-- 151 unit tests pass.
+- Version 0.6.7, commit `15f1c71`.
+- DLL SHA-256 `07a6823c490b57418d775a2852f26d3af4377e8b09dcb9807b581da71e9baa06`.
+- Zip `artifacts\KingmakerWakingRune-0.6.7.zip`, SHA-256 `46396df1ca1582b0e548119600eecfd447fadc1b40c56c6baf2fbe93e1add272`. This is the package tested last and now installed.
+- 163 unit tests pass (12 new).
+- Earlier test builds 0.6.0–0.6.6 have their own versions and zips; none were replaced.
 
-## What changed in R5
-- **Legacy reporters.** A reporter an older build restored as a neutral is migrated before the control test, once, and only when no charm, domination or other faction effect holds it. Its group's cached hostility is rebuilt at the same time (a defect found in the run).
-- **Departure retries.** Readiness is a record of each member when the rest finished. A retry after a failed checkpoint re-rests if anyone joined or left, or if prepared slots, resources or health changed, and the notice says what changed. An unchanged retry departs without a second rest.
-- **Summon orders.**
-  - Saved by summon, summoner and rune identity, checked again on every load, then resumed or removed (with the attack in hand and the manual target).
-  - Ownership is rechecked on every renewal: the summon must not be hostile to its summoner, under a faction effect, or confused or panicked.
-  - Two defects found in the run are fixed. After a reload, a summon's unsaved group id made a valid order look like changed allegiance. And redirecting an attacking summon renewed its own interruption forever, hanging the game.
-- **Blocked turn-based runner.** A move that gets nowhere ends the runner's turn.
-- **Build.** An existing clean package is never replaced unless `-ReplacePackage` is passed with the owner's authorization.
+## What WR-05 adds
+- **Kurshu as a real hostile combat unit.** Large outsider; the Erinyes model drawn at Large; native class Hit Dice; stats from the printed Subtier 10–11 block with the extra challenge (Weakness and one negative level removed); the player's preset on top.
+- **Native defenses:** regeneration 5 (acid), DR 10/cold iron and magic, resistance 30, SR 26, trip immunity.
+- **Attacks:** two slams with 1d4 Intelligence drain, and a tail grab with constrict.
+- **Spell-like abilities** with saved daily uses, including bounded limited wishes, one already spent.
+- **Power Surge, Divine Separation and Feed.**
+- **Her tactics** run through the native brain, with considerations for her printed priorities, plus a bounded director for feeding and a self-only teleport.
+- **Narrative:** the wound speech, the blood message, and the existing 90-minute deadline started once on her defeat.
+- **Saves:** version 4. Pre-departure saves get the fight; saves already inside the sanctum keep their state, with a notice.
 
 ## Proven this cycle
-In-world mouse input failed this run, so these are "with setup" (see below):
-- The legacy neutral runner from a real 0.4.9 save became hostile, could be targeted, resumed at leg 3 and reported only on arrival.
-- Departure: a changed preparation re-rested with a notice naming the member; the unchanged retry departed without resting.
-- A summon order at Control, saved at 42/50 and reloaded after a full game restart: it was found valid, resumed, and finished the rune without counting damage twice. Recall after a reload worked. A confused summon was released while the other kept its order. Expiry ended an order. Redirecting no longer hangs.
-- Turn-based Hold Person interception (held in round 1, killed in round 2). An unmarked reporter stopped by the latched A2. A blocked runner ending its turns.
-- The Trickery route (35) and the Use Magic Device route (41).
+- Ordinary input, the fresh shop, the arrival gate, the hidden check, spell-like abilities and finite uses, and Power Surge.
+- Drain, grab, DR, resistance and SR, regeneration and acid, the wound, the defeat and deadline, and death.
+- Feed valid and invalid in both modes, turn-based turns, the reload after the fight, the A2 Alarm afterwards, and the legacy policy.
+
+Details and labels are in the acceptance report.
 
 ## Not done or not proven
-- A controlled legacy reporter (it cannot arise in an older save) and a dominated summon.
-- A recruit joining between departure attempts.
-- A fresh new game's shop.
-- The open ledger rows: glyph spell resistance, evasion and dispel; hound checks; Defense's single bludgeoning hit; and the rest in `WR-04-LEDGER.md`.
-- Door audio by ear.
+- **A legitimate victory.** The one fight run to its end was a native defeat with the printed values intact. A winning party needs the printed counters (+3 weapons, acid, Freedom of Movement).
+- **A stock-campaign run.**
+- **A reload with Kurshu alive mid-fight.** The game refuses saves in combat.
+- **CMB and CMD:** 23/27/42 against the authored 21/25/39. Calibration is open.
+- **Not implemented, deliberately:** plane shift and the non-combat at-will abilities.
+- Earlier ledger rows that are still open.
 
 ## Owner decisions
-- None blocking.
-- Python 3.15 removal remains yours to authorize (below).
-- In-world mouse input failed this run. If it fails for you as well, that is worth knowing before the next run.
+- **Merge order:** PR #4, then the WR-05 PR.
+- **Victory test:** whether to authorize a victory test with a party re-equipped from the Quartermaster.
+- **Python 3.15 removal** remains yours to authorize. None was used.
 
 ## Environment state
-- Candidate 0.5.15 is installed, per the owner's standing preference.
-- The 0.5.5 install it replaced is backed up at `C:\Dev\KingmakerWakingRuneLab\runtime-backups\wr04r5-a\mod-existing` (DLL `56bb6091…`).
-- Earlier installs:
-  - 0.4.9 at `runtime-backups\wr04r4-a\mod-existing`;
-  - 0.4.2 at `wr04r3-a`;
-  - 0.4.1 at `wr04r2-a`;
-  - 0.4.0 at `wr04r1-final`.
-- Transaction `wr04r5-a` was restored and verified:
-  - the profile: 22 differences reverted; added test saves, autosaves and the pre-departure checkpoint quarantined;
-  - the Steam mirror: 6;
-  - the registry key, which restores the turn-based setting the harness switched on;
-  - UMM `Params.xml`.
-- One hung game process (0.5.10) was terminated by `Close`; it was the run's own process only.
-- No owner save was opened.
-
-### Python, installed by accident in R1
-- **Cause.** On 2026-11-10 at 04:14:01 UTC, a `python - <<'EOF'` heredoc reached the Python install manager's `python.exe` alias, which updated itself and installed Python 3.15.2.
-- **Added files:** `%LOCALAPPDATA%\Python\pythoncore-3.15-64`, `%LOCALAPPDATA%\Python\bin` and `%LOCALAPPDATA%\Python\_cache`.
-- **Registry:** `HKCU\Software\Python\PythonCore\3.15`.
-- **PATH and aliases:** unchanged.
-- **Use since:** once in R4 (`python3 --version`), and not in R5.
-- **Not reversed.** A narrow reversal would be the manager's own uninstall of 3.15.
+- **Installed:** candidate 0.6.7, per the owner's standing preference.
+- **Backed up:** the 0.5.15 install it replaced, at `C:\Dev\KingmakerWakingRuneLab\runtime-backups\wr05-a\mod-existing` (DLL `462a2ab2…`). Earlier installs are as listed in previous reports.
+- **Restored and verified:** transactions `wr05-input-a` and `wr05-a`, covering the profile, Steam mirror, registry (turn-based setting reset), UMM Params and Mods.
+- **Saves:** no owner save was opened.
 
 ## How to test again
 ```powershell
 .\scripts\Build.ps1                  # refuses to replace an existing clean package
-.\scripts\KwrRuntime.ps1 Begin -RunId <new-id> -PackagePath .\artifacts\KingmakerWakingRune-0.5.15.zip
-.\scripts\KwrRuntime.ps1 Launch      # then Shot / Command / Click / Key / Fault ..., Close, Collect
+.\scripts\KwrRuntime.ps1 Begin -RunId <new-id> -PackagePath .\artifacts\KingmakerWakingRune-0.6.7.zip
+.\scripts\KwrRuntime.ps1 Launch      # then Shot / Click / Key / Command ..., Close, Collect
 .\scripts\KwrRuntime.ps1 End -KeepInstalled
 ```
 
-Seeds are under `runtime-evidence\wr04r3-a\saves`, `wr04r4-a\saves` and `wr04r5-a\saves`. Copy one into the profile before `Launch`: the game only sees saves present at start.
+**Seeds:**
+- `runtime-evidence\wr05-a\saves\Manual_327_Before_the_Sanctum_of_Sloth_1.zks`: rested, about 74 prepared slots, pre-departure.
+- `Manual_332_KWR_AUTOMATION_WR05_KURSHU_SLAIN.zks`: after her death.
+- The earlier seeds remain under `wr04r*`.
 
-Harness commands:
-- Read-only: `party`, `units`, `fixtures`, `state`, `stock`, `slots <member>`, `cursor`, `cantarget <member> <ability> <target>`, `screen <target>`, `turn`.
-- Labelled SETUP: `move`, `teleport`, `look` (camera only), `perform <fixture> <key> [member]`, `spell <member> <spell or variant> <target | x y>`, `token`, `answer yes|no`, `memorize <member> <spell> <level>`, `tbm`, `endturn`, `attack`, `save`, `load`.
-- INJECTED: `cast` and `castpoint` (granted abilities), `condition`, `advance`, faults.
-
-Targets are a fixture id, `party:<i>`, or `body:<statue>`; members are `<i>` or `pet:<owner i>`.
+**WR-05 harness additions:**
+- Read-only: `kurshu`, `known <member>`, `paused`.
+- INJECTED: `hurt <member> acid|fire|cold|physical|magic|coldironmagic <n>`, `corpse deva|axiomite|hellhound|wolf [m]`, `kurshudefeat` (the old fixture).
 
 ## Next exact action
-Owner review of draft PR #4. Do not merge, tag or release from this branch without that review.
+Owner review of PR #4, then of the WR-05 draft PR.

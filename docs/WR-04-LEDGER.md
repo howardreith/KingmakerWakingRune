@@ -143,3 +143,28 @@ Status values: **Proven (native play)** · **Proven (with setup/injection — na
 | Mid-state reload: curse, entangle windows, husk crumbling | Not run | | |
 | Legacy saves initialise once; no retroactive triggers; no re-init on reload | Proven (native play) | 0.4.0; R1 fixes | |
 | A real 0.4.0 save on a later build; pre-arrival lodge saves | Not run | | |
+
+## WR-05: Kurshu the Undying (A1), 0.6.0–0.6.7, runs `wr05-input-a` and `wr05-a`
+
+The WR-04 rows above are carried forward unchanged. WR-05 changes only A1 and the Alarm's exception for Vandiana's guardian, and A2's Alarm still alerted for a party member afterwards. See `ACCEPTANCE-WR-05.md`.
+
+| Item | Status | Evidence | Notes |
+|---|---|---|---|
+| Ordinary in-world input (select, move, hover, examine, target, message box, shop, token OK/Cancel) | Proven (native play) | `wr05-input-a`, 0.5.15 | R5's failure did not reproduce; no repair. |
+| Fresh-game shop stock | Proven (native play) | `wr05-input-a`, 275 lines / 814 items | Closes the R5 open row. |
+| Kurshu appears only after control is restored | Proven (native play) | 0.6.2–0.6.7 | |
+| Hidden check and conditional Displacement | Proven (native play) | 0.6.2–0.6.7 | Both outcomes seen. |
+| Spell-like abilities, finite uses, pre-spent wish | Proven (native play) | 0.6.2–0.6.7 | |
+| Power Surge | Proven (native play) | DC 22 vs 20 | The lapse is unit-tested only. |
+| Intelligence drain | Proven (native play) | 0.6.0 | |
+| Tail grab and constrict | Proven (native play) | 0.6.0: grab 28 vs CMD 20, constrict 8 | |
+| DR, resistance, SR | Proven (with injection: native damage); SR native | 0.6.4, 0.6.3 | |
+| Regeneration, acid, death | Proven (with injection: native damage) | 0.6.4 | |
+| Wound speech, defeat, blood message, 90-minute deadline once | Proven (with injection: native damage) | 0.6.4 | |
+| Reload: no duplicate, no refill, deadline kept | Proven (with setup: save after the fight) | 0.6.4 → 0.6.5 | Mid-combat saves are refused by the game. |
+| Feed valid and invalid, real-time and turn-based | Proven (with injection: corpses) | 0.6.4, 0.6.7 | |
+| Turn-based action economy | Proven (native play; party turns ended by setup) | 0.6.6, 0.6.7 | |
+| Legacy inside-sanctum save: not inserted, no clock | Proven (native play) | 0.6.0 | The notice timing changed in 0.6.1; partial. |
+| Legitimate victory | Not run | | A native defeat is recorded. |
+| Stock campaign unaffected | Not run | | Scoped by construction. |
+| Live CMB and CMD calibration | Partial | 23 / 27 / 42 vs 21 / 25 / 39 | |

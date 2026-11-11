@@ -33,3 +33,21 @@ Outcome:
 - R5's handler-level rows stay as recorded ("with setup").
 - Found in passing: the new-game scenario text still says "The adventure does not leave the lodge yet." It is corrected in this branch.
 - Environment: `End -KeepInstalled` restored the profile (7 differences), the Steam mirror (3) and the registry; Params.xml and Mods verified. 0.5.15 stays installed.
+
+## Checkpoints B–E (run `wr05-a`, 0.6.0 to 0.6.7)
+- **B. Stat sheet and actor.**
+  - Source-to-runtime sheet in `WR-05-KURSHU.md`, encoded in `KurshuProfile` and unit-tested.
+  - One unit, `KWR_KurshuTheUndying`, identity `A1-Kurshu`.
+- **C. Attacks, defenses and finite abilities.** All native components; the ledger is mirrored by the native resources.
+  - 0.6.0 wiped her uses at spawn.
+  - Until 0.6.2 she had none at all, because the resource blueprints had null class lists.
+- **D. Tactics and both modes.**
+  - Native brain with her considerations.
+  - Fixed along the way: self-centred areas (0.6.3), a frozen feed path (0.6.5), and Feed never chosen in turn-based mode (0.6.7).
+- **E. Narrative, deadline, saves and integration.**
+  - Wound, blood message and the deadline once.
+  - Reload after her death.
+  - The A2 Alarm afterwards.
+  - The legacy policy.
+
+Results and labels are in `ACCEPTANCE-WR-05.md`. Open: a legitimate victory, the stock-campaign run, a live mid-fight reload (the game refuses saves in combat), and the CMB/CMD calibration.

@@ -32,15 +32,15 @@ The printed Subtier 10–11 block already includes three negative levels and the
 | Regeneration | 5 (acid) | — | 5 (acid) | native `AddEffectRegeneration` | the enemy-difficulty setting can halve or disable it natively |
 | Slam ×2 | +18, 1d6+5 plus 1d4 Int drain | +1 | +19 | +21, 1d6+5 | Difficulty +2 |
 | Tail slap | +13, 1d8+2 plus grab | +1 | +14 | +16, 1d8+2 | Difficulty +2 |
-| CMB / grapple | +20 / +24 | +1 | +21 / +25 | see the acceptance report | |
-| CMD | 38 | +1 | 39 | see the acceptance report | |
+| CMB / grapple | +20 / +24 | +1 | +21 / +25 | 23 / 27 (0.6.2): **open** | |
+| CMD | 38 | +1 | 39 | 42 (0.6.2): **open** | |
 | Spell-like CL / concentration | 12 / +19 | +1 | 13 / +20 | 13 / +20 | |
 | Initiative | +10 | — (printed without the negative-level penalty) | +10 | +10 | |
-| Perception / Stealth | +22 / +19 | +1 | +23 / +20 | 25 / 16 on 0.6.0 (Stealth corrected in 0.6.1) | Perception Difficulty +2 |
+| Perception / Stealth | +22 / +19 | +1 | +23 / +20 | 25 / +20 (hidden checks 23, 27, 35 on d20+20) | Perception Difficulty +2 |
 | Spell-like DC, 3rd level | 20 | — | 20 | 20 | the preset's `AbilityDCBonus` (0 at Normal) |
 | Plane shift DC | 24 | — | 24 | not implemented; see below | |
 | Negative levels | 3 | −1 | 2 | 2 (`Divine Separation`, −2 shown on rolls) | |
-| Limited wishes left | 2 (one used) | — | 2 | see the acceptance report | |
+| Limited wishes left | 2 (one used) | — | 2 | 2 at arrival (resource 3 → 2), then 0 after two casts | |
 
 How the numbers are reached, with nothing counted twice:
 - **Class levels.** The donor's own native class (`OutsiderClass`, d10) at 17 levels supplies Hit Dice, base attack +17 and base saves 5/10/10.
@@ -110,7 +110,7 @@ Each is the native spell cloned as a spell-like ability, with its own daily reso
 - **Appearance.** She does not exist until the token's arrival has committed, nothing is loading, the arrival fade is hidden and the game is in its normal or paused mode. She cannot act under the fade.
 - **Hidden check.** On appearing she makes a native Stealth check against every party member's native Perception. If no one beats it, she believes she is hidden and casts Displacement (a real use and duration) before her brain takes over. If anyone does, she does not.
 - **Combat** starts natively. Her brain is native (`BlueprintAiCastSpell` per spell-like ability, the native attack action), with considerations that score her printed tactics: ranged spells where they pay, outsiders first, areas only on two or more, no spell on someone already held, slowed or nauseated, and no displacement twice. Native commands enforce range, line of sight, attacks of opportunity, action costs and turns.
-- **The director** adds only two choices the brain cannot make. It is used at most once per round, and only on her own turn in turn-based combat:
+- **The director** adds only two choices the brain cannot make. A command that has not finished in two rounds is dropped, and that corpse is not retried for three rounds. In turn-based mode Feed is decided when her turn starts, before her brain acts. It is used at most once per round, and only on her own turn in turn-based combat:
   - feeding on an eligible corpse;
   - teleporting herself away when two or more foes are in reach and she is below half her hit points.
 - **The substantial wound.** The first time her hit points fall to three quarters or less, she speaks the printed warning as a bark and in the log. It is saved once.
@@ -124,3 +124,6 @@ Each is the native spell cloned as a spell-like ability, with its own daily reso
 - **Version 4 state** adds `Kurshu`: policy, entity id, hidden check, wound and defeat flags, separation levels, feed record, the use ledger and the surge.
 - **A pre-departure save** gets the fight on arrival.
 - **A save already inside the sanctum** from an earlier build keeps its sanctum as it was. She is not inserted, nothing is marked defeated, no clock starts, and a one-time notice says why.
+
+## Known deviation
+The native CMB, grapple and CMD on 0.6.2 were 23, 27 and 42, against authored 21, 25 and 39. The engine's maneuver formulas count size and deflection differently from the printed totals, which are themselves not fully consistent (printed CMD 38 = 10 + BAB 17 + Str 5 + Dex 6 + deflection 2 − size 1 − 3 negative levels would be 36). The difference is recorded, not silently corrected; the calibration is open.
