@@ -439,6 +439,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 return;
             }
+            TurnBased.Controllers.TurnController turn = Game.Instance.TurnBasedCombatController.CurrentTurn;
+            Log.Info($"Runner {statue.Id} turn: leg {statue.RouteLeg}/{RunnerRoute.Length} current={turn?.Unit == unit} status={turn?.Status} commands={unit.Commands.Raw.Count(c => c != null)} movement={turn?.GetRemainingMovementRange(total: true, singleActionMove: false):0.0} canAct={unit.Descriptor.State.CanAct} canMove={unit.Descriptor.State.CanMove} brain={unit.IsBrainActive}.");
             // A completed leg goes straight on to the next, so the turn's remaining movement is not lost between them.
             for (int i = 0; i < RunnerRoute.Length; i++)
             {
@@ -524,6 +526,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                     return;
                 }
                 move.ForcedPath = path;
+                Log.Info($"Runner {runner.CharacterName} turn move: path of {path.vectorPath?.Count ?? 0} points toward ({point.x:0.0},{point.z:0.0}).");
             }
             runner.Commands.Run(move);
         }
