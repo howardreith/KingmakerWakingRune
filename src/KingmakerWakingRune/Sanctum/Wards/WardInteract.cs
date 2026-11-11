@@ -43,6 +43,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 yield return new WardAction { Key = "trickery", Label = "[Trickery] Tamper with the plate", Show = () => !IsDisabled(id), Run = user => Physical(user, id, "tamper with the plate", u => !IsDisabled(id), u => UseRuneSkill(u, focus, RuneSkill.Trickery)) };
                 yield return new WardAction { Key = "umd", Label = "[Use Magic Device] Try to command the rune", Show = () => !IsDisabled(id), Run = user => Physical(user, id, "command the rune", u => !IsDisabled(id), u => UseRuneSkill(u, focus, RuneSkill.UseMagicDevice)) };
                 yield return new WardAction { Key = "attack", Label = "Attack the plate", Show = () => !IsDisabled(id), Run = user => WardInteract.Defer(() => WardInteract.Attack(WardFixtures.Find(id))) };
+                // Offered at every active plate whenever the speaker has summons, so it never singles out the rune it suits.
+                yield return new WardAction { Key = "summons", Label = "Direct my summoned creatures to attack this rune", Show = () => !IsDisabled(id) && SummonOrders.SummonsOf(Speaker()).Count > 0, Run = user => WardInteract.Defer(() => SummonOrders.Direct(user, id)) };
+                yield return new WardAction { Key = "recall", Label = "Call the summoned creatures off this rune", Show = () => SummonOrders.HasOrders(id), Run = user => WardInteract.Defer(() => SummonOrders.Recall(id)) };
             }
             else if (id == WardText.DoorId)
             {
