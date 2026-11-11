@@ -283,7 +283,12 @@ namespace KingmakerWakingRune.Sanctum.Encounter
         /// <summary>Her regeneration and her separation's saved count, applied once; a reload finds them already there.</summary>
         private static void EnsureNature(KurshuState kurshu, UnitEntityData unit)
         {
-            if (!kurshu.Slain && unit.Buffs.GetBuff(KurshuBlueprints.Regeneration) == null)
+            if (kurshu.Slain || unit.Descriptor.State.IsDead)
+            {
+                // A corpse keeps nothing: death removed her buffs natively, and none is put back.
+                return;
+            }
+            if (unit.Buffs.GetBuff(KurshuBlueprints.Regeneration) == null)
             {
                 unit.Descriptor.AddBuff(KurshuBlueprints.Regeneration, unit);
             }
