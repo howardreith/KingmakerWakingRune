@@ -261,7 +261,6 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 {
                     Note($"attempt {krune.InitializationAttempts}: adopting the partial actor {actor.UniqueId} from an earlier attempt.");
                 }
-                ApplyBaseline(state, actor, now);
                 // 4-5. Identity committed, then the remaining protection follows the ledger to him with its original expiry.
                 int amount = KruneRules.FeederHandoff(state.Door.Feeder, now, out double expiresAt);
                 krune.EntityId = actor.UniqueId;
@@ -274,7 +273,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 krune.ActorCreatedAt = now;
                 krune.LastFailure = string.Empty;
                 KruneRules.Advance(krune, AwakeningStage.Committed, AwakeningStage.ActorReady);
-                Note($"ACTOR READY: {actor.UniqueId}; feeder protection handed over: {amount}{(amount > 0 ? $" until {expiresAt:0}" : string.Empty)}; receiver {krune.ReceiverId} retired {krune.ReceiverRetired}. {Sheet(actor)}");
+                Note($"ACTOR READY: {actor.UniqueId}; feeder protection handed over: {amount}{(amount > 0 ? $" until {expiresAt:0}" : string.Empty)}; receiver {krune.ReceiverId} retired {krune.ReceiverRetired}. Built from his blueprint (class levels, gear, feats); the sanctum baseline applies as he steps into the game.");
             }
             catch (Exception ex)
             {
@@ -446,6 +445,9 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 return;
             }
             actor.IsInGame = true;
+            // Facts on a unit out of the game wait to activate, and a restart in between would lose what they read as they
+            // apply: the baseline goes on now, in the game, where it takes effect at once.
+            ApplyBaseline(state, actor, now);
             GridPoint coffin = SanctumPlan.SarcophagusCenter;
             int feet = KruneRules.StepFeet(coffin.X, coffin.Y, krune.EmergedX, krune.EmergedY);
             if (krune.StepsFeetSpent == 0)
