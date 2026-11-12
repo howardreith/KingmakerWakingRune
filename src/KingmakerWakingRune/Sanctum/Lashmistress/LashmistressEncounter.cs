@@ -48,7 +48,14 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             { DefenderKeys.Naga, new GridPoint(18.6f, 9.3f) },
         };
 
+        /// <summary>
+        /// The four defenders are one native unit group: the engine brings a group into combat together and shares what its
+        /// members have seen, as for any encounter. Kurshu is not in it, so a fight in A1 does not call them through stone.
+        /// </summary>
+        private const string GroupId = "KWR-A4-Defenders";
+
         private static readonly Dictionary<string, UnitEntityData> s_Bound = new Dictionary<string, UnitEntityData>();
+        private static readonly Dictionary<string, UnitCommand> s_PrepCommands = new Dictionary<string, UnitCommand>();
         private static readonly Dictionary<string, int> s_DirectedRound = new Dictionary<string, int>();
         private static bool s_Logged;
         private static bool s_ProblemReported;
@@ -114,6 +121,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         {
             s_Bound.Clear();
             s_DirectedRound.Clear();
+            s_PrepCommands.Clear();
             s_Logged = false;
             LashmistressState a4 = state.Lashmistress;
             if (a4.Policy == LashmistressPolicy.AwaitingUpgradeCheck)
@@ -135,6 +143,11 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             foreach (string key in DefenderKeys.All)
             {
                 UnitEntityData unit = Find(key);
+                if (unit != null && unit.GroupId != GroupId)
+                {
+                    // A save placed before the defenders shared a group: one encounter group, as a native encounter has.
+                    unit.GroupId = GroupId;
+                }
                 if (unit != null)
                 {
                     // Nothing is refilled, recast or respawned on a load; the brain is the unit's own again.
@@ -255,6 +268,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 Vector3 at = ObstacleAnalyzer.GetNearestNode(World(place)).clampedPosition;
                 UnitEntityData unit = Game.Instance.EntityCreator.SpawnUnit(LashmistressBlueprints.Units[key], at, Quaternion.Euler(0f, 90f, 0f), Game.Instance.State.LoadedAreaState.MainState);
                 unit.Descriptor.Ensure<LashmistressPart>().DefenderKey = key;
+                unit.GroupId = GroupId;
                 record.EntityId = unit.UniqueId;
                 s_Bound[key] = unit;
                 // The day begins with every printed daily use: gear put on after the levels (a headband) raises maximums the
@@ -653,6 +667,10 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 {
                     continue;
                 }
+                if (prep.Issued && s_PrepCommands.TryGetValue(next, out UnitCommand last))
+                {
+                    Note($"preparation {next} did not take effect: last command finished {last.IsFinished}, result {last.Result}, started {last.IsStarted}.");
+                }
                 if (prep.Attempts >= 3)
                 {
                     LashmistressRules.Abandon(a4, next, "three attempts did not take effect");
@@ -673,6 +691,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 }
                 unit.Commands.InterruptAiCommands();
                 unit.Commands.Run(command);
+                s_PrepCommands[next] = command;
                 LashmistressRules.Issued(a4, next, now);
                 Note($"{unit.CharacterName} begins {next} (attempt {prep.Attempts}).");
             }
@@ -892,8 +911,20 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             Note($"Sting on {target.CharacterName}: Fortitude {save.RollResult} vs {dc} failed: {(buff != null ? $"asleep for {minutes} minutes" : "the poison was refused natively (immunity)")}.");
         }
 
-        /// <summary>The live field, turned into the A4 tactics' inputs. Only enemies the brain itself has in its lists are counted.</summary>
+        /// <summary>The latest score each defender's brain asked for, by aim and target: read only, for the harness report.</summary>
+        public static readonly Dictionary<string, string> LastScores = new Dictionary<string, string>();
+
         public static float Score(A4Aim aim, bool onTarget, DecisionContext context)
+        {
+            float score = ScoreOf(aim, onTarget, context);
+            string who = KeyOf(context.Unit) ?? "?";
+            string target = onTarget ? context.Target?.Unit?.CharacterName ?? "point" : "self";
+            LastScores[$"{who} {aim} {(onTarget ? "target" : "actor")} {target}"] = $"{score:0.00} at {WardRuntime.Now:0.0} (enemies {context.Enemies.Count}, ability {context.Ability?.Blueprint.name})";
+            return score;
+        }
+
+        /// <summary>The live field, turned into the A4 tactics' inputs. Only enemies the brain itself has in its lists are counted.</summary>
+        private static float ScoreOf(A4Aim aim, bool onTarget, DecisionContext context)
         {
             UnitEntityData unit = context.Unit;
             if (State == null || !IsDefender(unit))

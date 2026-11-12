@@ -120,6 +120,11 @@ namespace KingmakerWakingRune.Diagnostics
                     return DumpBlueprint(args[1]);
                 case "catalog":
                     return Catalog(args[1]);
+                case "a4ai":
+                    // Read only: the latest brain scores, optionally for one defender.
+                    return "READ A4 brain scores:\n" + string.Join("\n", KingmakerWakingRune.Sanctum.Lashmistress.LashmistressEncounter.LastScores
+                        .Where(p => args.Length < 2 || p.Key.IndexOf(args[1], StringComparison.OrdinalIgnoreCase) >= 0)
+                        .OrderBy(p => p.Key).Select(p => p.Key + " = " + p.Value).ToArray());
                 case "a4":
                 {
                     // Read only: the A4 state and every defender's live sheet.
