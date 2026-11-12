@@ -234,3 +234,15 @@ Rows above that this round changes are restated here. Everything else carries fo
 | Older 0.7.10 saves | Proven | 0.7.11, 0.7.19 | Placeholders swapped in place; new facts added. |
 | Stock isolation | Proven | 0.7.18 | |
 | Fresh A4 victory against 0.7.19 | Not run | | The defenders are stronger than in the 0.7.10 victory. |
+
+## WR-06 third pass, 0.7.20–0.7.22, run `wr06-pass3`
+
+| Item | Status | Evidence | Notes |
+|---|---|---|---|
+| Nonlethal recovery scoped to the whip's own damage | Proven (negative control with INJECTED foreign nonlethal on a stock save) | 0.7.20 | Heal, rest and revival left 10 and 60 foreign nonlethal untouched. |
+| Sanctuary: a kept failure bars only an enemy's hostile targeting | Proven (a real failed save; INJECTED halt and domination) | 0.7.20 | Barred re-attack, then the same character's heal landed after the allegiance change. |
+| Director cancels its own running command at a control change | Proven (INJECTED timing fixture) | 0.7.21 | Found the stuck-confusion defect on 0.7.20. |
+| Darkness dispelled | Proven (the party's own Greater Dispel, harness-commanded) | 0.7.22 | Found that none of the encounter's spell effects were dispellable before 0.7.22. |
+| Whip: another wielder, knock-out, persistence, recovery | Proven (INJECTED setup: HP, Barkskin, halts) | 0.7.22 | Hostile NPCs cannot be knocked out in this game; the whip stops one short. |
+| Victory against the repaired encounter | Proven (PARTY AI; PLAYER door and pause; SETUP placement; harness-commanded pre-buffs and opening spells) | 0.7.22 | One of six fell. Deadline passed natively afterwards. |
+| Input labels | Corrected | | PLAYER now means real mouse or keyboard input only; harness dispatches are HARNESS-COMMANDED. |

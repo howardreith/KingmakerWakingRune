@@ -1,6 +1,33 @@
 # Status: The Waking Rune
 
-**Milestone:** WR-06, the Lashmistress encounter in A4. The second pass (the owner's review of PR #6) is ready for owner review. Phase A (WR-05 closeout, 0.6.16) was accepted.
+**Milestone:** WR-06, the Lashmistress encounter in A4. The third pass (the owner's closeout review) is ready for owner review. The review closed the four original findings, and Phase A (WR-05 closeout, 0.6.16) was accepted.
+
+## Third pass (0.7.20–0.7.22): candidate 0.7.22
+- **Candidate:**
+  - commit `793622e`;
+  - DLL `64f2d95698df88d795b7adb0ef0139c1a28e0d5c8d58ab43b898195cd8b368d1`;
+  - zip `artifacts\KingmakerWakingRune-0.7.22.zip`, `b0c809de1902381b4aa901e523640bf400dbbd997bed216386804c53e0881f04`;
+  - 198 unit tests pass.
+- **Installed:** 0.7.22. **Backed up:** 0.7.19, at `runtime-backups\wr06-pass3\mod-existing`. Transaction `wr06-pass3` restored and verified.
+- **Fixed:**
+  - nonlethal recovery is scoped to a whip-hit ledger;
+  - Sanctuary's kept failure bars only an enemy's hostile targeting;
+  - confusion is read from its condition (0.7.21);
+  - the encounter's spell effects are dispellable (0.7.22).
+- **Proven:**
+  - the foreign-nonlethal negative control;
+  - the Sanctuary failure branch with an allegiance change;
+  - a running director command cancelled at a control change;
+  - the darkness dispelled;
+  - the whip in another wielder's hand;
+  - a real nonlethal knock-out with restart persistence and healing;
+  - **a victory against 0.7.22** (party AI; one of six fell; the deadline passed natively afterwards).
+- **Labels:** PLAYER now means real mouse or keyboard input only. Harness dispatches are HARNESS-COMMANDED (see `ACCEPTANCE-WR-06.md`).
+- **Owner decision:** hostile NPCs cannot be knocked out by nonlethal in this game (they die at 0), so the whip stops one short on them. Whether to add an encounter-local knock-out is open.
+- **New seeds:** 984 (Kael knocked out by the whip) and 985 (after the 0.7.22 victory), in `runtime-evidence\wr06-pass3\saves`.
+- **New harness commands (INJECTED):** `setnonlethal`, `rest`, `damage`, `armcontrol`.
+
+The sections below describe the second pass and are kept for history; where they differ, the third pass above is current.
 
 **Branches** (do not merge, tag or release without owner review):
 - `feature/wr-04-sanctum-wards`: draft PR #4, base `main`.

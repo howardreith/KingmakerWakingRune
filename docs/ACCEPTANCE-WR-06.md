@@ -1,16 +1,96 @@
 # WR-06 acceptance: The Lashmistress (A4)
 
-**Candidate:** 0.7.19, commit `4f8632a`.
-- DLL `32e45672ea18ae5d3b8a656c2f22147d4ae0d55710a0465f4f427ab7a5b43695`
-- Zip `artifacts\KingmakerWakingRune-0.7.19.zip`, `aaf30457fcb39aec1fbc6dacacee632e3b066a569c6f68023d14857f2dea3b89`
+**Candidate:** 0.7.22, commit `793622e`.
+- DLL `64f2d95698df88d795b7adb0ef0139c1a28e0d5c8d58ab43b898195cd8b368d1`
+- Zip `artifacts\KingmakerWakingRune-0.7.22.zip`, `b0c809de1902381b4aa901e523640bf400dbbd997bed216386804c53e0881f04`
 - Branch `feature/wr-06-lashmistress`, a child of `feature/wr-05-kurshu` at `caa2e09` (draft PR #5, unmerged). That is itself a child of `feature/wr-04-sanctum-wards` (draft PR #4).
-- 196 unit tests pass, 22 of them for WR-06 (`LashmistressRulesTests`).
+- 198 unit tests pass, 24 of them for WR-06 (`LashmistressRulesTests`).
 
 The Phase A repair (Kurshu restoration order, 0.6.16) is on the WR-05 branch, committed separately. Its acceptance is in `ACCEPTANCE-WR-05.md`. The review accepted it.
 
-The report has two passes.
-- **Second pass (0.7.11–0.7.19):** the owner's review of PR #6 at `2c818d4`. Run `wr06-pass2`, evidence in `C:\Dev\KingmakerWakingRuneLab\runtime-evidence\wr06-pass2`. It comes first below.
-- **First pass (0.7.0–0.7.10):** run `wr06-recon`, evidence in `C:\Dev\KingmakerWakingRuneLab\runtime-evidence\wr06-recon`. It follows, unchanged.
+The report has three passes, newest first.
+- **Third pass (0.7.20–0.7.22):** the owner's review at `721164b`. Run `wr06-pass3`, evidence in `C:\Dev\KingmakerWakingRuneLab\runtime-evidence\wr06-pass3`.
+- **Second pass (0.7.11–0.7.19):** the review of `2c818d4`. Run `wr06-pass2`. Its labels are corrected below.
+- **First pass (0.7.0–0.7.10):** run `wr06-recon`, unchanged.
+
+## Input labels (all passes)
+The review asked for these to be kept distinct. Every check names the ones it used.
+- **PLAYER:** ordinary input only: a real mouse click (door, portrait, dialog OK) or key press (space to pause and unpause).
+- **PARTY AI:** the game's own party AI acting in combat.
+- **HARNESS-COMMANDED:** actions chosen individually and dispatched by the harness. Each uses the character's own resources and resolves natively, but none goes through the interface:
+  - `spell` from the member's own book, `attack`, `move`;
+  - `endturn` (`ForceToEnd`);
+  - `ai` (sets the AI property the portrait toggle sets);
+  - `token` (the ability's callback);
+  - `equip`, `a4order`;
+  - `tbm` (the rook button's handler).
+  The second pass's "PLAYER" for `spell`, `attack`, `ai`, `endturn` and `token` should read HARNESS-COMMANDED; its turn-based check is harness-commanded native combat.
+- **SETUP:** `load`, `save`, `teleport`, `give`, spells granted for one cast (`cast`), `spawnfoe`.
+- **INJECTED:**
+  - a defender's decision (`a4cast`, `a4attack`);
+  - an effect applied as a failed save would apply it (`buff`);
+  - a removal (`unbuff`, `a4take`);
+  - foreign nonlethal (`setnonlethal`);
+  - lethal setup damage (`damage`);
+  - one native rest (`rest`);
+  - the control timing fixture (`armcontrol`);
+  - the one-frame combat exit for a save (`combatsave`).
+
+## Third pass: the review's closeout (0.7.20–0.7.22)
+
+### What the review found, and what was done
+| Item | Done |
+|---|---|
+| P2: nonlethal recovery is not scoped to this mod's damage | A ledger on the creature (`KwrWhipNonlethalPart`), created only by a whip hit, records the whip's share of the game's nonlethal total. Healing, hourly recovery, rest and the after-fight revival act only on that share and only on a creature with the ledger. Any other nonlethal damage is left exactly as the game leaves it. |
+| P2: Sanctuary's kept failure blocks harmless actions after allegiance changes | A kept failure bars only a current enemy's hostile targeting: an attack, a harmful spell, or an enemy's brain surveying targets. Never a harmless command, never once she is no longer that creature's enemy. Surveys still roll nothing, and area effects are still not barred. |
+| Live boundary checks | All three were run. They found two more defects, fixed in 0.7.21 and 0.7.22 (below). |
+| A victory against the repaired encounter | Won on 0.7.22 (below). |
+| Evidence ledger | The labels above. The harness's own messages now say HARNESS-COMMANDED for dispatched orders. |
+
+### Builds and the defects they found
+| Build | Commit | DLL SHA-256 (first 16) | What it changed | Found by testing it |
+|---|---|---|---|---|
+| 0.7.20 | `bc35642` | `3ff82d7196c32f3a` | The nonlethal ledger and the Sanctuary rule. Yields name the director's cancelled commands. Harness: `setnonlethal`, `rest`, `damage`, `armcontrol`, relabelled messages | **Agarik stayed "confused" for good after his Confusion ended out of combat:** the game leaves its confusion part on the unit, and the guard read that part. |
+| 0.7.21 | `8a69927` | `c5c981302ca6eb7f` | Confusion is read from the condition alone | **The darkness could not be dispelled at all:** none of the encounter's spell-effect buffs carried the game's "from a spell" flag, which native Dispel Magic requires. That covers Darkness, Darkvision, Sanctuary, Magic Circle, the held Chill Touch, Command's halt and the pre-cast False Life. |
+| 0.7.22 | `793622e` | `64f2d95698df88d7` | Those buffs carry the flag; saved ones are marked at load | — (installed) |
+
+### Checks (third pass)
+| # | Check | Result | Build | Evidence |
+|---|---|---|---|---|
+| 15 | **Nonlethal ownership, negative control** | **PASS** | 0.7.20 | Stock campaign save 979 (SpiderCave), after a sanctum load had subscribed the healing observer. Valerie was given 10 foreign nonlethal (INJECTED). A Cure Light Wounds (SETUP-granted) after 20 lethal damage (INJECTED) healed lethal 20 → 11, nonlethal still 10. A native rest (INJECTED one-unit call) left it at 10 → 10. With 60 foreign nonlethal (above her 56 HP), the game's own revival cleared her lethal damage; the mod reduced nothing (nonlethal still 60) and logged no line. |
+| 16 | **Sanctuary failure branch** | **PASS** | 0.7.20 | A real failure: "Dorn Askel tries to act against her (UnitAttack): Will 11 vs 15 failed" (also Tessa 14, Kael 13 in other attempts). His repeated attack: "Dorn Askel's UnitAttack is barred". Then, INJECTED: Vandiana held by Command (halt), 20 damage, and the game's own Domination (faction Player, Sanctuary still on, 44 s). Dorn's Cure Serious Wounds (SETUP-granted) landed on her, 68 → 74 HP, with the game's log line "Dorn Askel uses ability: Cure Serious Wounds". Surveys rolled nothing: every save line comes from a real `UnitAttack`. |
+| 17 | **A running director command cancelled at the control change** | **PASS** | 0.7.21 | INJECTED timing fixture: Confusion applied in the very tick the director's Bull's Strength command was running. "CONTROL A4-Agarik yielded: confused; 1 director command(s) cancelled [AgarikBullsStrength (Interrupt)]". It resumed when the Confusion ended 18 s later, and the director issued his still-owed Bull's Strength ("attempt 2 … performed"). On 0.7.20 the same test found the stuck-confusion defect, and the game's own confusion had interrupted the drink first (count 0). |
+| 18 | **Darkness dispelled** | **PASS** | 0.7.22 | Brena's own Greater Dispel Magic (HARNESS-COMMANDED) on Vandiana removed Mage Armor, Cat's Grace, Haste and Darkness. The darkness area ended, and every darkness marker, on defenders and party alike, was removed. At load, "2 saved spell effect(s) marked as from a spell". On 0.7.21, six native dispels and an area dispel never touched it: that is how the flag defect was found. |
+| 19 | **Whip: another wielder, the knockout, persistence, recovery** | **PASS** | 0.7.22 | Another wielder: Dorn (an identical whip, SETUP `give`, HARNESS-COMMANDED `equip` and `attack`) on Vandiana: "whip (Dorn Askel) … 9 nonlethal, whip's share 0 -> 9", then 8 and 7. As a hostile NPC she cannot fall unconscious in this game, so her total stops one short (see the adaptation). The knockout: Kael (Barkskin removed and HP set to 4 by INJECTION; the other three defenders held by an INJECTED halt, the hound avoided) took 2, 1 and 2 nonlethal from Vandiana (INJECTED decision). Lethal 86 plus nonlethal 5 reached his 90 HP, and the game made him **Unconscious** with HP still 4/90. Saved (984), full game restart, reload: nonlethal 5 and the ledger kept; the game's revival woke him, "revived after the fight: … whip's share 5 -> 5". Then Cure Serious Wounds: "46 heals lethal 74 -> 28 and the whip's nonlethal 5 -> 0", ledger cleared. Two earlier attempts (982, 983) knocked him out with lethal damage (another defender, then the hound) and are not counted. |
+| 20 | **Victory against the repaired encounter** | **PASS** | 0.7.22 | Below. |
+
+### The victory (0.7.22, real time with pause)
+- **Seed:** 976, the legitimate post-Kurshu seed. The profile is unchanged: Subtier 10–11, six PCs, extra challenge, the game's Normal preset.
+- **Setup:**
+  - Native pathing from the ziggurat could not reach the east corridor, so the party was placed at the east door by SETUP `teleport`, as in the 0.7.10 victory.
+  - Ilsa's AI was off (HARNESS-COMMANDED), and she stayed back.
+  - Pre-buffs, each from the caster's own book (HARNESS-COMMANDED): Magical Vestment ×2, Shield of Faith ×2, Heroism. Six Stoneskins failed natively; the party has no diamond dust.
+- **Opening:**
+  - The door was opened by a PLAYER mouse click.
+  - Then, from the casters' own books (HARNESS-COMMANDED): Haste, Prayer, Summon Monster VI ×2.
+  - The five fighters walked into A4 by HARNESS-COMMANDED move orders (native pathing).
+- **Combat:** every combat action came from the PARTY AI; the defenders acted natively. Pause and unpause were PLAYER key presses. No damage, defender decision, effect, refill, invulnerability or preset change was injected.
+- **Course:**
+  - Both Blackstrikes' brains drank Blur.
+  - The engagement committed 1d6+6 = 10.
+  - Vandiana's bond recovered Haste.
+  - A native confusion took Jorgas (the director yielded) while his own brain drank Cure Moderate Wounds.
+  - Jorgas fell at 131115, Agarik at 131119.
+  - Vandiana, pressed at 20/74, cast Dimension Door and fell at 131126.
+  - The naga fell at 131130: "ALL A4 DEFENDERS DEFEATED … the countdown is not cancelled".
+  - The deadline came due natively at 131154, once.
+- **Party:** Brena fell (−27). The others stood: Ilsa 110, Tessa 65, Kael 47, Marra 29, Dorn 20.
+- **Saved:** `985 … VICTORY_0722`.
+
+### Still open after the third pass
+- **Hostile NPCs and the whip:** they have no unconscious state in this game (they die at 0), so the whip's nonlethal total on them stops one short of the threshold. Turning that into a knock-out would need an encounter-local helpless condition. That is an owner decision; it is not built.
+- **Cosmetic log lines:** the awakening line says "the A4 fight continues" even with no defender standing, and a preparation line reads "performed by already in effect …".
+- **Not part of WR-06:** Wind Wall and Silent Image remain explicit omissions.
 
 ## Second pass: the review's findings (0.7.11–0.7.19)
 
@@ -40,7 +120,14 @@ Each build is a committed, packaged candidate with its own zip; none was replace
 | 0.7.19 | `4f8632a` | `32e45672ea18ae5d` | That record now says "already in effect when requested" | — (installed) |
 
 ### Labels (second pass)
-- **PLAYER:** door clicks, the departure confirmation, selecting the scout by portrait, each party member's per-character AI toggle (`ai`), and every party order in the turn-based check (`spell` from the member's own book, `attack`, `endturn`).
+Corrected in the third pass; see "Input labels" above. The PLAYER inputs here were only:
+- door clicks;
+- the departure box's OK;
+- selecting the scout by portrait;
+- space to pause.
+
+Everything else listed below as PLAYER was HARNESS-COMMANDED. The turn-based check (10) is harness-commanded native combat.
+- **PLAYER (as originally written):** door clicks, the departure confirmation, selecting the scout by portrait, each party member's per-character AI toggle (`ai`), and every party order in the turn-based check (`spell` from the member's own book, `attack`, `endturn`).
 - **SETUP:**
   - `teleport` and `move`;
   - spells granted to a party member for one cast (`cast`);
@@ -154,14 +241,10 @@ Each build is a committed, packaged candidate with its own zip; none was replace
 
 An earlier diagnostic try (0.7.9), with the party's AI and Ilsa leading, was a defeat: Ilsa died and the game ended. A turn-based try was ended as described above. Two fights are not a balance study.
 
-## Open (after both passes)
-- **Not shown in play:**
-  - a director command cancelled at the instant control changes;
+## Open (after the third pass)
+- **Shown in the third pass:** the cancel at a control change, a failed Sanctuary save, the darkness dispelled, a nonlethal knock-out, the whip in another wielder's hand, and a victory against the repaired encounter.
+- **Still not shown in play:**
   - a control effect landing in turn-based play;
-  - a Sanctuary save failed;
-  - the darkness itself dispelled;
-  - a knock-out by nonlethal damage;
-  - the whip in another wielder's hand;
   - a messenger warning;
   - emerald destruction in WR-06.
 
@@ -170,10 +253,21 @@ An earlier diagnostic try (0.7.9), with the party's AI and Ilsa leading, was a d
   - Wind Wall and the naga's Silent Image (mechanics unavailable; explicit incompleteness);
   - Bleed and the naga's detect thoughts (unavailable);
   - the noncombat and information spells (out of scope).
-- **No fresh victory against 0.7.19:** see the note on the 0.7.10 victory.
+- **Victory:** won against 0.7.22 in the third pass.
 - **Calibration** sits on a buff that death removes (corpses only).
 - **Bursts and ward fixtures:** a burst that reaches the A3 statues or the rune plates rolls against them too. The WR-04 observer measures a rune only against its own thresholds (electricity, force, sonic) and never lets proxy damage accumulate.
 - **Krune's encounter (A5)** is the next milestone, after the owner's review of this pass.
+
+## Environment (third pass)
+- `wr06-pass3` ended with `End -KeepInstalled`:
+  - **Profile:** 22 differences reverted, added files quarantined.
+  - **Steam mirror:** 5 reverted.
+  - **Registry:** restored.
+  - **Params and Mods:** verified.
+- **Installed:** 0.7.22 (DLL `64f2d956…`).
+- **Backed up:** 0.7.19, at `runtime-backups\wr06-pass3\mod-existing`.
+- **Saves:** only disposable seeds and new `KWR_AUTOMATION_*` saves (982–985, collected into the evidence folder). No owner save was opened.
+- **Python and installs:** none used, nothing installed.
 
 ## Environment (second pass)
 - `wr06-pass2` ended with `End -KeepInstalled`:
