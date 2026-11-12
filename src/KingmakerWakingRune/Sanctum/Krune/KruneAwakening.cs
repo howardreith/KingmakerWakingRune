@@ -601,9 +601,10 @@ namespace KingmakerWakingRune.Sanctum.Krune
         private static bool CommittedPreparation(UnitEntityData actor, out string what)
         {
             what = null;
+            Note($"before the exchange he sees: {string.Join("; ", Perceivers(actor).Select(u => u.CharacterName + " [" + string.Join(",", u.Commands.Raw.Concat(u.Commands.Queue).Where(c => c != null).Select(c => c.GetType().Name + (c.IsStarted ? " started" : string.Empty) + (c.IsFinished ? " finished" : string.Empty)).ToArray()) + "]").ToArray())}.");
             foreach (UnitEntityData unit in Perceivers(actor))
             {
-                Kingmaker.UnitLogic.Commands.UnitUseAbility cast = unit.Commands.Raw.OfType<Kingmaker.UnitLogic.Commands.UnitUseAbility>()
+                Kingmaker.UnitLogic.Commands.UnitUseAbility cast = unit.Commands.Raw.Concat(unit.Commands.Queue).OfType<Kingmaker.UnitLogic.Commands.UnitUseAbility>()
                     .FirstOrDefault(c => !c.IsFinished && c.Spell?.Blueprint != null && c.Spell.Blueprint.IsSpell);
                 if (cast != null)
                 {
