@@ -1194,7 +1194,8 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             if (seen.EffectSeen)
             {
                 bool spent = prep.ResourceAtRequest >= 0 && seen.ResourceLeft >= 0 && seen.ResourceLeft < prep.ResourceAtRequest;
-                prep.PerformedBy = directorActed ? "the director's command" : spent ? "its own action (its brain, or whoever controlled it)" : "no one: already in effect, nothing spent";
+                prep.PerformedBy = directorActed ? "the director's command" : spent ? "its own action (its brain, or whoever controlled it)"
+                    : "already in effect when requested (nothing spent after the request)";
                 prep.ResourceAtResolution = seen.ResourceLeft;
                 Performed(state, key, "effect observed on its target", now);
                 return PrepVerdict.Performed;

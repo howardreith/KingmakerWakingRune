@@ -232,7 +232,7 @@ namespace KingmakerWakingRune.Tests
             // Already in effect, nothing spent.
             LashmistressState already = Requested(Prep.VandianaDarkvision);
             LashmistressRules.Reconcile(already, Prep.VandianaDarkvision, new PrepObservation { CanStillHappen = true, ResourceLeft = 1, EffectSeen = true }, false, 1d, 6d);
-            Assert.Equal(true, already.Preparation(Prep.VandianaDarkvision).PerformedBy.StartsWith("no one"), "nothing spent");
+            Assert.Equal(true, already.Preparation(Prep.VandianaDarkvision).PerformedBy.StartsWith("already in effect when requested"), "nothing spent after the request");
         }
 
         public static void TestAnUnavailableOrInterruptedPreparationEndsAndGatesNothing()
