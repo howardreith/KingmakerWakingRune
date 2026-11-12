@@ -332,6 +332,14 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 {
                     Note($"combat: {key} requested.");
                 }
+                foreach (UnitEntityData defender in Living().Where(u => u.Stealth.InAmbush))
+                {
+                    // Engaged, the encounter's ambush is over, as the game's own start-combat action ends a group's: a hidden
+                    // Blackstrike keeps its stealth but no longer waits out of the fight, flickering in and out of combat and
+                    // losing every action it begins (its Blur, in 0.7.13's test).
+                    defender.Stealth.InAmbush = false;
+                    Note($"{KeyOf(defender)}: ambush ended by the engagement (still in stealth: {defender.Descriptor.State.IsInStealth}).");
+                }
             }
             Prepare(state, now);
             Direct(state, now);
