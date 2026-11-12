@@ -828,8 +828,10 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             Cast("Sanctuary", A4Aim.Sanctuary, 10.2f);
             Cast("MagicCircleAgainstGood", A4Aim.MagicCircle, 6.9f);
             Cast("ChillTouch", A4Aim.ChillTouch, 4.4f);
-            // Her potion, if the east door was never heard before the fight: drunk once, as her own action.
-            actions.Add(CastAction("KWR_VandianaAi_CatsGracePotion", Named<BlueprintAbility>("CatsGrace"), A4Aim.GracePotion, 9.2f, null));
+            // Her potion, if the east door was never heard before the fight: drunk once, as her own action. (The 0.7.10 cast
+            // action of the same name is kept registered, unused, for saves that still list it.)
+            CastAction("KWR_VandianaAi_CatsGracePotion", Named<BlueprintAbility>("CatsGrace"), A4Aim.GracePotion, 9.2f, null);
+            actions.Add(PotionAction("KWR_VandianaAi_CatsGraceDrink", PotionCatsGrace, A4Aim.GracePotion, 9.2f));
             Cast("Haste", A4Aim.Haste, 10f);
             Cast("ConfusionSpell", A4Aim.Confusion, 8.6f);
             Cast("BalefulPolymorph", A4Aim.BalefulPolymorph, 8.4f);
@@ -889,11 +891,16 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         private static BlueprintBrain MeleeBrain(string key)
         {
             string name = "KWR_" + key.Replace("-", string.Empty);
+            // The 0.7.10 potion actions stay registered, unused, so a save whose brain still lists them loads; the load then
+            // brings the brain up to the blueprint's actions.
+            CastAction(name + "Ai_Blur", Named<BlueprintAbility>("Blur"), A4Aim.BlurPotion, 9.5f, null);
+            CastAction(name + "Ai_BullsStrength", Named<BlueprintAbility>("BullsStrength"), A4Aim.StrengthPotion, 9f, null);
+            CastAction(name + "Ai_CureModerate", Named<BlueprintAbility>("CureModerateWoundsCast"), A4Aim.HealingPotion, 8f, null);
             return Brain(name + "Brain", new List<BlueprintAiAction>
             {
-                CastAction(name + "Ai_Blur", Named<BlueprintAbility>("Blur"), A4Aim.BlurPotion, 9.5f, null),
-                CastAction(name + "Ai_BullsStrength", Named<BlueprintAbility>("BullsStrength"), A4Aim.StrengthPotion, 9f, null),
-                CastAction(name + "Ai_CureModerate", Named<BlueprintAbility>("CureModerateWoundsCast"), A4Aim.HealingPotion, 8f, null),
+                PotionAction(name + "Ai_BlurPotion", PotionBlur, A4Aim.BlurPotion, 9.5f),
+                PotionAction(name + "Ai_BullsStrengthPotion", PotionBullsStrength, A4Aim.StrengthPotion, 9f),
+                PotionAction(name + "Ai_CureModeratePotion", PotionCureModerate, A4Aim.HealingPotion, 8f),
                 AttackAction(name + "Ai_Melee", 5f),
             });
         }
@@ -912,6 +919,18 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             action.Ability = ability;
             action.Variant = variant;
             action.Locators = new EntityReference[0];
+            action.BaseScore = score;
+            action.ActorConsiderations = new Kingmaker.Controllers.Brain.Blueprints.Considerations.Consideration[] { Consider(aim, false) };
+            action.TargetConsiderations = new Kingmaker.Controllers.Brain.Blueprints.Considerations.Consideration[] { Consider(aim, true) };
+            s_Register(action);
+            return action;
+        }
+
+        /// <summary>The creature drinks one of its own potions when its tactics call for it (see <see cref="KwrAiDrinkPotion"/>).</summary>
+        private static BlueprintAiAction PotionAction(string name, string potionGuid, A4Aim aim, float score)
+        {
+            var action = Create<KwrAiDrinkPotion>(name);
+            action.PotionGuid = potionGuid;
             action.BaseScore = score;
             action.ActorConsiderations = new Kingmaker.Controllers.Brain.Blueprints.Considerations.Consideration[] { Consider(aim, false) };
             action.TargetConsiderations = new Kingmaker.Controllers.Brain.Blueprints.Considerations.Consideration[] { Consider(aim, true) };

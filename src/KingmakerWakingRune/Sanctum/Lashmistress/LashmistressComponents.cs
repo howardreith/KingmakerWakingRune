@@ -14,6 +14,7 @@ using Kingmaker.RuleSystem.Rules;
 using Kingmaker.RuleSystem.Rules.Abilities;
 using Kingmaker.RuleSystem.Rules.Damage;
 using Kingmaker.UnitLogic;
+using Kingmaker.UnitLogic.Abilities;
 using Kingmaker.UnitLogic.Abilities.Blueprints;
 using Kingmaker.UnitLogic.Buffs.Components;
 using Kingmaker.UnitLogic.Mechanics;
@@ -46,6 +47,61 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 Log.Error($"A4 consideration {Aim} failed.", ex);
                 return 0f;
             }
+        }
+    }
+
+    /// <summary>
+    /// A defender drinking one of its own potions as its brain's choice. The native cast-spell action treats any ability that
+    /// comes from an item as already spent, so it never drinks a potion (0.7.10's potion actions could never fire); this
+    /// action finds the potion in the creature's own quick slots, is available while one is left, and drinks it on itself.
+    /// </summary>
+    public sealed class KwrAiDrinkPotion : Kingmaker.Controllers.Brain.Blueprints.BlueprintAiAction
+    {
+        public string PotionGuid;
+
+        private AbilityData Potion(UnitEntityData unit)
+        {
+            Kingmaker.Items.ItemEntity potion = unit.Body.QuickSlots.Select(s => s.MaybeItem).FirstOrDefault(i => i != null && i.Blueprint.AssetGuid == PotionGuid && i.Count > 0);
+            return potion?.Ability?.Data;
+        }
+
+        public override void InitContext(DecisionContext context)
+        {
+            base.InitContext(context);
+            context.Ability = Potion(context.Unit);
+        }
+
+        public override bool IsAvailable(DecisionContext context)
+        {
+            AbilityData potion = Potion(context.Unit);
+            return potion != null && potion.IsAvailableForCast;
+        }
+
+        public override bool IsExpended(DecisionContext context)
+        {
+            return Potion(context.Unit) == null;
+        }
+
+        public override Kingmaker.UnitLogic.Commands.Base.UnitCommand CreateCommand(DecisionContext context, UnitEntityData target)
+        {
+            AbilityData potion = Potion(context.Unit);
+            LashmistressEncounter.Note($"{context.Unit.CharacterName}'s own brain drinks {potion?.Blueprint.name} (its potion).");
+            return Kingmaker.UnitLogic.Commands.UnitUseAbility.CreateCastCommand(potion, context.Unit);
+        }
+
+        public override Kingmaker.Controllers.Brain.Blueprints.TargetType GetTargetType(DecisionContext context)
+        {
+            return Kingmaker.Controllers.Brain.Blueprints.TargetType.Self;
+        }
+
+        public override float GetRange(DecisionContext context)
+        {
+            return 0f;
+        }
+
+        public override float GetRadius(DecisionContext context)
+        {
+            return 0f;
         }
     }
 

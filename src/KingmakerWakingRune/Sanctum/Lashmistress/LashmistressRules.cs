@@ -783,6 +783,11 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 // Under her sanctuary she recovers first: an attack would end the ward.
                 return 0f;
             }
+            if (self.ChillTouchCharged && self.EnemiesAdjacent >= 1 && CastsASpell(aim) && aim != A4Aim.CureSelf)
+            {
+                // A held Chill Touch is spent on the foe at her side: another spell would dissipate it.
+                return 0f;
+            }
             switch (aim)
             {
                 case A4Aim.CureSelf:
@@ -925,6 +930,27 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                     return t.DistanceFeet <= 10f ? 1f - (float)Math.Min(0.5d, t.HitPointFraction * 0.5d) : 0f;
                 default:
                     return 0f;
+            }
+        }
+
+        /// <summary>The aims that cast a spell from her books (anything but a weapon, a potion, her channel, her school and domain powers, her bond, or a held touch).</summary>
+        public static bool CastsASpell(A4Aim aim)
+        {
+            switch (aim)
+            {
+                case A4Aim.Melee:
+                case A4Aim.ChannelNegative:
+                case A4Aim.AcidDart:
+                case A4Aim.BlastRune:
+                case A4Aim.BlurPotion:
+                case A4Aim.StrengthPotion:
+                case A4Aim.GracePotion:
+                case A4Aim.HealingPotion:
+                case A4Aim.ArcaneBond:
+                case A4Aim.ChillTouchStrike:
+                    return false;
+                default:
+                    return true;
             }
         }
 
@@ -1154,7 +1180,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         /// subject that can no longer do it, or a resource gone for a full round with no effect, ends it for good. Nothing
         /// here gates any other decision.
         /// </summary>
-        public static PrepVerdict Reconcile(LashmistressState state, string key, PrepObservation seen, bool directorCommandSucceeded, double now, double graceSeconds)
+        public static PrepVerdict Reconcile(LashmistressState state, string key, PrepObservation seen, bool directorActed, double now, double graceSeconds)
         {
             PrepRecord prep = state.Preparation(key);
             if (!prep.Requested || prep.Performed || prep.Abandoned)
@@ -1168,7 +1194,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             if (seen.EffectSeen)
             {
                 bool spent = prep.ResourceAtRequest >= 0 && seen.ResourceLeft >= 0 && seen.ResourceLeft < prep.ResourceAtRequest;
-                prep.PerformedBy = directorCommandSucceeded ? "the director's command" : spent ? "its own action (its brain, or whoever controlled it)" : "no one: already in effect, nothing spent";
+                prep.PerformedBy = directorActed ? "the director's command" : spent ? "its own action (its brain, or whoever controlled it)" : "no one: already in effect, nothing spent";
                 prep.ResourceAtResolution = seen.ResourceLeft;
                 Performed(state, key, "effect observed on its target", now);
                 return PrepVerdict.Performed;

@@ -380,6 +380,12 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(1f, LashmistressTactics.Actor(A4Aim.Shield, new A4Self { VisibleEnemies = 1 }), "the naga's Shield is in its repertoire");
             Assert.Equal(true, NagaSpells.Known.Any(e => e.Source == "MageShield" && e.Carry == SpellCarry.Native), "Shield is the game's own spell");
             Assert.Equal(0f, LashmistressTactics.Actor(A4Aim.ChillTouch, new A4Self { VisibleEnemies = 2 }), "no touch without a foe at her side");
+            var holding = new A4Self { VisibleEnemies = 2, EnemiesAdjacent = 1, ChillTouchCharged = true, HitPointFraction = 0.9d };
+            Assert.Equal(0f, LashmistressTactics.Actor(A4Aim.Command, holding), "holding a touch with a foe at her side, she casts no other spell");
+            Assert.Equal(1f, LashmistressTactics.Actor(A4Aim.ChillTouchStrike, holding), "she touches");
+            Assert.Equal(1f, LashmistressTactics.Actor(A4Aim.AcidDart, holding), "her school power is not a spell and wastes nothing");
+            holding.EnemiesAdjacent = 0;
+            Assert.Equal(1f, LashmistressTactics.Actor(A4Aim.Command, holding), "with no foe at her side she may spend her turn otherwise");
         }
 
         public static void TestAVersionFourSanctumStateWaitsForTheCheck()

@@ -171,6 +171,18 @@ namespace KingmakerWakingRune.Diagnostics
                     unit.Commands.Run(new UnitAttack(victim));
                     return $"PLAYER order: {unit.CharacterName} (dominated) attacks {victim.CharacterName}.";
                 }
+                case "unbuff":
+                {
+                    // INJECTED: one native buff removed from any unit, as its expiry, a break-free or a dispel would.
+                    string missing = Resolve(args[1], out UnitEntityData unit);
+                    Kingmaker.UnitLogic.Buffs.Buff buff = unit?.Buffs.Enumerable.FirstOrDefault(b => b.Blueprint.name == args[2]);
+                    if (missing != null || buff == null)
+                    {
+                        return missing ?? $"no {args[2]} on {args[1]}";
+                    }
+                    buff.Remove();
+                    return $"INJECTED removal of {args[2]} from {unit.CharacterName} at {WardRuntime.Now:0.0}.";
+                }
                 case "a4take":
                 {
                     // INJECTED: one potion is taken from a defender before the fight, for the unavailable-preparation check.

@@ -848,8 +848,10 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                     continue;
                 }
                 s_PrepCommands.TryGetValue(key, out UnitCommand command);
-                bool succeeded = command != null && command.IsFinished && command.Result == UnitCommand.ResultType.Success;
-                PrepVerdict verdict = LashmistressRules.Reconcile(a4, key, Observe(key, command), succeeded, now, WardProfile.RoundSeconds);
+                // The director's command did it if it is still running when the effect lands (a potion's effect arrives before
+                // its command reports), or it finished successfully.
+                bool directorActed = command != null && (!command.IsFinished || command.Result == UnitCommand.ResultType.Success);
+                PrepVerdict verdict = LashmistressRules.Reconcile(a4, key, Observe(key, command), directorActed, now, WardProfile.RoundSeconds);
                 if (verdict == PrepVerdict.Performed)
                 {
                     Note($"preparation {key} performed by {record.PerformedBy}; resource {record.ResourceAtRequest} -> {record.ResourceAtResolution}.");
