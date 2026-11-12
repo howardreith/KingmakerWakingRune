@@ -226,9 +226,31 @@ namespace KingmakerWakingRune.Patches
     [HarmonyPatch(typeof(TimeController), "Tick")]
     internal static class TimeControllerTickPatch
     {
+        /// <summary>A frame that runs while Krune's prototype checkpoint holds (after a load) pauses the game again at once.</summary>
+        private static void Prefix()
+        {
+            if (!Kingmaker.Game.Instance.IsPaused && Sanctum.Krune.KruneAwakening.CheckpointHolds)
+            {
+                Kingmaker.Game.Instance.IsPaused = true;
+            }
+        }
+
         private static void Postfix()
         {
             WardRuntime.Tick();
+        }
+    }
+
+    /// <summary>
+    /// The WR-07A prototype checkpoint pauses the whole simulation, both sides alike: while it holds, nothing unpauses the
+    /// game. Inspection, menus and saving (where the game allows) still work. Outside a checkpoint save this does nothing.
+    /// </summary>
+    [HarmonyPatch(typeof(Kingmaker.Game), "set_IsPaused")]
+    internal static class KruneCheckpointPausePatch
+    {
+        private static bool Prefix(bool value)
+        {
+            return value || !Sanctum.Krune.KruneAwakening.CheckpointHolds;
         }
     }
 

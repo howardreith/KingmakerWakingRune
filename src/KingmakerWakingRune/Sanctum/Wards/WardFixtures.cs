@@ -38,7 +38,18 @@ namespace KingmakerWakingRune.Sanctum.Wards
             return unit?.Descriptor.Get<WardFixturePart>()?.FixtureId;
         }
 
-        public static UnitEntityData Krune => Find(KruneId);
+        /// <summary>
+        /// The one Krune: the dormant receiver until the awakening commits a real actor's identity, then that actor (WR-07A),
+        /// living or dead. A dead or unloaded actor never falls back to the receiver, and no fresh receiver is made.
+        /// </summary>
+        public static UnitEntityData Krune => Sanctum.Krune.KruneAwakening.Authoritative ? Sanctum.Krune.KruneAwakening.Actor : Find(KruneId);
+
+        /// <summary>The receiver is not wanted once the real Krune owns its role.</summary>
+        private static bool KruneReceiverRetired()
+        {
+            Sanctum.Krune.KruneState krune = WardRuntime.State?.Krune;
+            return krune != null && (krune.ReceiverRetired || !string.IsNullOrEmpty(krune.EntityId));
+        }
 
         /// <summary>
         /// The one Vandiana: the real combat actor once A4 has placed her (WR-06), living or dead; the support figure only in a
@@ -73,10 +84,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
         {
             Live.Clear();
             bool vandianaRetired = VandianaRetired();
+            bool kruneRetired = KruneReceiverRetired();
             foreach (UnitEntityData unit in Game.Instance.State.Units)
             {
                 string id = IdOf(unit);
-                if (id != null && !(id == VandianaId && vandianaRetired))
+                if (id != null && !(id == VandianaId && vandianaRetired) && !(id == KruneId && kruneRetired))
                 {
                     Live[id] = unit;
                 }
@@ -94,7 +106,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
             EnsureOne(DoorId, WardBlueprints.DoorFixture, GridWorld(13.15f, 26.0f));
             EnsureOne(GemId, WardBlueprints.GemFixture, GridWorld(14.8f, 9.6f));
-            EnsureOne(KruneId, WardBlueprints.KruneSupport, GridWorld(SanctumPlan.SarcophagusCenter.X, SanctumPlan.SarcophagusCenter.Y));
+            if (!kruneRetired)
+            {
+                // Only until the awakening: the real actor is never a fixture, and no receiver is remade after it.
+                EnsureOne(KruneId, WardBlueprints.KruneSupport, GridWorld(SanctumPlan.SarcophagusCenter.X, SanctumPlan.SarcophagusCenter.Y));
+            }
             if (!vandianaRetired)
             {
                 // Only a save without the A4 encounter keeps the support figure; no second, hidden Vandiana is ever created.

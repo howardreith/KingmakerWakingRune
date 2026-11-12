@@ -28,6 +28,10 @@ namespace KingmakerWakingRune.Sanctum
         public static readonly Dictionary<string, Light> RuneLights = new Dictionary<string, Light>();
         public static readonly Dictionary<string, GameObject[]> BrokenRunes = new Dictionary<string, GameObject[]>();
 
+        /// <summary>The emerald's two states on the altar, each its own object so the saved state can show one or the other.</summary>
+        public static GameObject[] EmeraldIntact = new GameObject[0];
+        public static GameObject[] EmeraldBroken = new GameObject[0];
+
         /// <summary>Each statue's floor position this build, where its target proxy stands.</summary>
         public static readonly Dictionary<string, Vector3> StatueFeet = new Dictionary<string, Vector3>();
 
@@ -51,6 +55,8 @@ namespace KingmakerWakingRune.Sanctum
             StatueFeet.Clear();
             RuneLights.Clear();
             BrokenRunes.Clear();
+            EmeraldIntact = new GameObject[0];
+            EmeraldBroken = new GameObject[0];
             StatueFigures.Clear();
             StatuePalms.Clear();
             PalmMarks.Clear();
@@ -308,7 +314,37 @@ namespace KingmakerWakingRune.Sanctum
             // The flawless emerald that held Krune's soul, set into the surface rather than resting on it.
             Vector3 emerald = top + new Vector3(0.02f, 0.004f, -0.52f);
             s_Mesh.Lathe(s_Palette.Iron, emerald, Vector3.up, new[] { 0.16f, 0f, 0.16f, 0.012f, 0f, 0.012f }, 6);
-            s_Mesh.Lathe(s_Palette.Emerald, emerald + Vector3.up * 0.012f, Vector3.up, new[] { 0.115f, 0f, 0.085f, 0.04f, 0f, 0.055f }, 6);
+            BuildEmerald(emerald + Vector3.up * 0.012f);
+        }
+
+        /// <summary>
+        /// The gem itself, apart from the baked altar: whole, or (once destroyed) a cracked dark socket with a few green shards.
+        /// Only one shows, as the saved state says.
+        /// </summary>
+        private static void BuildEmerald(Vector3 at)
+        {
+            var whole = new SceneryMesh();
+            whole.Lathe(s_Palette.Emerald, at, Vector3.up, new[] { 0.115f, 0f, 0.085f, 0.04f, 0f, 0.055f }, 6);
+            EmeraldIntact = Instantiate(whole, "KWR_EmeraldIntact", true);
+            var broken = new SceneryMesh();
+            broken.Lathe(s_Palette.Void, at, Vector3.up, new[] { 0.11f, 0f, 0.11f, 0.006f, 0f, 0.006f }, 6);
+            foreach (float angle in new[] { 15f, 130f, 250f })
+            {
+                Vector3 offset = new Vector3(Mathf.Cos(angle * Mathf.Deg2Rad), 0f, Mathf.Sin(angle * Mathf.Deg2Rad)) * 0.06f;
+                broken.Box(s_Palette.Emerald, at + offset + Vector3.up * 0.012f, new Vector3(0.035f, 0.018f, 0.022f), Quaternion.Euler(12f, angle, 20f));
+            }
+            EmeraldBroken = Instantiate(broken, "KWR_EmeraldBroken", false);
+        }
+
+        private static GameObject[] Instantiate(SceneryMesh mesh, string name, bool active)
+        {
+            mesh.Instantiate(s_Root, name);
+            GameObject[] parts = s_Root.GetComponentsInChildren<Transform>(true).Where(t => t.name.StartsWith(name)).Select(t => t.gameObject).ToArray();
+            foreach (GameObject part in parts)
+            {
+                part.SetActive(active);
+            }
+            return parts;
         }
 
         private static void BuildBrazier(Vector3 at)

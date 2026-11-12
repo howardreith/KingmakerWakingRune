@@ -103,10 +103,20 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         public static void Destroyed(SanctumState state)
         {
+            bool wasDue = state.Ritual.AwakeningDue;
             if (RitualRules.RequestImmediateAwakening(state.Ritual, WardRuntime.Now))
             {
                 Log.Info("Awakening due at once: the emerald was destroyed. One-round opening stagger stored for the encounter.");
                 WardRuntime.Say("The ritual's light surges; Krune is waking.");
+            }
+            else if (!wasDue && state.Ritual.AwakeningDue)
+            {
+                Log.Info($"AWAKENING DUE at {state.Ritual.AwakeningAt:0}: {state.Ritual.Reason}, reached at the same moment the emerald broke: the deadline came first, so no opening stagger.");
+                WardRuntime.Say("The sarcophagus shudders, and the mist begins to glow. Krune is waking.");
+            }
+            else
+            {
+                Log.Info($"The emerald broke after the soul had already returned ({state.Ritual.Reason} at {state.Ritual.AwakeningAt:0}): no new cause and no stagger.");
             }
         }
 

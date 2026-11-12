@@ -380,6 +380,21 @@ namespace KingmakerWakingRune.Diagnostics
                     return Items();
                 case "hitdoor":
                     return HitDoor(args.Skip(1).Select(int.Parse).ToArray());
+                case "krune":
+                    return KruneReport();
+                case "krunesheet":
+                    // Read only: the actor's native statistics.
+                    return "READ " + KingmakerWakingRune.Sanctum.Krune.KruneAwakening.Sheet(KingmakerWakingRune.Sanctum.Krune.KruneAwakening.Actor);
+                case "krunecl":
+                    return KruneCasterProbe(args.Length > 1 ? args[1] : "MageArmor");
+                case "krunerelease":
+                    return KingmakerWakingRune.Sanctum.Krune.KruneAwakening.ReleaseForDiagnostics();
+                case "krunedeadline":
+                    return KruneDeadline(double.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture));
+                case "setmask":
+                    return SetMask(int.Parse(args[1]));
+                case "manifest":
+                    return "READ Krune manifest:\n" + string.Join("\n", KingmakerWakingRune.Sanctum.Krune.KruneManifest.Lines().ToArray());
                 case "damagekrune":
                     return DamageKrune(int.Parse(args[1]));
                 case "grantfeeder":
@@ -903,7 +918,7 @@ namespace KingmakerWakingRune.Diagnostics
 
         private static string Resolve(string target, out UnitEntityData unit)
         {
-            unit = target == "kurshu" ? KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu : target.StartsWith("party:") ? Member(target.Substring(6)) : target.StartsWith("body:") ? BodyOf(target.Substring(5)) : target.StartsWith("a4:") ? Defender(target.Substring(3)) : target.StartsWith("unit:") ? Game.Instance.State.Units.FirstOrDefault(u => u.UniqueId == target.Substring(5)) : target.StartsWith("name:") ? Game.Instance.State.Units.FirstOrDefault(u => u.IsInGame && !u.Descriptor.State.IsDead && u.CharacterName.IndexOf(target.Substring(5), StringComparison.OrdinalIgnoreCase) >= 0) : WardFixtures.Find(target);
+            unit = target == "krune" ? WardFixtures.Krune : target == "kurshu" ? KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu : target.StartsWith("party:") ? Member(target.Substring(6)) : target.StartsWith("body:") ? BodyOf(target.Substring(5)) : target.StartsWith("a4:") ? Defender(target.Substring(3)) : target.StartsWith("unit:") ? Game.Instance.State.Units.FirstOrDefault(u => u.UniqueId == target.Substring(5)) : target.StartsWith("name:") ? Game.Instance.State.Units.FirstOrDefault(u => u.IsInGame && !u.Descriptor.State.IsDead && u.CharacterName.IndexOf(target.Substring(5), StringComparison.OrdinalIgnoreCase) >= 0) : WardFixtures.Find(target);
             return unit == null ? $"no target {target}" : null;
         }
 
@@ -1176,9 +1191,14 @@ namespace KingmakerWakingRune.Diagnostics
             var hit = new Kingmaker.RuleSystem.Rules.Damage.DirectDamage(new Kingmaker.RuleSystem.DiceFormula(0, Kingmaker.RuleSystem.DiceType.Zero), amount);
             // The party cannot harm a peaceful proxy, so the labelled damage comes from the receiver itself.
             Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.Damage.RuleDealDamage(krune, krune, new Kingmaker.RuleSystem.Rules.Damage.DamageBundle(hit)));
-            krune.Damage = 0;
+            bool receiver = !KingmakerWakingRune.Sanctum.Krune.KruneAwakening.Authoritative;
+            if (receiver)
+            {
+                // The receiver's own hit points are a proxy's; only the woken Krune keeps the damage it takes.
+                krune.Damage = 0;
+            }
             WardKrune.Refresh(WardRuntime.State, WardRuntime.Now);
-            return $"INJECTED {amount} damage to the dormant Krune receiver: temp HP {before} -> {krune.Stats.TemporaryHitPoints.ModifiedValue}; ledger exposed {FeederRules.ExposedTemporaryHP(WardRuntime.State.Door.Feeder, WardRuntime.Now)}.";
+            return $"INJECTED {amount} damage to {(receiver ? "the dormant Krune receiver" : "the real Krune (hp " + krune.Descriptor.HPLeft + "/" + krune.Descriptor.MaxHP + ")")}: temp HP {before} -> {krune.Stats.TemporaryHitPoints.ModifiedValue}; ledger exposed {FeederRules.ExposedTemporaryHP(WardRuntime.State.Door.Feeder, WardRuntime.Now)}.";
         }
 
         /// <summary>
@@ -1216,6 +1236,72 @@ namespace KingmakerWakingRune.Diagnostics
             UnitEntityData krune = WardFixtures.Krune;
             krune.Stats.TemporaryHitPoints.AddModifier(amount, null, Kingmaker.Enums.ModifierDescriptor.UntypedStackable);
             return $"INJECTED unrelated {amount} temporary HP on Krune; total {krune.Stats.TemporaryHitPoints.ModifiedValue}.";
+        }
+
+        /// <summary>Read only: the awakening's saved state, the actor's native sheet and the retired receiver.</summary>
+        private static string KruneReport()
+        {
+            SanctumState state = WardRuntime.State;
+            UnitEntityData actor = KingmakerWakingRune.Sanctum.Krune.KruneAwakening.Actor;
+            UnitEntityData receiver = WardFixtures.FindRetired("Krune");
+            int kruneUnits = Game.Instance.State.Units.Count(KingmakerWakingRune.Sanctum.Krune.KruneAwakening.IsKrune);
+            RitualState r = state.Ritual;
+            string grants = string.Join("; ", state.Door.Feeder.Grants.Select(g => g.Amount + "->" + g.Remaining + " until " + g.ExpiresAt.ToString("0")).ToArray());
+            var sb = new StringBuilder("READ Krune: " + WardStore.Dump(state.Krune) + "\n");
+            sb.AppendLine($"ritual: due {r.AwakeningDue} {r.Reason} at {r.AwakeningAt:0}, stagger flag {r.AwakeningOpeningStagger}, global {r.GlobalDeadline:0}, confrontation {r.ConfrontationDeadline:0}, now {WardRuntime.Now:0.0}; mask {state.RuneMask}; emerald destroyed {state.Gem.Destroyed}; feeder exposed {FeederRules.ExposedTemporaryHP(state.Door.Feeder, WardRuntime.Now)} grants [{grants}]");
+            sb.AppendLine($"real Krune units in the area: {kruneUnits}; receiver {(receiver == null ? "none" : receiver.UniqueId + " inGame " + receiver.IsInGame + " indexed " + (WardFixtures.Find("Krune") != null))}");
+            sb.AppendLine(KingmakerWakingRune.Sanctum.Krune.KruneAwakening.Sheet(actor));
+            sb.Append($"checkpoint holds {KingmakerWakingRune.Sanctum.Krune.KruneAwakening.CheckpointHolds}, paused {Game.Instance.IsPaused}, mode {Game.Instance.CurrentMode}, turn-based {TurnBased.Controllers.CombatController.IsInTurnBasedCombat()}, party in combat {Game.Instance.Player.IsInCombat}");
+            return sb.ToString();
+        }
+
+        /// <summary>Read only: what the native rule gives his caster level for one spell from his own spellbook, with a level-dependent output.</summary>
+        private static string KruneCasterProbe(string abilityName)
+        {
+            UnitEntityData actor = KingmakerWakingRune.Sanctum.Krune.KruneAwakening.Actor;
+            BlueprintAbility ability = ResourcesLibrary.GetBlueprints<BlueprintAbility>().FirstOrDefault(a => a.name == abilityName);
+            if (actor == null || ability == null)
+            {
+                return actor == null ? "no real Krune" : $"no ability {abilityName}";
+            }
+            Spellbook book = actor.Descriptor.GetSpellbook(KingmakerWakingRune.Sanctum.Krune.KruneBlueprints.WizardClass);
+            var data = new AbilityData(ability, book);
+            var rule = Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.Abilities.RuleCalculateAbilityParams(actor, data));
+            int cl = rule.Result.CasterLevel;
+            return $"READ native ability params for Krune's {abilityName}: wizard (class) level {book?.CasterLevel}, caster level {cl}, spell level {rule.Result.SpellLevel}, DC {rule.Result.DC}, concentration {rule.Result.Concentration}; level-dependent output: an hour-per-level duration of {cl} h, a dispel check of d20+{System.Math.Min(10, cl)} (dispel magic) or d20+{System.Math.Min(20, cl)} (greater). Revival loss now {KingmakerWakingRune.Sanctum.Krune.KruneAwakening.CasterLevelLoss()}.";
+        }
+
+        /// <summary>SETUP (accelerated): Kurshu's 90-minute deadline brought closer. The ritual's own tick still triggers it.</summary>
+        private static string KruneDeadline(double seconds)
+        {
+            RitualState ritual = WardRuntime.State.Ritual;
+            if (!ritual.KurshuDefeated || ritual.GlobalDeadline < 0d)
+            {
+                return "Kurshu's deadline has not started";
+            }
+            double before = ritual.GlobalDeadline;
+            ritual.GlobalDeadline = System.Math.Min(ritual.GlobalDeadline, WardRuntime.Now + seconds);
+            return $"SETUP accelerated deadline: global {before:0} -> {ritual.GlobalDeadline:0} (now {WardRuntime.Now:0}); the native tick will trigger it.";
+        }
+
+        /// <summary>SETUP/INJECTED: rune foci set dark by mask before a test, as if sabotaged. Never used for the live-link check.</summary>
+        private static string SetMask(int mask)
+        {
+            SanctumState state = WardRuntime.State;
+            foreach (RuneFocus focus in KruneProjection.Foci)
+            {
+                RuneFocusState f = state.Focus(focus.Id);
+                if ((mask & (1 << focus.Bit)) != 0 && !f.Disabled)
+                {
+                    f.Disabled = true;
+                    f.DisabledRoute = "INJECTED setmask";
+                    f.DisabledAt = WardRuntime.Now;
+                }
+            }
+            state.RecomputeMask();
+            WardRuntime.RefreshRuneVisuals(state);
+            KingmakerWakingRune.Sanctum.Krune.KruneAwakening.SyncLinks(state, WardRuntime.Now);
+            return $"INJECTED rune mask: now {state.RuneMask} (requested {mask}; lit foci are only ever darkened).";
         }
 
         private static string Units()

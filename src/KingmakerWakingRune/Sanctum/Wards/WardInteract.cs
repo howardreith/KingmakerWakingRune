@@ -364,6 +364,10 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 text.Append("\n\nThe emerald is shattered.");
             }
+            if (id == WardText.SarcophagusId && state.Krune.Stage >= Krune.AwakeningStage.Emerged)
+            {
+                text.Append("\n\nIts occupant is gone: the runelord has stepped out of it.");
+            }
             if (id == WardText.FlailId && state.FlailAcquired)
             {
                 text.Append("\n\nThe flail is gone.");

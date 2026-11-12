@@ -361,7 +361,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             if (state.Ritual.AwakeningDue && !a4.AwakeningNoted)
             {
                 a4.AwakeningNoted = true;
-                Note($"awakening due ({state.Ritual.Reason}, stagger {state.Ritual.AwakeningOpeningStagger}) with {Living().Count()} defender(s) still standing; the A4 fight continues. Krune's own encounter is the next milestone and is not implemented here.");
+                Note($"awakening due ({state.Ritual.Reason}, stagger {state.Ritual.AwakeningOpeningStagger}) with {Living().Count()} defender(s) still standing; the A4 fight continues; Krune's awakening (WR-07A) takes it from here.");
             }
         }
 

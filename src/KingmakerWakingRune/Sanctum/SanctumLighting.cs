@@ -16,6 +16,13 @@ namespace KingmakerWakingRune.Sanctum
         private Light m_Light;
         private float m_NextFlash;
         private float m_FlashEnds;
+        private static float s_SurgeUntil;
+
+        /// <summary>The intensified pulse as the soul returns: brighter, faster flashes for a few seconds of real time.</summary>
+        public static void Surge(float seconds)
+        {
+            s_SurgeUntil = Mathf.Max(s_SurgeUntil, Time.unscaledTime + seconds);
+        }
 
         private void Awake()
         {
@@ -25,12 +32,13 @@ namespace KingmakerWakingRune.Sanctum
         private void Update()
         {
             float now = Time.unscaledTime;
+            bool surging = now < s_SurgeUntil;
             if (now >= m_NextFlash)
             {
                 m_FlashEnds = now + Random.Range(0.06f, 0.2f);
-                m_NextFlash = now + Random.Range(0.8f, 3.2f);
+                m_NextFlash = now + (surging ? Random.Range(0.1f, 0.35f) : Random.Range(0.8f, 3.2f));
             }
-            m_Light.intensity = now < m_FlashEnds ? Bright : Dim;
+            m_Light.intensity = now < m_FlashEnds ? (surging ? Bright * 2.5f : Bright) : (surging ? Bright : Dim);
         }
     }
 
