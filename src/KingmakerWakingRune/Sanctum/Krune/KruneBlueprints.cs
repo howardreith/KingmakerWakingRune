@@ -298,15 +298,23 @@ namespace KingmakerWakingRune.Sanctum.Krune
             Resolved.Add("freedom of movement from " + freedom.name);
         }
 
-        private static T Equipment<T>(T donor, string name, string display, string description, BlueprintEquipmentEnchantment enchantment) where T : BlueprintItemEquipment
+        private static T Equipment<T>(T donor, string name, string display, string description, BlueprintEquipmentEnchantment enchantment) where T : BlueprintItemEquipmentSimple
         {
             T item = UnityEngine.Object.Instantiate(donor);
             item.name = name;
             item.AssetGuid = ScenarioIds.Derive("krune." + name);
-            AccessTools.Field(typeof(BlueprintItem), "m_Enchantments").SetValue(item, new BlueprintItemEnchantment[] { enchantment });
+            AccessTools.Field(typeof(BlueprintItemEquipmentSimple), "m_Enchantments").SetValue(item, new[] { enchantment });
+            ForgetEnchantmentCache(item);
             ItemName(item, display, description);
             s_Register(item);
             return item;
+        }
+
+        /// <summary>A clone keeps its donor's collected enchantment list unless told to collect its own.</summary>
+        private static void ForgetEnchantmentCache(BlueprintItem item)
+        {
+            AccessTools.Field(typeof(BlueprintItem), "m_EnchantmentsCollected").SetValue(item, false);
+            AccessTools.Field(typeof(BlueprintItem), "m_CachedEnchantments").SetValue(item, null);
         }
 
         private static BlueprintEquipmentEnchantment Enchantment(string name, BlueprintFeature feature)
