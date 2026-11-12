@@ -122,7 +122,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
     /// </summary>
     internal sealed class SanctumState
     {
-        public const int CurrentVersion = 5;
+        public const int CurrentVersion = 6;
 
         public int Version = CurrentVersion;
         public string ProfileSubtier = WardProfile.Subtier;
@@ -160,6 +160,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public KurshuState Kurshu = new KurshuState();
         /// <summary>The A4 defenders (WR-06). A version 4 state already inside is checked at its first load before anything is added.</summary>
         public LashmistressState Lashmistress = new LashmistressState();
+        /// <summary>Krune's awakening (WR-07A). A version 5 state whose ritual already came due is offered a one-time choice.</summary>
+        public Krune.KruneState Krune = new Krune.KruneState();
 
         /// <summary>
         /// Brings an older save forward without resetting anything it recorded. Version 1 predates credentials and route
@@ -180,10 +182,14 @@ namespace KingmakerWakingRune.Sanctum.Wards
             SummonOrders = SummonOrders ?? new List<SummonOrderRecord>();
             Kurshu = Kurshu ?? new KurshuState();
             Lashmistress = Lashmistress ?? new LashmistressState();
+            Krune = Krune ?? new Krune.KruneState();
             if (Initialized)
             {
                 KurshuRules.DecideForExistingSave(Kurshu);
                 LashmistressRules.MarkForUpgradeCheck(Lashmistress);
+                // Version 5 predates the real Krune: a ritual already due under it never made him, so the owner chooses
+                // once. One not yet due simply adopts the new lifecycle, with no clock restarted.
+                Sanctum.Krune.KruneRules.MarkLegacy(Krune, Ritual);
             }
             Version = CurrentVersion;
             return true;
