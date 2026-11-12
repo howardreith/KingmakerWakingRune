@@ -391,6 +391,10 @@ namespace KingmakerWakingRune.Diagnostics
                     return KingmakerWakingRune.Sanctum.Krune.KruneAwakening.ReleaseForDiagnostics();
                 case "krunedeadline":
                     return KruneDeadline(double.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture));
+                case "krunepause":
+                    // SETUP: the game pauses the moment the awakening reaches this stage, for a save there.
+                    KingmakerWakingRune.Sanctum.Krune.KruneAwakening.HarnessPauseAt = (KingmakerWakingRune.Sanctum.Krune.AwakeningStage)Enum.Parse(typeof(KingmakerWakingRune.Sanctum.Krune.AwakeningStage), args[1]);
+                    return "SETUP: the game will pause when the awakening reaches " + args[1] + ".";
                 case "setmask":
                     return SetMask(int.Parse(args[1]));
                 case "manifest":

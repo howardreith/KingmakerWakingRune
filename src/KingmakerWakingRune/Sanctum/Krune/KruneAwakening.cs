@@ -142,7 +142,22 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
         }
 
+        /// <summary>SETUP (labelled test harness only): pause the game the moment the lifecycle reaches this stage, for a save there.</summary>
+        public static AwakeningStage? HarnessPauseAt;
+
         public static void Tick(SanctumState state, double now)
+        {
+            AwakeningStage before = state.Krune.Stage;
+            Advance(state, now);
+            if (HarnessPauseAt.HasValue && state.Krune.Stage != before && state.Krune.Stage == HarnessPauseAt.Value)
+            {
+                HarnessPauseAt = null;
+                Game.Instance.IsPaused = true;
+                Note($"SETUP harness pause at stage {state.Krune.Stage} (for a save at this point).");
+            }
+        }
+
+        private static void Advance(SanctumState state, double now)
         {
             KruneState krune = state.Krune;
             if (krune.Legacy == LegacyAwakening.AwaitingChoice)
@@ -674,7 +689,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
             s_LegacyAsked = true;
             KruneState krune = state.Krune;
-            string text = $"An older build of this mod recorded Krune's awakening as due ({state.Ritual.Reason}, {Math.Max(0d, WardRuntime.Now - state.Ritual.AwakeningAt) / 60d:0} minutes ago) but could not create him.\n\nInitialize the awakening now from this save's recorded cause, time and current runes? The game will stop at the development checkpoint that follows his opening.\n\nChoose No to keep this as a legacy exploration save with no Krune added (asked once).";
+            string text = $"An older build of this mod recorded Krune's awakening as due ({state.Ritual.Reason}, {Math.Max(0d, WardRuntime.Now - state.Ritual.AwakeningAt) / 60d:0} minutes ago) but could not create him.\n\nInitialize the awakening from this save's recorded cause, time and current runes? The game will stop at the development checkpoint that follows his opening.\n\nChoose OK to initialize it, or Cancel to keep this as a legacy exploration save with no Krune added (asked once).";
             Game.Instance.IsPaused = true;
             EventBus.RaiseEvent(delegate(IDialogMessageBoxUIHandler h)
             {
@@ -807,7 +822,13 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return $"SHEET {actor.CharacterName}: hp {d.HPLeft}/{d.MaxHP} (damage {d.Damage}, temp {s.TemporaryHitPoints.ModifiedValue}); AC {s.AC.ModifiedValue} (preset {presetAC:+0;-0}); Fort {s.SaveFortitude.ModifiedValue} Ref {s.SaveReflex.ModifiedValue} Will {s.SaveWill.ModifiedValue}; init {s.Initiative.ModifiedValue}; " +
                 $"Str {s.Strength.ModifiedValue} Dex {s.Dexterity.ModifiedValue} Con {s.Constitution.ModifiedValue} Int {s.Intelligence.ModifiedValue} Wis {s.Wisdom.ModifiedValue} Cha {s.Charisma.ModifiedValue}; BAB {s.BaseAttackBonus.ModifiedValue}; " +
                 $"wizard level {book?.CasterLevel.ToString() ?? "none"}, caster level for a spell {casterLevel}; fast healing {KruneBlueprints.LifeFastHealing.Skip(1).Select((b, i) => d.Buffs.GetBuff(b) != null ? i + 1 : 0).Max()}; " +
-                $"staggered {d.State.HasCondition(UnitCondition.Staggered)}; faction {d.Faction?.name}; in game {actor.IsInGame}; dead {d.State.IsDead}; buffs [{string.Join(",", d.Buffs.Enumerable.Select(b => b.Blueprint.name + (b.IsFromSpell ? "*" : string.Empty)).ToArray())}].";
+                $"staggered {d.State.HasCondition(UnitCondition.Staggered)}{StaggerLeft(d)}; faction {d.Faction?.name}; in game {actor.IsInGame}; dead {d.State.IsDead}; buffs [{string.Join(",", d.Buffs.Enumerable.Select(b => b.Blueprint.name + (b.IsFromSpell ? "*" : string.Empty)).ToArray())}].";
+        }
+
+        private static string StaggerLeft(UnitDescriptor d)
+        {
+            Buff stagger = d.Buffs.GetBuff(KruneBlueprints.OpeningStagger);
+            return stagger == null ? string.Empty : $" (opening stagger ends at {stagger.EndTime.TotalSeconds:0.0}, {stagger.EndTime.TotalSeconds - WardRuntime.Now:0.0} s left)";
         }
 
         private static bool NodeNear(float x, float y)
