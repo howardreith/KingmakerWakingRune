@@ -595,7 +595,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
         }
 
         /// <summary>
-        /// A spell cast already under way (its command running: moving into range or casting) by someone of the party side
+        /// A spell cast already ordered and not finished (issued, moving into range or casting) by someone of the party side
         /// he can see. Only a committed order counts: hovering an ability or cancelling its cursor creates no command.
         /// </summary>
         private static bool CommittedPreparation(UnitEntityData actor, out string what)
@@ -604,7 +604,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             foreach (UnitEntityData unit in Perceivers(actor))
             {
                 Kingmaker.UnitLogic.Commands.UnitUseAbility cast = unit.Commands.Raw.OfType<Kingmaker.UnitLogic.Commands.UnitUseAbility>()
-                    .FirstOrDefault(c => c.IsRunning && c.Spell?.Blueprint != null && c.Spell.Blueprint.IsSpell);
+                    .FirstOrDefault(c => !c.IsFinished && c.Spell?.Blueprint != null && c.Spell.Blueprint.IsSpell);
                 if (cast != null)
                 {
                     what = $"{unit.CharacterName} was casting {cast.Spell.Blueprint.name} as the exchange would begin";
