@@ -197,6 +197,13 @@ namespace KingmakerWakingRune.Sanctum.Krune
                     if (now >= krune.ActorCreatedAt + KruneRules.EmergenceDelaySeconds)
                     {
                         Emerge(state, now);
+                        // The opening is decided in the same tick he steps out: turn-based combat would otherwise give him a
+                        // turn before it (0.8.11). A dialogue still opens; a bark or an unobserved waking hands off and holds
+                        // at once. Only the labelled harness pause at Emerged keeps the moment apart, for its tests.
+                        if (krune.Stage == AwakeningStage.Emerged && HarnessPauseAt != AwakeningStage.Emerged)
+                        {
+                            Opening(state, now);
+                        }
                     }
                     break;
                 case AwakeningStage.Emerged:
