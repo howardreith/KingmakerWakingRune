@@ -61,7 +61,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
 
         private static void Guard(Action handler)
         {
-            if (!SanctumScope.IsSanctumLoaded)
+            if (!SanctumScope.IsSanctumLoaded || Wards.WardHazards.ResolvingWard)
             {
                 return;
             }

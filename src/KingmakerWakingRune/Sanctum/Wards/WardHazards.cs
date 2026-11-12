@@ -33,6 +33,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
         /// <summary>When each unit's current turn began, this session only; cleared on every load so no stale actor survives.</summary>
         private static readonly Dictionary<string, double> s_TurnStartedAt = new Dictionary<string, double>();
 
+        /// <summary>True while a standing ward (the glyph) resolves its effect.</summary>
+        public static bool ResolvingWard { get; private set; }
+
         private static IEnumerable<UnitEntityData> Actors()
         {
             return Game.Instance.State.Units.Where(u => u.IsInGame && !u.Descriptor.State.IsDead && WardFixtures.IdOf(u) == null);
@@ -174,13 +177,22 @@ namespace KingmakerWakingRune.Sanctum.Wards
             glyph.TriggeredAt = WardRuntime.Now;
             WardTraps.Glyph?.Deactivate();
             MechanicsContext context = GlyphContext();
-            foreach (UnitEntityData unit in Actors().ToList())
+            // A trap going off is not the defenders engaging anyone: its rules are not read as an A4 engagement.
+            ResolvingWard = true;
+            try
             {
-                Vector3 p = unit.Position;
-                if (WardGeometry.InGlyphBurst(GridX(p), GridY(p)))
+                foreach (UnitEntityData unit in Actors().ToList())
                 {
-                    GlyphBurst(context, unit);
+                    Vector3 p = unit.Position;
+                    if (WardGeometry.InGlyphBurst(GridX(p), GridY(p)))
+                    {
+                        GlyphBurst(context, unit);
+                    }
                 }
+            }
+            finally
+            {
+                ResolvingWard = false;
             }
             Log.Info($"Glyph detonated at {WardRuntime.Now:0}.");
         }
@@ -210,7 +222,10 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
             var energy = new EnergyDamage(new DiceFormula(WardProfile.GlyphDice, DiceType.D8), DamageEnergyType.Electricity);
             energy.Half = save.IsPassed || save.ImprovedEvasion;
-            RuleDealDamage damage = Rulebook.Trigger(new RuleDealDamage(context.MaybeCaster, unit, new DamageBundle(energy)) { Reason = context });
+            // The spell is hers (its context), but the blast comes from the glyph itself, which takes no part in combat: setting
+            // off her ward does not put its victim in combat with Vandiana where she stands.
+            UnitEntityData source = WardFixtures.Find("GlyphWard") ?? context.MaybeCaster;
+            RuleDealDamage damage = Rulebook.Trigger(new RuleDealDamage(source, unit, new DamageBundle(energy)) { Reason = context });
             Log.Info($"Glyph: {unit.CharacterName} Reflex {save.RollResult} vs {WardProfile.GlyphReflexDC}; took {damage.Damage} electricity from {context.MaybeCaster?.CharacterName}.");
         }
 
