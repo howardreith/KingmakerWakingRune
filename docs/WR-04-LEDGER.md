@@ -212,5 +212,25 @@ Rows above that this round changes are restated here. Everything else carries fo
 | Persistence through full restarts | Proven | 976–978 | Live mid-combat save not run. |
 | Stock isolation | Proven | 0.7.10 | |
 | Turn-based | Partial | 0.7.10 | Defenders act; party AI does not act in turn-based mode. |
-| Undetected scout, Darkness concealment, Blur/hide in combat, sting save, dispel, fresh pre-departure path | Not shown in surviving evidence | | See `ACCEPTANCE-WR-06.md`. |
-| Deferred abilities | Not implemented | | Listed in `WR-06-LASHMISTRESS.md`. |
+| Undetected scout, Darkness concealment, Blur/hide in combat, sting save, dispel, fresh pre-departure path | Not shown in surviving evidence | | See `ACCEPTANCE-WR-06.md`. Every one was shown in the review pass below. |
+| Deferred abilities | Not implemented | | Listed in `WR-06-LASHMISTRESS.md`. Re-audited in the review pass. |
+
+## WR-06 review pass, 0.7.11–0.7.19, run `wr06-pass2`
+
+| Item | Status | Evidence | Notes |
+|---|---|---|---|
+| Combat preparations settle whoever acts, and gate nothing | Proven (one potion taken, INJECTED) | 0.7.15, 0.7.19 | Agarik's brain drank Blur and then hid. Jorgas's missing Blur ended after a round. |
+| In-combat potions actually drunk | Proven | 0.7.15 | Three engine details. The AI treats item abilities as spent (0.7.12). A potion is a move action the brain kept replacing (0.7.13). Ambush flicker (0.7.14). Blur can't target a non-party drinker (0.7.15). Every 0.7.10 in-combat potion action had been inert. |
+| Director yields to domination, confusion, fear and resumes | Proven in real time (native buffs applied by INJECTION; a natural confusion too) | 0.7.17, 0.7.11 | Cancel-at-change count was 0 in every observed case. Not landed in turn-based play. |
+| Darkness: native exemptions, darkvision, true seeing | Proven | 0.7.16 | The area had never appeared before 0.7.16 (null effect link); Magic Circle had the same defect. Dispel of the darkness itself not shown. |
+| Burst outsider rule and descriptors | Proven (SETUP deva) | 0.7.18 | Deva 8d6 against the True Neutral party's 4d8 half share. |
+| Whip: weapon enchantment, nonlethal, armor rule, healing | Proven, partly unit-tested (Barkskin removed, INJECTED) | 0.7.16–0.7.17 | Knock-out, revival, rest and another wielder: unit tests only. |
+| Naga sting: save, immunity, cure, persistence | Proven (Delay Poison removed, INJECTED) | 0.7.18 | Asleep 4 min, Delay Poison refuses it, Neutralize Poison cures it, survives a restart. |
+| Undetected peek | Proven (SETUP Invisibility) | 0.7.18 | Clock untouched. |
+| Dispel and restart | Proven (INJECTED combat exit for the save) | 0.7.16 | Mage Armor stays gone, and nothing refills. |
+| Fresh arrival from the lodge | Proven (player) | 0.7.18 | Policy Active, placed after the transfer, books filled. |
+| Turn-based with manual party orders | Proven (both sides act; the clock commits by rounds) | 0.7.18 | The party lost. |
+| Shield, Disruptive, summoner's charm, arcane bond, Magic Circle, Sanctuary, Chill Touch | Proven | 0.7.11–0.7.19 | No failed Sanctuary save seen (DC 15). |
+| Older 0.7.10 saves | Proven | 0.7.11, 0.7.19 | Placeholders swapped in place; new facts added. |
+| Stock isolation | Proven | 0.7.18 | |
+| Fresh A4 victory against 0.7.19 | Not run | | The defenders are stronger than in the 0.7.10 victory. |

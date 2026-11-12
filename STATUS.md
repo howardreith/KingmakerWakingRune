@@ -1,89 +1,116 @@
 # Status: The Waking Rune
 
-**Milestone:** WR-06, the Lashmistress encounter in A4. Ready for owner review, together with the WR-05 closeout (Phase A, 0.6.16).
+**Milestone:** WR-06, the Lashmistress encounter in A4. The second pass (the owner's review of PR #6) is ready for owner review. Phase A (WR-05 closeout, 0.6.16) was accepted.
 
 **Branches** (do not merge, tag or release without owner review):
 - `feature/wr-04-sanctum-wards`: draft PR #4, base `main`.
-- `feature/wr-05-kurshu`: draft PR #5, base the WR-04 branch. Its head `caa2e09` carries the Phase A repair (`b630849`, 0.6.16) and its acceptance notes.
-- `feature/wr-06-lashmistress`: the WR-06 draft PR, base the WR-05 branch.
+- `feature/wr-05-kurshu`: draft PR #5, base the WR-04 branch. Head `caa2e09`.
+- `feature/wr-06-lashmistress`: draft PR #6, base the WR-05 branch.
 
-Merge order: PR #4, then #5, then the WR-06 PR.
+Merge order: PR #4, then #5, then #6.
 
 Results:
-- `docs/WR-06-LASHMISTRESS.md`: source-to-runtime sheets, ability coverage, adaptations, countdown and saves.
-- `docs/ACCEPTANCE-WR-06.md`: PASS / PARTIAL / NOT RUN by check, the defects found, and the victory.
-- `docs/ACCEPTANCE-WR-05.md`: the Phase A cases A–C.
-- `docs/WR-04-LEDGER.md`: the cumulative ledger, with WR-05 closeout and WR-06 sections.
+- `docs/ACCEPTANCE-WR-06.md`: the review's findings and what was done, the second pass's builds, defects and checks, then the first pass.
+- `docs/WR-06-LASHMISTRESS.md`: sheets, ability coverage with the audit of what is not implemented, adaptations, countdown and saves.
+- `docs/WR-04-LEDGER.md`: the cumulative ledger, with a WR-06 review-pass section.
 
 ## Candidate
-- Version 0.7.10, commit `4630671`.
-- DLL SHA-256 `4733827d4a050b31bf5165466af5e75974808cfc42f07716f9a0ce9288999776`.
-- Zip `artifacts\KingmakerWakingRune-0.7.10.zip`, SHA-256 `95517866a8b2128c195cd26d7dc791722ff502594505f4ea3a006cff6a3d9abb`. Tested last and now installed.
-- 187 unit tests pass.
-- WR-06 test builds 0.7.0–0.7.9 and WR-05's 0.6.16 have their own zips; none were replaced.
+- Version 0.7.19, commit `4f8632a`.
+- DLL SHA-256 `32e45672ea18ae5d3b8a656c2f22147d4ae0d55710a0465f4f427ab7a5b43695`.
+- Zip `artifacts\KingmakerWakingRune-0.7.19.zip`, SHA-256 `aaf30457fcb39aec1fbc6dacacee632e3b066a569c6f68023d14857f2dea3b89`. Tested last and now installed.
+- 196 unit tests pass.
+- Test builds 0.7.11–0.7.18 each have their own zip; none was replaced. A `0.7.15-dirty` diagnostic package is not a candidate.
 
-## What WR-06 adds
-- **Vandiana**, cleric 3 / conjurer 4 / mystic theurge 5:
-  - two native prepared books, filled entry for entry;
-  - what she cast before arrival spent from them once;
-  - Order's Wrath, Unholy Blight, Command, Darkness and Darkvision as documented encounter-local spells;
-  - native channel energy, acid dart and blast rune.
-- **Agarik and Jorgas:** fighter 7 plus two shadowdancer Hit Dice, advanced. Native feats, evasion, uncanny dodge, hide in plain sight, ambush stealth, and their own potions.
-- **The dark naga:** aberration 10, advanced. Spontaneous slots, sleep poison, poison immunity, guarded thoughts, no trip.
-- **Preparation:**
-  - Warnings and the east door prepare the defenders through their own actions and resources, once each.
-  - Engagement, and only engagement, commits the existing 1d6+6 countdown.
-  - The awakening coming due mid-fight leaves A4 running.
-- **The support Vandiana fixture is retired.** One canonical Vandiana drives the glyph context, the hound tether and the reporter.
-- **Saves:** version 5. An older save already inside gets the defenders only when every fact says A4 is untouched; otherwise it is left as it was, with one notice.
+## What the second pass changed
+- **Preparations:** settled whoever acts; the record keeps who acted and what was spent; they end for good when they can no longer happen. None gates the director.
+- **Control:** the director yields to charm, domination, confusion and fear, cancelling only its own commands, and resumes when the effect ends. The tactics read native allegiance.
+- **Darkness:** one more native concealment entry, with every native exemption, darkvision and true seeing. Before 0.7.16 the area never appeared, and neither did Magic Circle's.
+- **Order's Wrath and Unholy Blight:** the outsider rule (1d6 per caster level) and the [lawful] / [evil] descriptors.
+- **Whip:** a weapon enchantment dealing real nonlethal damage to the game's own total, with the armor rule. Healing, recovery, rest and revival are handled.
+- **In-combat potions really drunk:** three engine details fixed. The game's AI treats item abilities as spent, it replaced an unstarted move-action drink, and Blur cannot target a non-party drinker. The engagement also ends the Blackstrikes' ambush.
+- **Formerly deferred, now in:**
+  - the naga's Shield (native);
+  - Disruptive;
+  - summoner's charm;
+  - arcane bond (an accepted adaptation);
+  - Magic Circle against Good;
+  - Sanctuary;
+  - Chill Touch.
 
-## Proven
-Native play unless labelled:
-- door preparation without the clock;
-- warning-to-Darkvision;
-- the engagement commit and its stored roll;
-- the awakening during A4;
-- a legitimate real-time victory (party AI, setup placement);
-- persistence through full restarts;
-- stock isolation;
-- the fixture's retirement.
+  What is still not implemented is audited by category.
+- **Older 0.7.x saves:** upgraded in place.
 
-Details are in the acceptance report.
+## Proven in the second pass
+Native play, with labelled setup and injections:
+- preparation during combat;
+- control yield and resume in real time;
+- darkness and its counters;
+- the outsider burst;
+- the whip's armor rule, nonlethal damage and healing;
+- the naga's sting: save, immunity, cure and persistence;
+- an undetected peek;
+- dispel and restart;
+- fresh arrival from the lodge;
+- a turn-based engagement with every party order by hand;
+- each new ability;
+- the older-save upgrade;
+- stock isolation.
+
+Details and labels are in the acceptance report.
 
 ## Not done or not proven
-- **Partial:** turn-based combat (the defenders act; the party's AI does not in turn-based mode).
-- **Not shown in surviving evidence:** an undetected peek, Darkness concealment, Blur and hide in combat, the sting's save, a dispelled Mage Armor, a live mid-combat save, a messenger warning, the fresh pre-departure path.
-- **Deferred abilities:** listed with reasons (summoner's charm, arcane bond, Magic Circle, Wind Wall, Sanctuary, Chill Touch and others).
+- **Not shown in play:**
+  - a director command cancelled at the instant of a control change (count 0 each time);
+  - control landing in turn-based play;
+  - a failed Sanctuary save;
+  - the darkness itself dispelled;
+  - a knock-out by nonlethal;
+  - the whip in another wielder's hand;
+  - a messenger warning;
+  - emerald destruction in WR-06.
+- **No fresh A4 victory against 0.7.19.** The 0.7.10 victory was won while the darkness, in-combat potions and Magic Circle silently did nothing; the defenders are stronger now.
+- **Not implemented:** Wind Wall and the naga's Silent Image (explicit incompleteness), Bleed and the naga's detect thoughts (no such mechanic), and the noncombat and information spells (out of scope).
 - **Not part of WR-06:** Krune (A5), the return portal, the finale, Society rewards. Plane Shift (WR-05) stays deferred.
 
 ## Environment state
-- **Installed:** candidate 0.7.10.
-- **Backed up:** 0.6.16, at `C:\Dev\KingmakerWakingRuneLab\runtime-backups\wr06-recon\mod-existing`.
-- **Restored and verified:** transaction `wr06-recon` (profile, Steam mirror, registry, UMM Params and Mods).
+- **Installed:** candidate 0.7.19.
+- **Backed up:** 0.7.10, at `C:\Dev\KingmakerWakingRuneLab\runtime-backups\wr06-pass2\mod-existing`.
+- **Restored and verified:** transaction `wr06-pass2` (profile, Steam mirror, registry, UMM Params and Mods).
 - **Saves:** no owner save was opened. No Python was used and nothing was installed.
 
 ## How to test again
 ```powershell
 .\scripts\Build.ps1                  # refuses to replace an existing clean package
-.\scripts\KwrRuntime.ps1 Begin -RunId <new-id> -PackagePath .\artifacts\KingmakerWakingRune-0.7.10.zip
-.\scripts\KwrRuntime.ps1 Launch      # then Command "load Manual_97x", Shot / Click / Key ..., Collect BEFORE Close
+.\scripts\KwrRuntime.ps1 Begin -RunId <new-id> -PackagePath .\artifacts\KingmakerWakingRune-0.7.19.zip
+.\scripts\KwrRuntime.ps1 Launch      # then Command "load Manual_97x", Shot / Click (window pixels are 2x the screenshot's) / Key ..., Collect BEFORE Close
 .\scripts\KwrRuntime.ps1 End -KeepInstalled
 ```
 
-**Seeds** (in `runtime-evidence\wr06-recon\saves`):
+**Seeds** (in `runtime-evidence\wr06-recon\saves`, plus 980–981 in `runtime-evidence\wr06-pass2\saves`):
 
 | Save | Contents |
 |---|---|
 | `974` | Kurshu slain, state version 4: the upgrade path |
-| `975` | Departure checkpoint |
-| `976` | A4 placed |
+| `975` | The lodge, before departure: the fresh-arrival path |
+| `976` | A4 placed (saved by 0.7.10) |
 | `977` | East door opened, defenders prepared |
-| `978` | After the A4 victory |
+| `978` | After the 0.7.10 A4 victory |
 | `979` | Stock |
+| `980` | Mage Armor dispelled, mid-combat (INJECTED combat exit) |
+| `981` | Brena asleep from the naga's sting |
 
 **Harness additions:**
-- **Read-only:** `catalog <path>`, `a4 [name]`, `a4ai [name]`.
-- **INJECTED:** `armslam <member> <n>` (Phase A).
+- **Read-only:** `catalog <path>`, `a4 [name]`, `a4ai [name]`, `areas`, `nonlethal`.
+- **INJECTED:**
+  - `armslam <member> <n>` (Phase A);
+  - `a4cast <defender> <spell> [target | x y]`;
+  - `a4attack <defender> <target>`;
+  - `a4take <defender> <item>`;
+  - `buff <target> <buff> <seconds> [caster]`;
+  - `unbuff <target> <buff>`.
+- **PLAYER:** `ai <member> on|off`, `a4order <defender> <target>`, `equip <member> <item>`.
+- **SETUP:** `give <item> [count]`.
+- **Targets:** `party:N`, `a4:<name>`, `name:<text>`, `unit:<id>`.
 
 ## Next exact action
-Owner review of PR #4, #5 and the WR-06 draft PR.
+Owner review of PR #6 (second pass), with PR #4 and #5. If accepted, the next milestone is Krune (A5). A fresh legitimate A4 victory against 0.7.19 could come first, if the owner wants one.
