@@ -196,6 +196,19 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(510, KruneRules.StepsFeetPerUse * 17, "17 uses are the printed 510 feet");
         }
 
+        public static void TestEmergenceRechecksAPointChosenEarlier()
+        {
+            GridPoint chosen = KruneRules.ChoosePlacement(KruneRules.EmergenceCandidates(), new List<Occupant>(), KruneRules.A5Floor).Value;
+            GridPoint kept = KruneRules.ConfirmPlacement(chosen, new List<Occupant>(), KruneRules.A5Floor).Value;
+            Assert.Equal(true, kept.X == chosen.X && kept.Y == chosen.Y, "still clear: kept, so the step is spent from it");
+            var arrived = new List<Occupant> { new Occupant { X = chosen.X + 0.1f, Y = chosen.Y, Radius = 0.4f } };
+            GridPoint? moved = KruneRules.ConfirmPlacement(chosen, arrived, KruneRules.A5Floor);
+            Assert.Equal(true, moved.HasValue, "another clear point");
+            Assert.Equal(true, System.Math.Sqrt((moved.Value.X - arrived[0].X) * (moved.Value.X - arrived[0].X) + (moved.Value.Y - arrived[0].Y) * (moved.Value.Y - arrived[0].Y)) >= KruneRules.FootprintSquares + 0.4f, "never on the newcomer");
+            Assert.Equal(false, KruneRules.InCoffin(moved.Value.X, moved.Value.Y), "not in the coffin");
+            Assert.Equal(false, KruneRules.ConfirmPlacement(chosen, arrived, (x, y) => false).HasValue, "nowhere clear: he waits");
+        }
+
         public static void TestOlderDueSaveIsOfferedAChoiceAndKeepsItsRecord()
         {
             var state = new SanctumState { Version = 5, Initialized = true, Krune = null };

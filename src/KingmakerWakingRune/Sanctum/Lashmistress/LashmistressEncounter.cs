@@ -1266,7 +1266,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                     EnemiesWithin30Feet = enemies.Count(e => e.DistanceTo(unit) <= 30f * SanctumPlan.MetersPerFoot),
                     Displaced = unit.Buffs.Enumerable.Any(b => b.Blueprint.name.StartsWith("Displacement", StringComparison.Ordinal)),
                     InOwnDarkness = unit.Buffs.GetBuff(LashmistressBlueprints.DarknessAura) != null,
-                    AlliesSeeInDarkness = allies.Any(a => a.Descriptor.HasFact(LashmistressBlueprints.DarkvisionSense)),
+                    AlliesSeeInDarkness = allies.Any(KwrDarkvisionSense.Present),
                     SummonedAlready = Game.Instance.State.Units.Any(u => u.Get<UnitPartSummonedMonster>()?.Summoner == unit && !u.Descriptor.State.IsDead),
                     DivineFavorActive = unit.Buffs.Enumerable.Any(b => b.Blueprint.name.StartsWith("DivineFavor", StringComparison.Ordinal)),
                     Blurred = unit.Buffs.Enumerable.Any(b => b.Blueprint.name == "BlurBuff"),

@@ -258,6 +258,20 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
     /// <summary>Marks a creature that sees in Vandiana's darkness (darkvision 60 feet).</summary>
     public sealed class KwrDarkvisionSense : OwnedGameLogicComponent<UnitDescriptor>
     {
+        /// <summary>
+        /// Whether a creature sees in darkness now: any active feature or buff carrying this marker, whoever's it is (the
+        /// Blackstrikes' and the naga's feature, Vandiana's spell, Krune's permanent darkvision). A dispelled or removed
+        /// buff no longer counts. Range is the caller's.
+        /// </summary>
+        public static bool Present(UnitEntityData unit)
+        {
+            if (unit == null)
+            {
+                return false;
+            }
+            return unit.Buffs.RawFacts.Any(b => b.Active && b.Blueprint.ComponentsArray.OfType<KwrDarkvisionSense>().Any())
+                || unit.Descriptor.Progression.Features.RawFacts.Any(f => f.Active && f.Blueprint.ComponentsArray.OfType<KwrDarkvisionSense>().Any());
+        }
     }
 
     /// <summary>Marks a creature standing in her darkness; the concealment it grants is read in <see cref="Patches.WardPatches"/>.</summary>

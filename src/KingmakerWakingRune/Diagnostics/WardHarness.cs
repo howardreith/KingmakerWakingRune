@@ -385,6 +385,18 @@ namespace KingmakerWakingRune.Diagnostics
                 case "krunesheet":
                     // Read only: the actor's native statistics.
                     return "READ " + KingmakerWakingRune.Sanctum.Krune.KruneAwakening.Sheet(KingmakerWakingRune.Sanctum.Krune.KruneAwakening.Actor);
+                case "concealment":
+                {
+                    // Read only: the game's own concealment rule (with the darkness patch) for one attacker against one target,
+                    // as an attack roll asks it; the darkness answer and its reason go to the log.
+                    string a = Resolve(args[1], out UnitEntityData attacker), t = Resolve(args[2], out UnitEntityData defender);
+                    if (a != null || t != null)
+                    {
+                        return a ?? t;
+                    }
+                    var result = Kingmaker.UnitLogic.Parts.UnitPartConcealment.Calculate(attacker, defender, true);
+                    return $"READ concealment {attacker.CharacterName} -> {defender.CharacterName}: {result}; target in darkness {defender.Buffs.GetBuff(KingmakerWakingRune.Sanctum.Lashmistress.LashmistressBlueprints.InDarkness) != null}; attacker sees in darkness {KingmakerWakingRune.Sanctum.Lashmistress.KwrDarkvisionSense.Present(attacker)}; distance {attacker.DistanceTo(defender) / SanctumPlan.MetersPerFoot:0} ft.";
+                }
                 case "krunecl":
                     return KruneCasterProbe(args.Length > 1 ? args[1] : "MageArmor");
                 case "krunerelease":

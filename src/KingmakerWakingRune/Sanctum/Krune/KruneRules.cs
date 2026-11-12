@@ -281,6 +281,16 @@ namespace KingmakerWakingRune.Sanctum.Krune
         }
 
         /// <summary>
+        /// The placement check again at the moment he steps out: the point chosen when the hidden actor was made is kept if
+        /// it is still clear; if someone has moved onto it since, the same policy chooses another; null when nowhere is clear.
+        /// </summary>
+        public static GridPoint? ConfirmPlacement(GridPoint chosen, IList<Occupant> occupied, Func<float, float, bool> walkable)
+        {
+            GridPoint? still = ChoosePlacement(new[] { chosen }, occupied, walkable);
+            return still ?? ChoosePlacement(EmergenceCandidates(), occupied, walkable);
+        }
+
+        /// <summary>
         /// Preferred emergence points: east of the hanging coffin facing the altar, then rings around it. The coffin's own
         /// footprint is never a candidate.
         /// </summary>

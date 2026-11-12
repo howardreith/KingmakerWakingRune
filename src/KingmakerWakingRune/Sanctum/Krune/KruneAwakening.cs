@@ -296,12 +296,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
         private static UnitEntityData Spawn(SanctumState state, out string refusal)
         {
             refusal = null;
-            var occupied = new List<Occupant>();
-            foreach (UnitEntityData unit in Game.Instance.State.Units.Where(u => u.IsInGame && u.Descriptor.Get<WardFixturePart>() == null && !u.Descriptor.State.IsDead))
-            {
-                occupied.Add(new Occupant { X = GridX(unit.Position), Y = GridY(unit.Position), Radius = unit.Corpulence / SanctumPlan.MetersPerSquare });
-            }
-            GridPoint? chosen = KruneRules.ChoosePlacement(KruneRules.EmergenceCandidates(), occupied, (x, y) => KruneRules.A5Floor(x, y) && NodeNear(x, y));
+            List<Occupant> occupied = Occupants();
+            GridPoint? chosen = KruneRules.ChoosePlacement(KruneRules.EmergenceCandidates(), occupied, Floor);
             if (chosen == null)
             {
                 refusal = "no clear A5 floor for his emergence";
@@ -445,6 +441,23 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 KruneRules.Advance(krune, AwakeningStage.ActorReady, AwakeningStage.Emerged);
                 return;
             }
+            // The point was chosen when the hidden actor was made; anyone may have moved onto it since (or across a save and
+            // reload). Checked again now: kept if clear, otherwise the same policy chooses another; nowhere clear, he waits.
+            var chosen = new GridPoint(krune.EmergedX, krune.EmergedY);
+            GridPoint? place = KruneRules.ConfirmPlacement(chosen, Occupants(), Floor);
+            if (place == null)
+            {
+                Fail(krune, "no clear A5 floor at the moment of emergence; he waits in the coffin");
+                return;
+            }
+            if (place.Value.X != chosen.X || place.Value.Y != chosen.Y)
+            {
+                actor.Position = ObstacleAnalyzer.GetNearestNode(World(place.Value)).clampedPosition;
+                Note($"emergence point ({chosen.X:0.00},{chosen.Y:0.00}) is occupied now; he steps out at ({place.Value.X:0.00},{place.Value.Y:0.00}) instead, and nobody is moved.");
+                krune.EmergedX = place.Value.X;
+                krune.EmergedY = place.Value.Y;
+            }
+            krune.LastFailure = string.Empty;
             actor.IsInGame = true;
             // Facts on a unit out of the game wait to activate, and a restart in between would lose what they read as they
             // apply: the baseline goes on now, in the game, where it takes effect at once.
@@ -517,6 +530,12 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 {
                     KruneRules.TurnHostile(krune, HostilityCause.ParleyEnded, "no dialogue available", now);
                 }
+                else if (CommittedPreparation(actor, out string preparation))
+                {
+                    // Battle preparation he can see, already under way as the exchange would open: no exchange.
+                    KruneRules.TurnHostile(krune, HostilityCause.PartyCastSpell, preparation, now);
+                    Note($"hostile before the exchange: {preparation}.");
+                }
                 else if (Game.Instance.CurrentMode == GameModeType.Default)
                 {
                     UnitEntityData speaker = Perceivers(actor).FirstOrDefault() ?? Game.Instance.Player.MainCharacter.Value;
@@ -573,6 +592,38 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 stagger.Remove();
             }
             Note("the opening stagger ends with his first turn (turn-based).");
+        }
+
+        /// <summary>
+        /// A spell cast already under way (its command running: moving into range or casting) by someone of the party side
+        /// he can see. Only a committed order counts: hovering an ability or cancelling its cursor creates no command.
+        /// </summary>
+        private static bool CommittedPreparation(UnitEntityData actor, out string what)
+        {
+            what = null;
+            foreach (UnitEntityData unit in Perceivers(actor))
+            {
+                Kingmaker.UnitLogic.Commands.UnitUseAbility cast = unit.Commands.Raw.OfType<Kingmaker.UnitLogic.Commands.UnitUseAbility>()
+                    .FirstOrDefault(c => c.IsRunning && c.Spell?.Blueprint != null && c.Spell.Blueprint.IsSpell);
+                if (cast != null)
+                {
+                    what = $"{unit.CharacterName} was casting {cast.Spell.Blueprint.name} as the exchange would begin";
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>Every living creature in the game that is not a scenery proxy: what a placement must keep clear of.</summary>
+        private static List<Occupant> Occupants()
+        {
+            return Game.Instance.State.Units.Where(u => u.IsInGame && u.Descriptor.Get<WardFixturePart>() == null && !u.Descriptor.State.IsDead)
+                .Select(u => new Occupant { X = GridX(u.Position), Y = GridY(u.Position), Radius = u.Corpulence / SanctumPlan.MetersPerSquare }).ToList();
+        }
+
+        private static bool Floor(float x, float y)
+        {
+            return KruneRules.A5Floor(x, y) && NodeNear(x, y);
         }
 
         public static void OnParleyStarted()
@@ -830,7 +881,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             Note($"revival study: {best.CharacterName} Arcana {roll.RollResult} vs 27: {(roll.IsPassed ? "learned" : "nothing learned")}.");
             if (roll.IsPassed)
             {
-                WardRuntime.Say($"{best.CharacterName} follows the surge of light into the sarcophagus and reads the rite in it: the soul was never trapped, only waiting, and the ritual simply let it home.");
+                WardRuntime.Say($"{best.CharacterName} follows the surge of light into the sarcophagus and reads the rite in it: his soul was held apart from his preserved body, and the ritual has reunited them.");
             }
         }
 

@@ -38,7 +38,7 @@ namespace KingmakerWakingRune.Patches
                 AttackerBlindsightReaches = BlindsightReaches(mine, initiator, target),
                 TargetCannotBenefit = theirs != null && theirs.Disable,
                 AttackerIgnoresPartial = mine != null && mine.IgnorePartial,
-                AttackerDarkvisionWithin60 = (initiator.Descriptor.HasFact(Sanctum.Lashmistress.LashmistressBlueprints.DarkvisionSense) || initiator.Buffs.GetBuff(Sanctum.Lashmistress.LashmistressBlueprints.DarkvisionBuff) != null)
+                AttackerDarkvisionWithin60 = Sanctum.Lashmistress.KwrDarkvisionSense.Present(initiator)
                     && initiator.DistanceTo(target) <= 60f * Sanctum.SanctumPlan.MetersPerFoot,
                 AttackerTrueSeeing = initiator.Descriptor.State.HasCondition(UnitCondition.TrueSeeing),
             };
