@@ -164,6 +164,8 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         public static BlueprintItemWeapon NagaBite { get; private set; }
         public static BlueprintItemWeapon NagaSting { get; private set; }
         public static BlueprintAbility HideInPlainSight { get; private set; }
+        /// <summary>The self-only variant of the game's own Dimension Door, which she casts from its prepared base.</summary>
+        public static BlueprintAbility DimensionDoorSelf { get; private set; }
         public static BlueprintCharacterClass ClericClassBlueprint { get; private set; }
         public static BlueprintCharacterClass WizardClassBlueprint { get; private set; }
         public static BlueprintSpellList VandianaClericSpecial { get; private set; }
@@ -249,6 +251,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
 
             BuildWeapons();
             BuildVandianaSpells(buffDonor);
+            DimensionDoorSelf = Named<BlueprintAbility>("DimensionDoorCasterOnly");
             BuildNagaSpells();
             HideInPlainSight = OwnAbility("KWR_A4HideInPlainSight", "Hide in Plain Sight", "Within 10 feet of dim light, which fills this sanctum, the shadowdancer can use Stealth even while being observed.", Kingmaker.UnitLogic.Commands.Base.UnitCommand.CommandType.Move, AbilityRange.Personal, Run<KwrHideInPlainSightAction>());
             HideInPlainSight.Type = AbilityType.Supernatural;

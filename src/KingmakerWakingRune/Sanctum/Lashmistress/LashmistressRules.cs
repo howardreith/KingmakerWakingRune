@@ -213,7 +213,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             new PreparedEntry("Baleful Polymorph", 5, SpellCarry.Native, "BalefulPolymorph"),
             new PreparedEntry("Mage's Faithful Hound", 5, SpellCarry.PreCast, "MagesFaithfulHound"),
             new PreparedEntry("Confusion", 4, SpellCarry.Native, "ConfusionSpell"),
-            new PreparedEntry("Dimension Door", 4, SpellCarry.Native, "DimensionDoorCasterOnly"),
+            new PreparedEntry("Dimension Door", 4, SpellCarry.Native, "DimensionDoorBase"),
             new PreparedEntry("Enervation", 4, SpellCarry.Native, "Enervation"),
             new PreparedEntry("Arcane Sight", 3, SpellCarry.Deferred, "ArcaneSight"),
             new PreparedEntry("Haste", 3, SpellCarry.Native, "Haste"),

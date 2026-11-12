@@ -823,11 +823,13 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 if (key == DefenderKeys.Vandiana && adjacent >= 1 && unit.Descriptor.HPLeft < unit.Descriptor.MaxHP * 0.6f && (!turnBased || unit.HasStandardAction()))
                 {
                     Vector3? point = EscapePoint(unit, foes);
-                    BlueprintAbility door = LashmistressBlueprints.PreparedAbilities["DimensionDoorCasterOnly"];
+                    // The prepared Dimension Door is the game's own (with its variants); she casts its self-only variant.
+                    BlueprintAbility door = LashmistressBlueprints.PreparedAbilities["DimensionDoorBase"];
                     Spellbook book = unit.Descriptor.Spellbooks.FirstOrDefault(b => b.CanSpend(door));
-                    if (point.HasValue && book != null)
+                    BlueprintAbility selfOnly = LashmistressBlueprints.DimensionDoorSelf;
+                    if (point.HasValue && book != null && selfOnly != null)
                     {
-                        var data = new AbilityData(door, book);
+                        var data = new AbilityData(selfOnly, book) { ConvertedFrom = new AbilityData(door, book) };
                         if (data.CanTarget(new TargetWrapper(point.Value)))
                         {
                             s_DirectedRound[key] = round;
