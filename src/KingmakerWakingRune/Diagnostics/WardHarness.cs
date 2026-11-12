@@ -118,6 +118,8 @@ namespace KingmakerWakingRune.Diagnostics
                     return Hurt(Member(args[1]), args[2], int.Parse(args[3]));
                 case "blueprint":
                     return DumpBlueprint(args[1]);
+                case "catalog":
+                    return Catalog(args[1]);
                 case "builds":
                     return Builds();
                 case "grab":
@@ -414,6 +416,58 @@ namespace KingmakerWakingRune.Diagnostics
                 sb.AppendLine($"  [{component?.GetType().Name}] {(component == null ? string.Empty : Fields(component))}");
             }
             return sb.ToString();
+        }
+
+        /// <summary>Read only: the installed game's classes, spellbooks, spell lists, abilities, features, buffs, usable items and units, to a file.</summary>
+        private static string Catalog(string path)
+        {
+            var all = ResourcesLibrary.LibraryObject.GetAllBlueprints().Where(b => b != null).ToList();
+            var sb = new StringBuilder();
+            foreach (var c in all.OfType<Kingmaker.Blueprints.Classes.BlueprintCharacterClass>())
+            {
+                sb.AppendLine($"CLASS|{c.name}|{c.AssetGuid}|{c.LocalizedName}|prestige={c.PrestigeClass}|hd={c.HitDie}|bab={c.BaseAttackBonus?.name}|f={c.FortitudeSave?.name}|r={c.ReflexSave?.name}|w={c.WillSave?.name}|book={c.Spellbook?.name}|prog={c.Progression?.name}|arch=[{string.Join(",", (c.Archetypes ?? new Kingmaker.Blueprints.Classes.BlueprintArchetype[0]).Select(a => a.name).ToArray())}]");
+                if (c.Progression != null)
+                {
+                    foreach (var entry in c.Progression.LevelEntries ?? new Kingmaker.Blueprints.Classes.LevelEntry[0])
+                    {
+                        sb.AppendLine($"  L{entry.Level}: {string.Join(",", entry.Features.Select(f => f.name).ToArray())}");
+                    }
+                }
+            }
+            foreach (var book in all.OfType<Kingmaker.Blueprints.Classes.Spells.BlueprintSpellbook>())
+            {
+                sb.AppendLine($"BOOK|{book.name}|{book.AssetGuid}|list={book.SpellList?.name}|spontaneous={book.Spontaneous}|stat={book.CastingAttribute}|arcane={book.IsArcane}|perday={book.SpellsPerDay?.name}|known={book.SpellsKnown?.name}|cantrips={book.CantripsType}");
+            }
+            foreach (var list in all.OfType<Kingmaker.Blueprints.Classes.Spells.BlueprintSpellList>())
+            {
+                sb.AppendLine($"LIST|{list.name}|{list.AssetGuid}|" + string.Join(";", (list.SpellsByLevel ?? new Kingmaker.Blueprints.Classes.Spells.SpellLevelList[0]).Select(l => l.SpellLevel + ":" + string.Join(",", l.Spells.Where(s => s != null).Select(s => s.name).ToArray())).ToArray()));
+            }
+            foreach (var a in all.OfType<BlueprintAbility>())
+            {
+                sb.AppendLine($"ABILITY|{a.name}|{a.AssetGuid}|{a.Name}|{a.Type}|{a.ActionType}|full={a.IsFullRoundAction}|range={a.Range}|variants={a.HasVariants}|school={a.School}|comps=[{string.Join(",", (a.ComponentsArray ?? new BlueprintComponent[0]).Where(x => x != null).Select(x => x.GetType().Name).Distinct().ToArray())}]");
+            }
+            foreach (var f in all.OfType<Kingmaker.Blueprints.Classes.BlueprintFeature>())
+            {
+                sb.AppendLine($"FEATURE|{f.name}|{f.AssetGuid}|{f.Name}|comps=[{string.Join(",", (f.ComponentsArray ?? new BlueprintComponent[0]).Where(x => x != null).Select(x => x.GetType().Name).Distinct().ToArray())}]");
+            }
+            foreach (var b in all.OfType<Kingmaker.UnitLogic.Buffs.Blueprints.BlueprintBuff>())
+            {
+                sb.AppendLine($"BUFF|{b.name}|{b.AssetGuid}|{b.Name}|comps=[{string.Join(",", (b.ComponentsArray ?? new BlueprintComponent[0]).Where(x => x != null).Select(x => x.GetType().Name).Distinct().ToArray())}]");
+            }
+            foreach (var i in all.OfType<Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentUsable>())
+            {
+                sb.AppendLine($"USABLE|{i.name}|{i.AssetGuid}|{i.Name}|{i.Type}|ability={i.Ability?.name}|cl={i.CasterLevel}|charges={i.Charges}");
+            }
+            foreach (var w in all.OfType<Kingmaker.Blueprints.Items.Weapons.BlueprintItemWeapon>())
+            {
+                sb.AppendLine($"WEAPON|{w.name}|{w.AssetGuid}|{w.Name}|type={w.Type?.name}|ench=[{string.Join(",", w.Enchantments.Select(e => e.name).ToArray())}]");
+            }
+            foreach (var u in all.OfType<BlueprintUnit>())
+            {
+                sb.AppendLine($"UNIT|{u.name}|{u.AssetGuid}|{u.CharacterName}|race={u.Race?.name}|size={u.Size}|gender={u.Gender}|prefab={u.Prefab?.AssetId}|facts=[{string.Join(",", (u.AddFacts ?? new Kingmaker.Blueprints.Facts.BlueprintUnitFact[0]).Where(x => x != null).Select(x => x.name).ToArray())}]|levels=[{string.Join(",", (u.ComponentsArray ?? new BlueprintComponent[0]).OfType<Kingmaker.Blueprints.Classes.AddClassLevels>().Select(l => l.CharacterClass?.name + "x" + l.Levels).ToArray())}]");
+            }
+            System.IO.File.WriteAllText(path, sb.ToString());
+            return $"READ catalog of {all.Count} blueprints written to {path}.";
         }
 
         private static string Fields(object o)
