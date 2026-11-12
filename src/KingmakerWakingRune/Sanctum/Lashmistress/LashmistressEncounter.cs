@@ -257,6 +257,17 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 unit.Descriptor.Ensure<LashmistressPart>().DefenderKey = key;
                 record.EntityId = unit.UniqueId;
                 s_Bound[key] = unit;
+                // The day begins with every printed daily use: gear put on after the levels (a headband) raises maximums the
+                // level-up's rest had already filled. Done once, here; nothing refills them again.
+                var resources = new List<BlueprintScriptableObject>();
+                foreach (BlueprintScriptableObject resource in unit.Descriptor.Resources)
+                {
+                    resources.Add(resource);
+                }
+                foreach (BlueprintScriptableObject resource in resources)
+                {
+                    unit.Descriptor.Resources.Restore(resource);
+                }
                 Calibrate(key, unit);
                 if (key != DefenderKeys.Naga)
                 {
@@ -411,10 +422,11 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                     book.AddKnown(entry.Level, ability);
                 }
             }
-            // Entries that can only go in the domain or school slot are placed last, after every common slot is taken.
-            bool SpecialOnly(PreparedEntry e) => special.SpellsByLevel.Any(l => l.Spells.Contains(LashmistressBlueprints.PreparedAbilities[e.Source]));
+            // Entries that may also go in the domain or school slot are placed last, so they never take a common slot that an
+            // entry with nowhere else to go needs.
+            bool Special(PreparedEntry e) => book.IsSpellInSpecialList(LashmistressBlueprints.PreparedAbilities[e.Source], e.Level);
             var failed = new List<string>();
-            foreach (PreparedEntry entry in entries.Where(e => !SpecialOnly(e)).Concat(entries.Where(SpecialOnly)))
+            foreach (PreparedEntry entry in entries.Where(e => !Special(e)).Concat(entries.Where(Special)))
             {
                 if (!book.Memorize(new AbilityData(LashmistressBlueprints.PreparedAbilities[entry.Source], book)))
                 {

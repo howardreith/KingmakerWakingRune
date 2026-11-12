@@ -464,7 +464,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             {
                 facts.Add(Named<BlueprintFeature>(feat));
             }
-            facts.Add(Feature("KWR_VandianaNature", "Lashmistress", "Vandiana's own rules: her whip's nonlethal blows.", Component<KwrNonlethalWhip>("KWR_VandianaWhipLogic")));
+            facts.Add(Feature("KWR_VandianaNature", "Lashmistress", "Vandiana's own rules: her whip's nonlethal blows, and channel energy at her cleric level.", Component<KwrNonlethalWhip>("KWR_VandianaWhipLogic"), Component<KwrClericChannel>("KWR_VandianaChannelLevel")));
             var body = new BlueprintUnit.UnitBody
             {
                 PrimaryHand = Whip,

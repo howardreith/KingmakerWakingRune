@@ -71,6 +71,26 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
     }
 
     /// <summary>
+    /// Channel energy is a cleric feature: its DC is 10 + half the cleric level + Charisma (page 13: DC 13). The game reads the
+    /// whole character level for an ability outside a spellbook, so the caster level of her channel is her cleric level.
+    /// </summary>
+    public sealed class KwrClericChannel : RuleInitiatorLogicComponent<RuleCalculateAbilityParams>
+    {
+        public override void OnEventAboutToTrigger(RuleCalculateAbilityParams evt)
+        {
+            var ability = evt.Blueprint as BlueprintAbility;
+            if (ability != null && ability.name.StartsWith("ChannelNegative", StringComparison.Ordinal) && evt.Spellbook == null)
+            {
+                evt.ReplaceCasterLevel = Owner.Progression.GetClassLevel(LashmistressBlueprints.ClericClassBlueprint);
+            }
+        }
+
+        public override void OnEventDidTrigger(RuleCalculateAbilityParams evt)
+        {
+        }
+    }
+
+    /// <summary>
     /// Order's Wrath and Unholy Blight on one creature in the burst (spell resistance is checked natively first): a native
     /// Will save, then damage by the creature's alignment on the spell's axis, then the rider for a failed full share.
     /// </summary>
