@@ -31,7 +31,7 @@ namespace KingmakerWakingRune.Blueprints
             new CatalogueEntry("a00f39e6fed1e544588782a73a5e9d99", 1), // Falchion +3
             new CatalogueEntry("2a45458f776442e43bba57de65f9b738", 3), // Dagger +1
             new CatalogueEntry("4607f83de16245844acb4596fc797147", 2), // Dagger +2
-            new CatalogueEntry("4c08dc9c56fd3ea4da4c6825105f0498", 1), // Dagger +3
+            new CatalogueEntry("4c08dc9c56fd3ea4da4c6825105f0498", 2), // Dagger +3
             new CatalogueEntry("cece2e26b026b244fba86a2075fc9811", 2), // Kukri +1
             new CatalogueEntry("ce7ef76c973ecfc47ba7515a743c8fd4", 2), // Kukri +2
             new CatalogueEntry("04284ae47696e4e4fa5fbdfe9e1f04cf", 1), // Kukri +3
@@ -64,13 +64,48 @@ namespace KingmakerWakingRune.Blueprints
             new CatalogueEntry("1c6e64ffdb3c8af47b2c8b88f802c728", 1), // Quarterstaff +3
             new CatalogueEntry("833d02226c289ce4892666e9d5880ae5", 2), // Kama +1
             new CatalogueEntry("a58ef6b142297af4482a5154765e777f", 1), // Kama +2
+            new CatalogueEntry("726719d53e2c663408fb739c25b96786", 1), // Kama +3
             new CatalogueEntry("373894b330b2d7a4485284e1909d6b1a", 2), // Nunchaku +1
             new CatalogueEntry("c40d09652bcc37846b09f650b51963e9", 1), // Nunchaku +2
+            new CatalogueEntry("9b24946e18686e244b935ed66bf29f14", 1), // Nunchaku +3
             new CatalogueEntry("3329eae7f8a5e3e4d80e3e15746d82bb", 2), // Earth Breaker +1
             new CatalogueEntry("9cb48261dd41b7948bf630297ca6a92c", 2), // Earth Breaker +2
             new CatalogueEntry("158fbe1c26025f3459c1af29a8faf2d8", 2), // Elven Curve Blade +1
             new CatalogueEntry("a81078f8f9148b94ca9f438171792ce9", 2), // Elven Curve Blade +2
             new CatalogueEntry("62ba202662960dd488330f24999435b6", 1), // Elven Curve Blade +3
+            new CatalogueEntry("36cadeb70d35fc84a9b69db9fb7e64f5", 2), // Fauchard +1
+            new CatalogueEntry("70a5422b73f42e441a1482c112e71afb", 2), // Fauchard +2
+            new CatalogueEntry("a802f19be1140cf4683b85fab38928ac", 1), // Fauchard +3
+            new CatalogueEntry("096350418ea1f614bb489191398ab64b", 2), // Sai +1
+            new CatalogueEntry("97462573cb0d5c04283e0825d5182d6e", 1), // Sai +2
+            new CatalogueEntry("ebb1ce40634dbd24392a9225147eaa7d", 1), // Sai +3
+            new CatalogueEntry("a06dd370e2d02cd449f82b209cbd61d6", 2), // Dwarven Waraxe +1
+            new CatalogueEntry("8e6bada1ed926e94f851e9c50585d8b7", 2), // Dwarven Waraxe +2
+            new CatalogueEntry("04798cc8a7a55494d8fb898fa1b52ab3", 1), // Dwarven Waraxe +3
+            new CatalogueEntry("11c66ec41f62708498f751abd911db88", 2), // Estoc +1
+            new CatalogueEntry("8c31edb13b069104a946599c31cf9079", 1), // Estoc +2
+            new CatalogueEntry("3ae572d645784214794eb667dccb3a98", 1), // Estoc +3
+            new CatalogueEntry("babd2990d6ff6734d8a755a36cf8ad40", 2), // Falcata +1
+            new CatalogueEntry("9b90a5b27e1a8994bae5cbb7298e1c15", 1), // Falcata +2
+            new CatalogueEntry("678a667e5223d54419ea5deeb86c82f0", 1), // Falcata +3
+            new CatalogueEntry("9d3d4b12be558c548b65c9093ff6ec54", 2), // Tongi +1
+            new CatalogueEntry("d75803253b68d5944b7cc40fdb6211f6", 1), // Tongi +2
+            new CatalogueEntry("a65588031b28e124780c77af70577ffa", 1), // Tongi +3
+            new CatalogueEntry("acf57e1471b5b1d40893c2f3186e49fa", 2), // Orc Double Axe +1
+            new CatalogueEntry("aa5ec13aa89ab6346a272c9ab92afd64", 1), // Orc Double Axe +2
+            new CatalogueEntry("aee6a20693a182a4fbd84b2746b13ef3", 1), // Orc Double Axe +3
+            new CatalogueEntry("f1db33a3f2b5dfd40a10fae7ea1fd76d", 2), // Two-bladed Sword +1
+            new CatalogueEntry("c7f6f2e50a37d8c4baaa41035a918037", 1), // Two-bladed Sword +2
+            new CatalogueEntry("e08a031aed7947b4ca43f1eef03d321f", 1), // Two-bladed Sword +3
+            new CatalogueEntry("924b5edb3e09b2c4fbeb314b070b9eeb", 2), // Dwarven Urgrosh +1
+            new CatalogueEntry("bad4fb2a5e668d44c80e541477f7457d", 1), // Dwarven Urgrosh +2
+            new CatalogueEntry("2c5e6213acdcc3c489dc27dbbd301395", 1), // Dwarven Urgrosh +3
+            new CatalogueEntry("2ea8925adb856fe45990a4fd01ff0148", 2), // Gnome Hooked Hammer +1
+            new CatalogueEntry("cbaa12b9fc981af40b8658b966114040", 1), // Gnome Hooked Hammer +2
+            new CatalogueEntry("18449108bafff5d4f932cd3fb8621b9b", 1), // Gnome Hooked Hammer +3
+            new CatalogueEntry("643b5b476b7fc1942aa24a50dedc8de4", 2), // Sling Staff +1
+            new CatalogueEntry("1dc78587aa10b0849b863f57615ddce2", 1), // Sling Staff +2
+            new CatalogueEntry("69245594968164347b63b2ddc3c24eef", 1), // Sling Staff +3
             new CatalogueEntry("fd732e6688007e449964d8c5f2fc659d", 2), // Longbow +1
             new CatalogueEntry("335efd45aba89a245adf68a8da1fd3ca", 2), // Longbow +2
             new CatalogueEntry("426c900c0787c844c85bb4ac8cba6d27", 1), // Longbow +3
@@ -207,6 +242,7 @@ namespace KingmakerWakingRune.Blueprints
             new CatalogueEntry("64b5a0f0d955c254d8dda9d19bb472ca", 4), // Scroll of Remove Paralysis
             new CatalogueEntry("c87c32984fe3909419ee22cd7c93ce37", 6), // Scroll of Remove Fear
             new CatalogueEntry("a43d2960b3f9bed49a02ae44efef4cfc", 4), // Scroll of Raise Dead
+            new CatalogueEntry("394ba24aed75f0d459ed84d1b1b98f60", 6), // Scroll of Stone to Flesh
             new CatalogueEntry("89e10c3f21fa50c4b8719e004c7628d3", 4), // Scroll of Death Ward
             new CatalogueEntry("f49fc4e47cef56e42a49d561289dd500", 6), // Scroll of Freedom of Movement
             new CatalogueEntry("4b2d0e65fb9775341b6c4f7c178f0fe5", 6), // Scroll of Dispel Magic (Point)

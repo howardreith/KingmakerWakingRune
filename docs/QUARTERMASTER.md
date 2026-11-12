@@ -1,6 +1,6 @@
 # Quartermaster catalogue
 
-Stock of the Society Quartermaster in the Magnimar Lodge: 239 lines, 759 items. Generated from `data/quartermaster.csv` against installed game data (2.1.7b).
+Stock of the Society Quartermaster in the Magnimar Lodge: 275 lines, 814 items. Generated from `data/quartermaster.csv` against installed game data (2.1.7b).
 
 **Pricing:** native vendor rules with no price overrides. Buying costs each item's `Cost` (listed below). Selling pays `Cost x BlueprintRoot.Vendors.SellModifier`, so buying then re-selling always loses money. An item sold to the vendor joins its stock. Stock lives in the save (`Player.SharedVendorTables`) and is not refilled by loading or by talking to the Quartermaster.
 
@@ -36,7 +36,7 @@ Stock of the Society Quartermaster in the Magnimar Lodge: 239 lines, 759 items. 
 | Falchion +3 | 1 | 18,500 | `a00f39e6fed1e544588782a73a5e9d99` |
 | Dagger +1 | 3 | 2,400 | `2a45458f776442e43bba57de65f9b738` |
 | Dagger +2 | 2 | 8,300 | `4607f83de16245844acb4596fc797147` |
-| Dagger +3 | 1 | 18,500 | `4c08dc9c56fd3ea4da4c6825105f0498` |
+| Dagger +3 | 2 | 18,500 | `4c08dc9c56fd3ea4da4c6825105f0498` |
 | Kukri +1 | 2 | 2,400 | `cece2e26b026b244fba86a2075fc9811` |
 | Kukri +2 | 2 | 8,300 | `ce7ef76c973ecfc47ba7515a743c8fd4` |
 | Kukri +3 | 1 | 18,500 | `04284ae47696e4e4fa5fbdfe9e1f04cf` |
@@ -69,13 +69,53 @@ Stock of the Society Quartermaster in the Magnimar Lodge: 239 lines, 759 items. 
 | Quarterstaff +3 | 1 | 18,500 | `1c6e64ffdb3c8af47b2c8b88f802c728` |
 | Kama +1 | 2 | 2,400 | `833d02226c289ce4892666e9d5880ae5` |
 | Kama +2 | 1 | 8,300 | `a58ef6b142297af4482a5154765e777f` |
+| Kama +3 | 1 | 18,500 | `726719d53e2c663408fb739c25b96786` |
 | Nunchaku +1 | 2 | 2,400 | `373894b330b2d7a4485284e1909d6b1a` |
 | Nunchaku +2 | 1 | 8,300 | `c40d09652bcc37846b09f650b51963e9` |
+| Nunchaku +3 | 1 | 18,500 | `9b24946e18686e244b935ed66bf29f14` |
 | Earth Breaker +1 | 2 | 2,400 | `3329eae7f8a5e3e4d80e3e15746d82bb` |
 | Earth Breaker +2 | 2 | 8,300 | `9cb48261dd41b7948bf630297ca6a92c` |
 | Elven Curve Blade +1 | 2 | 2,400 | `158fbe1c26025f3459c1af29a8faf2d8` |
 | Elven Curve Blade +2 | 2 | 8,300 | `a81078f8f9148b94ca9f438171792ce9` |
 | Elven Curve Blade +3 | 1 | 18,500 | `62ba202662960dd488330f24999435b6` |
+
+## Exotic weapon families not covered above (WR-04-R4 audit of the installed game's exotic categories)
+
+| Item | Stock | Price (gp) | Blueprint |
+|---|---:|---:|---|
+| Fauchard +1 | 2 | 2,400 | `36cadeb70d35fc84a9b69db9fb7e64f5` |
+| Fauchard +2 | 2 | 8,300 | `70a5422b73f42e441a1482c112e71afb` |
+| Fauchard +3 | 1 | 18,500 | `a802f19be1140cf4683b85fab38928ac` |
+| Sai +1 | 2 | 2,400 | `096350418ea1f614bb489191398ab64b` |
+| Sai +2 | 1 | 8,300 | `97462573cb0d5c04283e0825d5182d6e` |
+| Sai +3 | 1 | 18,500 | `ebb1ce40634dbd24392a9225147eaa7d` |
+| Dwarven Waraxe +1 | 2 | 2,400 | `a06dd370e2d02cd449f82b209cbd61d6` |
+| Dwarven Waraxe +2 | 2 | 8,300 | `8e6bada1ed926e94f851e9c50585d8b7` |
+| Dwarven Waraxe +3 | 1 | 18,500 | `04798cc8a7a55494d8fb898fa1b52ab3` |
+| Estoc +1 | 2 | 2,400 | `11c66ec41f62708498f751abd911db88` |
+| Estoc +2 | 1 | 8,300 | `8c31edb13b069104a946599c31cf9079` |
+| Estoc +3 | 1 | 18,500 | `3ae572d645784214794eb667dccb3a98` |
+| Falcata +1 | 2 | 2,400 | `babd2990d6ff6734d8a755a36cf8ad40` |
+| Falcata +2 | 1 | 8,300 | `9b90a5b27e1a8994bae5cbb7298e1c15` |
+| Falcata +3 | 1 | 18,500 | `678a667e5223d54419ea5deeb86c82f0` |
+| Tongi +1 | 2 | 2,400 | `9d3d4b12be558c548b65c9093ff6ec54` |
+| Tongi +2 | 1 | 8,300 | `d75803253b68d5944b7cc40fdb6211f6` |
+| Tongi +3 | 1 | 18,500 | `a65588031b28e124780c77af70577ffa` |
+| Orc Double Axe +1 | 2 | 2,400 | `acf57e1471b5b1d40893c2f3186e49fa` |
+| Orc Double Axe +2 | 1 | 8,300 | `aa5ec13aa89ab6346a272c9ab92afd64` |
+| Orc Double Axe +3 | 1 | 18,500 | `aee6a20693a182a4fbd84b2746b13ef3` |
+| Two-bladed Sword +1 | 2 | 2,400 | `f1db33a3f2b5dfd40a10fae7ea1fd76d` |
+| Two-bladed Sword +2 | 1 | 8,300 | `c7f6f2e50a37d8c4baaa41035a918037` |
+| Two-bladed Sword +3 | 1 | 18,500 | `e08a031aed7947b4ca43f1eef03d321f` |
+| Dwarven Urgrosh +1 | 2 | 2,400 | `924b5edb3e09b2c4fbeb314b070b9eeb` |
+| Dwarven Urgrosh +2 | 1 | 8,300 | `bad4fb2a5e668d44c80e541477f7457d` |
+| Dwarven Urgrosh +3 | 1 | 18,500 | `2c5e6213acdcc3c489dc27dbbd301395` |
+| Gnome Hooked Hammer +1 | 2 | 2,400 | `2ea8925adb856fe45990a4fd01ff0148` |
+| Gnome Hooked Hammer +2 | 1 | 8,300 | `cbaa12b9fc981af40b8658b966114040` |
+| Gnome Hooked Hammer +3 | 1 | 18,500 | `18449108bafff5d4f932cd3fb8621b9b` |
+| Sling Staff +1 | 2 | 2,400 | `643b5b476b7fc1942aa24a50dedc8de4` |
+| Sling Staff +2 | 1 | 8,300 | `1dc78587aa10b0849b863f57615ddce2` |
+| Sling Staff +3 | 1 | 18,500 | `69245594968164347b63b2ddc3c24eef` |
 
 ## Ranged weapons
 
@@ -257,6 +297,7 @@ Stock of the Society Quartermaster in the Magnimar Lodge: 239 lines, 759 items. 
 | Scroll of Remove Paralysis | 4 | 150 | `64b5a0f0d955c254d8dda9d19bb472ca` |
 | Scroll of Remove Fear | 6 | 25 | `c87c32984fe3909419ee22cd7c93ce37` |
 | Scroll of Raise Dead | 4 | 6,000 | `a43d2960b3f9bed49a02ae44efef4cfc` |
+| Scroll of Stone to Flesh | 6 | 1,650 | `394ba24aed75f0d459ed84d1b1b98f60` |
 
 ## Scrolls for protection
 

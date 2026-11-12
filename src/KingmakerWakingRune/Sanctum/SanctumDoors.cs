@@ -9,6 +9,7 @@ using Kingmaker.View.MapObjects;
 using Kingmaker.Visual.Animation.Kingmaker;
 using Kingmaker.Visual.FogOfWar;
 using KingmakerWakingRune.Blueprints;
+using KingmakerWakingRune.Sanctum.Wards;
 using Pathfinding;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -33,11 +34,23 @@ namespace KingmakerWakingRune.Sanctum
 
         protected override void OnDataSetted()
         {
-            base.OnDataSetted();
+            // Restoring a door's saved state is not a transition, so the native open-by-default call must not sound.
+            WithoutSound(() => base.OnDataSetted());
             ShowState(true);
         }
 
         protected override void OnInteract(UnitEntityData user)
+        {
+            if (Plan.Id == "A2" && !WardRuntime.State.Door.Destroyed)
+            {
+                WardInteract.Open("DoorA2", user);
+                return;
+            }
+            Toggle(user);
+        }
+
+        /// <summary>One native open or close: guarded against closing on anyone, and it sounds exactly once.</summary>
+        public void Toggle(UnitEntityData user)
         {
             UnitEntityData inTheWay = IsOpen ? SanctumDoors.FindInSwing(Plan) : null;
             if (inTheWay != null)
@@ -48,6 +61,34 @@ namespace KingmakerWakingRune.Sanctum
             }
             base.OnInteract(user);
             Log.Info($"Sanctum door {Plan.Id}: {(IsOpen ? "opened" : "closed")} by {user.CharacterName}.");
+            WardRuntime.OnDoorTransition(Plan.Id, IsOpen);
+        }
+
+        public void OpenSilently()
+        {
+            WithoutSound(Open);
+        }
+
+        public void HideLeaf()
+        {
+            foreach (Renderer renderer in Pivot.GetComponentsInChildren<Renderer>(true))
+            {
+                renderer.enabled = false;
+            }
+            Hit.enabled = false;
+        }
+
+        /// <summary>Runs one state change with the door's sounds emptied, for changes that are not real transitions.</summary>
+        private void WithoutSound(System.Action change)
+        {
+            var open = AccessTools.Field(typeof(StandardDoor), "m_OpenSound");
+            var close = AccessTools.Field(typeof(StandardDoor), "m_CloseSound");
+            object openSound = open.GetValue(this), closeSound = close.GetValue(this);
+            open.SetValue(this, string.Empty);
+            close.SetValue(this, string.Empty);
+            change();
+            open.SetValue(this, openSound);
+            close.SetValue(this, closeSound);
         }
 
         private void Update()
@@ -106,8 +147,8 @@ namespace KingmakerWakingRune.Sanctum
             Scene statics = SceneManager.GetSceneByName(ScenarioBlueprints.Sanctum.StaticScene.SceneName);
             if (s_Root == null)
             {
-                StandardDoor donor = donorViews.Select(v => v.GetComponent<StandardDoor>()).FirstOrDefault(d => d != null);
-                string openSound = SoundOf(donor, "m_OpenSound"), closeSound = SoundOf(donor, "m_CloseSound");
+
+                const string openSound = "DungeonStoneDoorOpen", closeSound = "DungeonDoorStone_Close";
                 var palette = new SanctumPalette(SanctumScope.HarvestMaterials(statics).Rock);
                 s_Root = new GameObject("KWR_SanctumDoors");
                 SceneManager.MoveGameObjectToScene(s_Root, mechanics);
@@ -116,15 +157,12 @@ namespace KingmakerWakingRune.Sanctum
                 {
                     CreateDoor(plan, palette, openSound, closeSound, alreadyInside);
                 }
-                Log.Info($"Sanctum doors created; door sounds {(string.IsNullOrEmpty(openSound) ? "absent" : openSound + "/" + closeSound)}.");
+                WardTraps.CreateUnder(s_Root);
+                Log.Info($"Sanctum doors created; door sounds {openSound}/{closeSound}.");
             }
             return s_Root.GetComponentsInChildren<EntityViewBase>(true);
         }
 
-        private static string SoundOf(StandardDoor donor, string field)
-        {
-            return donor == null ? string.Empty : (string)AccessTools.Field(typeof(StandardDoor), field).GetValue(donor) ?? string.Empty;
-        }
 
         /// <summary>Keeps a loaded party from being sealed inside a door that a pre-door save has placed them in.</summary>
         public static void ReleaseOccupied()
@@ -137,7 +175,7 @@ namespace KingmakerWakingRune.Sanctum
             {
                 if (door.Data != null && !door.IsOpen && FindUnit((x, y, height, radius) => SanctumPlan.DoorwayOverlap(door.Plan, x, y, height, radius)) != null)
                 {
-                    door.Open();
+                    door.OpenSilently();
                     Log.Info($"Sanctum door {door.Plan.Id} opened on load: a party member stands in the doorway.");
                 }
             }
@@ -153,7 +191,8 @@ namespace KingmakerWakingRune.Sanctum
         {
             foreach (UnitEntityData unit in Game.Instance.State.Units)
             {
-                if (unit.IsInGame && unit.View != null)
+                // Ward fixtures are invisible stand-ins, not bodies: one stands in A2's own doorway by design.
+                if (unit.IsInGame && unit.View != null && WardFixtures.IdOf(unit) == null)
                 {
                     float x = unit.Position.x / SanctumPlan.MetersPerSquare + SanctumPlan.OriginX;
                     float y = SanctumPlan.OriginY - unit.Position.z / SanctumPlan.MetersPerSquare;
@@ -177,6 +216,7 @@ namespace KingmakerWakingRune.Sanctum
             go.transform.position = center;
 
             go.AddComponent<MapObjectView>().UniqueId = "kwr_sanctum_door_" + plan.Id.ToLowerInvariant();
+            go.AddComponent<AkGameObj>();
             var animator = new GameObject("Animator");
             animator.transform.SetParent(go.transform, false);
             animator.AddComponent<Animator>();

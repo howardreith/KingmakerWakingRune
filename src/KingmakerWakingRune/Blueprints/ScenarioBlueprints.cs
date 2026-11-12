@@ -118,6 +118,9 @@ namespace KingmakerWakingRune.Blueprints
                 register(SanctumEnter);
                 Token = RefugeTokenBlueprints.Create(register);
                 LodgeDialogs.Build(Sheila, register, BriefingCompleteFlag);
+                KingmakerWakingRune.Sanctum.Wards.WardBlueprints.Build(root, all, register);
+                KingmakerWakingRune.Sanctum.Wards.WardTraps.Build(register);
+                KingmakerWakingRune.Sanctum.Wards.WardDialogs.Build(register);
                 QuartermasterStock.Attach(LodgeCast.Find("quartermaster").Unit, all, register);
                 LocalizedText.InjectInto(LocalizationManager.CurrentPack);
 

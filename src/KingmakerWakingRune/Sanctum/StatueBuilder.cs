@@ -62,6 +62,7 @@ namespace KingmakerWakingRune.Sanctum
         public void Place(string slotId, Vector3 foot, float yaw)
         {
             StatueSlot slot = StatueManifest.Slot(slotId);
+            SanctumDressing.StatueFeet[slotId] = foot;
             try
             {
                 Cast(slot, foot, yaw);
@@ -91,7 +92,9 @@ namespace KingmakerWakingRune.Sanctum
                 float standing = Stature(clone);
                 SampleIdle(clone);
                 ApplyPose(bones, StatueManifest.Pose(slot.Pose));
-                Bake(clone, slot, standing, foot, yaw);
+                Transform palm = Find(bones, RightForearm[1]) ?? Find(bones, LeftForearm[1]);
+                Transform wrist = Find(bones, RightForearm[0]) ?? Find(bones, LeftForearm[0]);
+                Bake(clone, slot, standing, foot, yaw, palm != null ? palm.position : (Vector3?)null, wrist != null ? wrist.position : (Vector3?)null);
             }
             finally
             {
@@ -215,7 +218,7 @@ namespace KingmakerWakingRune.Sanctum
             return Matrix4x4.TRS(renderer.transform.position, renderer.transform.rotation, Vector3.one);
         }
 
-        private void Bake(GameObject clone, StatueSlot slot, float standing, Vector3 foot, float yaw)
+        private void Bake(GameObject clone, StatueSlot slot, float standing, Vector3 foot, float yaw, Vector3? palm, Vector3? elbow)
         {
             var parts = new List<(Vector3[] Vertices, Vector3[] Normals, Vector2[] Uv, int[] Triangles, Material Source)>();
             float low = float.MaxValue, high = float.MinValue;
@@ -242,6 +245,12 @@ namespace KingmakerWakingRune.Sanctum
             }
             float scale = slot.Height / (slot.FitToHeight ? high - low : standing);
             Matrix4x4 place = Matrix4x4.TRS(foot, Quaternion.Euler(0f, yaw, 0f), Vector3.one * scale) * Matrix4x4.Translate(Vector3.down * low);
+            if (palm.HasValue && elbow.HasValue)
+            {
+                // Where a brand on this figure's palm sits once cast, for the authored marked sources.
+                Vector3 hand = place.MultiplyPoint3x4(palm.Value);
+                SanctumDressing.StatuePalms[slot.Id] = new[] { hand, (hand - place.MultiplyPoint3x4(elbow.Value)).normalized, Quaternion.Euler(0f, yaw, 0f) * Vector3.forward };
+            }
             foreach (var group in parts.GroupBy(p => p.Source))
             {
                 var mesh = new Mesh { name = ObjectPrefix + slot.Id };
@@ -268,6 +277,7 @@ namespace KingmakerWakingRune.Sanctum
                 figure.transform.SetParent(m_Root, false);
                 figure.AddComponent<MeshFilter>().sharedMesh = mesh;
                 var renderer = figure.AddComponent<MeshRenderer>();
+                SanctumDressing.AddStatueRenderer(slot.Id, renderer);
                 renderer.sharedMaterial = StoneOf(group.Key, slot.Finish);
                 renderer.receiveShadows = true;
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;

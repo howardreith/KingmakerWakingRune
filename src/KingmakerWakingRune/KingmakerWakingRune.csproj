@@ -84,6 +84,10 @@
       <HintPath>$(UnityModManagerDir)\UnityModManager.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(KingmakerManagedDir)\Newtonsoft.Json.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="0Harmony12">
       <HintPath>$(UnityModManagerDir)\0Harmony12.dll</HintPath>
       <Private>False</Private>

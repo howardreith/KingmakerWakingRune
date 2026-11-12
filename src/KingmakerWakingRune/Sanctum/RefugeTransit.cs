@@ -30,11 +30,12 @@ namespace KingmakerWakingRune.Sanctum
         private static RefugeTransit s_Instance;
 
         private RefugeTransferFlow m_Flow;
+        private DeparturePreparation m_Preparation;
         private SaveInfo m_Requested;
         private SaveInfo m_Checkpoint;
         private float m_NextEscape;
 
-        public static bool InProgress => s_Instance != null && s_Instance.m_Flow.InProgress;
+        public static bool InProgress => s_Instance != null && (s_Instance.m_Flow.InProgress || s_Instance.m_Preparation.InProgress);
 
         /// <summary>The ability's single entry point.</summary>
         public static void Request()
@@ -66,15 +67,24 @@ namespace KingmakerWakingRune.Sanctum
                 DontDestroyOnLoad(host);
                 s_Instance = host.AddComponent<RefugeTransit>();
                 s_Instance.m_Flow = new RefugeTransferFlow(s_Instance);
+                s_Instance.m_Preparation = new DeparturePreparation(s_Instance.Depart, s_Instance.Warn);
             }
-            s_Instance.m_Requested = null;
-            s_Instance.m_Checkpoint = null;
-            Log.Info("Refuge Token accepted; beginning transfer.");
-            s_Instance.m_Flow.Begin();
+            Log.Info("Refuge Token accepted; preparing the party to depart.");
+            s_Instance.m_Preparation.Begin();
+        }
+
+        /// <summary>The prepared party leaves: checkpoint, fade and transfer, exactly as before preparation existed.</summary>
+        private void Depart()
+        {
+            m_Requested = null;
+            m_Checkpoint = null;
+            Log.Info("Party prepared; beginning transfer.");
+            m_Flow.Begin();
         }
 
         private void Update()
         {
+            m_Preparation?.Tick(Now);
             m_Flow?.Tick();
         }
 
@@ -100,8 +110,10 @@ namespace KingmakerWakingRune.Sanctum
         /// <summary>A save load replaces the world; any in-flight transfer ends with it.</summary>
         public static void Reset(string reason)
         {
+            DeparturePreparation.Forget(reason);
             if (s_Instance != null)
             {
+                s_Instance.m_Preparation.Cancel(reason);
                 s_Instance.m_Flow.Cancel(reason);
             }
         }
@@ -229,6 +241,7 @@ namespace KingmakerWakingRune.Sanctum
         public void CommitArrival()
         {
             RefugeToken.Consume();
+            DeparturePreparation.Forget("arrival committed");
             Game.Instance.Player.UnlockableFlags.Unlock(ScenarioBlueprints.SanctumEnteredFlag);
             Log.Info($"Arrival committed: party [{string.Join(", ", Game.Instance.Player.Party.Select(u => u.CharacterName).ToArray())}]; tokens left {RefugeToken.CountOwned()}.");
         }

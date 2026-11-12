@@ -35,7 +35,31 @@ namespace KingmakerWakingRune.Diagnostics
             m_Frames = 0;
             Answer("capture.request", ScreenCapture.CaptureScreenshot);
             Answer("state.request", target => File.WriteAllText(target, StateReport.Build()));
+            AnswerCommand();
+        }
 
+        /// <summary>'command.request' holds the response path on its first line and the labelled test command on its second.</summary>
+        private static void AnswerCommand()
+        {
+            string request = Path.Combine(Main.Mod.Path, "command.request");
+            if (!File.Exists(request))
+            {
+                return;
+            }
+            string[] lines = File.ReadAllLines(request);
+            File.Delete(request);
+            string result;
+            try
+            {
+                result = WardHarness.Run(lines.Length > 1 ? lines[1] : string.Empty);
+            }
+            catch (Exception ex)
+            {
+                result = "command failed: " + ex;
+                Log.Error($"Harness command failed: {string.Join(" ", lines)}", ex);
+            }
+            Log.Info($"HARNESS {string.Join(" | ", lines)} => {result}");
+            File.WriteAllText(lines[0], result);
         }
 
         private static void Answer(string requestFile, Action<string> respond)

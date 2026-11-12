@@ -26,7 +26,7 @@ FalchionPlus2,2
 FalchionPlus3,1
 DaggerPlus1,3
 DaggerPlus2,2
-DaggerPlus3,1
+DaggerPlus3,2
 KukriPlus1,2
 KukriPlus2,2
 KukriPlus3,1
@@ -59,13 +59,49 @@ QuarterstaffPlus2,2
 QuarterstaffPlus3,1
 KamaPlus1,2
 KamaPlus2,1
+KamaPlus3,1
 NunchakuPlus1,2
 NunchakuPlus2,1
+NunchakuPlus3,1
 EarthBreakerPlus1,2
 EarthBreakerPlus2,2
 ElvenCurvedBladePlus1,2
 ElvenCurvedBladePlus2,2
 ElvenCurvedBladePlus3,1
+# Exotic weapon families not covered above (WR-04-R4 audit of the installed game's exotic categories)
+FauchardPlus1,2
+FauchardPlus2,2
+FauchardPlus3,1
+SaiPlus1,2
+SaiPlus2,1
+SaiPlus3,1
+DwarvenWaraxePlus1,2
+DwarvenWaraxePlus2,2
+DwarvenWaraxePlus3,1
+EstocPlus1,2
+EstocPlus2,1
+EstocPlus3,1
+FalcataPlus1,2
+FalcataPlus2,1
+FalcataPlus3,1
+TongiPlus1,2
+TongiPlus2,1
+TongiPlus3,1
+StandardDoubleAxePlus1,2
+StandardDoubleAxePlus2,1
+StandardDoubleAxePlus3,1
+StandardDoubleSwordPlus1,2
+StandardDoubleSwordPlus2,1
+StandardDoubleSwordPlus3,1
+StandardDwarvenUrgroshPlus1,2
+StandardDwarvenUrgroshPlus2,1
+StandardDwarvenUrgroshPlus3,1
+StandardGnomeHookedHammerPlus1,2
+StandardGnomeHookedHammerPlus2,1
+StandardGnomeHookedHammerPlus3,1
+SlingStaffPlus1,2
+SlingStaffPlus2,1
+SlingStaffPlus3,1
 # Ranged weapons
 LongbowPlus1,2
 LongbowPlus2,2
@@ -211,6 +247,7 @@ ScrollOfNeutralizePoison,6
 ScrollOfRemoveParalysis,4
 ScrollOfRemoveFear,6
 ScrollOfRaiseDead,4
+ScrollOfStoneToFlesh,6
 # Scrolls for protection
 ScrollOfDeathWard,4
 ScrollOfFreedomOfMovement,6

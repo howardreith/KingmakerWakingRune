@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace KingmakerWakingRune.Sanctum
@@ -21,10 +22,38 @@ namespace KingmakerWakingRune.Sanctum
         private static SceneryMesh s_Mesh;
         private static SanctumPalette s_Palette;
         private static StatueBuilder s_Statues;
+        public const string FlailObjectName = "KWR_FlailScenery";
+        private const string BrokenRunePrefix = "KWR_RuneBroken_";
+
+        public static readonly Dictionary<string, Light> RuneLights = new Dictionary<string, Light>();
+        public static readonly Dictionary<string, GameObject[]> BrokenRunes = new Dictionary<string, GameObject[]>();
+
+        /// <summary>Each statue's floor position this build, where its target proxy stands.</summary>
+        public static readonly Dictionary<string, Vector3> StatueFeet = new Dictionary<string, Vector3>();
+
+        /// <summary>Each statue's baked renderers this build, so a figure can be removed without touching its neighbours.</summary>
+        public static readonly Dictionary<string, Renderer[]> StatueFigures = new Dictionary<string, Renderer[]>();
+
+        /// <summary>Each cast figure's palm: position, the forearm's direction through it, and the figure's facing.</summary>
+        public static readonly Dictionary<string, Vector3[]> StatuePalms = new Dictionary<string, Vector3[]>();
+
+        /// <summary>The Sihedron brands on the marked figures' palms, hidden with their figure.</summary>
+        public static readonly Dictionary<string, GameObject> PalmMarks = new Dictionary<string, GameObject>();
+
+        public static void AddStatueRenderer(string slotId, Renderer renderer)
+        {
+            StatueFigures[slotId] = StatueFigures.TryGetValue(slotId, out Renderer[] existing) ? existing.Concat(new[] { renderer }).ToArray() : new[] { renderer };
+        }
 
         public static void Build(Transform root, SanctumMaterials materials)
         {
             System.Diagnostics.Stopwatch timer = System.Diagnostics.Stopwatch.StartNew();
+            StatueFeet.Clear();
+            RuneLights.Clear();
+            BrokenRunes.Clear();
+            StatueFigures.Clear();
+            StatuePalms.Clear();
+            PalmMarks.Clear();
             s_Root = new GameObject("Dressing").transform;
             s_Root.SetParent(root, false);
             s_Mesh = new SceneryMesh();
@@ -32,6 +61,7 @@ namespace KingmakerWakingRune.Sanctum
             s_Statues = new StatueBuilder(s_Root, materials.Rock);
 
             BuildZiggurat();
+            BuildPalmMarks();
             BuildDoorFrames();
             foreach (RunePlate plate in SanctumPlan.RunePlates)
             {
@@ -42,6 +72,47 @@ namespace KingmakerWakingRune.Sanctum
             s_Mesh.Instantiate(s_Root, "Scenery");
             s_Statues.Finish();
             Log.Info($"Sanctum dressing built in {timer.ElapsedMilliseconds} ms, statues included.");
+        }
+
+        /// <summary>
+        /// A modest burned brand on the palm of each authored marked figure: a dark seven-pointed star, palm-sized, set just
+        /// proud of the stone and turned toward someone standing before the figure. Its own object, so it hides with the figure.
+        /// </summary>
+        private static void BuildPalmMarks()
+        {
+            foreach (string slot in Wards.CredentialRules.MarkedSources)
+            {
+                if (!StatuePalms.TryGetValue(slot, out Vector3[] palm))
+                {
+                    Log.Error($"Palm mark {slot}: the figure's hand was not found when it was cast.");
+                    continue;
+                }
+                Vector3 along = palm[1], facing = palm[2];
+                Vector3 normal = (facing - along * Vector3.Dot(facing, along)).normalized;
+                if (normal.sqrMagnitude < 0.01f)
+                {
+                    normal = facing;
+                }
+                Vector3 center = palm[0] + along * 0.07f + normal * 0.035f;
+                Vector3 u = Vector3.Cross(normal, along).normalized, v = Vector3.Cross(u, normal).normalized;
+                var mesh = new SceneryMesh();
+                mesh.Lathe(s_Palette.Basalt, center, normal, new[] { 0.06f, 0f, 0.06f, 0.004f, 0f, 0.004f }, 18);
+                Vector3 surface = center + normal * 0.005f, previous = Vector3.zero;
+                for (int i = 0; i <= 7; i++)
+                {
+                    float angle = (90f + i * 3 * 360f / 7f) * Mathf.Deg2Rad;
+                    Vector3 point = surface + (u * Mathf.Cos(angle) + v * Mathf.Sin(angle)) * 0.048f;
+                    if (i > 0)
+                    {
+                        mesh.Strip(s_Palette.Void, previous, point, normal, 0.008f, 0.004f);
+                    }
+                    previous = point;
+                }
+                var holder = new GameObject("KWR_PalmMark_" + slot);
+                holder.transform.SetParent(s_Root, false);
+                mesh.Instantiate(holder.transform, "Brand");
+                PalmMarks[slot] = holder;
+            }
         }
 
         private static void BuildZiggurat()
@@ -185,7 +256,8 @@ namespace KingmakerWakingRune.Sanctum
             }
 
             Vector3 lit = center + normal * 1.1f;
-            SanctumLighting.Point(s_Root, lit.x / SanctumPlan.MetersPerSquare + SanctumPlan.OriginX, SanctumPlan.OriginY - lit.z / SanctumPlan.MetersPerSquare, Mathf.Max(lit.y, 1.4f), RuneLight, 0.8f, 4.2f);
+            RuneLights[plate.Id] = SanctumLighting.Point(s_Root, lit.x / SanctumPlan.MetersPerSquare + SanctumPlan.OriginX, SanctumPlan.OriginY - lit.z / SanctumPlan.MetersPerSquare, Mathf.Max(lit.y, 1.4f), RuneLight, 0.8f, 4.2f);
+            BuildBrokenRune(plate, center, normal);
         }
 
         private static Vector3 Grounded(Vector3 p)
@@ -399,19 +471,43 @@ namespace KingmakerWakingRune.Sanctum
             }
         }
 
+        /// <summary>A disabled rune's cold state: dark cracks and a dead disc over the plate. Hidden until the rule says so.</summary>
+        private static void BuildBrokenRune(RunePlate plate, Vector3 center, Vector3 normal)
+        {
+            var broken = new SceneryMesh();
+            Vector3 surface = center + normal * 0.076f;
+            broken.Lathe(s_Palette.Void, surface, normal, new[] { PlateRadius * 0.84f, 0f, PlateRadius * 0.84f, 0.008f, 0f, 0.008f }, 40);
+            Basis(normal, out Vector3 u, out Vector3 v);
+            foreach (float angle in new[] { 20f, 95f, 160f, 235f, 310f })
+            {
+                Vector3 direction = u * Mathf.Cos(angle * Mathf.Deg2Rad) + v * Mathf.Sin(angle * Mathf.Deg2Rad);
+                broken.Strip(s_Palette.Basalt, surface + direction * 0.1f, surface + direction * (PlateRadius * 0.82f), normal, 0.03f);
+            }
+            string name = BrokenRunePrefix + plate.Id;
+            broken.Instantiate(s_Root, name);
+            GameObject[] parts = s_Root.GetComponentsInChildren<Transform>(true).Where(t => t.name.StartsWith(name)).Select(t => t.gameObject).ToArray();
+            foreach (GameObject part in parts)
+            {
+                part.SetActive(false);
+            }
+            BrokenRunes[plate.Id] = parts;
+        }
+
         /// <summary>The deva's metal flail, lying where it fell: inert scenery, not an item.</summary>
         private static void BuildFlail(Vector3 at)
         {
             Vector3 grip = at + Vector3.up * 0.04f;
             Vector3 end = grip + new Vector3(0.52f, 0.02f, 0.16f);
-            s_Mesh.Strip(s_Palette.Leather, grip, end, Vector3.up, 0.05f, 0.05f);
+            var flail = new SceneryMesh();
+            flail.Strip(s_Palette.Leather, grip, end, Vector3.up, 0.05f, 0.05f);
             Vector3 link = end, step = new Vector3(0.1f, -0.004f, -0.05f);
             for (int i = 0; i < 4; i++)
             {
-                s_Mesh.Box(s_Palette.Iron, link + step / 2f, new Vector3(0.05f, 0.03f, 0.1f), Quaternion.LookRotation(step, i % 2 == 0 ? Vector3.up : Vector3.right));
+                flail.Box(s_Palette.Iron, link + step / 2f, new Vector3(0.05f, 0.03f, 0.1f), Quaternion.LookRotation(step, i % 2 == 0 ? Vector3.up : Vector3.right));
                 link += step;
             }
-            s_Mesh.Solid(PrimitiveType.Sphere, new Vector3(link.x + 0.09f, 0.1f, link.z - 0.03f), Vector3.one * 0.19f, Quaternion.identity, s_Palette.Iron);
+            flail.Solid(PrimitiveType.Sphere, new Vector3(link.x + 0.09f, 0.1f, link.z - 0.03f), Vector3.one * 0.19f, Quaternion.identity, s_Palette.Iron);
+            flail.Instantiate(s_Root, FlailObjectName);
         }
 
         private static void Rune(Vector3 center, Vector3 normal, float radius, float[][] lines)

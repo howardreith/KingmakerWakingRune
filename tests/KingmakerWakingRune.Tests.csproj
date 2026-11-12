@@ -27,6 +27,19 @@
     <Compile Include="SanctumDoorSafetyTests.cs" />
     <Compile Include="RefugeTransferFlowTests.cs" />
     <Compile Include="SanctumStatueTests.cs" />
+    <Compile Include="WardRulesTests.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\WardProfile.cs" Link="Linked\WardProfile.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\KruneProjection.cs" Link="Linked\KruneProjection.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\RuneRules.cs" Link="Linked\RuneRules.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\CurseRules.cs" Link="Linked\CurseRules.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\FeederRules.cs" Link="Linked\FeederRules.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\MistRules.cs" Link="Linked\MistRules.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\RitualRules.cs" Link="Linked\RitualRules.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\SanctumState.cs" Link="Linked\SanctumState.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\WardGeometry.cs" Link="Linked\WardGeometry.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\CredentialRules.cs" Link="Linked\CredentialRules.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\RuneVulnerability.cs" Link="Linked\RuneVulnerability.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\WardText.cs" Link="Linked\WardText.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\SanctumPolicy.cs" Link="Linked\SanctumPolicy.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\SanctumPlan.cs" Link="Linked\SanctumPlan.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\ZigguratMasonry.cs" Link="Linked\ZigguratMasonry.cs" />
@@ -40,6 +53,10 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="krune_mask_expected.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
