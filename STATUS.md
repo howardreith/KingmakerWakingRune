@@ -1,6 +1,6 @@
 # Status: The Waking Rune
 
-**Milestone:** WR-05, Kurshu the Undying in A1. The review round is done. Candidate 0.6.15 is ready for owner review.
+**Milestone:** WR-05, Kurshu the Undying in A1. The review round is done, and the restoration-order closeout is fixed in 0.6.16. Ready for owner review.
 
 **Branch:** `feature/wr-05-kurshu`, a child of `feature/wr-04-sanctum-wards`.
 - PR #4 (WR-04) is still open and unmerged, so the WR-05 draft PR #5 targets the WR-04 branch and shows only WR-05.
@@ -14,11 +14,11 @@ Results:
 - `docs/WR-04-RULES.md`: the departure row, revised for the two-step departure.
 
 ## Candidate
-- Version 0.6.15, commit `1891bf0`.
-- DLL SHA-256 `271255e9650b0f6880ab22b34602cffdce54f220c843a35a37195f1ce39305c2`.
-- Zip `artifacts\KingmakerWakingRune-0.6.15.zip`, SHA-256 `94b05fc78eb9b0b0d59018b27e9bb6b01e3c6a5d7447fcfa07d8291b94a8dc1e`. This is the package tested last and now installed.
-- 170 unit tests pass (19 for WR-05).
-- Earlier test builds 0.6.0–0.6.14 have their own versions and zips; none were replaced.
+- Version 0.6.16, commit `b630849`: the reviewed 0.6.15 (`1891bf0`) plus the restoration-order repair.
+- DLL SHA-256 `8bb3a2e72b08be9b744edaf2a304d7a124ea439ea41e5109ad31674459691848`.
+- Zip `artifacts\KingmakerWakingRune-0.6.16.zip`, SHA-256 `8e78d52ceb2aec89bd16a53bd3e7f167faae4b00c8959bb353aeeb3ffc276c20`. Tested in `wr06-a` and now installed; 0.6.15 is backed up at `runtime-backups\wr06-a\mod-existing`.
+- 174 unit tests pass (23 for WR-05).
+- Earlier test builds 0.6.0–0.6.15 have their own versions and zips; none were replaced.
 
 ## What WR-05 adds
 - **Kurshu as a real hostile combat unit.**
@@ -61,7 +61,7 @@ Details and labels are in the acceptance report.
 - **Python 3.15 removal** remains yours to authorize. None was used.
 
 ## Environment state
-- **Installed:** candidate 0.6.15, per the owner's standing preference.
+- **Installed:** candidate 0.6.16, per the owner's standing preference (run `wr06-a`; 0.6.15 backed up at `runtime-backups\wr06-a\mod-existing`).
 - **Backed up:** the 0.6.7 install it replaced, at `C:\Dev\KingmakerWakingRuneLab\runtime-backups\wr05-b\mod-existing` (DLL `07a6823c…`).
 - **Restored and verified:** transaction `wr05-b` (profile, Steam mirror, registry with the turn-based setting reset, UMM Params and Mods).
 - **Saves:** no owner save was opened.
@@ -69,7 +69,7 @@ Details and labels are in the acceptance report.
 ## How to test again
 ```powershell
 .\scripts\Build.ps1                  # refuses to replace an existing clean package
-.\scripts\KwrRuntime.ps1 Begin -RunId <new-id> -PackagePath .\artifacts\KingmakerWakingRune-0.6.15.zip
+.\scripts\KwrRuntime.ps1 Begin -RunId <new-id> -PackagePath .\artifacts\KingmakerWakingRune-0.6.16.zip
 .\scripts\KwrRuntime.ps1 Launch      # then Shot / Click / Key / Command ..., Close, Collect
 .\scripts\KwrRuntime.ps1 End -KeepInstalled
 ```
@@ -85,7 +85,7 @@ Details and labels are in the acceptance report.
 - **Read-only:** `kurshu` (with the maneuver chain, hold and feats), `known <member>`, `paused`, `blueprint <name>`, `builds`.
 - **INJECTED:**
   - `hurt <member> <kind> <n>`, `corpse <kind> [m]`, `kurshudefeat`;
-  - `grab <member>` (a tail hit), `drain <member> <n>`;
+  - `grab <member>` (a tail hit), `drain <member> <n>`, `armslam <member> <n>` (a fixed slam drain delivered inside the next native Intelligence heal);
   - `kurshufixture <damage> <uses…>`, `combatsave <name>`.
 
 ## Next exact action

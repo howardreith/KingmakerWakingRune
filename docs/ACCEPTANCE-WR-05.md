@@ -1,10 +1,49 @@
 # WR-05 acceptance: Kurshu the Undying (A1)
 
-**Candidate:** 0.6.15, commit `1891bf0`.
-- DLL `271255e9650b0f6880ab22b34602cffdce54f220c843a35a37195f1ce39305c2`
-- Zip `artifacts\KingmakerWakingRune-0.6.15.zip`, `94b05fc78eb9b0b0d59018b27e9bb6b01e3c6a5d7447fcfa07d8291b94a8dc1e`
+**Candidate:** 0.6.16, commit `b630849` (the restoration-order repair on top of the reviewed 0.6.15, `1891bf0`).
+- DLL `8bb3a2e72b08be9b744edaf2a304d7a124ea439ea41e5109ad31674459691848`
+- Zip `artifacts\KingmakerWakingRune-0.6.16.zip`, `8e78d52ceb2aec89bd16a53bd3e7f167faae4b00c8959bb353aeeb3ffc276c20`
+- 0.6.15 stays as reviewed: DLL `271255e9650b0f6880ab22b34602cffdce54f220c843a35a37195f1ce39305c2`, zip `94b05fc78eb9b0b0d59018b27e9bb6b01e3c6a5d7447fcfa07d8291b94a8dc1e`.
 - Branch `feature/wr-05-kurshu`, a child of `feature/wr-04-sanctum-wards` (draft PR #4, unmerged). Draft PR #5.
-- 170 unit tests pass: 151 from WR-04, 19 for WR-05 (`KurshuRulesTests`, `DepartureRecordTests`).
+- 174 unit tests pass: 151 from WR-04, 23 for WR-05 (`KurshuRulesTests`, `DepartureRecordTests`).
+
+## Restoration followed at once by another slam (wr06-a, 0.6.16)
+**Defect (0.6.15):**
+- A slam on a comatose creature added its points to the held-back count without first checking for a restoration.
+- If restoration cleared the engine's drain and a slam landed before the next recovery check, that check saw drain 0 and woke the creature with every held-back point erased, the new slam's included.
+
+**Repair:**
+- `KurshuEncounter.DrainIntelligence` first settles the comatose buff's recovery (`KwrMindDrained.CheckRecovery`), then looks the buff up again, because settling may have removed it.
+- The new drain then always goes through the native `RuleDealStatDamage`, so native drain immunity applies even to a creature already comatose.
+- Only what the engine would kill with is held back (`MindDrainRules.Settle` and `HoldBack`, shared by the recovery check and the slam).
+- Global ability-damage handling is unchanged.
+
+**Unit tests (174 pass):**
+- `TestASlamRightAfterRestorationIsNotErased`
+- `TestASlamOnAStillComatoseVictimIsHeldBack`
+- `TestRestorationSettledBeforeTheSlamGivesTheSameResult`
+- `TestAnImmuneComatoseVictimGainsNothing`
+
+These drive the production `Settle`/`HoldBack` functions in the order the slam uses them.
+
+**Native check:**
+- Run `wr06-a`, seed `Manual_971_KWR_AUTOMATION_WR06A_SEED_KURSHU_SLAIN` (the wr05-b victory save), out of combat. Dorn's restored Intelligence is 13.
+- The drains are INJECTED fixed amounts through the production path (`drain`).
+- Each Restoration is a real Scroll of Restoration, moved from the stash to Brena's belt and read onto Dorn's portrait by PLAYER input. The native `ContextActionHealStatDamage` → `RuleHealStatDamage` heals the drain.
+- For case A, the new labelled `armslam` fixture is INJECTED. It waits for that native heal and, inside the same rule call, delivers a fixed 3-point slam drain through the production path, so no periodic check can run in between.
+
+| Case | Steps | Result | Evidence (`output_log`, `runtime-evidence\wr06-a`) |
+|---|---|---|---|
+| A | `drain 3 14`: comatose, visible drain 12, 2 held back. `armslam 3 3`. Restoration scroll on Dorn | **PASS** | "native heal on Dorn Askel (all False, drain healed 12); before the slam: Intelligence 13, drain 0, comatose True" → "Dorn Askel wakes … Intelligence 13, drain 0" → "INJECTED slam right after restoration … Intelligence drain 3 … now 10, drain 3" → "result: … Intelligence 10, drain 3, comatose False" |
+| A, later | 12 s of recovery ticks; save `Manual_972_…CASE_A_AFTER`; full game restart; load | **PASS** | Before and after the restart: "Intelligence 10 (raw 10, drain 3) … comatose False" |
+| B | `drain 3 11` (comatose, 2 held back), then `drain 3 3` with no restoration; 10 s of ticks | **PASS** | "already comatose: Intelligence drain 3 held back (5 in all)"; still comatose, visible drain 12 |
+| B, reload | Save `Manual_973_…CASE_B_COMATOSE`; full restart; load; Restoration scroll | **PASS** | After the restart: "comatose True (held back 5 …)"; scroll: "wakes … Intelligence 13, drain 0" (restoration restores every drained point of the score) |
+| C | `drain 3 14`; Restoration scroll; the periodic check wakes him; then `drain 3 3` | **PASS** | "wakes … Intelligence 13, drain 0" then "Intelligence drain 3 … now 10, drain 3", the same as case A |
+
+**Environment (`wr06-a`, `End -KeepInstalled`):**
+- Profile: 15 differences reverted. Steam mirror: 3. Registry restored. Params and Mods verified.
+- Installed: 0.6.16. Backed up: 0.6.15 (DLL `271255e9…`) at `runtime-backups\wr06-a\mod-existing`.
+- Kurshu's victory was not repeated; this repair touches only the drain path.
 
 **Runs:**
 - `wr05-input-a`: checkpoint A, on 0.5.15.
@@ -124,6 +163,7 @@ These code paths are unchanged in 0.6.15 except where a review-round row above s
 | 0.6.11 | A comatose victim could never wake: restoration clears only the visible drain, not the held-back points | 0.6.12: restoring the score clears the held-back points too |
 | 0.6.12 | Turn-based combat skips a helpless creature's turn, so its own recovery check never ran | 0.6.13–0.6.14 check from the encounter's tick (0.6.13's registry missed buffs restored from a save; 0.6.14 scans) |
 | 0.6.14 | The held-back count was lost on reload (component properties are not saved) | 0.6.15 keeps it in fields; a comatose creature with nothing held back wakes |
+| 0.6.15 (owner review) | A slam right after restoration, before the recovery check, was erased along with the old held-back points | 0.6.16 settles recovery before each new drain (above) |
 
 `b179f05` (0.6.14) did not compile; `e7ed8fc` fixed it before any package was built.
 
@@ -138,7 +178,7 @@ These code paths are unchanged in 0.6.15 except where a review-round row above s
   - **Steam mirror:** 10 reverted.
   - **Registry:** restored, which resets the turn-based setting.
   - **Params and Mods:** verified.
-- **Installed:** 0.6.15 (DLL `271255e9…`).
-- **Backed up:** the previous candidate, 0.6.7 (DLL `07a6823c…`), at `C:\Dev\KingmakerWakingRuneLab\runtime-backups\wr05-b\mod-existing`.
+- **Installed then:** 0.6.15 (DLL `271255e9…`), since replaced by 0.6.16 in `wr06-a` (above).
+- **Backed up then:** the previous candidate, 0.6.7 (DLL `07a6823c…`), at `C:\Dev\KingmakerWakingRuneLab\runtime-backups\wr05-b\mod-existing`.
 - **Saves:** only disposable seeds, our checkpoints and `KWR_AUTOMATION_*` saves were loaded. No owner save was opened. The stock check used a disposable stock save from WR-04 R2, not the owner's campaign.
 - **Python:** none used. No software was installed.

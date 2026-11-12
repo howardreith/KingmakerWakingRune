@@ -103,6 +103,7 @@ The `kurshu` report lists the native feats with "present" or "MISSING", and whet
   - Drain that would take the score below 1 is applied only down to 1, and the rest is **held back** on a comatose buff (the native `Unconscious` condition: helpless, cannot act). Further slams add to the held-back points.
   - The true drain is the engine's drain plus the held-back points. **Restoration** (the game's restores "all points permanently drained from a single ability score") clears the engine's drain, and that clears the held-back points too: the creature wakes. A smaller restoration pays the held-back points first. Lesser restoration does not touch drain.
   - Recovery is checked from the encounter's tick about once a second of game time, as well as on the creature's own round, because turn-based combat skips a helpless creature's turn.
+  - Recovery is also settled before every new slam drain (0.6.16), and the new drain then goes through the native rule, so native immunity applies. Without this, a restoration followed by a slam before the next check would wake the creature with the new slam's drain erased too.
   - The held-back points are saved with the buff (as fields; 0.6.11–0.6.14 used properties, which the game does not save).
   - A comatose creature can still die from hit point damage; she keeps slamming a helpless target.
 - **Grab, grapple and constrict (0.6.8).** A bounded, encounter-local grapple with the normal costs:

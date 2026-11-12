@@ -191,3 +191,9 @@ Rows above that this round changes are restated here. Everything else carries fo
 | Legacy notice on screen | Proven (native play) | 0.6.9 | Replaces "partial". |
 | Power Surge lapse | Proven (native play) | 0.6.11 | Was unit-tested only. |
 | Plane shift | Not implemented | | Deliberate. |
+
+## WR-05 closeout, 0.6.16, run `wr06-a`
+
+| Item | Status | Evidence | Notes |
+|---|---|---|---|
+| A slam right after restoration, before the recovery check, keeps its drain | Proven (with injection: fixed drains and the `armslam` ordering fixture; native Restoration scrolls by player input) | 0.6.16, cases A–C, across a full restart | Defect in 0.6.15 found by owner review. Unit tests added. |

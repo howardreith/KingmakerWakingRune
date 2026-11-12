@@ -72,3 +72,9 @@ The owner's review kept PR #5 in draft and asked for fidelity repairs and the co
    - the legacy notice on screen.
 
 Each build has its own version and zip. 0.6.8 to 0.6.15 are listed with their defects in `ACCEPTANCE-WR-05.md`, and none replaced an earlier package. Results and labels are in `ACCEPTANCE-WR-05.md`.
+
+## Closeout (run `wr06-a`, 0.6.16)
+- **The owner's review of 0.6.15 found an ordering defect:** a slam right after restoration, before the periodic recovery check, was erased along with the old held-back points.
+- **Fix (`b630849`):** 0.6.16 settles recovery before each new drain, then applies the new drain through the native rule.
+- **Verification:** four new unit tests (174 pass), and native cases A, B and C with real Restoration scrolls, across a full restart. All pass; see `ACCEPTANCE-WR-05.md`.
+- WR-06 (A4) continues on a child branch.
