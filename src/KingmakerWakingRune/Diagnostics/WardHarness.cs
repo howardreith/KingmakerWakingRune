@@ -200,6 +200,21 @@ namespace KingmakerWakingRune.Diagnostics
                     // PLAYER-equivalent: the per-character AI toggle on the portrait, a player setting.
                     Member(args[1]).IsAIEnabled = args[2] == "on";
                     return $"PLAYER setting: {Member(args[1]).CharacterName} AI {(Member(args[1]).IsAIEnabled ? "on" : "off")}.";
+                case "buff":
+                {
+                    // INJECTED: a native buff on any unit, cast by a party member, for a chosen time: a failed save's effect is
+                    // applied directly (no roll). What the buff does from then on (a change of faction, a condition, its expiry)
+                    // is the game's own.
+                    string missing = Resolve(args[1], out UnitEntityData unit);
+                    Kingmaker.UnitLogic.Buffs.Blueprints.BlueprintBuff buff = ResourcesLibrary.GetBlueprints<Kingmaker.UnitLogic.Buffs.Blueprints.BlueprintBuff>().FirstOrDefault(b => b.name == args[2]);
+                    if (missing != null || buff == null)
+                    {
+                        return missing ?? $"no buff {args[2]}";
+                    }
+                    UnitEntityData caster = Member(args.Length > 4 ? args[4] : "0");
+                    Kingmaker.UnitLogic.Buffs.Buff applied = unit.Descriptor.AddBuff(buff, caster, TimeSpan.FromSeconds(double.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture)));
+                    return $"INJECTED native {args[2]} on {unit.CharacterName} from {caster.CharacterName} for {args[3]} s: applied {applied != null}; faction now {unit.Descriptor.Faction?.name}.";
+                }
                 case "unbuff":
                 {
                     // INJECTED: one native buff removed from any unit, as its expiry, a break-free or a dispel would.
