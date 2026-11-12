@@ -171,6 +171,31 @@ namespace KingmakerWakingRune.Diagnostics
                     unit.Commands.Run(new UnitAttack(victim));
                     return $"PLAYER order: {unit.CharacterName} (dominated) attacks {victim.CharacterName}.";
                 }
+                case "areas":
+                {
+                    // Read only: every live area effect, and for each party member and defender whether its shape holds them
+                    // and whether the fog-of-war line of sight from its centre is blocked (the native inclusion test).
+                    var sb = new StringBuilder("READ area effects:\n");
+                    foreach (AreaEffectEntityData area in Game.Instance.State.AreaEffects)
+                    {
+                        var view = area.View;
+                        Vector3 centre = area.Position;
+                        sb.AppendLine($"  {area.Blueprint.name} {area.UniqueId} view {view != null} shape {view?.Shape != null} ended {area.IsEnded} at ({centre.x / SanctumPlan.MetersPerSquare + SanctumPlan.OriginX:0.0},{SanctumPlan.OriginY - centre.z / SanctumPlan.MetersPerSquare:0.0}) y {centre.y:0.00}");
+                        if (view?.Shape == null)
+                        {
+                            continue;
+                        }
+                        var found = new System.Collections.Generic.List<Kingmaker.EntitySystem.EntityDataBase>();
+                        Bounds bounds = view.Shape.GetBounds();
+                        Game.Instance.CurrentScene.Area.InteractiveObjectGrid.GetInBounds(bounds, found);
+                        sb.AppendLine($"    grid search in bounds {bounds.center} size {bounds.size}: {found.Count} entities [{string.Join(", ", found.OfType<UnitEntityData>().Select(u => u.CharacterName).ToArray())}]");
+                        foreach (UnitEntityData u in Game.Instance.State.Units.Where(u => u.IsInGame && (u.IsPlayerFaction || KingmakerWakingRune.Sanctum.Lashmistress.LashmistressEncounter.IsDefender(u))))
+                        {
+                            sb.AppendLine($"    {u.CharacterName}: in shape {view.Shape.Contains(u.Position, u.View.Corpulence)}, sight blocked {Kingmaker.Visual.FogOfWar.LineOfSightGeometry.Instance.HasObstacle(view.transform.position, u.Position)}, {Vector3.Distance(centre, u.Position):0.0} m, unit y {u.Position.y:0.00}");
+                        }
+                    }
+                    return sb.ToString();
+                }
                 case "ai":
                     // PLAYER-equivalent: the per-character AI toggle on the portrait, a player setting.
                     Member(args[1]).IsAIEnabled = args[2] == "on";

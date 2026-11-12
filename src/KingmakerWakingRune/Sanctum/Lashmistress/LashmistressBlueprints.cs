@@ -250,6 +250,9 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             var darknessArea = Create<BlueprintAbilityAreaEffect>("KWR_A4DarknessArea");
             darknessArea.Shape = AreaEffectShape.Cylinder;
             darknessArea.Size = 20.Feet();
+            // An area made in code has no effect link; the game loads one when the area appears, and a missing link threw
+            // there, so before 0.7.16 the darkness never appeared at all. An empty link has no visual and loads nothing.
+            darknessArea.Fx = new PrefabLink();
             darknessArea.AffectEnemies = true;
             darknessArea.AggroEnemies = false;
             var inside = Component<AbilityAreaEffectBuff>("KWR_A4DarknessInside");
@@ -330,6 +333,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             var circleArea = Create<BlueprintAbilityAreaEffect>("KWR_A4MagicCircleArea");
             circleArea.Shape = AreaEffectShape.Cylinder;
             circleArea.Size = 10.Feet();
+            circleArea.Fx = new PrefabLink();
             circleArea.AffectEnemies = false;
             circleArea.AggroEnemies = false;
             var warded = Component<AbilityAreaEffectBuff>("KWR_A4MagicCircleInside");
