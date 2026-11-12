@@ -37,7 +37,7 @@
   - 994: a kept legacy save.
 
 ## Next exact action
-Owner review of the WR-07A draft PR. If it is accepted, the next milestone is Krune's combat encounter (WR-07B):
+Owner review of draft PR #7 (WR-07A). If it is accepted, the next milestone is Krune's combat encounter (WR-07B):
 - his spells and slots;
 - the artifacts' powers;
 - the summons' mist resistance;
