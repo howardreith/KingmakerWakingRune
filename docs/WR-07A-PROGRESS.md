@@ -23,3 +23,21 @@ Durable notes for Krune's awakening, newest last. Results and labels are in `ACC
 - `KruneRules.cs`, `KruneManifest.cs`: pure, linked into the tests.
 - `KruneBlueprints.cs`, `KruneComponents.cs`, `KruneDialog.cs`, `KruneAwakening.cs`: the native layer.
 - State version 6 adds `SanctumState.Krune`.
+
+## 3. Native qualification (run `wr07a-b1`, builds 0.8.0–0.8.7)
+
+Each build was committed and packaged before it was tested; what each test found is in `ACCEPTANCE-WR-07A.md`. In short:
+- 0.8.0: the blueprint did not build.
+- 0.8.1: out-of-game units are invisible to the game's enumeration; a mist save showed for the immune Krune; dimensional steps duplicated a native resource.
+- 0.8.4: the calibration was lost when a save made at ActorReady was reloaded after a restart.
+- 0.8.5: the turn-based stagger expired before his first turn.
+- 0.8.6: a legacy adoption skipped the revival study.
+
+Practical notes for the next milestone:
+- **The game's own log** is recreated at each launch. Run `KwrRuntime.ps1 Collect` before every Close.
+- **Clicks that do nothing:** the checkpoint box (and any message box) swallows the space key, so dismiss it first. A click on a highlighted trap orders a disarm. A click into unexplored black gives no move.
+- **This party cannot break the emerald legally:** hardness 20, immune to critical hits and precision damage. Use `hitgem` (INJECTED) after a real dialogue attack.
+- **Long work** (an impression, chipping out the flail) is refused once awakening is due. Open A2 before waking him.
+- **Melee on the A2 leaf** sets off the feeder on the attacker every time. A test that breaks the door drains its fighter.
+- **Ilsa is the main character:** her death ends the game. Keep her out of A4 fights.
+- **Turn-based mode** is a saved setting that survives a relaunch until the transaction's End restores the registry. Check `paused` and `turn` before toggling.

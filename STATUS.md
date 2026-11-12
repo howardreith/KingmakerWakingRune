@@ -1,6 +1,55 @@
 # Status: The Waking Rune
 
-**Milestone:** WR-06, the Lashmistress encounter in A4. The third pass (the owner's closeout review) is ready for owner review. The review closed the four original findings, and Phase A (WR-05 closeout, 0.6.16) was accepted.
+**Milestone:** WR-07A, Krune's awakening. The candidate is ready for owner review. It ends at a labelled development checkpoint before Krune's combat encounter, which is the next milestone.
+
+## WR-07A: candidate 0.8.7
+- **Candidate:**
+  - commit `39cee28` on `feature/wr-07a-awakening` (from `main` at `56b9e40`);
+  - DLL `b24a9de70ad553e3cd84d39ac77c70312aac8b6e546cbd8f4b3c7664da8260b7`;
+  - zip `artifacts\KingmakerWakingRune-0.8.7.zip`, `477a113f1adca40f495599e3ba4c51e1a83269ed183a4e8beafa847b55cfdb61`;
+  - 212 unit tests pass (198 before, with the 128 rune-mask expectations, plus 14 new).
+- **Installed:** 0.8.7. **Backed up:** 0.7.22, at `runtime-backups\wr07a-b1\mod-existing`. Transaction `wr07a-b1` restored and verified.
+- **The ordinary route:** A1 → A2 (palm impression) → A3 → east door → A4, by real input. The WR-06 teleport was needed only because A2 was latched in seed 976.
+- **What it does:**
+  - **One real Krune:** a native conjurer 17, his printed sheet exact before the preset. His identity is committed in the save; the hidden receiver is retired and its feeder ledger is handed over.
+  - **His entrance:** emergence by the game's own dimensional steps onto clear A5 floor.
+  - **His opening:** a parley in the native dialogue, a battle bark, or an unobserved waking. He is hostile on every path.
+  - **The checkpoint:** a labelled development checkpoint that pauses everything.
+  - **The runes:** the revival's caster-level loss comes from the commit's mask for 24 hours; the rune links stay live.
+  - **Early release:** the emerald releases him with a one-round stagger that works in both combat modes.
+  - **Older saves:** one-time choice.
+- **Results:** `docs/ACCEPTANCE-WR-07A.md` (A–L and the rest). The design and contract are in `docs/WR-07A-AWAKENING.md`, the progress notes in `docs/WR-07A-PROGRESS.md`, and the ledger section in `docs/WR-04-LEDGER.md`.
+- **Not shown in play:**
+  - a battle-bark opening during a live A4 fight;
+  - hostility from a cast before the dialogue;
+  - a native dispel landing on his Mage Armor;
+  - a late emerald hit;
+  - the checkpoint arriving in turn-based play;
+  - the broken emerald checked by eye.
+- **New harness commands:**
+  - **READ:** `krune`, `krunesheet`, `krunecl`, `manifest`;
+  - **SETUP:** `krunedeadline`, `krunepause`;
+  - **INJECTED:** `setmask`, `hitgem`, `krunerelease`; target `krune`.
+- **New seeds** (in `runtime-evidence\wr07a-b1\saves`):
+  - 986–988, 991 and 993: checkpoints and a dead Krune;
+  - 989–990: saved at ActorReady;
+  - 992: the feeder spent;
+  - 994: a kept legacy save.
+
+## Next exact action
+Owner review of the WR-07A draft PR. If it is accepted, the next milestone is Krune's combat encounter (WR-07B):
+- his spells and slots;
+- the artifacts' powers;
+- the summons' mist resistance;
+- his tactics;
+- the removal of the checkpoint.
+
+The sections below are earlier milestones, kept for history.
+
+
+# WR-06 (history)
+
+**Milestone (then):** WR-06, the Lashmistress encounter in A4, since merged as PR #6. Its third pass was the owner's closeout review. The review closed the four original findings, and Phase A (WR-05 closeout, 0.6.16) was accepted.
 
 ## Third pass (0.7.20–0.7.22): candidate 0.7.22
 - **Candidate:**
