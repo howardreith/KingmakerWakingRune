@@ -86,7 +86,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         {
             AbilityData potion = Potion(context.Unit);
             LashmistressEncounter.Note($"{context.Unit.CharacterName}'s own brain drinks {potion?.Blueprint.name} (its potion).");
-            return Kingmaker.UnitLogic.Commands.UnitUseAbility.CreateCastCommand(potion, context.Unit);
+            return new KwrPotionDrink(potion, context.Unit);
         }
 
         public override Kingmaker.Controllers.Brain.Blueprints.TargetType GetTargetType(DecisionContext context)
@@ -102,6 +102,33 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         public override float GetRadius(DecisionContext context)
         {
             return 0f;
+        }
+    }
+
+    /// <summary>
+    /// The drink its brain chose. A potion is a move action, and the native brain replaces any of its commands that has not yet
+    /// started every few tenths of a second; a drink waiting for its move action was replaced before it could ever start. This
+    /// one may be replaced only after waiting a full round without starting, as the native rule then applies.
+    /// </summary>
+    public sealed class KwrPotionDrink : Kingmaker.UnitLogic.Commands.UnitUseAbility
+    {
+        private readonly TimeSpan m_Created = Kingmaker.Game.Instance.TimeController.GameTime;
+
+        public KwrPotionDrink(AbilityData spell, Kingmaker.Utility.TargetWrapper target)
+            : base(spell, target)
+        {
+        }
+
+        public override bool AiCanInterrupt
+        {
+            get
+            {
+                if (!IsStarted && Kingmaker.Game.Instance.TimeController.GameTime - m_Created < TimeSpan.FromSeconds(6d))
+                {
+                    return false;
+                }
+                return base.AiCanInterrupt;
+            }
         }
     }
 

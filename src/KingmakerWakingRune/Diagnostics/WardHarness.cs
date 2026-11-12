@@ -171,6 +171,10 @@ namespace KingmakerWakingRune.Diagnostics
                     unit.Commands.Run(new UnitAttack(victim));
                     return $"PLAYER order: {unit.CharacterName} (dominated) attacks {victim.CharacterName}.";
                 }
+                case "ai":
+                    // PLAYER-equivalent: the per-character AI toggle on the portrait, a player setting.
+                    Member(args[1]).IsAIEnabled = args[2] == "on";
+                    return $"PLAYER setting: {Member(args[1]).CharacterName} AI {(Member(args[1]).IsAIEnabled ? "on" : "off")}.";
                 case "unbuff":
                 {
                     // INJECTED: one native buff removed from any unit, as its expiry, a break-free or a dispel would.
