@@ -391,6 +391,22 @@ namespace KingmakerWakingRune.Diagnostics
                     return KingmakerWakingRune.Sanctum.Krune.KruneAwakening.ReleaseForDiagnostics();
                 case "krunedeadline":
                     return KruneDeadline(double.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture));
+                case "hitgem":
+                {
+                    // INJECTED: one physical hit of a fixed amount from a party member on the emerald, through the native damage
+                    // rule and the production object pipeline (hardness 20, then its 40 hit points). For a party that cannot
+                    // otherwise beat the gem's hardness; the awakening that follows is the production path.
+                    UnitEntityData by = Member(args[1]);
+                    UnitEntityData gem = WardFixtures.Gem;
+                    if (gem == null)
+                    {
+                        return "no emerald";
+                    }
+                    var blow = new Kingmaker.RuleSystem.Rules.Damage.PhysicalDamage(new Kingmaker.RuleSystem.DiceFormula(0, Kingmaker.RuleSystem.DiceType.Zero), Kingmaker.Enums.Damage.PhysicalDamageForm.Bludgeoning);
+                    blow.AddBonus(int.Parse(args[2]));
+                    Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.Damage.RuleDealDamage(by, gem, new Kingmaker.RuleSystem.Rules.Damage.DamageBundle(blow)));
+                    return $"INJECTED {args[2]} bludgeoning from {by.CharacterName} on the emerald: {WardRuntime.State.Gem.HitPoints}/{WardProfile.GemHitPoints} left, destroyed {WardRuntime.State.Gem.Destroyed}; awakening due {WardRuntime.State.Ritual.AwakeningDue} ({WardRuntime.State.Ritual.Reason}), stagger {WardRuntime.State.Ritual.AwakeningOpeningStagger}.";
+                }
                 case "krunepause":
                     // SETUP: the game pauses the moment the awakening reaches this stage, for a save there.
                     KingmakerWakingRune.Sanctum.Krune.KruneAwakening.HarnessPauseAt = (KingmakerWakingRune.Sanctum.Krune.AwakeningStage)Enum.Parse(typeof(KingmakerWakingRune.Sanctum.Krune.AwakeningStage), args[1]);
