@@ -197,3 +197,20 @@ Rows above that this round changes are restated here. Everything else carries fo
 | Item | Status | Evidence | Notes |
 |---|---|---|---|
 | A slam right after restoration, before the recovery check, keeps its drain | Proven (with injection: fixed drains and the `armslam` ordering fixture; native Restoration scrolls by player input) | 0.6.16, cases A–C, across a full restart | Defect in 0.6.15 found by owner review. Unit tests added. |
+
+## WR-06 (A4, The Lashmistress), 0.7.0–0.7.10, run `wr06-recon`
+
+| Item | Status | Evidence | Notes |
+|---|---|---|---|
+| Four real A4 defenders, advanced template on three | Proven (native play) | 0.7.10 sheets | Vandiana cleric 3 / wizard 4 / mystic theurge 5 with two native books, full printed lists. |
+| Support Vandiana retired; one canonical Vandiana | Proven | 0.7.2+ | Glyph context and hound tether follow her. |
+| Door heard: real potion and naga Invisibility ×2 | Proven (player door click) | 0.7.6 | No clock. |
+| Warning prepares Darkvision once | Proven (upgrade path) | 0.7.6 | Messenger not run. |
+| Engagement commits one 1d6+6; no reroll on reload | Proven | 0.7.7–0.7.10 | The glyph no longer commits (0.7.7 fix). |
+| Awakening due during A4 fires once; A4 continues | Proven | 0.7.10 | Krune (A5) is next. |
+| Legitimate victory | Proven (party AI; setup placement) | 0.7.10 | Three of six party members fell. |
+| Persistence through full restarts | Proven | 976–978 | Live mid-combat save not run. |
+| Stock isolation | Proven | 0.7.10 | |
+| Turn-based | Partial | 0.7.10 | Defenders act; party AI does not act in turn-based mode. |
+| Undetected scout, Darkness concealment, Blur/hide in combat, sting save, dispel, fresh pre-departure path | Not shown in surviving evidence | | See `ACCEPTANCE-WR-06.md`. |
+| Deferred abilities | Not implemented | | Listed in `WR-06-LASHMISTRESS.md`. |
