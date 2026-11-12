@@ -668,7 +668,9 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 OriginalFaction = unit.Descriptor.Faction == unit.Blueprint.Faction,
                 EncounterGroup = unit.GroupId == GroupId,
                 PlayerFaction = unit.IsPlayerFaction,
-                Confused = s.HasCondition(UnitCondition.Confusion) || unit.Get<UnitPartConfusion>() != null,
+                // The condition, not the native confusion part: the game leaves that part on a unit after its confusion has
+                // ended out of combat (0.7.20: Agarik stayed "confused" with no Confusion buff left).
+                Confused = s.HasCondition(UnitCondition.Confusion),
                 Frightened = s.HasCondition(UnitCondition.Frightened) || s.HasCondition(UnitCondition.Cowering) || s.IsPanicked,
             };
         }
