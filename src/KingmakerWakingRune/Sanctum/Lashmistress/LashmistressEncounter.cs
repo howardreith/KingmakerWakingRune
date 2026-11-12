@@ -1109,8 +1109,9 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 {
                     continue;
                 }
-                if (unit.Commands.Raw.Any(c => c != null && c.AiAction == null && !c.IsFinished))
+                if (unit.Commands.Raw.Any(c => c != null && !c.IsFinished && (c.AiAction == null || c is KwrPotionDrink)))
                 {
+                    // Never over a command it did not give, nor over the drink its own brain chose (both are move actions).
                     continue;
                 }
                 List<UnitEntityData> foes = Foes(unit).ToList();

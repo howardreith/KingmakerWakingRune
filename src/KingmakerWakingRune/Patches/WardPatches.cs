@@ -73,6 +73,29 @@ namespace KingmakerWakingRune.Patches
     }
 
     /// <summary>
+    /// A potion is drunk by its holder on itself. The game's own target check refuses a spell whose blueprint cannot target
+    /// allies (Blur) on any creature outside the player's faction, the drinker included, so a Blackstrike could never drink
+    /// the Blur potion it carries. Only an A4 defender's own potion, on itself, is let through; everything else is native.
+    /// </summary>
+    [HarmonyPatch(typeof(Kingmaker.UnitLogic.Abilities.AbilityData), nameof(Kingmaker.UnitLogic.Abilities.AbilityData.CanTarget))]
+    internal static class DefenderOwnPotionPatch
+    {
+        private static void Postfix(Kingmaker.UnitLogic.Abilities.AbilityData __instance, TargetWrapper target, ref bool __result)
+        {
+            if (__result || target?.Unit == null || __instance.Caster?.Unit != target.Unit)
+            {
+                return;
+            }
+            var usable = __instance.SourceItemUsableBlueprint;
+            if (usable != null && usable.Type == Kingmaker.Blueprints.Items.Equipment.UsableItemType.Potion && !__instance.PotionForOther && Sanctum.Lashmistress.LashmistressEncounter.IsDefender(target.Unit)
+                && !target.Unit.Descriptor.State.IsDead)
+            {
+                __result = true;
+            }
+        }
+    }
+
+    /// <summary>
     /// Disruptive (the Blackstrikes): a foe casting defensively while one of them threatens it faces a DC 4 higher, on the
     /// game's own defensive-casting check.
     /// </summary>
