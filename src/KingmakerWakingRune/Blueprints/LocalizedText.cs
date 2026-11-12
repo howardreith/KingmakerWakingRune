@@ -19,8 +19,9 @@ namespace KingmakerWakingRune.Blueprints
                 StoryDescription,
                 "Pathfinder Society Scenario #4–26: The Waking Rune.\n\n" +
                 "Create a new character, receive your briefing in Venture-Captain Sheila Heidmarch's study at the " +
-                "Magnimar Lodge, then build a level 11 party and equip it from the Society's stores. The adventure " +
-                "does not leave the lodge yet."
+                "Magnimar Lodge, then build a level 11 party and equip it from the Society's stores. When you are " +
+                "ready, a Refuge Token carries the party into Runelord Krune's sanctum, where Kurshu the Undying keeps " +
+                "watch. The runelord's own chamber is not yet playable."
             },
             { AreaName, "Magnimar Lodge — Sheila's Study" },
             { SheilaName, "Sheila Heidmarch" },

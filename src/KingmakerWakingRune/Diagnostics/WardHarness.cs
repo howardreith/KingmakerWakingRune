@@ -21,6 +21,49 @@ namespace KingmakerWakingRune.Diagnostics
     /// Labelled test setup for the running game, reachable only through <see cref="HarnessProbe"/> and absent from a normal
     /// install. A command can position, grant or advance; every effect it provokes still resolves through native rules.
     /// </summary>
+    /// <summary>
+    /// INJECTED ordering fixture: armed on one member, it waits for the native rule by which restoration heals that member's
+    /// Intelligence, and in the same rule call delivers her slam's drain for a fixed amount through the production drain path,
+    /// so no periodic recovery check can run in between. Fires once, then disarms.
+    /// </summary>
+    internal sealed class SlamAfterRestoration : Kingmaker.PubSubSystem.IGlobalRulebookHandler<Kingmaker.RuleSystem.Rules.RuleHealStatDamage>
+    {
+        private static SlamAfterRestoration s_Armed;
+        private UnitEntityData m_Target;
+        private int m_Points;
+        private bool m_Fired;
+
+        public static string Arm(UnitEntityData target, int points)
+        {
+            if (s_Armed != null)
+            {
+                Kingmaker.PubSubSystem.EventBus.Unsubscribe(s_Armed);
+            }
+            s_Armed = new SlamAfterRestoration { m_Target = target, m_Points = points };
+            Kingmaker.PubSubSystem.EventBus.Subscribe(s_Armed);
+            return $"INJECTED armed: the next native Intelligence heal on {target.CharacterName} is followed at once by a {points}-point slam drain.";
+        }
+
+        public void OnEventAboutToTrigger(Kingmaker.RuleSystem.Rules.RuleHealStatDamage evt)
+        {
+        }
+
+        public void OnEventDidTrigger(Kingmaker.RuleSystem.Rules.RuleHealStatDamage evt)
+        {
+            if (m_Fired || evt.Target != m_Target || evt.StatType != Kingmaker.EntitySystem.Stats.StatType.Intelligence || evt.HealedDrain <= 0)
+            {
+                return;
+            }
+            // Not unsubscribed here, inside the bus's own dispatch; the next Arm unsubscribes it.
+            m_Fired = true;
+            var stat = m_Target.Stats.Intelligence;
+            KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Note($"INJECTED ordering fixture: native heal on {m_Target.CharacterName} (all {evt.HealAll}, drain healed {evt.HealedDrain}); before the slam: Intelligence {stat.ModifiedValue}, drain {stat.Drain}, comatose {m_Target.Buffs.GetBuff(KingmakerWakingRune.Sanctum.Encounter.KurshuBlueprints.MindDrained) != null}.");
+            UnitEntityData kurshu = KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu ?? evt.Initiator;
+            KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.DrainIntelligence(kurshu, m_Target, new Kingmaker.RuleSystem.DiceFormula(m_Points, Kingmaker.RuleSystem.DiceType.One), "INJECTED slam right after restoration on");
+            KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Note($"INJECTED ordering fixture result: {m_Target.CharacterName} Intelligence {stat.ModifiedValue}, drain {stat.Drain}, comatose {m_Target.Buffs.GetBuff(KingmakerWakingRune.Sanctum.Encounter.KurshuBlueprints.MindDrained) != null}.");
+        }
+    }
+
     internal static class WardHarness
     {
         public static string Run(string commandLine)
@@ -63,8 +106,54 @@ namespace KingmakerWakingRune.Diagnostics
                     return $"INJECTED door credential on {Member(args[1]).CharacterName}: no native Sihedron exists to recognize.";
                 case "sound":
                     return Sound();
-                case "kurshu":
+                case "kurshudefeat":
                     return "INJECTED Kurshu defeat fixture: " + RitualRules.DefeatKurshu(WardRuntime.State.Ritual, WardRuntime.Now);
+                case "kurshu":
+                {
+                    // Read only: the encounter's saved state and her live sheet.
+                    UnitEntityData kurshu = KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu;
+                    return "READ Kurshu state: " + WardStore.Dump(WardRuntime.State?.Kurshu) + "\n" + (kurshu == null ? "no Kurshu entity" : KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Report(kurshu));
+                }
+                case "hurt":
+                    return Hurt(Member(args[1]), args[2], int.Parse(args[3]));
+                case "blueprint":
+                    return DumpBlueprint(args[1]);
+                case "builds":
+                    return Builds();
+                case "grab":
+                {
+                    // INJECTED: a tail hit on this member is supplied; whether she may grab, the roll and the hold are hers.
+                    UnitEntityData kurshu = KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu;
+                    if (kurshu == null)
+                    {
+                        return "no Kurshu entity";
+                    }
+                    KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.TryGrab(kurshu, Member(args[1]));
+                    return $"INJECTED tail hit on {Member(args[1]).CharacterName}; the grab rule decided (see the log); held now: '{WardRuntime.State?.Kurshu.HeldName}'.";
+                }
+                case "drain":
+                {
+                    // INJECTED: her slam's drain, for a fixed amount, on this member; the native rule and the comatose policy apply.
+                    UnitEntityData kurshu = KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu;
+                    UnitEntityData member = Member(args[1]);
+                    if (kurshu == null)
+                    {
+                        return "no Kurshu entity";
+                    }
+                    KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.DrainIntelligence(kurshu, member, new Kingmaker.RuleSystem.DiceFormula(int.Parse(args[2]), Kingmaker.RuleSystem.DiceType.One), "INJECTED drain fixture on");
+                    var coma = member.Buffs.GetBuff(KingmakerWakingRune.Sanctum.Encounter.KurshuBlueprints.MindDrained)?.SelectComponents<KingmakerWakingRune.Sanctum.Encounter.KwrMindDrained>().FirstOrDefault();
+                    return $"INJECTED drain {args[2]} on {member.CharacterName}: Intelligence {member.Stats.Intelligence.ModifiedValue} (raw {member.Stats.Intelligence.ModifiedValueRaw}, drain {member.Stats.Intelligence.Drain}), life {member.Descriptor.State.LifeState}, helpless {member.Descriptor.State.IsHelpless}, comatose {coma != null}{(coma == null ? string.Empty : $" (held back {coma.Pending}, visible drain when held back {coma.DrainWhenHeldBack})")}.";
+                }
+                case "armslam":
+                    return SlamAfterRestoration.Arm(Member(args[1]), int.Parse(args[2]));
+                case "kurshufixture":
+                    return KurshuFixture(int.Parse(args[1]), args.Skip(2).ToArray());
+                case "combatsave":
+                    return CombatSave(args[1]);
+                case "paused":
+                    return $"READ paused={Game.Instance.IsPaused} mode={Game.Instance.CurrentMode} turnBased={TurnBased.Controllers.CombatController.IsInTurnBasedCombat()} time={WardRuntime.Now:0.0}";
+                case "corpse":
+                    return Corpse(args[1], args.Length > 2 ? float.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture) : 3f);
                 case "items":
                     return Items();
                 case "hitdoor":
@@ -90,6 +179,20 @@ namespace KingmakerWakingRune.Diagnostics
                     return Stock();
                 case "slots":
                     return Slots(Member(args[1]));
+                case "known":
+                {
+                    // Read only: every spell each spellbook knows, by level.
+                    UnitEntityData member = Member(args[1]);
+                    var sb = new StringBuilder($"READ known spells of {member.CharacterName}:\n");
+                    foreach (Spellbook book in member.Descriptor.Spellbooks)
+                    {
+                        for (int level = 0; level <= book.MaxSpellLevel; level++)
+                        {
+                            sb.AppendLine($"  {book.Blueprint.name} L{level}: {string.Join(", ", book.GetKnownSpells(level).Select(s => s.Blueprint.name).ToArray())}");
+                        }
+                    }
+                    return sb.ToString();
+                }
                 case "cursor":
                     return Cursor();
                 case "spell":
@@ -155,6 +258,180 @@ namespace KingmakerWakingRune.Diagnostics
             Vector3 at = lead.Position + lead.OrientationDirection * meters;
             UnitEntityData foe = Game.Instance.EntityCreator.SpawnUnit(blueprint, at, Quaternion.identity, Game.Instance.State.LoadedAreaState.MainState);
             return $"SETUP spawned hostile {foe.CharacterName} ({blueprint.name}) {meters} m ahead of {lead.CharacterName} in {Game.Instance.CurrentlyLoadedArea?.name}.";
+        }
+
+        /// <summary>
+        /// INJECTED Feed fixture: a stock creature placed a few meters in front of Kurshu and killed at once, so a real corpse of
+        /// a known kind lies within her reach. "deva" (12 HD outsider) and "axiomite" are eligible; "hellhound" (too few Hit Dice)
+        /// and "wolf" (not an outsider) are the controls. What she does with it is her own choice and native rules.
+        /// </summary>
+        private static string Corpse(string kind, float meters)
+        {
+            string guid;
+            switch (kind)
+            {
+                case "deva": guid = "6af99c59cc046dc42be46ab1ebbf38d5"; break;
+                case "axiomite": guid = "a97cc6e80fe9a454db9c0fb519fa4087"; break;
+                case "hellhound": guid = "9c72fff76fc033640b747145c7456be6"; break;
+                case "wolf": guid = "ea610d9e540af4243b1310a3e6833d9f"; break;
+                default: return $"unknown corpse kind {kind}";
+            }
+            UnitEntityData kurshu = KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu;
+            if (kurshu == null)
+            {
+                return "no Kurshu entity";
+            }
+            Vector3 at = Kingmaker.View.ObstacleAnalyzer.GetNearestNode(kurshu.Position + kurshu.OrientationDirection * meters).clampedPosition;
+            UnitEntityData body = Game.Instance.EntityCreator.SpawnUnit(ResourcesLibrary.TryGetBlueprint<BlueprintUnit>(guid), at, Quaternion.identity, Game.Instance.State.LoadedAreaState.MainState);
+            body.Descriptor.State.MarkedForDeath = true;
+            var facts = KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Facts(body);
+            return $"INJECTED corpse fixture {kind}: {body.CharacterName} {body.UniqueId} at ({at.x:0.0},{at.z:0.0}), {kurshu.DistanceTo(body):0.0} m from Kurshu; outsider {facts.Outsider}, HD {facts.HitDice}, summoned {facts.Summoned}; killed by the harness.";
+        }
+
+        /// <summary>
+        /// INJECTED damage to Kurshu: one native damage rule of the named kind (acid, fire, cold, physical, magic for a +1
+        /// slashing hit, coldironmagic for a +1 cold iron hit), from a party member. Her DR, resistances and regeneration
+        /// apply exactly as they would to a real hit; only the hit itself is supplied.
+        /// </summary>
+        private static string Hurt(UnitEntityData source, string kind, int amount)
+        {
+            UnitEntityData kurshu = KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu;
+            if (kurshu == null)
+            {
+                return "no Kurshu entity";
+            }
+            Kingmaker.RuleSystem.Rules.Damage.BaseDamage damage;
+            var dice = new Kingmaker.RuleSystem.DiceFormula(amount, Kingmaker.RuleSystem.DiceType.One);
+            switch (kind)
+            {
+                case "acid": damage = new Kingmaker.RuleSystem.Rules.Damage.EnergyDamage(dice, Kingmaker.Enums.Damage.DamageEnergyType.Acid); break;
+                case "fire": damage = new Kingmaker.RuleSystem.Rules.Damage.EnergyDamage(dice, Kingmaker.Enums.Damage.DamageEnergyType.Fire); break;
+                case "cold": damage = new Kingmaker.RuleSystem.Rules.Damage.EnergyDamage(dice, Kingmaker.Enums.Damage.DamageEnergyType.Cold); break;
+                default:
+                {
+                    var physical = new Kingmaker.RuleSystem.Rules.Damage.PhysicalDamage(dice, Kingmaker.Enums.Damage.PhysicalDamageForm.Slashing);
+                    if (kind == "magic" || kind == "coldironmagic")
+                    {
+                        physical.Enchantment = 1;
+                        physical.EnchantmentTotal = 1;
+                    }
+                    if (kind == "coldironmagic")
+                    {
+                        physical.AddMaterial(Kingmaker.Enums.Damage.PhysicalDamageMaterial.ColdIron);
+                    }
+                    damage = physical;
+                    break;
+                }
+            }
+            int before = kurshu.Descriptor.HPLeft;
+            var rule = Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.Damage.RuleDealDamage(source, kurshu, new Kingmaker.RuleSystem.Rules.Damage.DamageBundle(damage)));
+            return $"INJECTED {kind} {amount} from {source.CharacterName}: dealt {rule.Damage}; hp {before} -> {kurshu.Descriptor.HPLeft}/{kurshu.Descriptor.MaxHP}; life {kurshu.Descriptor.State.LifeState}.";
+        }
+
+        /// <summary>
+        /// INJECTED live-state fixture, for the save the game refuses during combat: hit point damage written straight onto
+        /// her (no rule, so no combat starts) and uses spent on both the native resource and the ledger, so a living, damaged
+        /// Kurshu can be saved outside combat and its persistence checked after a restart.
+        /// </summary>
+        private static string KurshuFixture(int damage, string[] uses)
+        {
+            UnitEntityData kurshu = KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu;
+            SanctumState state = WardRuntime.State;
+            if (kurshu == null || state == null)
+            {
+                return "no Kurshu entity";
+            }
+            kurshu.Descriptor.Damage += damage;
+            var spent = new StringBuilder();
+            foreach (string use in uses)
+            {
+                if (KingmakerWakingRune.Sanctum.Encounter.KurshuRules.Spend(state.Kurshu, use))
+                {
+                    kurshu.Descriptor.Resources.Spend(KingmakerWakingRune.Sanctum.Encounter.KurshuBlueprints.Resources[use], 1);
+                    spent.Append($" {use}->{KingmakerWakingRune.Sanctum.Encounter.KurshuRules.Remaining(state.Kurshu, use)}");
+                }
+            }
+            return $"INJECTED live-state fixture: {damage} damage written to her hit points ({kurshu.Descriptor.HPLeft}/{kurshu.Descriptor.MaxHP}), uses spent:{spent}; in combat {Game.Instance.Player.IsInCombat}.";
+        }
+
+        /// <summary>
+        /// INJECTED combat pause for a save: the game refuses every save while anyone is in combat, so every unit leaves combat
+        /// in this one frame and the save is requested at once. Her hit points and spent uses are whatever the real fight left;
+        /// a load re-binds her and native awareness starts the fight again.
+        /// </summary>
+        private static string CombatSave(string name)
+        {
+            int left = 0;
+            foreach (UnitEntityData unit in Game.Instance.State.Units.Where(u => u.CombatState.IsInCombat).ToList())
+            {
+                unit.CombatState.LeaveCombat();
+                left++;
+            }
+            Game.Instance.Player.UpdateIsInCombat();
+            if (!Game.Instance.SaveManager.IsSaveAllowed())
+            {
+                return $"INJECTED combat pause: {left} unit(s) left combat, but the game still refuses to save (in combat {Game.Instance.Player.IsInCombat}).";
+            }
+            var save = Game.Instance.SaveManager.CreateNewSave("KWR_AUTOMATION_" + name);
+            Game.Instance.SaveGame(save);
+            return $"INJECTED combat pause: {left} unit(s) left combat for one frame; SETUP save requested: '{save.Name}'.";
+        }
+
+        /// <summary>Read only: each member's classes, equipment and defenses, then the party's money and shared inventory.</summary>
+        private static string Builds()
+        {
+            var sb = new StringBuilder("READ party builds\n");
+            foreach (UnitEntityData u in Game.Instance.Player.Party)
+            {
+                UnitDescriptor d = u.Descriptor;
+                string classes = string.Join(" ", d.Progression.Classes.Select(c => c.CharacterClass.name.Replace("Class", string.Empty) + c.Level).ToArray());
+                var weapons = new[] { d.Body.PrimaryHand.MaybeWeapon, d.Body.SecondaryHand.MaybeWeapon }.Where(w => w != null)
+                    .Select(w => $"{w.Blueprint.name}(+{w.EnchantmentValue} {string.Join("/", w.Enchantments.Select(e => e.Blueprint.name).ToArray())})");
+                string worn = string.Join(", ", d.Body.AllSlots.Where(s => s.HasItem && !(s.Item is Kingmaker.Items.ItemEntityWeapon)).Select(s => s.Item.Blueprint.name).ToArray());
+                sb.AppendLine($"{u.CharacterName}: {classes}; BAB {d.Stats.BaseAttackBonus.ModifiedValue} AC {d.Stats.AC.ModifiedValue} hp {d.HPLeft}/{d.MaxHP} Fort {d.Stats.SaveFortitude.ModifiedValue} Ref {d.Stats.SaveReflex.ModifiedValue} Will {d.Stats.SaveWill.ModifiedValue} Str {d.Stats.Strength.ModifiedValue} Dex {d.Stats.Dexterity.ModifiedValue} Int {d.Stats.Intelligence.ModifiedValue} Wis {d.Stats.Wisdom.ModifiedValue} Cha {d.Stats.Charisma.ModifiedValue}");
+                sb.AppendLine($"  weapons: {string.Join("; ", weapons.ToArray())}");
+                sb.AppendLine($"  worn: {worn}");
+                sb.AppendLine($"  books: {string.Join("; ", d.Spellbooks.Select(b => $"{b.Blueprint.name} CL{b.CasterLevel} max L{b.MaxSpellLevel}").ToArray())}");
+                sb.AppendLine($"  feats: {string.Join(", ", d.Progression.Features.Enumerable.Where(f => f.Blueprint.Groups.Contains(Kingmaker.Blueprints.Classes.FeatureGroup.Feat) || f.Blueprint.Groups.Contains(Kingmaker.Blueprints.Classes.FeatureGroup.CombatFeat)).Select(f => f.Blueprint.name).ToArray())}");
+            }
+            sb.AppendLine($"money {Game.Instance.Player.Money}");
+            sb.AppendLine("inventory: " + string.Join(", ", Game.Instance.Player.Inventory.Where(i => i.Wielder == null).GroupBy(i => i.Blueprint.name).Select(g => $"{g.Key}x{g.Sum(i => i.Count)}").ToArray()));
+            return sb.ToString();
+        }
+
+        /// <summary>Read only: a blueprint by name, with its components and their public fields, to check a native implementation.</summary>
+        private static string DumpBlueprint(string name)
+        {
+            BlueprintScriptableObject found = ResourcesLibrary.LibraryObject.GetAllBlueprints().FirstOrDefault(b => b != null && b.name == name);
+            if (found == null)
+            {
+                return $"no blueprint named {name}";
+            }
+            var sb = new StringBuilder($"READ blueprint {found.name} ({found.GetType().Name}, {found.AssetGuid})\n");
+            sb.AppendLine("  " + Fields(found));
+            foreach (BlueprintComponent component in found.ComponentsArray ?? new BlueprintComponent[0])
+            {
+                sb.AppendLine($"  [{component?.GetType().Name}] {(component == null ? string.Empty : Fields(component))}");
+            }
+            return sb.ToString();
+        }
+
+        private static string Fields(object o)
+        {
+            return string.Join("; ", o.GetType().GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public)
+                .Where(f => f.DeclaringType != typeof(UnityEngine.Object) && f.Name != "ComponentsArray")
+                .Select(f =>
+                {
+                    object value = f.GetValue(o);
+                    if (value is Kingmaker.Blueprints.Classes.Spells.SpellDescriptorWrapper wrapper)
+                    {
+                        value = wrapper.Value;
+                    }
+                    string text = value is System.Collections.IEnumerable list && !(value is string)
+                        ? "[" + string.Join(",", list.Cast<object>().Select(x => (x as UnityEngine.Object)?.name ?? x?.ToString()).ToArray()) + "]"
+                        : (value as UnityEngine.Object)?.name ?? value?.ToString();
+                    return $"{f.Name}={text}";
+                }).ToArray());
         }
 
         private static UnitEntityData Member(string index)
@@ -340,7 +617,7 @@ namespace KingmakerWakingRune.Diagnostics
 
         private static string Resolve(string target, out UnitEntityData unit)
         {
-            unit = target.StartsWith("party:") ? Member(target.Substring(6)) : target.StartsWith("body:") ? BodyOf(target.Substring(5)) : WardFixtures.Find(target);
+            unit = target == "kurshu" ? KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu : target.StartsWith("party:") ? Member(target.Substring(6)) : target.StartsWith("body:") ? BodyOf(target.Substring(5)) : WardFixtures.Find(target);
             return unit == null ? $"no target {target}" : null;
         }
 

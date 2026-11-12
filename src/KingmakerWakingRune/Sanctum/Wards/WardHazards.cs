@@ -101,7 +101,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 return;
             }
-            foreach (UnitEntityData unit in Actors().ToList())
+            // Vandiana cast it around her own guardian: Kurshu, coiled on the apex inside the ward, is excepted.
+            foreach (UnitEntityData unit in Actors().Where(u => u.Descriptor.Get<Encounter.KurshuPart>() == null).ToList())
             {
                 Vector3 p = unit.Position;
                 bool inside = WardGeometry.InAlarmZone(GridX(p), GridY(p), p.y);

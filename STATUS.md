@@ -1,92 +1,92 @@
 # Status: The Waking Rune
 
-**Milestone:** WR-04-R5 corrections, on top of WR-04, R1, R2, R3 and R4. Candidate 0.5.15 is ready for owner review.
+**Milestone:** WR-05, Kurshu the Undying in A1. The review round is done, and the restoration-order closeout is fixed in 0.6.16. Ready for owner review.
 
-**Branch:** `feature/wr-04-sanctum-wards` (draft PR #4). Do not merge, tag or release without owner review.
+**Branch:** `feature/wr-05-kurshu`, a child of `feature/wr-04-sanctum-wards`.
+- PR #4 (WR-04) is still open and unmerged, so the WR-05 draft PR #5 targets the WR-04 branch and shows only WR-05.
+- Do not merge, tag or release without owner review. Merge PR #4 first.
 
 Results:
-- `docs/ACCEPTANCE-WR-04-R5.md`: this cycle.
-- `docs/WR-04-LEDGER.md`: the cumulative ledger of the whole WR-04 scope.
-- `docs/ACCEPTANCE-WR-04-R4.md`, `-R3.md`, `-R2.md`, `-R1.md` and `ACCEPTANCE-WR-04.md`: earlier rows.
-
-Rules, adaptations and migration are in `docs/WR-04-RULES.md`; the progress record is in `docs/WR-04-PROGRESS.md`.
+- `docs/ACCEPTANCE-WR-05.md`: both rounds, PASS / PARTIAL / NOT RUN by check, and the victory.
+- `docs/WR-05-KURSHU.md`: the source-to-runtime sheet, the maneuver chain, the feats, and every adaptation (grapple, Intelligence drain).
+- `docs/WR-05-PROGRESS.md`: checkpoint A and both rounds.
+- `docs/WR-04-LEDGER.md`: the cumulative ledger, with both WR-05 sections.
+- `docs/WR-04-RULES.md`: the departure row, revised for the two-step departure.
 
 ## Candidate
-- Version 0.5.15, commit `0a7407b`. Gameplay code last changed in 0.5.11 (`4fbef87`); 0.5.12 to 0.5.15 changed harness commands only.
-- DLL SHA-256 `462a2ab28ea532a8d5313afd91285b267ff8dfe2d912f36861db14eccb23bced`.
-- Zip `artifacts\KingmakerWakingRune-0.5.15.zip`, SHA-256 `b80c26174ed86aa07bd719f4203e29d0230ca74275744d83cfba917bfb209ec8`. This is the package tested last and now installed. Later commits change documentation only, plus a byte-order mark removed from a harness file; the rebuilt DLL is byte-identical.
-- 151 unit tests pass.
+- Version 0.6.16, commit `b630849`: the reviewed 0.6.15 (`1891bf0`) plus the restoration-order repair.
+- DLL SHA-256 `8bb3a2e72b08be9b744edaf2a304d7a124ea439ea41e5109ad31674459691848`.
+- Zip `artifacts\KingmakerWakingRune-0.6.16.zip`, SHA-256 `8e78d52ceb2aec89bd16a53bd3e7f167faae4b00c8959bb353aeeb3ffc276c20`. Tested in `wr06-a` and now installed; 0.6.15 is backed up at `runtime-backups\wr06-a\mod-existing`.
+- 174 unit tests pass (23 for WR-05).
+- Earlier test builds 0.6.0–0.6.15 have their own versions and zips; none were replaced.
 
-## What changed in R5
-- **Legacy reporters.** A reporter an older build restored as a neutral is migrated before the control test, once, and only when no charm, domination or other faction effect holds it. Its group's cached hostility is rebuilt at the same time (a defect found in the run).
-- **Departure retries.** Readiness is a record of each member when the rest finished. A retry after a failed checkpoint re-rests if anyone joined or left, or if prepared slots, resources or health changed, and the notice says what changed. An unchanged retry departs without a second rest.
-- **Summon orders.**
-  - Saved by summon, summoner and rune identity, checked again on every load, then resumed or removed (with the attack in hand and the manual target).
-  - Ownership is rechecked on every renewal: the summon must not be hostile to its summoner, under a faction effect, or confused or panicked.
-  - Two defects found in the run are fixed. After a reload, a summon's unsaved group id made a valid order look like changed allegiance. And redirecting an attacking summon renewed its own interruption forever, hanging the game.
-- **Blocked turn-based runner.** A move that gets nowhere ends the runner's turn.
-- **Build.** An existing clean package is never replaced unless `-ReplacePackage` is passed with the owner's authorization.
+## What WR-05 adds
+- **Kurshu as a real hostile combat unit.**
+  - Large outsider, drawn with the Erinyes model at Large size.
+  - Native class Hit Dice.
+  - Stats from the printed Subtier 10–11 block with the extra challenge (Weakness and one negative level removed); the player's preset applies on top.
+- **Native defenses:** regeneration 5 (acid), DR 10/cold iron and magic, resistance 30, SR 26, trip immunity.
+- **Feats:** native Combat Casting and Combat Reflexes, and the printed Improved Iron Will reroll.
+- **Attacks:**
+  - Two slams with 1d4 Intelligence drain. Drain to 0 leaves the victim comatose; restoration wakes it.
+  - A tail grab: a real grapple with its costs (maintain or let go each turn, one hold, freedom of movement defeats it), with constrict.
+- **Spell-like abilities** with saved daily uses, including bounded limited wishes, one already spent.
+- **Power Surge, Divine Separation and Feed.**
+- **Tactics:** her tactics run through the native brain, with considerations for her printed priorities, plus a bounded director for feeding, the grapple and a self-only teleport.
+- **Narrative:** the wound speech, the blood message, and the existing 90-minute deadline, started once on her defeat.
+- **Departure:** rest, then prepare in the lodge, then depart by a second use of the token. Spending never forces another rest.
+- **Saves:** version 4. Pre-departure saves get the fight. Saves already inside the sanctum keep their state, with a notice.
 
-## Proven this cycle
-In-world mouse input failed this run, so these are "with setup" (see below):
-- The legacy neutral runner from a real 0.4.9 save became hostile, could be targeted, resumed at leg 3 and reported only on arrival.
-- Departure: a changed preparation re-rested with a notice naming the member; the unchanged retry departed without resting.
-- A summon order at Control, saved at 42/50 and reloaded after a full game restart: it was found valid, resumed, and finished the rune without counting damage twice. Recall after a reload worked. A confused summon was released while the other kept its order. Expiry ended an order. Redirecting no longer hangs.
-- Turn-based Hold Person interception (held in round 1, killed in round 2). An unmarked reporter stopped by the latched A2. A blocked runner ending its turns.
-- The Trickery route (35) and the Use Magic Device route (41).
+## Proven
+Both rounds, in native play unless labelled:
+- ordinary input, the fresh shop, arrival gating, the hidden check, finite spell-like abilities and the pre-spent wish, Power Surge (including a lapse);
+- DR, resistance and SR, regeneration and acid;
+- the grapple, with injected tail hits;
+- comatose drain and restoration, with injected drains;
+- the maneuver chain before and after Feed, and Feed in both modes;
+- a **legitimate victory**, then defeat to A2;
+- reloads after a full restart, dead and alive (the live save through a labelled one-frame combat pause);
+- stock isolation and the legacy notice.
+
+Details and labels are in the acceptance report.
 
 ## Not done or not proven
-- A controlled legacy reporter (it cannot arise in an older save) and a dominated summon.
-- A recruit joining between departure attempts.
-- A fresh new game's shop.
-- The open ledger rows: glyph spell resistance, evasion and dispel; hound checks; Defense's single bludgeoning hit; and the rest in `WR-04-LEDGER.md`.
-- Door audio by ear.
+- **Not implemented, deliberately:** plane shift and the non-combat at-will abilities.
+- **A held creature's escape attempt** is automatic and costs it no action (no grapple interface). This favours the party.
+- **Balance:** two fights, one won with the printed counters and one lost without them, are not a balance study.
+- **Carried forward:** earlier ledger rows that are still open.
 
 ## Owner decisions
-- None blocking.
-- Python 3.15 removal remains yours to authorize (below).
-- In-world mouse input failed this run. If it fails for you as well, that is worth knowing before the next run.
+- **Merge order:** PR #4, then the WR-05 PR.
+- **Python 3.15 removal** remains yours to authorize. None was used.
 
 ## Environment state
-- Candidate 0.5.15 is installed, per the owner's standing preference.
-- The 0.5.5 install it replaced is backed up at `C:\Dev\KingmakerWakingRuneLab\runtime-backups\wr04r5-a\mod-existing` (DLL `56bb6091…`).
-- Earlier installs:
-  - 0.4.9 at `runtime-backups\wr04r4-a\mod-existing`;
-  - 0.4.2 at `wr04r3-a`;
-  - 0.4.1 at `wr04r2-a`;
-  - 0.4.0 at `wr04r1-final`.
-- Transaction `wr04r5-a` was restored and verified:
-  - the profile: 22 differences reverted; added test saves, autosaves and the pre-departure checkpoint quarantined;
-  - the Steam mirror: 6;
-  - the registry key, which restores the turn-based setting the harness switched on;
-  - UMM `Params.xml`.
-- One hung game process (0.5.10) was terminated by `Close`; it was the run's own process only.
-- No owner save was opened.
-
-### Python, installed by accident in R1
-- **Cause.** On 2026-11-10 at 04:14:01 UTC, a `python - <<'EOF'` heredoc reached the Python install manager's `python.exe` alias, which updated itself and installed Python 3.15.2.
-- **Added files:** `%LOCALAPPDATA%\Python\pythoncore-3.15-64`, `%LOCALAPPDATA%\Python\bin` and `%LOCALAPPDATA%\Python\_cache`.
-- **Registry:** `HKCU\Software\Python\PythonCore\3.15`.
-- **PATH and aliases:** unchanged.
-- **Use since:** once in R4 (`python3 --version`), and not in R5.
-- **Not reversed.** A narrow reversal would be the manager's own uninstall of 3.15.
+- **Installed:** candidate 0.6.16, per the owner's standing preference (run `wr06-a`; 0.6.15 backed up at `runtime-backups\wr06-a\mod-existing`).
+- **Backed up:** the 0.6.7 install it replaced, at `C:\Dev\KingmakerWakingRuneLab\runtime-backups\wr05-b\mod-existing` (DLL `07a6823c…`).
+- **Restored and verified:** transaction `wr05-b` (profile, Steam mirror, registry with the turn-based setting reset, UMM Params and Mods).
+- **Saves:** no owner save was opened.
 
 ## How to test again
 ```powershell
 .\scripts\Build.ps1                  # refuses to replace an existing clean package
-.\scripts\KwrRuntime.ps1 Begin -RunId <new-id> -PackagePath .\artifacts\KingmakerWakingRune-0.5.15.zip
-.\scripts\KwrRuntime.ps1 Launch      # then Shot / Command / Click / Key / Fault ..., Close, Collect
+.\scripts\KwrRuntime.ps1 Begin -RunId <new-id> -PackagePath .\artifacts\KingmakerWakingRune-0.6.16.zip
+.\scripts\KwrRuntime.ps1 Launch      # then Shot / Click / Key / Command ..., Close, Collect
 .\scripts\KwrRuntime.ps1 End -KeepInstalled
 ```
 
-Seeds are under `runtime-evidence\wr04r3-a\saves`, `wr04r4-a\saves` and `wr04r5-a\saves`. Copy one into the profile before `Launch`: the game only sees saves present at start.
+**Seeds** (in `runtime-evidence\wr05-b\saves`):
+- `Manual_334_Before_the_Sanctum_of_Sloth_2.zks`: the departure checkpoint of the buffed, re-equipped party. The token departs without a rest.
+- `Manual_335_KWR_AUTOMATION_WR05B_KURSHU_VICTORY.zks`: after her death.
+- `Manual_337_KWR_AUTOMATION_WR05B_LIVE_DAMAGED.zks`: alive mid-fight at 159/219.
+- `Manual_960_KWR_AUTOMATION_WR05B_STOCK_TBM.zks`: the stock-campaign check.
+- The first-round seeds remain in `wr05-a`.
 
-Harness commands:
-- Read-only: `party`, `units`, `fixtures`, `state`, `stock`, `slots <member>`, `cursor`, `cantarget <member> <ability> <target>`, `screen <target>`, `turn`.
-- Labelled SETUP: `move`, `teleport`, `look` (camera only), `perform <fixture> <key> [member]`, `spell <member> <spell or variant> <target | x y>`, `token`, `answer yes|no`, `memorize <member> <spell> <level>`, `tbm`, `endturn`, `attack`, `save`, `load`.
-- INJECTED: `cast` and `castpoint` (granted abilities), `condition`, `advance`, faults.
-
-Targets are a fixture id, `party:<i>`, or `body:<statue>`; members are `<i>` or `pet:<owner i>`.
+**Harness additions in WR-05:**
+- **Read-only:** `kurshu` (with the maneuver chain, hold and feats), `known <member>`, `paused`, `blueprint <name>`, `builds`.
+- **INJECTED:**
+  - `hurt <member> <kind> <n>`, `corpse <kind> [m]`, `kurshudefeat`;
+  - `grab <member>` (a tail hit), `drain <member> <n>`, `armslam <member> <n>` (a fixed slam drain delivered inside the next native Intelligence heal);
+  - `kurshufixture <damage> <uses…>`, `combatsave <name>`.
 
 ## Next exact action
-Owner review of draft PR #4. Do not merge, tag or release from this branch without that review.
+Owner review of PR #4, then of the WR-05 draft PR #5.
