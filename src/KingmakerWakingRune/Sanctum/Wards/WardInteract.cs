@@ -63,7 +63,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
             else if (id == WardText.ToolsId)
             {
-                yield return new WardAction { Key = "interrupt", Label = "Interrupt the revival ritual (this will advance it)", StaysOpen = true, Show = () => !WardRuntime.State.Ritual.ConfrontationStarted, Run = WardRitual.CommitConfrontation };
+                // An aggressive act against the rite, through the one commit every engagement uses: never a second trigger.
+                yield return new WardAction { Key = "interrupt", Label = "Strike at the ritual tools (an attack on the rite: its guardians and the countdown answer at once)", StaysOpen = true, Show = () => !WardRuntime.State.Ritual.ConfrontationStarted, Run = u => Lashmistress.LashmistressEncounter.RitualAttacked(u, "the ritual tools were struck") };
             }
             else if (id == WardText.FlailId)
             {

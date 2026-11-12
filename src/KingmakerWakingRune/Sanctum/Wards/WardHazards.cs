@@ -125,7 +125,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 Vector3 p = unit.Position;
                 bool inside = WardGeometry.InGlyphTrigger(GridX(p), GridY(p));
-                if (TransitionEntered(state.GlyphInside, unit.UniqueId, inside) && !IsLissalan(unit))
+                // Her own defenders know where she placed it (see docs/WR-06-LASHMISTRESS.md); worshippers never set it off.
+                if (TransitionEntered(state.GlyphInside, unit.UniqueId, inside) && !IsLissalan(unit) && !Lashmistress.LashmistressEncounter.IsDefender(unit))
                 {
                     DetonateGlyph(unit.Position);
                     WardRitual.Raise(AwarenessCause.Glyph, unit.CharacterName + " set off the glyph");
@@ -227,7 +228,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
         /// </summary>
         private static bool HoundNotices(UnitEntityData unit)
         {
-            if (unit == null || !unit.IsInGame || unit.Descriptor.State.IsDead || WardFixtures.IdOf(unit) != null || IsLissalan(unit) || unit.Descriptor.State.Size < Size.Small)
+            if (unit == null || !unit.IsInGame || unit.Descriptor.State.IsDead || WardFixtures.IdOf(unit) != null || IsLissalan(unit) || Lashmistress.LashmistressEncounter.IsDefender(unit) || unit.Descriptor.State.Size < Size.Small)
             {
                 return false;
             }

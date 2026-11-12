@@ -120,6 +120,21 @@ namespace KingmakerWakingRune.Diagnostics
                     return DumpBlueprint(args[1]);
                 case "catalog":
                     return Catalog(args[1]);
+                case "a4":
+                {
+                    // Read only: the A4 state and every defender's live sheet.
+                    var sb = new StringBuilder("READ A4 state: " + WardStore.Dump(WardRuntime.State?.Lashmistress) + "\n");
+                    sb.AppendLine($"ritual: aware {WardRuntime.State?.Ritual.VandianaAware} doorHeard {WardRuntime.State?.Ritual.A4DoorHeard} confrontation {WardRuntime.State?.Ritual.ConfrontationStarted} roll {WardRuntime.State?.Ritual.ConfrontationRoll} deadline {WardRuntime.State?.Ritual.ConfrontationDeadline:0} global {WardRuntime.State?.Ritual.GlobalDeadline:0} due {WardRuntime.State?.Ritual.AwakeningDue} reason {WardRuntime.State?.Ritual.Reason} now {WardRuntime.Now:0}");
+                    sb.AppendLine($"fixture Vandiana: indexed {WardFixtures.Find("Vandiana") != null}, entity {WardFixtures.FindRetired("Vandiana")?.UniqueId ?? "none"} inGame {WardFixtures.FindRetired("Vandiana")?.IsInGame}; resolver -> {WardFixtures.Vandiana?.UniqueId} ({WardFixtures.Vandiana?.Blueprint.name})");
+                    foreach (string key in KingmakerWakingRune.Sanctum.Lashmistress.DefenderKeys.All)
+                    {
+                        if (args.Length < 2 || key.EndsWith(args[1], StringComparison.OrdinalIgnoreCase))
+                        {
+                            sb.AppendLine(KingmakerWakingRune.Sanctum.Lashmistress.LashmistressEncounter.Report(KingmakerWakingRune.Sanctum.Lashmistress.LashmistressEncounter.Find(key)));
+                        }
+                    }
+                    return sb.ToString();
+                }
                 case "builds":
                     return Builds();
                 case "grab":

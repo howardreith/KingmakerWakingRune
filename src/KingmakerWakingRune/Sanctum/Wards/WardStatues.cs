@@ -590,8 +590,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
         private static bool InVandianasChamber(UnitEntityData runner)
         {
             UnitEntityData vandiana = WardFixtures.Vandiana;
-            if (vandiana == null)
+            if (vandiana == null || vandiana.Descriptor.State.IsDead || !vandiana.Descriptor.State.IsConscious)
             {
+                // A dead or senseless Vandiana hears no report.
                 return false;
             }
             float rx = runner.Position.x / SanctumPlan.MetersPerSquare + SanctumPlan.OriginX, ry = SanctumPlan.OriginY - runner.Position.z / SanctumPlan.MetersPerSquare;

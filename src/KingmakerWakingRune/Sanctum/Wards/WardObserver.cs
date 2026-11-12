@@ -189,6 +189,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
             else
             {
+                // Striking the soul gem is an attack on the rite: its guardians answer (WR-06). Destruction stays immediate.
+                Lashmistress.LashmistressEncounter.EmeraldStruck(Attacker(evt));
                 WardGem.TakeHit(total, bypass);
             }
         }

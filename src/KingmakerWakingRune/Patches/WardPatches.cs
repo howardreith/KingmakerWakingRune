@@ -4,11 +4,38 @@ using Kingmaker.Controllers;
 using Kingmaker.RuleSystem.Rules;
 using Kingmaker.UnitLogic.Abilities.Components.TargetCheckers;
 using Kingmaker.EntitySystem.Entities;
+using Kingmaker.UnitLogic;
 using Kingmaker.Utility;
 using KingmakerWakingRune.Sanctum.Wards;
 
 namespace KingmakerWakingRune.Patches
 {
+    /// <summary>
+    /// Vandiana's darkness (WR-06), bounded: a creature standing in it has concealment (20%) against an attacker without
+    /// darkvision within 60 feet. Only a target carrying the darkness buff is touched; every other check is native and unchanged.
+    /// </summary>
+    [HarmonyPatch(typeof(Kingmaker.UnitLogic.Parts.UnitPartConcealment), nameof(Kingmaker.UnitLogic.Parts.UnitPartConcealment.Calculate))]
+    internal static class DarknessConcealmentPatch
+    {
+        private static void Postfix(UnitEntityData initiator, UnitEntityData target, ref Kingmaker.Enums.Concealment __result)
+        {
+            if (__result != Kingmaker.Enums.Concealment.None || target == null || initiator == null || Sanctum.Lashmistress.LashmistressBlueprints.InDarkness == null)
+            {
+                return;
+            }
+            if (target.Buffs.GetBuff(Sanctum.Lashmistress.LashmistressBlueprints.InDarkness) == null)
+            {
+                return;
+            }
+            bool seesInDark = (initiator.Descriptor.HasFact(Sanctum.Lashmistress.LashmistressBlueprints.DarkvisionSense) || initiator.Buffs.GetBuff(Sanctum.Lashmistress.LashmistressBlueprints.DarkvisionBuff) != null)
+                && initiator.DistanceTo(target) <= 60f * Sanctum.SanctumPlan.MetersPerFoot;
+            if (!seesInDark)
+            {
+                __result = Kingmaker.Enums.Concealment.Partial;
+            }
+        }
+    }
+
     /// <summary>The ward clock's only per-tick hook: native code runs this in simulation modes alone, never in pause or menus.</summary>
     [HarmonyPatch(typeof(TimeController), "Tick")]
     internal static class TimeControllerTickPatch

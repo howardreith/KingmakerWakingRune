@@ -40,7 +40,24 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         public static UnitEntityData Krune => Find(KruneId);
 
-        public static UnitEntityData Vandiana => Find(VandianaId);
+        /// <summary>
+        /// The one Vandiana: the real combat actor once A4 has placed her (WR-06), living or dead; the support figure only in a
+        /// save that never had her. The retired figure is never returned.
+        /// </summary>
+        public static UnitEntityData Vandiana => Lashmistress.LashmistressEncounter.Vandiana ?? Find(VandianaId);
+
+        /// <summary>A fixture by identity even when it is out of the index (the retired support Vandiana).</summary>
+        public static UnitEntityData FindRetired(string id)
+        {
+            return Game.Instance.State.Units.FirstOrDefault(u => IdOf(u) == id);
+        }
+
+        /// <summary>The support Vandiana is not wanted once the encounter has (or will have) the real one.</summary>
+        private static bool VandianaRetired()
+        {
+            Lashmistress.LashmistressState a4 = WardRuntime.State?.Lashmistress;
+            return a4 != null && (a4.FixtureRetired || a4.Policy == Lashmistress.LashmistressPolicy.Active || a4.Policy == Lashmistress.LashmistressPolicy.Upgraded);
+        }
 
         public static UnitEntityData Gem => Find(GemId);
 
@@ -55,10 +72,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public static void Ensure()
         {
             Live.Clear();
+            bool vandianaRetired = VandianaRetired();
             foreach (UnitEntityData unit in Game.Instance.State.Units)
             {
                 string id = IdOf(unit);
-                if (id != null)
+                if (id != null && !(id == VandianaId && vandianaRetired))
                 {
                     Live[id] = unit;
                 }
@@ -77,7 +95,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
             EnsureOne(DoorId, WardBlueprints.DoorFixture, GridWorld(13.15f, 26.0f));
             EnsureOne(GemId, WardBlueprints.GemFixture, GridWorld(14.8f, 9.6f));
             EnsureOne(KruneId, WardBlueprints.KruneSupport, GridWorld(SanctumPlan.SarcophagusCenter.X, SanctumPlan.SarcophagusCenter.Y));
-            EnsureOne(VandianaId, WardBlueprints.VandianaSupport, GridWorld(13.9f, 9.6f));
+            if (!vandianaRetired)
+            {
+                // Only a save without the A4 encounter keeps the support figure; no second, hidden Vandiana is ever created.
+                EnsureOne(VandianaId, WardBlueprints.VandianaSupport, GridWorld(13.9f, 9.6f));
+            }
             EnsureOne(AlarmId, WardBlueprints.AlarmFixture, GridWorld(WardGeometry.AlarmCenter.X, WardGeometry.AlarmCenter.Y));
             EnsureOne(GlyphId, WardBlueprints.GlyphFixture, GridWorld(WardGeometry.GlyphCenter.X, WardGeometry.GlyphCenter.Y));
             EnsureOne(HoundId, WardBlueprints.HoundFixture, GridWorld(WardGeometry.HoundPoint.X, WardGeometry.HoundPoint.Y));
