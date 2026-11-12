@@ -148,6 +148,11 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                     // A save placed before the defenders shared a group: one encounter group, as a native encounter has.
                     unit.GroupId = GroupId;
                 }
+                if (unit != null && !unit.Descriptor.State.IsDead)
+                {
+                    // Recomputed from what is still castable now: it restores no slot or use, it only lists them.
+                    unit.Brain.RestoreAvailableActions();
+                }
                 if (unit != null)
                 {
                     // Nothing is refilled, recast or respawned on a load; the brain is the unit's own again.
@@ -421,6 +426,8 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 vandiana.Descriptor.AddBuff(LashmistressBlueprints.PreparedFalseLife, SpellContext(vandiana, LashmistressBlueprints.PreparedAbilities["FalseLife"], arcane, 2), TimeSpan.FromSeconds(hours - elapsed));
             }
             vandiana.Descriptor.AddBuff(LashmistressBlueprints.ImprovedGreatFortitude, vandiana);
+            // The brain's list of usable actions was taken at the level-up's rest, before her books were filled.
+            vandiana.Brain.RestoreAvailableActions();
             a4.BaselineApplied = true;
             a4.BaselineAt = now;
             Note($"baseline applied once: Mage Armor and False Life cast {elapsed:0} s ago at arcane CL {arcane} ({(hours - elapsed) / 60d:0} min left); the hound, alarm and glyph slots spent; divine CL {cleric.CasterLevel}.");
