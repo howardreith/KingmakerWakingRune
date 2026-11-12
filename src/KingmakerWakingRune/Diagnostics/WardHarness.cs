@@ -140,6 +140,86 @@ namespace KingmakerWakingRune.Diagnostics
                     }
                     return sb.ToString();
                 }
+                case "a4cast":
+                    return A4Cast(args[1], args[2], args.Skip(3).ToArray());
+                case "a4attack":
+                {
+                    // INJECTED decision: a defender attacks this target with its own weapons; every roll and effect is native.
+                    UnitEntityData unit = Defender(args[1]);
+                    string missing = Resolve(args[2], out UnitEntityData victim);
+                    if (unit == null || missing != null)
+                    {
+                        return missing ?? $"no defender {args[1]}";
+                    }
+                    unit.Commands.InterruptAiCommands();
+                    unit.Commands.Run(new UnitAttack(victim));
+                    return $"INJECTED decision: {unit.CharacterName} attacks {victim.CharacterName}; the attacks and their effects are native.";
+                }
+                case "a4order":
+                {
+                    // PLAYER-equivalent: an order to a defender the party now controls (domination), as a click would give it.
+                    UnitEntityData unit = Defender(args[1]);
+                    string missing = Resolve(args[2], out UnitEntityData victim);
+                    if (unit == null || missing != null)
+                    {
+                        return missing ?? $"no defender {args[1]}";
+                    }
+                    if (!unit.IsDirectlyControllable)
+                    {
+                        return $"{unit.CharacterName} is not under the player's direct control (faction {unit.Descriptor.Faction?.name}).";
+                    }
+                    unit.Commands.Run(new UnitAttack(victim));
+                    return $"PLAYER order: {unit.CharacterName} (dominated) attacks {victim.CharacterName}.";
+                }
+                case "a4take":
+                {
+                    // INJECTED: one potion is taken from a defender before the fight, for the unavailable-preparation check.
+                    UnitEntityData unit = Defender(args[1]);
+                    Kingmaker.Items.ItemEntity item = unit?.Body.QuickSlots.Select(s => s.MaybeItem).FirstOrDefault(i => i != null && i.Blueprint.name == args[2]);
+                    if (item == null)
+                    {
+                        return $"no {args[2]} in {args[1]}'s quick slots";
+                    }
+                    unit.Inventory.Remove(item);
+                    return $"INJECTED removal: {args[2]} taken from {unit.CharacterName}; left {unit.Body.QuickSlots.Select(s => s.MaybeItem).Count(i => i != null && i.Blueprint.name == args[2])}.";
+                }
+                case "give":
+                {
+                    // SETUP: an item placed in the shared inventory (a member equips it as a player would).
+                    Kingmaker.Blueprints.Items.BlueprintItem blueprint = ResourcesLibrary.GetBlueprints<Kingmaker.Blueprints.Items.BlueprintItem>().FirstOrDefault(b => b.name == args[1]);
+                    if (blueprint == null)
+                    {
+                        return $"no item {args[1]}";
+                    }
+                    Game.Instance.Player.Inventory.Add(blueprint, args.Length > 2 ? int.Parse(args[2]) : 1);
+                    return $"SETUP granted item {blueprint.name} to the party's inventory.";
+                }
+                case "equip":
+                {
+                    // PLAYER-equivalent: a member wields an item from the shared inventory in the primary hand.
+                    UnitEntityData member = Member(args[1]);
+                    Kingmaker.Items.ItemEntity item = Game.Instance.Player.Inventory.FirstOrDefault(i => i.Blueprint.name == args[2]);
+                    if (item == null)
+                    {
+                        return $"no {args[2]} in the party's inventory";
+                    }
+                    bool ok = member.Body.PrimaryHand.CanInsertItem(item);
+                    if (ok)
+                    {
+                        member.Body.PrimaryHand.InsertItem(item);
+                    }
+                    return $"PLAYER equip: {member.CharacterName} wields {args[2]}: {ok}.";
+                }
+                case "nonlethal":
+                {
+                    // Read only: every creature with nonlethal damage, and its hit points.
+                    var sb = new StringBuilder("READ nonlethal:\n");
+                    foreach (UnitEntityData u in Game.Instance.State.Units.Where(u => u.Stats.DamageNonLethal.BaseValue > 0 || u.IsPlayerFaction))
+                    {
+                        sb.AppendLine($"  {u.CharacterName}: nonlethal {u.Stats.DamageNonLethal.BaseValue}, hp {u.HPLeft}/{u.Stats.HitPoints.ModifiedValue}, lethal {u.Damage}, life {u.Descriptor.State.LifeState}, AC armor {KingmakerWakingRune.Sanctum.Lashmistress.WhipNonlethal.ArmorBonus(u)} natural {KingmakerWakingRune.Sanctum.Lashmistress.WhipNonlethal.NaturalArmorBonus(u)}");
+                    }
+                    return sb.ToString();
+                }
                 case "builds":
                     return Builds();
                 case "grab":
@@ -703,8 +783,83 @@ namespace KingmakerWakingRune.Diagnostics
 
         private static string Resolve(string target, out UnitEntityData unit)
         {
-            unit = target == "kurshu" ? KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu : target.StartsWith("party:") ? Member(target.Substring(6)) : target.StartsWith("body:") ? BodyOf(target.Substring(5)) : WardFixtures.Find(target);
+            unit = target == "kurshu" ? KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu : target.StartsWith("party:") ? Member(target.Substring(6)) : target.StartsWith("body:") ? BodyOf(target.Substring(5)) : target.StartsWith("a4:") ? Defender(target.Substring(3)) : target.StartsWith("unit:") ? Game.Instance.State.Units.FirstOrDefault(u => u.UniqueId == target.Substring(5)) : WardFixtures.Find(target);
             return unit == null ? $"no target {target}" : null;
+        }
+
+        /// <summary>An A4 defender by the end of its key: "Vandiana", "Agarik", "Jorgas" or "DarkNaga".</summary>
+        private static UnitEntityData Defender(string suffix)
+        {
+            string key = KingmakerWakingRune.Sanctum.Lashmistress.DefenderKeys.All.FirstOrDefault(k => k.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
+            return key == null ? null : KingmakerWakingRune.Sanctum.Lashmistress.LashmistressEncounter.Find(key);
+        }
+
+        /// <summary>
+        /// INJECTED decision: one defender casts one of its own ready spells or abilities (a prepared slot, a naga slot, an
+        /// ability fact) at a unit or a grid point, in place of its brain's choice. The slot or use is spent natively, and the
+        /// spell's saves, spell resistance and effects all resolve natively. For the focused spell checks only.
+        /// </summary>
+        private static string A4Cast(string who, string name, string[] target)
+        {
+            UnitEntityData unit = Defender(who);
+            if (unit == null)
+            {
+                return $"no defender {who}";
+            }
+            BlueprintAbility wanted = KingmakerWakingRune.Sanctum.Lashmistress.LashmistressBlueprints.PreparedAbilities.TryGetValue(name, out BlueprintAbility prepared) ? prepared : null;
+            AbilityData data = null;
+            foreach (Spellbook book in unit.Descriptor.Spellbooks)
+            {
+                foreach (SpellSlot slot in book.GetAllMemorizedSpells().Where(s => s.Available && s.Spell != null))
+                {
+                    if (slot.Spell.Blueprint == wanted || slot.Spell.Blueprint.name == name)
+                    {
+                        data = slot.Spell;
+                        break;
+                    }
+                    // A variant (a summon's creature list) is cast through its prepared base spell.
+                    BlueprintAbility variant = slot.Spell.Blueprint.GetComponent<Kingmaker.UnitLogic.Abilities.Components.AbilityVariants>()?.Variants.FirstOrDefault(v => v.name == name);
+                    if (variant != null)
+                    {
+                        data = new AbilityData(slot.Spell, variant);
+                        break;
+                    }
+                }
+                if (data != null)
+                {
+                    break;
+                }
+            }
+            if (data == null)
+            {
+                data = unit.Descriptor.Abilities.Enumerable.FirstOrDefault(a => a.Blueprint.name == name || a.Blueprint.name == "KWR_DarkNaga" + name)?.Data;
+            }
+            if (data == null || !data.IsAvailableForCast)
+            {
+                return $"{unit.CharacterName} has no ready {name} (found {data != null})";
+            }
+            TargetWrapper wrapper;
+            string where;
+            if (target.Length >= 2)
+            {
+                float x = float.Parse(target[0], System.Globalization.CultureInfo.InvariantCulture), y = float.Parse(target[1], System.Globalization.CultureInfo.InvariantCulture);
+                wrapper = new Vector3(SanctumPlan.ToWorldX(x), SanctumPlan.HeightAt(x, y) ?? 0f, SanctumPlan.ToWorldZ(y));
+                where = $"point ({x},{y})";
+            }
+            else
+            {
+                string missing = Resolve(target.Length == 0 ? "a4:" + who : target[0], out UnitEntityData victim);
+                if (missing != null)
+                {
+                    return missing;
+                }
+                wrapper = victim;
+                where = victim.CharacterName;
+            }
+            bool can = data.CanTarget(wrapper);
+            unit.Commands.InterruptAiCommands();
+            unit.Commands.Run(UnitUseAbility.CreateCastCommand(data, wrapper));
+            return $"INJECTED decision: {unit.CharacterName} casts {data.Blueprint.name} at {where} (canTarget {can}); the slot and the spell's rules are native.";
         }
 
         /// <summary>The restored or dead body that replaced a statue, by the statue's id.</summary>

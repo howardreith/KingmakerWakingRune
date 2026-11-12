@@ -105,6 +105,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
         private static readonly WardStatues.RunnerTurnPacer s_RunnerPacer = new WardStatues.RunnerTurnPacer();
         private static readonly Encounter.KurshuTurns s_KurshuTurns = new Encounter.KurshuTurns();
         private static readonly Lashmistress.LashmistressObserver s_A4Observer = new Lashmistress.LashmistressObserver();
+        private static readonly Lashmistress.NonlethalHealing s_NonlethalHealing = new Lashmistress.NonlethalHealing();
         private static bool s_Subscribed;
         private static double s_NextTick;
 
@@ -124,6 +125,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 EventBus.Subscribe(s_RunnerPacer);
                 EventBus.Subscribe(s_KurshuTurns);
                 EventBus.Subscribe(s_A4Observer);
+                // Acts only on a creature with nonlethal damage, which only her whip deals: inert everywhere else.
+                EventBus.Subscribe(s_NonlethalHealing);
                 s_Subscribed = true;
             }
             SanctumState state = SanctumScope.IsSanctumLoaded ? WardStore.Create() : null;

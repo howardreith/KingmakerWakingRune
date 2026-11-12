@@ -4,6 +4,7 @@ using System.Linq;
 using Kingmaker;
 using Kingmaker.Blueprints;
 using Kingmaker.Blueprints.Classes.Spells;
+using Kingmaker.Blueprints.Facts;
 using Kingmaker.Controllers.Brain;
 using Kingmaker.Controllers.Brain.Blueprints;
 using Kingmaker.EntitySystem.Entities;
@@ -57,7 +58,11 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
 
         private static readonly Dictionary<string, UnitEntityData> s_Bound = new Dictionary<string, UnitEntityData>();
         private static readonly Dictionary<string, UnitCommand> s_PrepCommands = new Dictionary<string, UnitCommand>();
+        /// <summary>The director's own commands (hide in plain sight, Dimension Door), by defender: the only ones it may cancel.</summary>
+        private static readonly Dictionary<string, UnitCommand> s_DirectCommands = new Dictionary<string, UnitCommand>();
         private static readonly Dictionary<string, int> s_DirectedRound = new Dictionary<string, int>();
+        /// <summary>This tick's answer to "does the encounter control this defender?", by key.</summary>
+        private static readonly Dictionary<string, bool> s_Owned = new Dictionary<string, bool>();
         private static bool s_Logged;
         private static bool s_ProblemReported;
 
@@ -103,6 +108,51 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             return DefenderKeys.All.Select(Find).Where(u => u != null && !u.Descriptor.State.IsDead);
         }
 
+        /// <summary>A defender, or a creature one of them summoned.</summary>
+        public static bool IsDefenderSide(UnitEntityData unit)
+        {
+            if (unit == null)
+            {
+                return false;
+            }
+            return IsDefender(unit) || IsDefender(unit.Get<UnitPartSummonedMonster>()?.Summoner);
+        }
+
+        /// <summary>The spent wizard slot her arcane bond would recover now, by the rule in <see cref="ConjurerRules.ArcaneBondChoice"/>.</summary>
+        public static string ArcaneBondChoice(Spellbook wizard, out SpellSlot slot)
+        {
+            slot = null;
+            var entries = new List<KeyValuePair<PreparedEntry, bool>>();
+            var slots = new List<SpellSlot>();
+            foreach (SpellSlot s in wizard.GetAllMemorizedSpells())
+            {
+                PreparedEntry entry = VandianaSpells.Wizard.FirstOrDefault(e => s.Spell != null && LashmistressBlueprints.PreparedAbilities.TryGetValue(e.Source, out BlueprintAbility a) && a == s.Spell.Blueprint);
+                if (entry != null)
+                {
+                    entries.Add(new KeyValuePair<PreparedEntry, bool>(entry, s.Available));
+                    slots.Add(s);
+                }
+            }
+            string source = ConjurerRules.ArcaneBondChoice(entries);
+            if (source != null)
+            {
+                BlueprintAbility ability = LashmistressBlueprints.PreparedAbilities[source];
+                slot = slots.FirstOrDefault(s => !s.Available && s.Spell.Blueprint == ability);
+            }
+            return source;
+        }
+
+        /// <summary>Her bond is worth its free action once a wizard spell of 3rd level or higher is spent, and its use remains.</summary>
+        private static bool ArcaneBondWorthwhile(UnitEntityData unit)
+        {
+            Spellbook wizard = unit.Descriptor.GetSpellbook(LashmistressBlueprints.WizardClassBlueprint);
+            if (wizard == null || LashmistressBlueprints.ArcaneBondResource == null || unit.Descriptor.Resources.GetResourceAmount(LashmistressBlueprints.ArcaneBondResource) <= 0)
+            {
+                return false;
+            }
+            return ArcaneBondChoice(wizard, out SpellSlot slot) != null && slot != null && slot.SpellLevel >= 3;
+        }
+
         /// <summary>The player's side: the party, their pets and summons.</summary>
         public static bool IsPartySide(UnitEntityData unit)
         {
@@ -123,6 +173,8 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             s_Bound.Clear();
             s_DirectedRound.Clear();
             s_PrepCommands.Clear();
+            s_DirectCommands.Clear();
+            s_Owned.Clear();
             s_Logged = false;
             LashmistressState a4 = state.Lashmistress;
             if (a4.Policy == LashmistressPolicy.AwaitingUpgradeCheck)
@@ -144,13 +196,15 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             foreach (string key in DefenderKeys.All)
             {
                 UnitEntityData unit = Find(key);
-                if (unit != null && unit.GroupId != GroupId)
+                if (unit != null && unit.GroupId != GroupId && unit.Descriptor.Faction == unit.Blueprint.Faction)
                 {
-                    // A save placed before the defenders shared a group: one encounter group, as a native encounter has.
+                    // A save placed before the defenders shared a group: one encounter group, as a native encounter has. A
+                    // creature charmed or dominated in that save keeps the group its effect gave it; the effect restores ours.
                     unit.GroupId = GroupId;
                 }
                 if (unit != null && !unit.Descriptor.State.IsDead)
                 {
+                    EnsureCurrentFacts(key, unit);
                     BlueprintBrain brain = unit.Blueprint.Brain;
                     if (brain != null && (unit.Brain.Blueprint != brain || unit.Brain.Actions.Count != brain.Actions.Length || unit.Brain.Actions.Select(a => a.Blueprint).Except(brain.Actions).Any()))
                     {
@@ -170,6 +224,50 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 }
             }
             RetireFixture(a4);
+        }
+
+        /// <summary>
+        /// A defender saved by an earlier build gains, once, what the current build gives at creation: facts listed on its
+        /// blueprint (her arcane bond, the Blackstrikes' Disruptive), the bond's daily use, and her prepared slots of formerly
+        /// deferred entries swapped for their spells, each spent or unspent as it was saved. Nothing is refilled.
+        /// </summary>
+        private static void EnsureCurrentFacts(string key, UnitEntityData unit)
+        {
+            foreach (BlueprintUnitFact fact in unit.Blueprint.AddFacts ?? new BlueprintUnitFact[0])
+            {
+                if (fact != null && !unit.Descriptor.HasFact(fact))
+                {
+                    unit.Descriptor.AddFact(fact);
+                    Note($"{key}: {fact.name} added (current build).");
+                }
+            }
+            if (key != DefenderKeys.Vandiana)
+            {
+                return;
+            }
+            if (LashmistressBlueprints.ArcaneBondResource != null && !unit.Descriptor.Resources.ContainsResource(LashmistressBlueprints.ArcaneBondResource))
+            {
+                unit.Descriptor.Resources.Add(LashmistressBlueprints.ArcaneBondResource, true);
+                Note($"{key}: arcane bond's daily use added (current build), {unit.Descriptor.Resources.GetResourceAmount(LashmistressBlueprints.ArcaneBondResource)}.");
+            }
+            foreach (Spellbook book in unit.Descriptor.Spellbooks)
+            {
+                foreach (SpellSlot slot in book.GetAllMemorizedSpells().ToList())
+                {
+                    string source = LashmistressBlueprints.LegacyPlaceholders.FirstOrDefault(p => p.Value == slot.Spell?.Blueprint).Key;
+                    if (source == null)
+                    {
+                        continue;
+                    }
+                    BlueprintAbility spell = LashmistressBlueprints.PreparedAbilities[source];
+                    if (!book.IsKnown(spell))
+                    {
+                        book.AddKnown(slot.SpellLevel, spell);
+                    }
+                    slot.Spell = new AbilityData(spell, book);
+                    Note($"{key}: prepared {source} (level {slot.SpellLevel}, {(slot.Available ? "unspent" : "spent")}) is now the spell, not a placeholder (current build).");
+                }
+            }
         }
 
         public static void Tick(SanctumState state, double now)
@@ -225,6 +323,8 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 }
             }
             ObserveDeaths(state, now);
+            ObserveControl(state, now);
+            RecoverNonlethal(a4, now);
             DetectEngagement(state, now);
             if (a4.Engaged)
             {
@@ -549,6 +649,91 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             }
         }
 
+        /// <summary>The live facts that say whether the encounter still controls a defender (see <see cref="ControlOwnership"/>).</summary>
+        private static ControlFacts ControlOf(UnitEntityData unit)
+        {
+            UnitState s = unit.Descriptor.State;
+            return new ControlFacts
+            {
+                Alive = !s.IsDead,
+                OriginalFaction = unit.Descriptor.Faction == unit.Blueprint.Faction,
+                EncounterGroup = unit.GroupId == GroupId,
+                PlayerFaction = unit.IsPlayerFaction,
+                Confused = s.HasCondition(UnitCondition.Confusion) || unit.Get<UnitPartConfusion>() != null,
+                Frightened = s.HasCondition(UnitCondition.Frightened) || s.HasCondition(UnitCondition.Cowering) || s.IsPanicked,
+            };
+        }
+
+        /// <summary>True when the encounter may command and spend for this defender on this tick.</summary>
+        private static bool Owned(string key)
+        {
+            return s_Owned.TryGetValue(key, out bool owned) && owned;
+        }
+
+        /// <summary>
+        /// Each defender's control, once a tick. When a legitimate effect takes one, only this director's own commands for it
+        /// are cancelled (a preparation, hiding, a Dimension Door); its native or player control then acts. When the effect
+        /// ends, the encounter resumes with whatever remains: nothing is refilled or repeated.
+        /// </summary>
+        private static void ObserveControl(SanctumState state, double now)
+        {
+            foreach (string key in DefenderKeys.All)
+            {
+                UnitEntityData unit = Find(key);
+                if (unit == null)
+                {
+                    s_Owned[key] = false;
+                    continue;
+                }
+                string reason = ControlOwnership.Yield(ControlOf(unit));
+                s_Owned[key] = reason == null;
+                DefenderRecord record = state.Lashmistress.Defender(key);
+                switch (ControlOwnership.Observe(record, reason, now))
+                {
+                    case ControlChange.Yielded:
+                        int cancelled = 0;
+                        foreach (string prep in Prep.All.Where(p => Prep.Actor(p) == key))
+                        {
+                            if (s_PrepCommands.TryGetValue(prep, out UnitCommand command) && command != null && !command.IsFinished)
+                            {
+                                command.Interrupt();
+                                cancelled++;
+                            }
+                        }
+                        if (s_DirectCommands.TryGetValue(key, out UnitCommand directed) && directed != null && !directed.IsFinished)
+                        {
+                            directed.Interrupt();
+                            cancelled++;
+                        }
+                        Note($"CONTROL {key} yielded at {now:0.0}: {reason}; {cancelled} director command(s) cancelled; native or player control acts (faction {unit.Descriptor.Faction?.name}, group {unit.GroupId}).");
+                        break;
+                    case ControlChange.Resumed:
+                        Note($"CONTROL {key} resumed at {now:0.0}: the effect has ended (yielded {record.Yields} time(s)); nothing refilled.");
+                        break;
+                }
+            }
+        }
+
+        /// <summary>Her whip's nonlethal damage heals naturally at one point per Hit Die per hour, on every creature that has it.</summary>
+        private static void RecoverNonlethal(LashmistressState a4, double now)
+        {
+            if (a4.NonlethalHourMark < 0d)
+            {
+                a4.NonlethalHourMark = now;
+                return;
+            }
+            while (now - a4.NonlethalHourMark >= 3600d)
+            {
+                a4.NonlethalHourMark += 3600d;
+                foreach (UnitEntityData unit in Game.Instance.State.Units.Where(u => u.Stats.DamageNonLethal.BaseValue > 0 && !u.Descriptor.State.IsDead).ToList())
+                {
+                    int before = unit.Stats.DamageNonLethal.BaseValue;
+                    unit.Stats.DamageNonLethal.BaseValue = Nonlethal.Recover(before, unit.Descriptor.Progression.CharacterLevel, 1);
+                    Note($"an hour's recovery: {unit.CharacterName} nonlethal {before} -> {unit.Stats.DamageNonLethal.BaseValue}.");
+                }
+            }
+        }
+
         /// <summary>The first real engagement commits the printed countdown through the one existing commit.</summary>
         public static void Engage(EngagementCause cause, string detail, UnitEntityData by)
         {
@@ -648,18 +833,30 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         }
 
         /// <summary>
-        /// Requested preparations become native commands from their actors' own potions and slots, one at a time, only when the
-        /// actor is free to act (its own turn in turn-based combat). An effect seen on its target marks it performed.
+        /// Every requested preparation is settled from the field each tick, whoever performed it (the director, the actor's own
+        /// brain in combat, or someone controlling it); see <see cref="LashmistressRules.Reconcile"/>. Out of combat, the next
+        /// one an actor owes becomes a native command from its own potion or slot, when the encounter controls it and it is
+        /// free to act. In combat its own brain drinks and casts; nothing is forced.
         /// </summary>
         private static void Prepare(SanctumState state, double now)
         {
             LashmistressState a4 = state.Lashmistress;
-            foreach (PrepRecord prep in a4.Preparations.Values.Where(p => p.Issued && !p.Performed && !p.Abandoned).ToList())
+            foreach (string key in Prep.All)
             {
-                if (EffectSeen(prep.Key))
+                if (!a4.Preparations.TryGetValue(key, out PrepRecord record) || !record.Requested || record.Performed || record.Abandoned)
                 {
-                    LashmistressRules.Performed(a4, prep.Key, "effect observed on its target", now);
-                    Note($"preparation {prep.Key} performed.");
+                    continue;
+                }
+                s_PrepCommands.TryGetValue(key, out UnitCommand command);
+                bool succeeded = command != null && command.IsFinished && command.Result == UnitCommand.ResultType.Success;
+                PrepVerdict verdict = LashmistressRules.Reconcile(a4, key, Observe(key, command), succeeded, now, WardProfile.RoundSeconds);
+                if (verdict == PrepVerdict.Performed)
+                {
+                    Note($"preparation {key} performed by {record.PerformedBy}; resource {record.ResourceAtRequest} -> {record.ResourceAtResolution}.");
+                }
+                else if (verdict == PrepVerdict.Abandoned)
+                {
+                    Note($"preparation {key} abandoned: {record.Outcome}; resource {record.ResourceAtRequest} -> {record.ResourceAtResolution}.");
                 }
             }
             bool turnBased = TurnBased.Controllers.CombatController.IsInTurnBasedCombat();
@@ -671,9 +868,10 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 {
                     continue;
                 }
-                if (unit.Descriptor.State.IsDead || unit.IsInCombat)
+                if (unit.Descriptor.State.IsDead || unit.IsInCombat || !Owned(key))
                 {
-                    // In combat a defender's own brain drinks its potions, in its own turn (see the brains); nothing is forced.
+                    // In combat a defender's own brain drinks its potions, in its own turn (see the brains); a creature under a
+                    // charm, domination, confusion or fear is not commanded and spends nothing for the encounter.
                     continue;
                 }
                 PrepRecord prep = a4.Preparation(next);
@@ -695,11 +893,6 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                     Note($"preparation {next} abandoned after three attempts.");
                     continue;
                 }
-                if (EffectSeen(next))
-                {
-                    LashmistressRules.Performed(a4, next, "already in effect", now);
-                    continue;
-                }
                 UnitCommand command = PrepCommand(next, unit, out string refusal);
                 if (command == null)
                 {
@@ -713,6 +906,64 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 LashmistressRules.Issued(a4, next, now);
                 Note($"{unit.CharacterName} begins {next} (attempt {prep.Attempts}).");
             }
+        }
+
+        /// <summary>One preparation as the field shows it now: can it still happen, is its effect there, what is left to spend.</summary>
+        private static PrepObservation Observe(string key, UnitCommand command)
+        {
+            string actorKey = Prep.Actor(key);
+            UnitEntityData actor = Find(actorKey);
+            var seen = new PrepObservation
+            {
+                CanStillHappen = actor != null && !actor.Descriptor.State.IsDead,
+                CannotReason = actorKey + " is dead",
+                EffectSeen = EffectSeen(key),
+                ResourceLeft = actor == null ? -1 : ResourceLeft(key, actor),
+                DirectorCommandRunning = command != null && !command.IsFinished,
+            };
+            if (seen.CanStillHappen && key == Prep.NagaInvisibilityAgarik)
+            {
+                UnitEntityData agarik = Find(DefenderKeys.Agarik);
+                if (agarik == null || agarik.Descriptor.State.IsDead)
+                {
+                    seen.CanStillHappen = false;
+                    seen.CannotReason = "Agarik is dead";
+                }
+            }
+            return seen;
+        }
+
+        /// <summary>The actor's potions of the kind, or its slots of the spell's level, left now.</summary>
+        private static int ResourceLeft(string key, UnitEntityData actor)
+        {
+            switch (key)
+            {
+                case Prep.VandianaDarkvision:
+                    {
+                        BlueprintAbility darkvision = LashmistressBlueprints.PreparedAbilities["Darkvision"];
+                        return actor.Descriptor.Spellbooks.Sum(b => b.GetAllMemorizedSpells().Count(s => s.Available && s.Spell?.Blueprint == darkvision));
+                    }
+                case Prep.VandianaCatsGrace:
+                    return Potions(actor, LashmistressBlueprints.PotionCatsGrace);
+                case Prep.AgarikBullsStrength:
+                case Prep.JorgasBullsStrength:
+                    return Potions(actor, LashmistressBlueprints.PotionBullsStrength);
+                case Prep.AgarikBlur:
+                case Prep.JorgasBlur:
+                    return Potions(actor, LashmistressBlueprints.PotionBlur);
+                case Prep.NagaInvisibilitySelf:
+                case Prep.NagaInvisibilityAgarik:
+                    return actor.Descriptor.Resources.GetResourceAmount(LashmistressBlueprints.NagaSlots[2]);
+                default:
+                    return -1;
+            }
+        }
+
+        private static int Potions(UnitEntityData unit, string guid)
+        {
+            // A drunk potion leaves its stack: the count is what remains to drink.
+            return unit.Body.QuickSlots.Select(s => s.MaybeItem).Where(i => i != null && i.Blueprint.AssetGuid == guid).Sum(i => i.Count)
+                + unit.Inventory.Where(i => i.Blueprint.AssetGuid == guid && i.HoldingSlot == null).Sum(i => i.Count);
         }
 
         private static bool EffectSeen(string key)
@@ -825,7 +1076,9 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
 
         /// <summary>
         /// Two choices the brain cannot make: a Blackstrike slipping back into the shadows (hide in plain sight) when no foe is
-        /// adjacent, and Vandiana's Dimension Door out of melee when she is hurt and pressed. Each at most once a round.
+        /// adjacent, and Vandiana's Dimension Door out of melee when she is hurt and pressed. Each at most once a round, only
+        /// for a defender the encounter controls, and never over the director's own running preparation command. A pending,
+        /// unavailable or interrupted preparation does not hold these back.
         /// </summary>
         private static void Direct(SanctumState state, double now)
         {
@@ -834,7 +1087,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             foreach (string key in DefenderKeys.All)
             {
                 UnitEntityData unit = Find(key);
-                if (unit == null || unit.Descriptor.State.IsDead || !unit.IsInCombat || !unit.Descriptor.State.CanAct || LashmistressRules.NextFor(state.Lashmistress, key) != null)
+                if (unit == null || unit.Descriptor.State.IsDead || !unit.IsInCombat || !unit.Descriptor.State.CanAct || !Owned(key) || DirectorPreparing(key))
                 {
                     continue;
                 }
@@ -858,8 +1111,11 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                     if (hide != null && hide.IsAvailableForCast)
                     {
                         s_DirectedRound[key] = round;
-                        unit.Commands.Run(UnitUseAbility.CreateCastCommand(hide, unit));
-                        Note($"{unit.CharacterName}: no foe adjacent, hides in plain sight.");
+                        UnitCommand command = UnitUseAbility.CreateCastCommand(hide, unit);
+                        unit.Commands.Run(command);
+                        s_DirectCommands[key] = command;
+                        PrepRecord blur = state.Lashmistress.Preparations.TryGetValue(key == DefenderKeys.Agarik ? Prep.AgarikBlur : Prep.JorgasBlur, out PrepRecord b) ? b : null;
+                        Note($"{unit.CharacterName}: no foe adjacent, hides in plain sight (Blur preparation: {(blur == null ? "not requested" : blur.Performed ? "performed by " + blur.PerformedBy : blur.Abandoned ? "abandoned: " + blur.Outcome : "pending")}).");
                     }
                 }
                 if (key == DefenderKeys.Vandiana && adjacent >= 1 && unit.Descriptor.HPLeft < unit.Descriptor.MaxHP * 0.6f && (!turnBased || unit.HasStandardAction()))
@@ -876,12 +1132,20 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                         {
                             s_DirectedRound[key] = round;
                             unit.Commands.InterruptAiCommands();
-                            unit.Commands.Run(UnitUseAbility.CreateCastCommand(data, new TargetWrapper(point.Value)));
+                            UnitCommand command = UnitUseAbility.CreateCastCommand(data, new TargetWrapper(point.Value));
+                            unit.Commands.Run(command);
+                            s_DirectCommands[key] = command;
                             Note($"Vandiana, pressed in melee at {unit.Descriptor.HPLeft}/{unit.Descriptor.MaxHP}, casts Dimension Door to ({point.Value.x:0.0},{point.Value.z:0.0}).");
                         }
                     }
                 }
             }
+        }
+
+        /// <summary>The director's own preparation command for this defender is still running.</summary>
+        private static bool DirectorPreparing(string key)
+        {
+            return Prep.All.Any(p => Prep.Actor(p) == key && s_PrepCommands.TryGetValue(p, out UnitCommand c) && c != null && !c.IsFinished);
         }
 
         private static IEnumerable<UnitEntityData> Foes(UnitEntityData unit)
@@ -950,7 +1214,11 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 return 0f;
             }
             List<UnitEntityData> enemies = context.Enemies.Select(t => t.Unit).Where(u => u != null && !u.Descriptor.State.IsDead).ToList();
-            List<UnitEntityData> allies = Living().Where(u => u != unit).ToList();
+            // Allies by the creature's own native allegiance now: its fellow defenders and their summons normally, the party's
+            // side when a charm or domination has turned it. Hidden fixtures are never anyone's allies here.
+            List<UnitEntityData> allies = Game.Instance.State.Units
+                .Where(u => u != unit && u.IsInGame && !u.Descriptor.State.IsDead && u.IsAlly(unit) && (IsDefenderSide(u) || IsPartySide(u)))
+                .ToList();
             if (!onTarget)
             {
                 var self = new A4Self
@@ -968,6 +1236,12 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                     Blurred = unit.Buffs.Enumerable.Any(b => b.Blueprint.name == "BlurBuff"),
                     Strengthened = unit.Buffs.Enumerable.Any(b => b.Blueprint.name == "BullsStrengthBuff"),
                     Graced = unit.Buffs.Enumerable.Any(b => b.Blueprint.name == "CatsGraceBuff"),
+                    MagicCircleActive = unit.Buffs.GetBuff(LashmistressBlueprints.MagicCircleAura) != null,
+                    GoodEnemiesVisible = enemies.Count(e => e.Descriptor.Alignment.Value.HasComponent(AlignmentComponent.Good)),
+                    SanctuaryActive = unit.Buffs.GetBuff(LashmistressBlueprints.SanctuaryBuff) != null,
+                    ChillTouchCharged = unit.Buffs.GetBuff(LashmistressBlueprints.ChillTouchCharge) != null,
+                    ArcaneBondWorthwhile = ArcaneBondWorthwhile(unit),
+                    ShieldActive = unit.Buffs.Enumerable.Any(b => b.Blueprint.name.StartsWith("MageShield", StringComparison.Ordinal)),
                 };
                 return LashmistressTactics.Actor(aim, self);
             }
@@ -1047,7 +1321,11 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             var sb = new System.Text.StringBuilder();
             UnitDescriptor d = unit.Descriptor;
             string key = KeyOf(unit);
-            sb.Append($"{key} {unit.CharacterName} {unit.UniqueId} size {d.State.Size} HD {d.Progression.CharacterLevel} hp {d.HPLeft}/{d.MaxHP} temp {unit.Stats.TemporaryHitPoints.ModifiedValue} life {d.State.LifeState} brain {unit.IsBrainActive} combat {unit.IsInCombat} stealth {d.State.IsInStealth} pos ({GridX(unit.Position):0.0},{GridY(unit.Position):0.0}) alignment {d.Alignment.Value}\n");
+            sb.Append($"{key} {unit.CharacterName} {unit.UniqueId} size {d.State.Size} HD {d.Progression.CharacterLevel} hp {d.HPLeft}/{d.MaxHP} temp {unit.Stats.TemporaryHitPoints.ModifiedValue} nonlethal {unit.Stats.DamageNonLethal.BaseValue} life {d.State.LifeState} brain {unit.IsBrainActive} combat {unit.IsInCombat} stealth {d.State.IsInStealth} pos ({GridX(unit.Position):0.0},{GridY(unit.Position):0.0}) alignment {d.Alignment.Value}\n");
+            if (key != null)
+            {
+                sb.Append($"  control: {(ControlOwnership.Yield(ControlOf(unit)) ?? "the encounter's")}; faction {d.Faction?.name} (blueprint {unit.Blueprint.Faction?.name}) group {unit.GroupId} confused {d.State.HasCondition(UnitCondition.Confusion)} director-preparing {DirectorPreparing(key)}\n");
+            }
             sb.Append($"  classes [{string.Join(", ", d.Progression.Classes.Select(c => c.CharacterClass.name + " " + c.Level).ToArray())}]\n");
             foreach (StatType type in new[] { StatType.Strength, StatType.Dexterity, StatType.Constitution, StatType.Intelligence, StatType.Wisdom, StatType.Charisma, StatType.BaseAttackBonus, StatType.AC, StatType.SaveFortitude, StatType.SaveReflex, StatType.SaveWill, StatType.Initiative, StatType.SkillPerception, StatType.SkillStealth, StatType.AdditionalAttackBonus, StatType.HitPoints, StatType.AttackOfOpportunityCount })
             {

@@ -193,7 +193,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             new PreparedEntry("Blindness/Deafness", 3, SpellCarry.Native, "Blindness"),
             new PreparedEntry("Dispel Magic", 3, SpellCarry.Native, "DispelMagicTarget"),
             new PreparedEntry("Glyph of Warding", 3, SpellCarry.PreCast, "GlyphOfWarding", domain: true),
-            new PreparedEntry("Magic Circle against Good", 3, SpellCarry.Deferred, "MagicCircleAgainstGood"),
+            new PreparedEntry("Magic Circle against Good", 3, SpellCarry.Local, "MagicCircleAgainstGood"),
             new PreparedEntry("Wind Wall", 3, SpellCarry.Deferred, "WindWall"),
             new PreparedEntry("Darkness", 2, SpellCarry.Local, "Darkness"),
             new PreparedEntry("Detect Thoughts", 2, SpellCarry.Deferred, "DetectThoughts", domain: true),
@@ -205,7 +205,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             new PreparedEntry("Divine Favor", 1, SpellCarry.Native, "DivineFavor"),
             new PreparedEntry("Obscuring Mist", 1, SpellCarry.Native, "ObscuringMist"),
             new PreparedEntry("Remove Fear", 1, SpellCarry.Native, "RemoveFear"),
-            new PreparedEntry("Sanctuary", 1, SpellCarry.Deferred, "Sanctuary"),
+            new PreparedEntry("Sanctuary", 1, SpellCarry.Local, "Sanctuary"),
         };
 
         public static readonly PreparedEntry[] Wizard =
@@ -227,8 +227,8 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             new PreparedEntry("Resist Energy", 2, SpellCarry.Native, "ResistEnergy"),
             new PreparedEntry("Web", 2, SpellCarry.Native, "Web"),
             new PreparedEntry("Alarm", 1, SpellCarry.PreCast, "Alarm"),
-            new PreparedEntry("Chill Touch", 1, SpellCarry.Deferred, "ChillTouch"),
-            new PreparedEntry("Chill Touch", 1, SpellCarry.Deferred, "ChillTouch"),
+            new PreparedEntry("Chill Touch", 1, SpellCarry.Local, "ChillTouch"),
+            new PreparedEntry("Chill Touch", 1, SpellCarry.Local, "ChillTouch"),
             new PreparedEntry("Grease", 1, SpellCarry.Native, "Grease"),
             new PreparedEntry("Grease", 1, SpellCarry.Native, "Grease"),
             new PreparedEntry("Mage Armor", 1, SpellCarry.PreCast, "MageArmor"),
@@ -256,7 +256,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             new PreparedEntry("Expeditious Retreat", 1, SpellCarry.Native, "ExpeditiousRetreat"),
             new PreparedEntry("Magic Missile", 1, SpellCarry.Native, "MagicMissile"),
             new PreparedEntry("Ray of Enfeeblement", 1, SpellCarry.Native, "RayOfEnfeeblement"),
-            new PreparedEntry("Shield", 1, SpellCarry.Deferred, "Shield"),
+            new PreparedEntry("Shield", 1, SpellCarry.Native, "MageShield"),
             new PreparedEntry("Silent Image", 1, SpellCarry.Deferred, "SilentImage"),
         };
     }
@@ -295,6 +295,11 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         public string EntityId = string.Empty;
         public bool Slain;
         public double SlainAt = -1d;
+        /// <summary>A charm, domination, confusion or fear has the creature now: the encounter neither commands nor spends for it.</summary>
+        public bool Yielded;
+        public double YieldedAt = -1d;
+        public string YieldReason = string.Empty;
+        public int Yields;
     }
 
     /// <summary>One printed preparation, from its trigger to the native action that performed it.</summary>
@@ -314,6 +319,252 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         /// <summary>It can no longer happen (its actor is dead, helpless past the moment, or out of the resource).</summary>
         public bool Abandoned;
         public string Outcome = string.Empty;
+        /// <summary>Who performed it: the director's command, the actor's own action (its brain, or whoever controlled it), or no one (already in effect).</summary>
+        public string PerformedBy = string.Empty;
+        /// <summary>The actor's potions or slots for it when first seen after the request, and when it was resolved; -1 unknown.</summary>
+        public int ResourceAtRequest = -1;
+        public int ResourceAtResolution = -1;
+        /// <summary>When the resource was first seen gone without the effect; it is abandoned only if that lasts a round.</summary>
+        public double ResourceGoneAt = -1d;
+    }
+
+    /// <summary>What the runtime sees of one preparation on a tick, whoever is acting.</summary>
+    internal struct PrepObservation
+    {
+        /// <summary>The actor, and for a spell on another, its subject, are alive.</summary>
+        public bool CanStillHappen;
+        public string CannotReason;
+        public bool EffectSeen;
+        /// <summary>Potions of this kind, or slots of this level, the actor holds now; -1 unknown.</summary>
+        public int ResourceLeft;
+        /// <summary>The director's own command for it is still running.</summary>
+        public bool DirectorCommandRunning;
+    }
+
+    internal enum PrepVerdict
+    {
+        None,
+        Performed,
+        Abandoned,
+    }
+
+    /// <summary>
+    /// Whether the encounter still controls a defender. Its identity (the saved key) never changes; its allegiance and control
+    /// can. A legitimate charm, domination, confusion or fear takes it, and the encounter yields until the effect ends.
+    /// </summary>
+    internal struct ControlFacts
+    {
+        public bool Alive;
+        public bool OriginalFaction;
+        public bool EncounterGroup;
+        public bool PlayerFaction;
+        public bool Confused;
+        /// <summary>Frightened, cowering or panicked: the native fear behaviour moves it.</summary>
+        public bool Frightened;
+    }
+
+    internal enum ControlChange
+    {
+        None,
+        Yielded,
+        Resumed,
+    }
+
+    internal static class ControlOwnership
+    {
+        /// <summary>Null when the encounter controls the creature; otherwise why it does not.</summary>
+        public static string Yield(ControlFacts f)
+        {
+            if (!f.Alive)
+            {
+                return "dead";
+            }
+            if (f.PlayerFaction || !f.OriginalFaction)
+            {
+                return "its allegiance has changed (charm or domination)";
+            }
+            if (!f.EncounterGroup)
+            {
+                return "it has left the encounter's group";
+            }
+            if (f.Confused)
+            {
+                return "confused";
+            }
+            if (f.Frightened)
+            {
+                return "frightened";
+            }
+            return null;
+        }
+
+        /// <summary>Records a change of control once; a repeated tick with the same answer is no change.</summary>
+        public static ControlChange Observe(DefenderRecord record, string reason, double now)
+        {
+            if (reason != null && reason != "dead" && !record.Yielded)
+            {
+                record.Yielded = true;
+                record.YieldedAt = now;
+                record.YieldReason = reason;
+                record.Yields++;
+                return ControlChange.Yielded;
+            }
+            if (reason == null && record.Yielded)
+            {
+                record.Yielded = false;
+                record.YieldReason = string.Empty;
+                return ControlChange.Resumed;
+            }
+            return ControlChange.None;
+        }
+    }
+
+    /// <summary>
+    /// Vandiana's darkness, as the native concealment entry it adds to: everything that would remove a native partial
+    /// concealment removes it too (ignore-all, blindsight in reach, a target that cannot benefit, ignore-partial), and it is
+    /// seen through by darkvision within 60 feet and by true seeing, which pierces magical darkness.
+    /// </summary>
+    internal struct DarknessFacts
+    {
+        public bool TargetInDarkness;
+        public bool AttackerIgnoresAllConcealment;
+        public bool AttackerBlindsightReaches;
+        public bool TargetCannotBenefit;
+        public bool AttackerIgnoresPartial;
+        public bool AttackerDarkvisionWithin60;
+        public bool AttackerTrueSeeing;
+    }
+
+    internal static class DarknessRule
+    {
+        /// <summary>True when, on top of a native result of no concealment, the darkness gives partial concealment.</summary>
+        public static bool AddsConcealment(bool nativeIsNone, DarknessFacts f)
+        {
+            return nativeIsNone && f.TargetInDarkness && !f.AttackerIgnoresAllConcealment && !f.AttackerBlindsightReaches && !f.TargetCannotBenefit
+                && !f.AttackerIgnoresPartial && !f.AttackerDarkvisionWithin60 && !f.AttackerTrueSeeing;
+        }
+
+        public static string Why(bool nativeIsNone, DarknessFacts f)
+        {
+            return !nativeIsNone ? "native concealment already applies"
+                : !f.TargetInDarkness ? "target not in darkness"
+                : f.AttackerIgnoresAllConcealment ? "attacker ignores all concealment"
+                : f.AttackerBlindsightReaches ? "attacker's blindsight reaches"
+                : f.TargetCannotBenefit ? "target cannot benefit from concealment"
+                : f.AttackerIgnoresPartial ? "attacker ignores partial concealment"
+                : f.AttackerDarkvisionWithin60 ? "attacker has darkvision within 60 ft"
+                : f.AttackerTrueSeeing ? "attacker has true seeing"
+                : "darkness: partial concealment";
+        }
+    }
+
+    /// <summary>
+    /// Her +1 whip (Core Rulebook): 1d3 nonlethal, no damage to a creature with an armor bonus of +1 or a natural armor bonus
+    /// of +3. Nonlethal damage uses the game's own nonlethal total, which the game already counts toward unconsciousness.
+    /// </summary>
+    internal static class Nonlethal
+    {
+        public static bool WhipBlocked(int armorBonus, int naturalArmorBonus)
+        {
+            return armorBonus >= 1 || naturalArmorBonus >= 3;
+        }
+
+        /// <summary>
+        /// Adds nonlethal damage. Past the creature's maximum hit points the rest is lethal (Core Rulebook). A creature this
+        /// game would kill rather than knock out (it has no unconscious state) stops one short of the threshold instead.
+        /// </summary>
+        public static void Apply(int nonlethal, int amount, int maxHitPoints, int lethalDamage, bool canFallUnconscious, out int newNonlethal, out int lethalOverflow)
+        {
+            lethalOverflow = 0;
+            int total = nonlethal + Math.Max(0, amount);
+            if (!canFallUnconscious)
+            {
+                newNonlethal = Math.Max(nonlethal, Math.Min(total, maxHitPoints - lethalDamage - 1));
+                return;
+            }
+            newNonlethal = Math.Min(total, maxHitPoints);
+            lethalOverflow = total - newNonlethal;
+        }
+
+        /// <summary>Healing magic heals the same amount of nonlethal damage.</summary>
+        public static int Heal(int nonlethal, int healed)
+        {
+            return Math.Max(0, nonlethal - Math.Max(0, healed));
+        }
+
+        /// <summary>One point per Hit Die per hour of rest or ordinary time.</summary>
+        public static int Recover(int nonlethal, int hitDice, int hours)
+        {
+            return Math.Max(0, nonlethal - Math.Max(1, hitDice) * Math.Max(0, hours));
+        }
+
+        /// <summary>
+        /// When the game revives the fallen after a fight, the nonlethal damage keeping a creature down is reduced so it stays
+        /// up, as the game's own revival does for lethal damage.
+        /// </summary>
+        public static int AfterCombat(int nonlethal, int maxHitPoints, int lethalDamage)
+        {
+            return Math.Min(nonlethal, Math.Max(0, maxHitPoints - lethalDamage - 1));
+        }
+    }
+
+    /// <summary>Sanctuary: each opponent that tries to attack her directly saves once against this casting; a failure bars it.</summary>
+    internal static class SanctuaryRule
+    {
+        /// <summary>The verdict for one attacker: rolled once, on its first attempt, then kept for the spell's duration.</summary>
+        public static bool Barred(Dictionary<string, bool> verdicts, string attackerId, Func<bool> saveSucceeds, out bool rolledNow)
+        {
+            rolledNow = false;
+            if (!verdicts.TryGetValue(attackerId, out bool passed))
+            {
+                passed = saveSucceeds();
+                verdicts[attackerId] = passed;
+                rolledNow = true;
+            }
+            return !passed;
+        }
+
+        /// <summary>A barred attacker is barred only while it has not passed; one it has never tried to attack is not.</summary>
+        public static bool KnownBarred(Dictionary<string, bool> verdicts, string attackerId)
+        {
+            return verdicts.TryGetValue(attackerId, out bool passed) && !passed;
+        }
+    }
+
+    /// <summary>Her conjurer's features and bond (page 13; Core Rulebook).</summary>
+    internal static class ConjurerRules
+    {
+        /// <summary>Summoner's charm: summoned creatures last half her wizard level longer (minimum 1 round).</summary>
+        public static int SummonersCharmRounds(int wizardLevel)
+        {
+            return Math.Max(1, wizardLevel / 2);
+        }
+
+        /// <summary>Chill Touch: one touch per caster level, until all are used.</summary>
+        public static int ChillTouchCharges(int casterLevel)
+        {
+            return Math.Max(1, casterLevel);
+        }
+
+        /// <summary>Disruptive: +4 to the DC of a foe's casting defensively while the Blackstrike threatens it.</summary>
+        public const int DisruptiveBonus = 4;
+
+        /// <summary>
+        /// Arcane bond, once a day: she casts a spell from her book as if prepared. In this game she recovers one spent wizard
+        /// slot as a free action and casts it with its own action: the highest level spent slot whose spell she can cast here,
+        /// in the order her tactics value them. Slots spent before the party arrived are not eligible (their spells are cast).
+        /// </summary>
+        public static string ArcaneBondChoice(IEnumerable<KeyValuePair<PreparedEntry, bool>> wizardSlots)
+        {
+            string[] preference = { "ConfusionSpell", "BalefulPolymorph", "Haste", "Slow", "Enervation", "DimensionDoorBase", "Glitterdust", "Web", "SleetStorm", "SummonMonsterIIIBase", "Grease", "ChillTouch" };
+            return wizardSlots
+                .Where(s => !s.Value && (s.Key.Carry == SpellCarry.Native || s.Key.Carry == SpellCarry.Local))
+                .Select(s => s.Key)
+                .OrderByDescending(e => e.Level)
+                .ThenBy(e => Array.IndexOf(preference, e.Source) < 0 ? int.MaxValue : Array.IndexOf(preference, e.Source))
+                .Select(e => e.Source)
+                .FirstOrDefault();
+        }
     }
 
     /// <summary>The printed preparations and who performs them.</summary>
@@ -386,6 +637,8 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         public double AllDefeatedAt = -1d;
         public bool DefeatReported;
         public bool AwakeningNoted;
+        /// <summary>The game time from which the next hour of natural recovery from her whip's nonlethal damage is counted.</summary>
+        public double NonlethalHourMark = -1d;
 
         public DefenderRecord Defender(string key)
         {
@@ -448,6 +701,12 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         StrengthPotion,
         GracePotion,
         HealingPotion,
+        MagicCircle,
+        Sanctuary,
+        ChillTouch,
+        ChillTouchStrike,
+        ArcaneBond,
+        Shield,
     }
 
     /// <summary>The caster's own situation.</summary>
@@ -467,6 +726,13 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         public bool Blurred;
         public bool Strengthened;
         public bool Graced;
+        public bool MagicCircleActive;
+        public int GoodEnemiesVisible;
+        public bool SanctuaryActive;
+        public bool ChillTouchCharged;
+        /// <summary>A wizard slot her bond would recover is spent, and the bond's daily use remains.</summary>
+        public bool ArcaneBondWorthwhile;
+        public bool ShieldActive;
     }
 
     /// <summary>One candidate target, as the adapters read it from the field.</summary>
@@ -512,10 +778,29 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             {
                 return 0f;
             }
+            if (self.SanctuaryActive && self.HitPointFraction < 0.6d && Offensive(aim))
+            {
+                // Under her sanctuary she recovers first: an attack would end the ward.
+                return 0f;
+            }
             switch (aim)
             {
                 case A4Aim.CureSelf:
                     return self.HitPointFraction < 0.5d ? 1f : 0f;
+                case A4Aim.MagicCircle:
+                    return self.MagicCircleActive || self.GoodEnemiesVisible < 1 ? 0f : 1f;
+                case A4Aim.Sanctuary:
+                    // A last resort when wounded and pressed (her Dimension Door comes first; see the director).
+                    return self.SanctuaryActive || self.HitPointFraction >= 0.35d || self.EnemiesAdjacent < 1 ? 0f : 1f;
+                case A4Aim.ChillTouch:
+                    // She keeps out of melee; only a foe at her side makes a touch worth a slot.
+                    return self.ChillTouchCharged || self.EnemiesAdjacent < 1 ? 0f : 1f;
+                case A4Aim.ChillTouchStrike:
+                    return self.ChillTouchCharged && self.EnemiesAdjacent >= 1 ? 1f : 0f;
+                case A4Aim.ArcaneBond:
+                    return self.ArcaneBondWorthwhile ? 1f : 0f;
+                case A4Aim.Shield:
+                    return self.ShieldActive ? 0f : 1f;
                 case A4Aim.Displacement:
                     return self.Displaced ? 0f : 1f;
                 case A4Aim.Summon:
@@ -556,6 +841,11 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                     case A4Aim.StrengthPotion:
                     case A4Aim.GracePotion:
                     case A4Aim.HealingPotion:
+                    case A4Aim.MagicCircle:
+                    case A4Aim.Sanctuary:
+                    case A4Aim.ChillTouch:
+                    case A4Aim.ArcaneBond:
+                    case A4Aim.Shield:
                         return 1f;
                     case A4Aim.Haste:
                         return t.AlliesNotHastedWithin15Feet >= 1 ? 1f : 0f;
@@ -631,8 +921,37 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                     return 1f - (float)Math.Min(0.5d, t.HitPointFraction * 0.5d);
                 case A4Aim.RayOfEnfeeblement:
                     return t.Martial && t.StrengthScore >= 14 ? 1f : 0f;
+                case A4Aim.ChillTouchStrike:
+                    return t.DistanceFeet <= 10f ? 1f - (float)Math.Min(0.5d, t.HitPointFraction * 0.5d) : 0f;
                 default:
                     return 0f;
+            }
+        }
+
+        /// <summary>The aims that attack or harm a foe, which end her sanctuary.</summary>
+        public static bool Offensive(A4Aim aim)
+        {
+            switch (aim)
+            {
+                case A4Aim.CureSelf:
+                case A4Aim.CureAlly:
+                case A4Aim.Haste:
+                case A4Aim.RemoveFear:
+                case A4Aim.DivineFavor:
+                case A4Aim.Darkness:
+                case A4Aim.Displacement:
+                case A4Aim.BlurPotion:
+                case A4Aim.StrengthPotion:
+                case A4Aim.GracePotion:
+                case A4Aim.HealingPotion:
+                case A4Aim.MagicCircle:
+                case A4Aim.Sanctuary:
+                case A4Aim.ChillTouch:
+                case A4Aim.ArcaneBond:
+                case A4Aim.Shield:
+                    return false;
+                default:
+                    return true;
             }
         }
 
@@ -656,6 +975,23 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         public static int Dice(int casterLevel)
         {
             return Math.Max(1, Math.Min(5, casterLevel / 2));
+        }
+
+        /// <summary>
+        /// The dice one creature takes: an outsider of the full-share alignment (a chaotic outsider for Order's Wrath, a good one
+        /// for Unholy Blight) takes 1d6 per caster level, at most 10d6; everyone else takes 1d8 per two levels, at most 5d8.
+        /// The half share is half of the ordinary roll, outsider or not.
+        /// </summary>
+        public static void Roll(int casterLevel, BlightShare share, bool outsider, out int count, out int sides)
+        {
+            if (share == BlightShare.Full && outsider)
+            {
+                count = Math.Max(1, Math.Min(10, casterLevel));
+                sides = 6;
+                return;
+            }
+            count = Dice(casterLevel);
+            sides = 8;
         }
 
         /// <summary>Order's Wrath: chaotic full, neither lawful nor chaotic half, lawful unaffected.</summary>
@@ -810,6 +1146,57 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             prep.Performed = true;
             prep.PerformedAt = now;
             prep.Outcome = outcome;
+        }
+
+        /// <summary>
+        /// Settles one requested preparation from what is seen on the field, whoever acted: the director's command, the actor's
+        /// own brain in combat, or someone controlling it. Its effect seen is performed (with what was spent); an actor or
+        /// subject that can no longer do it, or a resource gone for a full round with no effect, ends it for good. Nothing
+        /// here gates any other decision.
+        /// </summary>
+        public static PrepVerdict Reconcile(LashmistressState state, string key, PrepObservation seen, bool directorCommandSucceeded, double now, double graceSeconds)
+        {
+            PrepRecord prep = state.Preparation(key);
+            if (!prep.Requested || prep.Performed || prep.Abandoned)
+            {
+                return PrepVerdict.None;
+            }
+            if (prep.ResourceAtRequest < 0 && seen.ResourceLeft >= 0)
+            {
+                prep.ResourceAtRequest = seen.ResourceLeft;
+            }
+            if (seen.EffectSeen)
+            {
+                bool spent = prep.ResourceAtRequest >= 0 && seen.ResourceLeft >= 0 && seen.ResourceLeft < prep.ResourceAtRequest;
+                prep.PerformedBy = directorCommandSucceeded ? "the director's command" : spent ? "its own action (its brain, or whoever controlled it)" : "no one: already in effect, nothing spent";
+                prep.ResourceAtResolution = seen.ResourceLeft;
+                Performed(state, key, "effect observed on its target", now);
+                return PrepVerdict.Performed;
+            }
+            if (!seen.CanStillHappen)
+            {
+                prep.ResourceAtResolution = seen.ResourceLeft;
+                Abandon(state, key, seen.CannotReason ?? "it can no longer happen");
+                return PrepVerdict.Abandoned;
+            }
+            if (seen.ResourceLeft == 0 && !seen.DirectorCommandRunning)
+            {
+                if (prep.ResourceGoneAt < 0d)
+                {
+                    prep.ResourceGoneAt = now;
+                }
+                else if (now - prep.ResourceGoneAt >= graceSeconds)
+                {
+                    prep.ResourceAtResolution = 0;
+                    Abandon(state, key, "its potion or slot is gone and the effect never appeared");
+                    return PrepVerdict.Abandoned;
+                }
+            }
+            else
+            {
+                prep.ResourceGoneAt = -1d;
+            }
+            return PrepVerdict.None;
         }
 
         public static void Abandon(LashmistressState state, string key, string why)

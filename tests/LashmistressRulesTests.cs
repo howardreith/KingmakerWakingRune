@@ -202,6 +202,186 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(0f, LashmistressTactics.Actor(A4Aim.Melee, new A4Self { VisibleEnemies = 0 }), "nothing without a visible enemy");
         }
 
+        private static LashmistressState Requested(string key)
+        {
+            var state = new LashmistressState { Policy = LashmistressPolicy.Active };
+            LashmistressRules.Request(state, key, "combat", 0d);
+            return state;
+        }
+
+        public static void TestAPreparationIsSettledWhoeverPerformsIt()
+        {
+            // Combat requests Blur; the Blackstrike's own brain drinks it. No director command was ever issued.
+            LashmistressState state = Requested(Prep.AgarikBlur);
+            var seen = new PrepObservation { CanStillHappen = true, ResourceLeft = 1 };
+            Assert.Equal(PrepVerdict.None, LashmistressRules.Reconcile(state, Prep.AgarikBlur, seen, false, 1d, 6d), "nothing yet");
+            Assert.Equal(1, state.Preparation(Prep.AgarikBlur).ResourceAtRequest, "one potion when first seen");
+            seen.ResourceLeft = 0;
+            seen.EffectSeen = true;
+            Assert.Equal(PrepVerdict.Performed, LashmistressRules.Reconcile(state, Prep.AgarikBlur, seen, false, 7d, 6d), "the brain's potion settles it");
+            PrepRecord blur = state.Preparation(Prep.AgarikBlur);
+            Assert.Equal(false, blur.Issued, "never issued by the director");
+            Assert.Equal(true, blur.PerformedBy.StartsWith("its own action"), "performed by its own action: " + blur.PerformedBy);
+            Assert.Equal(0, blur.ResourceAtResolution, "the potion was spent");
+            Assert.Equal(null, LashmistressRules.NextFor(state, DefenderKeys.Agarik), "nothing is owed any more");
+            // The director's own command, when it succeeded, is credited to the director.
+            LashmistressState door = Requested(Prep.AgarikBullsStrength);
+            LashmistressRules.Issued(door, Prep.AgarikBullsStrength, 1d);
+            LashmistressRules.Reconcile(door, Prep.AgarikBullsStrength, new PrepObservation { CanStillHappen = true, ResourceLeft = 0, EffectSeen = true }, true, 4d, 6d);
+            Assert.Equal("the director's command", door.Preparation(Prep.AgarikBullsStrength).PerformedBy, "director credited");
+            // Already in effect, nothing spent.
+            LashmistressState already = Requested(Prep.VandianaDarkvision);
+            LashmistressRules.Reconcile(already, Prep.VandianaDarkvision, new PrepObservation { CanStillHappen = true, ResourceLeft = 1, EffectSeen = true }, false, 1d, 6d);
+            Assert.Equal(true, already.Preparation(Prep.VandianaDarkvision).PerformedBy.StartsWith("no one"), "nothing spent");
+        }
+
+        public static void TestAnUnavailableOrInterruptedPreparationEndsAndGatesNothing()
+        {
+            // The potion is gone with no effect (drunk and dispelled, or taken): after a full round it is abandoned for good.
+            LashmistressState state = Requested(Prep.JorgasBlur);
+            var gone = new PrepObservation { CanStillHappen = true, ResourceLeft = 0 };
+            Assert.Equal(PrepVerdict.None, LashmistressRules.Reconcile(state, Prep.JorgasBlur, gone, false, 10d, 6d), "a potion being drunk is given its round");
+            Assert.Equal(PrepVerdict.None, LashmistressRules.Reconcile(state, Prep.JorgasBlur, gone, false, 14d, 6d), "still inside the round");
+            Assert.Equal(PrepVerdict.Abandoned, LashmistressRules.Reconcile(state, Prep.JorgasBlur, gone, false, 16d, 6d), "a round with nothing: abandoned");
+            Assert.Equal(null, LashmistressRules.NextFor(state, DefenderKeys.Jorgas), "it is not owed forever");
+            // The director's command still running holds the clock (the potion leaves the stack before the effect lands).
+            LashmistressState running = Requested(Prep.JorgasBlur);
+            var drinking = new PrepObservation { CanStillHappen = true, ResourceLeft = 0, DirectorCommandRunning = true };
+            LashmistressRules.Reconcile(running, Prep.JorgasBlur, drinking, false, 10d, 6d);
+            Assert.Equal(PrepVerdict.None, LashmistressRules.Reconcile(running, Prep.JorgasBlur, drinking, false, 30d, 6d), "not while its own command runs");
+            // An actor or subject that died ends it at once.
+            LashmistressState dead = Requested(Prep.NagaInvisibilityAgarik);
+            Assert.Equal(PrepVerdict.Abandoned, LashmistressRules.Reconcile(dead, Prep.NagaInvisibilityAgarik, new PrepObservation { CanStillHappen = false, CannotReason = "Agarik is dead", ResourceLeft = 3 }, false, 1d, 6d), "its subject died");
+            Assert.Equal("Agarik is dead", dead.Preparation(Prep.NagaInvisibilityAgarik).Outcome, "with its reason");
+            // A resolved preparation is never reopened.
+            Assert.Equal(PrepVerdict.None, LashmistressRules.Reconcile(dead, Prep.NagaInvisibilityAgarik, new PrepObservation { CanStillHappen = true, EffectSeen = true }, false, 2d, 6d), "settled once");
+        }
+
+        public static void TestTheEncounterYieldsToCharmDominationConfusionAndFear()
+        {
+            var own = new ControlFacts { Alive = true, OriginalFaction = true, EncounterGroup = true };
+            Assert.Equal(null, ControlOwnership.Yield(own), "its own");
+            var dominated = own;
+            dominated.OriginalFaction = false;
+            dominated.PlayerFaction = true;
+            dominated.EncounterGroup = false;
+            Assert.Equal(true, ControlOwnership.Yield(dominated).Contains("allegiance"), "domination");
+            var charmed = own;
+            charmed.OriginalFaction = false;
+            Assert.Equal(true, ControlOwnership.Yield(charmed) != null, "charm to neutral");
+            var confused = own;
+            confused.Confused = true;
+            Assert.Equal("confused", ControlOwnership.Yield(confused), "confusion");
+            var afraid = own;
+            afraid.Frightened = true;
+            Assert.Equal("frightened", ControlOwnership.Yield(afraid), "fear");
+            var record = new DefenderRecord { Key = DefenderKeys.Agarik };
+            Assert.Equal(ControlChange.Yielded, ControlOwnership.Observe(record, ControlOwnership.Yield(dominated), 10d), "yielded once");
+            Assert.Equal(ControlChange.None, ControlOwnership.Observe(record, ControlOwnership.Yield(dominated), 11d), "not again while it lasts");
+            Assert.Equal(ControlChange.Resumed, ControlOwnership.Observe(record, null, 40d), "resumed when the effect ends");
+            Assert.Equal(1, record.Yields, "counted");
+            Assert.Equal(ControlChange.None, ControlOwnership.Observe(record, "dead", 50d), "death is not a change of control");
+        }
+
+        public static void TestDarknessKeepsEveryNativeExemptionAndYieldsToTrueSeeing()
+        {
+            var plain = new DarknessFacts { TargetInDarkness = true };
+            Assert.Equal(true, DarknessRule.AddsConcealment(true, plain), "an ordinary attacker: 20%");
+            Assert.Equal(false, DarknessRule.AddsConcealment(false, plain), "a native concealment already applies: nothing added");
+            Assert.Equal(false, DarknessRule.AddsConcealment(true, new DarknessFacts()), "outside the darkness");
+            foreach (var exempt in new[]
+            {
+                new DarknessFacts { TargetInDarkness = true, AttackerTrueSeeing = true },
+                new DarknessFacts { TargetInDarkness = true, AttackerDarkvisionWithin60 = true },
+                new DarknessFacts { TargetInDarkness = true, AttackerBlindsightReaches = true },
+                new DarknessFacts { TargetInDarkness = true, AttackerIgnoresAllConcealment = true },
+                new DarknessFacts { TargetInDarkness = true, AttackerIgnoresPartial = true },
+                new DarknessFacts { TargetInDarkness = true, TargetCannotBenefit = true },
+            })
+            {
+                Assert.Equal(false, DarknessRule.AddsConcealment(true, exempt), DarknessRule.Why(true, exempt));
+            }
+            Assert.Equal("attacker has true seeing", DarknessRule.Why(true, new DarknessFacts { TargetInDarkness = true, AttackerTrueSeeing = true }), "true seeing pierces magical darkness");
+        }
+
+        public static void TestTheBurstsHitOutsidersByTheirOwnRule()
+        {
+            AlignedBurst.Roll(8, BlightShare.Full, outsider: false, out int count, out int sides);
+            Assert.Equal("4d8", $"{count}d{sides}", "an ordinary chaotic or good creature at CL 8");
+            AlignedBurst.Roll(8, BlightShare.Full, outsider: true, out count, out sides);
+            Assert.Equal("8d6", $"{count}d{sides}", "a qualifying outsider at CL 8: 1d6 per level");
+            AlignedBurst.Roll(14, BlightShare.Full, true, out count, out sides);
+            Assert.Equal("10d6", $"{count}d{sides}", "at most 10d6");
+            AlignedBurst.Roll(14, BlightShare.Full, false, out count, out sides);
+            Assert.Equal("5d8", $"{count}d{sides}", "at most 5d8");
+            AlignedBurst.Roll(8, BlightShare.Half, true, out count, out sides);
+            Assert.Equal("4d8", $"{count}d{sides}", "a neutral outsider takes half of the ordinary roll");
+        }
+
+        public static void TestTheWhipIsNonlethalAndStoppedByArmor()
+        {
+            Assert.Equal(true, Nonlethal.WhipBlocked(armorBonus: 1, naturalArmorBonus: 0), "armor bonus +1");
+            Assert.Equal(true, Nonlethal.WhipBlocked(0, 3), "natural armor +3");
+            Assert.Equal(false, Nonlethal.WhipBlocked(0, 2), "natural armor +2 is not enough");
+            Nonlethal.Apply(0, 3, maxHitPoints: 50, lethalDamage: 10, canFallUnconscious: true, out int after, out int overflow);
+            Assert.Equal(3, after, "nonlethal accumulates");
+            Assert.Equal(0, overflow, "no lethal damage");
+            Nonlethal.Apply(49, 4, 50, 0, true, out after, out overflow);
+            Assert.Equal(50, after, "capped at maximum hit points");
+            Assert.Equal(3, overflow, "the rest is lethal");
+            Nonlethal.Apply(30, 30, 50, 10, false, out after, out overflow);
+            Assert.Equal(39, after, "a creature this game would kill stops one short");
+            Assert.Equal(0, overflow, "and takes no lethal overflow");
+            Assert.Equal(2, Nonlethal.Heal(10, 8), "healing heals nonlethal too");
+            Assert.Equal(0, Nonlethal.Recover(10, hitDice: 12, hours: 1), "a Hit Die an hour");
+            Assert.Equal(49, Nonlethal.AfterCombat(70, 60, 10), "revived after the fight: no longer held down");
+            Assert.Equal(5, Nonlethal.AfterCombat(5, 60, 10), "a small total is kept");
+        }
+
+        public static void TestSanctuaryBarsEachAttackerByItsOneSave()
+        {
+            var verdicts = new System.Collections.Generic.Dictionary<string, bool>();
+            int rolls = 0;
+            Assert.Equal(true, SanctuaryRule.Barred(verdicts, "a", () => { rolls++; return false; }, out bool rolled), "failed: barred");
+            Assert.Equal(true, rolled, "rolled on the first attempt");
+            Assert.Equal(true, SanctuaryRule.Barred(verdicts, "a", () => { rolls++; return true; }, out rolled), "still barred: one save per casting");
+            Assert.Equal(1, rolls, "never rolled again");
+            Assert.Equal(false, SanctuaryRule.Barred(verdicts, "b", () => true, out rolled), "passed: unaffected");
+            Assert.Equal(false, SanctuaryRule.KnownBarred(verdicts, "c"), "one that never tried is not barred");
+            Assert.Equal(true, SanctuaryRule.KnownBarred(verdicts, "a"), "the failed one is");
+        }
+
+        public static void TestHerConjurerFeaturesAndBond()
+        {
+            Assert.Equal(2, ConjurerRules.SummonersCharmRounds(4), "wizard 4: +2 rounds");
+            Assert.Equal(1, ConjurerRules.SummonersCharmRounds(1), "at least 1");
+            Assert.Equal(9, ConjurerRules.ChillTouchCharges(9), "a touch per caster level");
+            PreparedEntry Entry(string source) => VandianaSpells.Wizard.First(e => e.Source == source);
+            var slots = new[]
+            {
+                new System.Collections.Generic.KeyValuePair<PreparedEntry, bool>(Entry("MagesFaithfulHound"), false),
+                new System.Collections.Generic.KeyValuePair<PreparedEntry, bool>(Entry("Haste"), false),
+                new System.Collections.Generic.KeyValuePair<PreparedEntry, bool>(Entry("ConfusionSpell"), false),
+                new System.Collections.Generic.KeyValuePair<PreparedEntry, bool>(Entry("BalefulPolymorph"), true),
+            };
+            Assert.Equal("ConfusionSpell", ConjurerRules.ArcaneBondChoice(slots), "the highest spent slot she can cast here; the hound was cast before arrival");
+            Assert.Equal(null, ConjurerRules.ArcaneBondChoice(slots.Where(s => s.Value || s.Key.Carry == SpellCarry.PreCast)), "nothing spent that she could cast");
+        }
+
+        public static void TestHerSanctuaryHoldsBackHerAttacksWhileSheRecovers()
+        {
+            var warded = new A4Self { VisibleEnemies = 2, HitPointFraction = 0.3d, SanctuaryActive = true, EnemiesAdjacent = 1 };
+            Assert.Equal(0f, LashmistressTactics.Actor(A4Aim.Confusion, warded), "no attack while warded and hurt");
+            Assert.Equal(1f, LashmistressTactics.Actor(A4Aim.CureSelf, warded), "she heals");
+            Assert.Equal(1f, LashmistressTactics.Actor(A4Aim.Sanctuary, new A4Self { VisibleEnemies = 2, HitPointFraction = 0.3d, EnemiesAdjacent = 1 }), "a last resort when pressed");
+            Assert.Equal(0f, LashmistressTactics.Actor(A4Aim.Sanctuary, new A4Self { VisibleEnemies = 2, HitPointFraction = 0.8d, EnemiesAdjacent = 1 }), "not when healthy");
+            Assert.Equal(1f, LashmistressTactics.Actor(A4Aim.MagicCircle, new A4Self { VisibleEnemies = 2, GoodEnemiesVisible = 1 }), "a circle against good foes");
+            Assert.Equal(0f, LashmistressTactics.Actor(A4Aim.MagicCircle, new A4Self { VisibleEnemies = 2 }), "not without a good foe");
+            Assert.Equal(1f, LashmistressTactics.Actor(A4Aim.Shield, new A4Self { VisibleEnemies = 1 }), "the naga's Shield is in its repertoire");
+            Assert.Equal(true, NagaSpells.Known.Any(e => e.Source == "MageShield" && e.Carry == SpellCarry.Native), "Shield is the game's own spell");
+            Assert.Equal(0f, LashmistressTactics.Actor(A4Aim.ChillTouch, new A4Self { VisibleEnemies = 2 }), "no touch without a foe at her side");
+        }
+
         public static void TestAVersionFourSanctumStateWaitsForTheCheck()
         {
             var state = new SanctumState { Version = 4, Initialized = true };

@@ -9,6 +9,7 @@ using Kingmaker.Blueprints.Classes.Spells;
 using Kingmaker.Blueprints.Facts;
 using Kingmaker.Blueprints.Items;
 using Kingmaker.Blueprints.Items.Armors;
+using Kingmaker.Blueprints.Items.Ecnchantments;
 using Kingmaker.Blueprints.Items.Equipment;
 using Kingmaker.Blueprints.Items.Shields;
 using Kingmaker.Blueprints.Items.Weapons;
@@ -143,6 +144,8 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         public const string PotionCureModerate = "f991f3051c3b9e64fabc87891077b613";
 
         public const string MageArmorBuffGuid = "a92acdf18049d784eaa8f2004f5d2304";
+        private const string OutsiderTypeGuid = "9054d3988d491d944ac144e27b6bc318";
+        private const string ProtectionFromGoodBuffGuid = "b19e788487556aa4397080ef3dbb3619";
         private const string SickenedBuff = "4e42460798665fd4cb9173ffa7ada323";
         private const string DazeBuffGuid = "9934fedff1b14994ea90205d189c8759";
 
@@ -166,6 +169,17 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         public static BlueprintAbility HideInPlainSight { get; private set; }
         /// <summary>The self-only variant of the game's own Dimension Door, which she casts from its prepared base.</summary>
         public static BlueprintAbility DimensionDoorSelf { get; private set; }
+        /// <summary>The game's own outsider type, which Order's Wrath and Unholy Blight read.</summary>
+        public static BlueprintFeature OutsiderType { get; private set; }
+        public static BlueprintBuff ChillTouchCharge { get; private set; }
+        public static BlueprintAbility ChillTouchStrike { get; private set; }
+        public static BlueprintBuff SanctuaryBuff { get; private set; }
+        public static BlueprintBuff MagicCircleAura { get; private set; }
+        public static BlueprintBuff ProtectionFromGoodBuff { get; private set; }
+        public static BlueprintAbility ArcaneBond { get; private set; }
+        public static BlueprintAbilityResource ArcaneBondResource { get; private set; }
+        public static BlueprintFeature Disruptive { get; private set; }
+        public static BlueprintWeaponEnchantment WhipLash { get; private set; }
         public static BlueprintCharacterClass ClericClassBlueprint { get; private set; }
         public static BlueprintCharacterClass WizardClassBlueprint { get; private set; }
         public static BlueprintSpellList VandianaClericSpecial { get; private set; }
@@ -173,6 +187,9 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
 
         /// <summary>Every printed prepared entry's ability, by its <see cref="PreparedEntry.Source"/> key.</summary>
         public static readonly Dictionary<string, BlueprintAbility> PreparedAbilities = new Dictionary<string, BlueprintAbility>();
+        /// <summary>The placeholder each formerly deferred entry had (0.7.0-0.7.10), by source key; see <see cref="LegacyDeferred"/>.</summary>
+        public static readonly Dictionary<string, BlueprintAbility> LegacyPlaceholders = new Dictionary<string, BlueprintAbility>();
+        private static readonly string[] LegacyDeferred = { "MagicCircleAgainstGood", "Sanctuary", "ChillTouch" };
         public static readonly Dictionary<BlueprintAbility, int> NagaSpellLevel = new Dictionary<BlueprintAbility, int>();
         public static readonly Dictionary<int, BlueprintAbilityResource> NagaSlots = new Dictionary<int, BlueprintAbilityResource>();
         public static readonly Dictionary<string, BlueprintAbility> NagaAbilities = new Dictionary<string, BlueprintAbility>();
@@ -248,6 +265,10 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 Condition(UnitCondition.CantAct), Condition(UnitCondition.CantMove), Descriptor(SpellDescriptor.MindAffecting | SpellDescriptor.Compulsion));
             NagaSleep = Buff(buffDonor, "KWR_DarkNagaSleep", "Dark Naga Poison: Asleep", "Asleep from the dark naga's sting for 2d4 minutes: helpless. A poison: neutralize poison ends it, and creatures immune to poison or sleep are unaffected. Damage or an ally's wake action rouses the sleeper.", 0x40,
                 Condition(UnitCondition.Sleeping), Descriptor(SpellDescriptor.Poison | SpellDescriptor.Sleep), Component<Wards.KwrMistSleepWake>("KWR_DarkNagaSleepWake"));
+            OutsiderType = Get<BlueprintFeature>(OutsiderTypeGuid);
+            ProtectionFromGoodBuff = Get<BlueprintBuff>(ProtectionFromGoodBuffGuid);
+            BuildWardSpells(buffDonor);
+            Disruptive = Feature("KWR_BlackstrikeDisruptive", "Disruptive", "Foes this creature threatens find it harder to cast defensively: +4 to the DC of their defensive casting checks.", Component<KwrDisruptive>("KWR_BlackstrikeDisruptiveLogic"));
 
             BuildWeapons();
             BuildVandianaSpells(buffDonor);
@@ -265,7 +286,17 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         private static void BuildWeapons()
         {
             // A whip: the game has none. A one-handed reach weapon with the whip's printed reach and 1d3, built on the flail
-            // +1's item (enhancement +1, so magic) with its own weapon type; its damage is nonlethal and recorded only.
+            // +1's item (enhancement +1, so magic) with its own weapon type. Its nonlethal damage and armor rule are the
+            // weapon's own enchantment, so they follow the whip to any wielder.
+            WhipLash = Create<BlueprintWeaponEnchantment>("KWR_WhipNonlethal");
+            foreach (var text in new[] { new { Field = "m_EnchantName", Text = "Whip" }, new { Field = "m_Description", Text = "Deals nonlethal damage, and none to a creature with an armor bonus of +1 or more or a natural armor bonus of +3 or more." }, new { Field = "m_Prefix", Text = string.Empty }, new { Field = "m_Suffix", Text = string.Empty } })
+            {
+                string key = "kwr.enchantment.whip." + text.Field;
+                LocalizedText.Define(key, text.Text);
+                AccessTools.Field(typeof(BlueprintItemEnchantment), text.Field).SetValue(WhipLash, LocalizedText.Create(key));
+            }
+            WhipLash.ComponentsArray = new BlueprintComponent[] { Component<KwrWhipLash>("KWR_WhipNonlethalLogic") };
+            s_Register(WhipLash);
             BlueprintItemWeapon flail = Get<BlueprintItemWeapon>(FlailPlus1);
             var type = UnityEngine.Object.Instantiate(flail.Type);
             type.name = "KWR_WhipType";
@@ -278,11 +309,59 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             Whip.name = "KWR_VandianaWhipPlus1";
             Whip.AssetGuid = ScenarioIds.Derive("a4." + Whip.name);
             AccessTools.Field(typeof(BlueprintItemWeapon), "m_Type").SetValue(Whip, type);
+            var enchantments = AccessTools.Field(typeof(BlueprintItemWeapon), "m_Enchantments");
+            enchantments.SetValue(Whip, ((BlueprintWeaponEnchantment[])enchantments.GetValue(Whip) ?? new BlueprintWeaponEnchantment[0]).Concat(new[] { WhipLash }).ToArray());
             Name(Whip, "kwr.item.whip", "Whip +1");
             s_Register(Whip);
 
             NagaBite = NaturalWeapon(Get<BlueprintItemWeapon>(Bite1d4), "KWR_DarkNagaBite", new DiceFormula(1, DiceType.D4));
             NagaSting = NaturalWeapon(Get<BlueprintItemWeapon>(Sting1d4), "KWR_DarkNagaSting", new DiceFormula(2, DiceType.D4));
+        }
+
+        /// <summary>
+        /// The effects behind three of her printed spells: Sanctuary's ward, Magic Circle against Good (the game's own
+        /// Protection from Good on her allies within 10 feet of the warded creature) and Chill Touch's held touches.
+        /// </summary>
+        private static void BuildWardSpells(BlueprintBuff buffDonor)
+        {
+            SanctuaryBuff = Buff(buffDonor, "KWR_VandianaSanctuary", "Sanctuary", "Any opponent that tries to attack Vandiana directly must succeed on a Will save or lose that attack and be unable to attack her while the ward lasts; each saves once against this casting. Area effects are unaffected. It ends if she attacks or casts a harmful spell at a foe. A spell effect: dispel magic ends it.", 0,
+                Component<KwrSanctuaryWard>("KWR_VandianaSanctuaryWard"), Component<KwrSanctuaryEnds>("KWR_VandianaSanctuaryEnds"));
+
+            var circleArea = Create<BlueprintAbilityAreaEffect>("KWR_A4MagicCircleArea");
+            circleArea.Shape = AreaEffectShape.Cylinder;
+            circleArea.Size = 10.Feet();
+            circleArea.AffectEnemies = false;
+            circleArea.AggroEnemies = false;
+            var warded = Component<AbilityAreaEffectBuff>("KWR_A4MagicCircleInside");
+            warded.Buff = ProtectionFromGoodBuff;
+            warded.Condition = new ConditionsChecker { Conditions = new Condition[0] };
+            circleArea.ComponentsArray = new BlueprintComponent[] { warded };
+            s_Register(circleArea);
+            var emanation = Component<AddAreaEffect>("KWR_A4MagicCircleAura");
+            emanation.AreaEffect = circleArea;
+            MagicCircleAura = Buff(buffDonor, "KWR_VandianaMagicCircle", "Magic Circle against Good", "A 10-foot emanation from the warded creature: it and its allies inside have the game's own Protection from Good (deflection and resistance bonuses against good creatures) for 10 minutes per level. A spell effect: dispel magic ends it.", 0, emanation);
+
+            BlueprintAbility touchDonor = Named<BlueprintAbility>("TouchOfFatigueEffect");
+            var strike = UnityEngine.Object.Instantiate(touchDonor);
+            strike.name = "KWR_VandianaChillTouchStrike";
+            strike.AssetGuid = ScenarioIds.Derive("a4." + strike.name);
+            strike.Type = AbilityType.Spell;
+            strike.SpellResistance = true;
+            Name(strike, "kwr.ability." + strike.name, "Chill Touch (touch)", "A melee touch: 1d6 negative energy damage, and 1 Strength damage unless the creature succeeds on a Fortitude save. Spell resistance applies. One touch of those Chill Touch holds.");
+            strike.ComponentsArray = (touchDonor.ComponentsArray ?? new BlueprintComponent[0]).Where(c => c is AbilitySpawnFx || c is AbilityDeliverTouch)
+                .Concat(new BlueprintComponent[] { RunActions(ScriptableObject.CreateInstance<KwrChillTouchStrikeAction>()), School(SpellSchool.Necromancy) }).ToArray();
+            s_Register(strike);
+            ChillTouchStrike = strike;
+            ChillTouchCharge = Buff(buffDonor, "KWR_VandianaChillTouch", "Chill Touch (held)", "Vandiana holds one touch of Chill Touch per caster level. Casting another spell dissipates the rest.", 0,
+                Component<KwrChillTouchCharges>("KWR_VandianaChillTouchCharges"), AddFactsOf("KWR_VandianaChillTouchStrikeFact", new BlueprintUnitFact[] { strike }));
+
+            ArcaneBondResource = Resource("KWR_VandianaArcaneBondUses", 1);
+            var spend = Component<AbilityResourceLogic>("KWR_VandianaArcaneBondSpend");
+            spend.RequiredResource = ArcaneBondResource;
+            spend.IsSpendResource = true;
+            spend.Amount = 1;
+            ArcaneBond = OwnAbility("KWR_VandianaArcaneBond", "Arcane Bond (Ring)", "Once per day, through her bonded ring, Vandiana recovers one spent wizard spell (a free action) and casts it with its own action, as a wizard casts a spell from her book through her bond.", Kingmaker.UnitLogic.Commands.Base.UnitCommand.CommandType.Free, AbilityRange.Personal,
+                Run<KwrArcaneBondAction>(), spend);
         }
 
         /// <summary>A Large creature's printed natural weapon: the dice are fixed at Large, so the engine does not scale them again.</summary>
@@ -323,6 +402,12 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 }
                 PreparedAbilities[entry.Source] = ability;
             }
+            // Entries held as placeholders before 0.7.11 and real spells since: the old placeholders still exist, so a save
+            // that prepared them loads, and the load swaps each prepared slot for the spell (see LashmistressEncounter).
+            foreach (PreparedEntry entry in VandianaSpells.Cleric.Concat(VandianaSpells.Wizard).Where(e => LegacyDeferred.Contains(e.Source)).GroupBy(e => e.Source).Select(g => g.First()))
+            {
+                LegacyPlaceholders[entry.Source] = Placeholder(new PreparedEntry(entry.Name, entry.Level, SpellCarry.Deferred, entry.Source, entry.Domain));
+            }
             VandianaClericSpecial = SpellList("KWR_VandianaDomainEntries", VandianaSpells.Cleric.Where(e => e.Domain));
             VandianaWizardSpecial = SpellList("KWR_VandianaSchoolEntries", VandianaSpells.Wizard.Where(e => e.Source == "MagesFaithfulHound"));
         }
@@ -353,10 +438,10 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             switch (entry.Source)
             {
                 case "OrdersWrath":
-                    return Burst("KWR_VandianaOrdersWrath", entry.Name, "Divine power smites chaotic creatures in a 30-foot cube (1d8 per two caster levels, at most 5d8) and dazes them for a round; neither lawful nor chaotic creatures take half and are not dazed; lawful creatures are unharmed. Will half (and no daze; a quarter for the neutral). Spell resistance applies.",
+                    return Burst("KWR_VandianaOrdersWrath", entry.Name, "Divine power smites chaotic creatures in a 30-foot cube (1d8 per two caster levels, at most 5d8; chaotic outsiders 1d6 per level, at most 10d6) and dazes them for a round; neither lawful nor chaotic creatures take half and are not dazed; lawful creatures are unharmed. Will half (and no daze; a quarter for the neutral). Spell resistance applies. Lawful.",
                         abilities["SoundBurst"], AbilityRange.Medium, 15.Feet(), false);
                 case "UnholyBlight":
-                    return Burst("KWR_VandianaUnholyBlight", entry.Name, "Unholy power harms good creatures in a 20-foot spread (1d8 per two caster levels, at most 5d8) and sickens them for 1d4 rounds; neither good nor evil creatures take half and are not sickened; evil creatures are unharmed. Will half (and no sickening; a quarter for the neutral). Spell resistance applies.",
+                    return Burst("KWR_VandianaUnholyBlight", entry.Name, "Unholy power harms good creatures in a 20-foot spread (1d8 per two caster levels, at most 5d8; good outsiders 1d6 per level, at most 10d6) and sickens them for 1d4 rounds; neither good nor evil creatures take half and are not sickened; evil creatures are unharmed. Will half (and no sickening; a quarter for the neutral). Spell resistance applies. Evil.",
                         abilities["SoundBurst"], AbilityRange.Medium, 20.Feet(), true);
                 case "Command":
                     {
@@ -373,6 +458,39 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                         apply.SecondsPerLevel = 60d;
                         shell.Range = AbilityRange.Personal;
                         shell.ComponentsArray = Keep(shell).Concat(new BlueprintComponent[] { RunActions(apply), School(SpellSchool.Evocation), Descriptor(SpellDescriptor.None) }).ToArray();
+                        return shell;
+                    }
+                case "MagicCircleAgainstGood":
+                    {
+                        var shell = Shell(abilities["ProtectionFromGood"], "KWR_VandianaMagicCircleSpell", entry.Name, "The touched creature emanates a 10-foot circle for 10 minutes per level: it and its allies inside have the game's own Protection from Good. Vandiana casts it on herself, among her defenders.");
+                        var apply = ScriptableObject.CreateInstance<KwrApplySpellBuff>();
+                        apply.Buff = MagicCircleAura;
+                        apply.SecondsPerLevel = 600d;
+                        shell.Range = AbilityRange.Touch;
+                        shell.CanTargetSelf = true;
+                        shell.CanTargetFriends = true;
+                        shell.CanTargetEnemies = false;
+                        shell.ComponentsArray = Keep(shell).Concat(new BlueprintComponent[] { RunActions(apply), School(SpellSchool.Abjuration), Descriptor(SpellDescriptor.Evil) }).ToArray();
+                        return shell;
+                    }
+                case "Sanctuary":
+                    {
+                        var shell = Shell(abilities["DivineFavor"], "KWR_VandianaSanctuarySpell", entry.Name, "For 1 round per level, any opponent that tries to attack Vandiana directly must succeed on a Will save or be unable to attack her. Area effects are unaffected. It ends if she attacks.");
+                        var apply = ScriptableObject.CreateInstance<KwrApplySpellBuff>();
+                        apply.Buff = SanctuaryBuff;
+                        apply.SecondsPerLevel = 6d;
+                        shell.Range = AbilityRange.Personal;
+                        shell.ComponentsArray = Keep(shell).Concat(new BlueprintComponent[] { RunActions(apply), School(SpellSchool.Abjuration) }).ToArray();
+                        return shell;
+                    }
+                case "ChillTouch":
+                    {
+                        var shell = Shell(abilities["DivineFavor"], "KWR_VandianaChillTouchSpell", entry.Name, "Vandiana's hand holds one touch of negative energy per caster level: each deals 1d6 damage and 1 Strength damage unless the creature succeeds on a Fortitude save. Casting another spell dissipates the rest.");
+                        var apply = ScriptableObject.CreateInstance<KwrApplySpellBuff>();
+                        apply.Buff = ChillTouchCharge;
+                        apply.SecondsPerLevel = 600d;
+                        shell.Range = AbilityRange.Personal;
+                        shell.ComponentsArray = Keep(shell).Concat(new BlueprintComponent[] { RunActions(apply), School(SpellSchool.Necromancy) }).ToArray();
                         return shell;
                     }
                 case "Darkvision":
@@ -403,7 +521,8 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             AccessTools.Field(typeof(AbilityTargetsAround), "m_Condition").SetValue(around, new ConditionsChecker { Conditions = new Condition[0] });
             var action = ScriptableObject.CreateInstance<KwrAlignedBurstAction>();
             action.Unholy = unholy;
-            shell.ComponentsArray = Keep(shell).Concat(new BlueprintComponent[] { around, RunActions(action), School(SpellSchool.Evocation) }).ToArray();
+            // Order's Wrath is [lawful], Unholy Blight [evil]: native protections against those descriptors apply.
+            shell.ComponentsArray = Keep(shell).Concat(new BlueprintComponent[] { around, RunActions(action), School(SpellSchool.Evocation), Descriptor(unholy ? SpellDescriptor.Evil : SpellDescriptor.Law) }).ToArray();
             return shell;
         }
 
@@ -467,7 +586,9 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             {
                 facts.Add(Named<BlueprintFeature>(feat));
             }
-            facts.Add(Feature("KWR_VandianaNature", "Lashmistress", "Vandiana's own rules: her whip's nonlethal blows, and channel energy at her cleric level.", Component<KwrNonlethalWhip>("KWR_VandianaWhipLogic"), Component<KwrClericChannel>("KWR_VandianaChannelLevel")));
+            facts.Add(Feature("KWR_VandianaNature", "Lashmistress", "Vandiana's own rules: channel energy at her cleric level, summoner's charm (her summoned creatures last half her wizard level longer), her arcane bond's daily use, and her Chill Touch at her arcane caster level.",
+                Component<KwrClericChannel>("KWR_VandianaChannelLevel"), Component<KwrSummonersCharm>("KWR_VandianaSummonersCharm"), Component<KwrA4SpellParams>("KWR_VandianaSpellParams"), GrantResource(ArcaneBondResource)));
+            facts.Add(ArcaneBond);
             var body = new BlueprintUnit.UnitBody
             {
                 PrimaryHand = Whip,
@@ -509,6 +630,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 Named<BlueprintFeature>("HideInPlainSight"),
                 DarkvisionSense,
                 HideInPlainSight,
+                Disruptive,
             };
             var body = new BlueprintUnit.UnitBody
             {
@@ -699,6 +821,13 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 actions.Add(CastAction("KWR_VandianaAi_" + source + (variant ?? string.Empty), ability, aim, score, variant == null ? null : s_All.OfType<BlueprintAbility>().First(a => a.name == variant)));
             }
             Cast("CureCriticalWoundsCast", A4Aim.CureSelf, 11f);
+            // Her bond (a free action) recovers a spent wizard spell once a worthwhile one is gone.
+            actions.Add(CastAction("KWR_VandianaAi_ArcaneBond", ArcaneBond, A4Aim.ArcaneBond, 12f, null));
+            // A held Chill Touch is spent on a foe at her side before anything else (another spell would waste it).
+            actions.Add(CastAction("KWR_VandianaAi_ChillTouchStrike", ChillTouchStrike, A4Aim.ChillTouchStrike, 10.5f, null));
+            Cast("Sanctuary", A4Aim.Sanctuary, 10.2f);
+            Cast("MagicCircleAgainstGood", A4Aim.MagicCircle, 6.9f);
+            Cast("ChillTouch", A4Aim.ChillTouch, 4.4f);
             // Her potion, if the east door was never heard before the fight: drunk once, as her own action.
             actions.Add(CastAction("KWR_VandianaAi_CatsGracePotion", Named<BlueprintAbility>("CatsGrace"), A4Aim.GracePotion, 9.2f, null));
             Cast("Haste", A4Aim.Haste, 10f);
@@ -746,6 +875,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             var actions = new List<BlueprintAiAction>
             {
                 CastAction("KWR_DarkNagaAi_Displacement", NagaAbilities["Displacement"], A4Aim.Displacement, 9f, null),
+                CastAction("KWR_DarkNagaAi_Shield", NagaAbilities["MageShield"], A4Aim.Shield, 6.5f, null),
                 CastAction("KWR_DarkNagaAi_LightningBolt", NagaAbilities["LightningBolt"], A4Aim.LightningBolt, 7f, null),
                 CastAction("KWR_DarkNagaAi_ScorchingRay", NagaAbilities["ScorchingRay"], A4Aim.ScorchingRay, 6f, null),
                 CastAction("KWR_DarkNagaAi_RayOfEnfeeblement", NagaAbilities["RayOfEnfeeblement"], A4Aim.RayOfEnfeeblement, 5.6f, null),
