@@ -297,6 +297,72 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(0, drain, "Intelligence 2 again");
         }
 
+        /// <summary>The production order of one slam: settle, then the native drain adds its points, then the hold-back.</summary>
+        private static MindDrainState Slam(MindDrainState state, int score, int points)
+        {
+            state = MindDrainRules.Settle(state);
+            state.Drain += points;
+            return MindDrainRules.HoldBack(state, score - state.Drain);
+        }
+
+        private static MindDrainState ComatoseAt13()
+        {
+            // Intelligence 13, a 14-point drain: visible drain 12 (score 1), 2 held back.
+            MindDrainState state = Slam(new MindDrainState(), 13, 14);
+            Assert.Equal(true, state.Comatose, "comatose");
+            Assert.Equal(12, state.Drain, "score shown 1");
+            Assert.Equal(2, state.Pending, "2 held back");
+            return state;
+        }
+
+        public static void TestASlamRightAfterRestorationIsNotErased()
+        {
+            // Case A: restoration clears the engine's drain, and the next slam lands before any recovery check.
+            MindDrainState state = ComatoseAt13();
+            state.Drain = 0;
+            state = Slam(state, 13, 3);
+            Assert.Equal(false, state.Comatose, "awake");
+            Assert.Equal(3, state.Drain, "the new slam's 3 points stand: Intelligence 10");
+            Assert.Equal(0, state.Pending, "nothing held back");
+            MindDrainState later = MindDrainRules.Settle(MindDrainRules.Settle(state));
+            Assert.Equal(3, later.Drain, "further recovery checks do not erase it");
+            Assert.Equal(false, later.Comatose, "still awake");
+        }
+
+        public static void TestASlamOnAStillComatoseVictimIsHeldBack()
+        {
+            // Case B: no restoration; the new slam joins the held-back points and the score stays at 1.
+            MindDrainState state = Slam(ComatoseAt13(), 13, 3);
+            Assert.Equal(true, state.Comatose, "still comatose");
+            Assert.Equal(12, state.Drain, "score shown 1");
+            Assert.Equal(5, state.Pending, "2 + 3 held back");
+            Assert.Equal(12, state.DrainWhenHeldBack, "the reference point is unchanged");
+            state.Drain = 0;
+            state = MindDrainRules.Settle(state);
+            Assert.Equal(false, state.Comatose, "restoration restores every drained point, held-back included");
+            Assert.Equal(0, state.Drain, "Intelligence 13");
+        }
+
+        public static void TestRestorationSettledBeforeTheSlamGivesTheSameResult()
+        {
+            // Case C: the periodic check runs between restoration and the slam.
+            MindDrainState state = ComatoseAt13();
+            state.Drain = 0;
+            state = MindDrainRules.Settle(state);
+            Assert.Equal(false, state.Comatose, "woken by the check");
+            state = Slam(state, 13, 3);
+            Assert.Equal(3, state.Drain, "as in case A: Intelligence 10, drain 3");
+            Assert.Equal(false, state.Comatose, "awake");
+        }
+
+        public static void TestAnImmuneComatoseVictimGainsNothing()
+        {
+            // Native immunity: the drain rule adds no points, so nothing more is held back.
+            MindDrainState state = Slam(ComatoseAt13(), 13, 0);
+            Assert.Equal(2, state.Pending, "unchanged");
+            Assert.Equal(12, state.Drain, "unchanged");
+        }
+
         public static void TestTacticsPreferOutsidersAndUseAreasOnlyWhereTheyPay()
         {
             var outsider = new TacticsTarget { Distance = 10f, Outsider = true, EnemiesWithin20Feet = 1 };

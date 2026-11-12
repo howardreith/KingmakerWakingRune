@@ -645,30 +645,40 @@ namespace KingmakerWakingRune.Sanctum.Encounter
         /// </summary>
         public static void DrainIntelligence(UnitEntityData unit, UnitEntityData target, DiceFormula dice, string what)
         {
-            KwrMindDrained comatose = target.Buffs.GetBuff(KurshuBlueprints.MindDrained)?.SelectComponents<KwrMindDrained>().FirstOrDefault();
-            if (comatose != null)
+            KwrMindDrained comatose = ComatoseLogic(target);
+            if (comatose != null && !comatose.CheckRecovery())
             {
-                // Already at Intelligence 0: the drain still lands, and restoration will have that much more to undo.
-                int more = Rulebook.Trigger(new RuleRollDice(unit, dice)).Result;
-                comatose.Pending += more;
-                Note($"{what} {target.CharacterName}, already comatose: {more} more Intelligence drain held back ({comatose.Pending} in all).");
-                return;
+                // A restoration since the last check has woken it: settled first, so the new drain is not erased with the old.
+                comatose = ComatoseLogic(target);
             }
             bool markedBefore = target.Descriptor.State.MarkedForDeath;
             ModifiableValueAttributeStat stat = target.Stats.Intelligence;
             var drain = new RuleDealStatDamage(unit, target, StatType.Intelligence, dice, 0) { IsDrain = true };
             Rulebook.Trigger(drain);
-            int excess = MindDrainRules.Excess(stat.ModifiedValueRaw);
-            if (excess > 0 && !markedBefore)
+            MindDrainState before = comatose != null ? comatose.State : new MindDrainState { Drain = stat.Drain };
+            MindDrainState held = MindDrainRules.HoldBack(before, stat.ModifiedValueRaw);
+            if (held.Drain == before.Drain || markedBefore)
             {
-                stat.Drain -= excess;
-                target.Descriptor.State.MarkedForDeath = false;
-                KwrMindDrained.Pending0 = excess;
-                target.Descriptor.AddBuff(KurshuBlueprints.MindDrained, unit, null);
-                Note($"{what} {target.CharacterName}: Intelligence drain {drain.Damage} reaches 0: comatose, not dead; {excess} point(s) held back (score shown {stat.ModifiedValue}, drain {stat.Drain}, life {target.Descriptor.State.LifeState}).");
+                Note($"{what} {target.CharacterName}: Intelligence drain {drain.Damage} (immune {drain.Immune}); Intelligence now {stat.ModifiedValue}, drain {stat.Drain}.");
                 return;
             }
-            Note($"{what} {target.CharacterName}: Intelligence drain {drain.Damage} (immune {drain.Immune}); Intelligence now {stat.ModifiedValue}, drain {stat.Drain}.");
+            stat.Drain = held.Drain;
+            target.Descriptor.State.MarkedForDeath = false;
+            if (comatose != null)
+            {
+                // Already at Intelligence 0: the drain still lands, and restoration will have that much more to undo.
+                comatose.Pending = held.Pending;
+                Note($"{what} {target.CharacterName}, already comatose: Intelligence drain {drain.Damage} held back ({held.Pending} in all).");
+                return;
+            }
+            KwrMindDrained.Pending0 = held.Pending;
+            target.Descriptor.AddBuff(KurshuBlueprints.MindDrained, unit, null);
+            Note($"{what} {target.CharacterName}: Intelligence drain {drain.Damage} reaches 0: comatose, not dead; {held.Pending} point(s) held back (score shown {stat.ModifiedValue}, drain {stat.Drain}, life {target.Descriptor.State.LifeState}).");
+        }
+
+        private static KwrMindDrained ComatoseLogic(UnitEntityData target)
+        {
+            return target.Buffs.GetBuff(KurshuBlueprints.MindDrained)?.SelectComponents<KwrMindDrained>().FirstOrDefault();
         }
 
         /// <summary>Printed: grab adds +4 to her grapple checks (in her CMB to grapple); maintaining an existing hold adds +5.</summary>

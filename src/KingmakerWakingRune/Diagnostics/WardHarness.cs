@@ -21,6 +21,49 @@ namespace KingmakerWakingRune.Diagnostics
     /// Labelled test setup for the running game, reachable only through <see cref="HarnessProbe"/> and absent from a normal
     /// install. A command can position, grant or advance; every effect it provokes still resolves through native rules.
     /// </summary>
+    /// <summary>
+    /// INJECTED ordering fixture: armed on one member, it waits for the native rule by which restoration heals that member's
+    /// Intelligence, and in the same rule call delivers her slam's drain for a fixed amount through the production drain path,
+    /// so no periodic recovery check can run in between. Fires once, then disarms.
+    /// </summary>
+    internal sealed class SlamAfterRestoration : Kingmaker.PubSubSystem.IGlobalRulebookHandler<Kingmaker.RuleSystem.Rules.RuleHealStatDamage>
+    {
+        private static SlamAfterRestoration s_Armed;
+        private UnitEntityData m_Target;
+        private int m_Points;
+        private bool m_Fired;
+
+        public static string Arm(UnitEntityData target, int points)
+        {
+            if (s_Armed != null)
+            {
+                Kingmaker.PubSubSystem.EventBus.Unsubscribe(s_Armed);
+            }
+            s_Armed = new SlamAfterRestoration { m_Target = target, m_Points = points };
+            Kingmaker.PubSubSystem.EventBus.Subscribe(s_Armed);
+            return $"INJECTED armed: the next native Intelligence heal on {target.CharacterName} is followed at once by a {points}-point slam drain.";
+        }
+
+        public void OnEventAboutToTrigger(Kingmaker.RuleSystem.Rules.RuleHealStatDamage evt)
+        {
+        }
+
+        public void OnEventDidTrigger(Kingmaker.RuleSystem.Rules.RuleHealStatDamage evt)
+        {
+            if (m_Fired || evt.Target != m_Target || evt.StatType != Kingmaker.EntitySystem.Stats.StatType.Intelligence || evt.HealedDrain <= 0)
+            {
+                return;
+            }
+            // Not unsubscribed here, inside the bus's own dispatch; the next Arm unsubscribes it.
+            m_Fired = true;
+            var stat = m_Target.Stats.Intelligence;
+            KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Note($"INJECTED ordering fixture: native heal on {m_Target.CharacterName} (all {evt.HealAll}, drain healed {evt.HealedDrain}); before the slam: Intelligence {stat.ModifiedValue}, drain {stat.Drain}, comatose {m_Target.Buffs.GetBuff(KingmakerWakingRune.Sanctum.Encounter.KurshuBlueprints.MindDrained) != null}.");
+            UnitEntityData kurshu = KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu ?? evt.Initiator;
+            KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.DrainIntelligence(kurshu, m_Target, new Kingmaker.RuleSystem.DiceFormula(m_Points, Kingmaker.RuleSystem.DiceType.One), "INJECTED slam right after restoration on");
+            KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Note($"INJECTED ordering fixture result: {m_Target.CharacterName} Intelligence {stat.ModifiedValue}, drain {stat.Drain}, comatose {m_Target.Buffs.GetBuff(KingmakerWakingRune.Sanctum.Encounter.KurshuBlueprints.MindDrained) != null}.");
+        }
+    }
+
     internal static class WardHarness
     {
         public static string Run(string commandLine)
@@ -101,6 +144,8 @@ namespace KingmakerWakingRune.Diagnostics
                     var coma = member.Buffs.GetBuff(KingmakerWakingRune.Sanctum.Encounter.KurshuBlueprints.MindDrained)?.SelectComponents<KingmakerWakingRune.Sanctum.Encounter.KwrMindDrained>().FirstOrDefault();
                     return $"INJECTED drain {args[2]} on {member.CharacterName}: Intelligence {member.Stats.Intelligence.ModifiedValue} (raw {member.Stats.Intelligence.ModifiedValueRaw}, drain {member.Stats.Intelligence.Drain}), life {member.Descriptor.State.LifeState}, helpless {member.Descriptor.State.IsHelpless}, comatose {coma != null}{(coma == null ? string.Empty : $" (held back {coma.Pending}, visible drain when held back {coma.DrainWhenHeldBack})")}.";
                 }
+                case "armslam":
+                    return SlamAfterRestoration.Arm(Member(args[1]), int.Parse(args[2]));
                 case "kurshufixture":
                     return KurshuFixture(int.Parse(args[1]), args.Skip(2).ToArray());
                 case "combatsave":

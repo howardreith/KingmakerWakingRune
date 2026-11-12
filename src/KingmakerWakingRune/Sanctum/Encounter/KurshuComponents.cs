@@ -226,33 +226,39 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             CheckRecovery();
         }
 
-        /// <summary>Also called by the encounter's own tick: a helpless creature's turn can be skipped in turn-based combat.</summary>
-        public void CheckRecovery()
+        /// <summary>The tracked state, with the engine's current drain.</summary>
+        internal MindDrainState State => new MindDrainState { Drain = Owner.Stats.Intelligence.Drain, Comatose = true, Pending = Pending, DrainWhenHeldBack = DrainWhenHeldBack };
+
+        /// <summary>
+        /// Also called by the encounter's own tick (a helpless creature's turn can be skipped in turn-based combat), and before
+        /// any new drain lands on this creature. Returns true while it stays comatose; when it wakes the buff is removed.
+        /// </summary>
+        public bool CheckRecovery()
         {
             var stat = Owner.Stats.Intelligence;
+            int before = stat.Drain;
+            MindDrainState settled = MindDrainRules.Settle(State);
+            if (settled.Comatose && settled.Drain == before && settled.Pending == Pending)
+            {
+                return true;
+            }
             if (Pending <= 0)
             {
-                // Nothing is held back (a save from a build that lost the count): the score the engine shows is the true one.
                 KurshuEncounter.Note($"{Owner.CharacterName} wakes: no Intelligence drain is held back; Intelligence {stat.ModifiedValue}, drain {stat.Drain}.");
                 Buff.Remove();
-                return;
+                return false;
             }
-            int before = stat.Drain;
-            bool awake = MindDrainRules.Restore(DrainWhenHeldBack, before, Pending, out int drain, out int pending);
-            if (drain == before && pending == Pending)
-            {
-                return;
-            }
-            stat.Drain = drain;
-            Pending = pending;
-            DrainWhenHeldBack = drain;
-            if (!awake)
+            stat.Drain = settled.Drain;
+            Pending = settled.Pending;
+            DrainWhenHeldBack = settled.DrainWhenHeldBack;
+            if (settled.Comatose)
             {
                 KurshuEncounter.Note($"{Owner.CharacterName}: {before} visible drain left after a partial restoration; {Pending} point(s) still held back, still comatose.");
-                return;
+                return true;
             }
             KurshuEncounter.Note($"{Owner.CharacterName} wakes: restoration restored the drained Intelligence; Intelligence {stat.ModifiedValue}, drain {stat.Drain}.");
             Buff.Remove();
+            return false;
         }
     }
 

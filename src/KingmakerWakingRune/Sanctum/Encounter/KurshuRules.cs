@@ -616,6 +616,68 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             newDrain = drainAtHoldBack + pending - restored;
             return true;
         }
+
+        /// <summary>
+        /// Settles any restoration since the points were held back (see <see cref="Restore"/>). A new drain is applied only to a
+        /// settled state: otherwise a restoration followed by a slam before the next check would wake the creature with the new
+        /// slam's points erased along with the old ones.
+        /// </summary>
+        public static MindDrainState Settle(MindDrainState state)
+        {
+            if (!state.Comatose)
+            {
+                return state;
+            }
+            if (state.Pending <= 0)
+            {
+                // Nothing held back (a save from a build that lost the count): the score the engine shows is the true one.
+                state.Comatose = false;
+                return state;
+            }
+            bool awake = Restore(state.DrainWhenHeldBack, state.Drain, state.Pending, out int drain, out int pending);
+            if (drain == state.Drain && pending == state.Pending)
+            {
+                return state;
+            }
+            state.Drain = drain;
+            state.Pending = pending;
+            state.DrainWhenHeldBack = drain;
+            state.Comatose = !awake;
+            return state;
+        }
+
+        /// <summary>
+        /// After the native drain rule has added a new drain to a settled state (its <see cref="MindDrainState.Drain"/> already
+        /// includes it, and the engine shows <paramref name="scoreAfterDrain"/>): the points the engine would kill with are held
+        /// back, joining any already held while the creature stays comatose.
+        /// </summary>
+        public static MindDrainState HoldBack(MindDrainState state, int scoreAfterDrain)
+        {
+            int excess = Excess(scoreAfterDrain);
+            if (excess == 0)
+            {
+                return state;
+            }
+            state.Drain -= excess;
+            if (state.Comatose)
+            {
+                state.Pending += excess;
+                return state;
+            }
+            state.Comatose = true;
+            state.Pending = excess;
+            state.DrainWhenHeldBack = state.Drain;
+            return state;
+        }
+    }
+
+    /// <summary>One creature's Intelligence drain as her slam tracks it: the engine's visible drain and, while comatose, the points held back.</summary>
+    internal struct MindDrainState
+    {
+        public int Drain;
+        public bool Comatose;
+        public int Pending;
+        public int DrainWhenHeldBack;
     }
 
     /// <summary>The questions her tactics ask of one target or the field, in a form the game adapters fill in.</summary>
