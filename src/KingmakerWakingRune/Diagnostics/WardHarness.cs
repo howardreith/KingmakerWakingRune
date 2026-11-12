@@ -839,7 +839,7 @@ namespace KingmakerWakingRune.Diagnostics
 
         private static string Resolve(string target, out UnitEntityData unit)
         {
-            unit = target == "kurshu" ? KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu : target.StartsWith("party:") ? Member(target.Substring(6)) : target.StartsWith("body:") ? BodyOf(target.Substring(5)) : target.StartsWith("a4:") ? Defender(target.Substring(3)) : target.StartsWith("unit:") ? Game.Instance.State.Units.FirstOrDefault(u => u.UniqueId == target.Substring(5)) : WardFixtures.Find(target);
+            unit = target == "kurshu" ? KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu : target.StartsWith("party:") ? Member(target.Substring(6)) : target.StartsWith("body:") ? BodyOf(target.Substring(5)) : target.StartsWith("a4:") ? Defender(target.Substring(3)) : target.StartsWith("unit:") ? Game.Instance.State.Units.FirstOrDefault(u => u.UniqueId == target.Substring(5)) : target.StartsWith("name:") ? Game.Instance.State.Units.FirstOrDefault(u => u.IsInGame && !u.Descriptor.State.IsDead && u.CharacterName.IndexOf(target.Substring(5), StringComparison.OrdinalIgnoreCase) >= 0) : WardFixtures.Find(target);
             return unit == null ? $"no target {target}" : null;
         }
 
