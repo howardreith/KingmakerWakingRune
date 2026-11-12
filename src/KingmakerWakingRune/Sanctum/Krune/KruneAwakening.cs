@@ -20,6 +20,7 @@ using Kingmaker.UnitLogic.Abilities.Components.Base;
 using Kingmaker.UnitLogic.Buffs.Blueprints;
 using Kingmaker.UnitLogic.Buffs;
 using Kingmaker.UnitLogic.Mechanics;
+using Kingmaker.Utility;
 using Kingmaker.View;
 using Kingmaker.Visual.Particles;
 using KingmakerWakingRune.Sanctum.Wards;
@@ -43,6 +44,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
         private static bool s_CheckpointAnnounced;
         private static bool s_LegacyAsked;
         private static bool s_ProblemReported;
+        private static bool s_TurnBasedHold;
 
         private static SanctumState State => WardRuntime.State;
 
@@ -113,6 +115,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
             s_NextAttempt = 0d;
             s_CheckpointAnnounced = false;
             s_LegacyAsked = false;
+            // A load resets the turn-based freeze along with everything else; the checkpoint retains it again if it holds.
+            s_TurnBasedHold = false;
             KruneState krune = state.Krune;
             if (krune.ParleyStarted && !krune.ParleyFinished)
             {
@@ -750,12 +754,34 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
         }
 
-        private static void HoldCheckpoint()
+        /// <summary>
+        /// Holds the simulation for the checkpoint. In real time that is the native pause. Turn-based combat has no pause
+        /// (the game refuses one and unpauses every tick), so there the hold is the turn-based controller's own freeze, the
+        /// one its combat-start window uses: no turn advances, game time stands, and the active turn and its pending
+        /// actions are kept as they are. Retained once; a load resets the game's freeze, so it is retained again.
+        /// </summary>
+        public static void EnforceCheckpoint()
         {
-            if (!Game.Instance.IsPaused)
+            if (TurnBased.Controllers.CombatController.IsInTurnBasedCombat())
+            {
+                CountingGuard freeze = Game.Instance.TurnBasedCombatController.WaitingForUI;
+                if (!s_TurnBasedHold || !freeze.Value)
+                {
+                    freeze.Value = true;
+                    s_TurnBasedHold = true;
+                    TurnBased.Controllers.TurnController turn = Game.Instance.TurnBasedCombatController.CurrentTurn;
+                    Note($"checkpoint holds turn-based combat: the turn of {turn?.Unit.CharacterName ?? "nobody"} ({turn?.Status}) in round {Game.Instance.TurnBasedCombatController.RoundNumber} is frozen as it stands.");
+                }
+            }
+            else if (!Game.Instance.IsPaused)
             {
                 Game.Instance.IsPaused = true;
             }
+        }
+
+        private static void HoldCheckpoint()
+        {
+            EnforceCheckpoint();
             if (!s_CheckpointAnnounced)
             {
                 s_CheckpointAnnounced = true;
@@ -772,6 +798,15 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 return "no checkpoint to release";
             }
             krune.DiagnosticRelease = true;
+            if (s_TurnBasedHold)
+            {
+                CountingGuard freeze = Game.Instance.TurnBasedCombatController.WaitingForUI;
+                if (freeze.Value)
+                {
+                    freeze.Value = false;
+                }
+                s_TurnBasedHold = false;
+            }
             Note("INJECTED diagnostic release of the prototype checkpoint (harness only; not a finished fight).");
             return "INJECTED checkpoint released for native diagnostics: the simulation may now run; this is not the Krune encounter.";
         }

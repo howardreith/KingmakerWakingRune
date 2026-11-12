@@ -226,12 +226,15 @@ namespace KingmakerWakingRune.Patches
     [HarmonyPatch(typeof(TimeController), "Tick")]
     internal static class TimeControllerTickPatch
     {
-        /// <summary>A frame that runs while Krune's prototype checkpoint holds (after a load) pauses the game again at once.</summary>
+        /// <summary>
+        /// A frame that runs while Krune's prototype checkpoint holds (after a load, or in turn-based combat, which refuses
+        /// the pause) holds the simulation again at once: the native pause, or the turn-based freeze.
+        /// </summary>
         private static void Prefix()
         {
-            if (!Kingmaker.Game.Instance.IsPaused && Sanctum.Krune.KruneAwakening.CheckpointHolds)
+            if (Sanctum.Krune.KruneAwakening.CheckpointHolds)
             {
-                Kingmaker.Game.Instance.IsPaused = true;
+                Sanctum.Krune.KruneAwakening.EnforceCheckpoint();
             }
         }
 
