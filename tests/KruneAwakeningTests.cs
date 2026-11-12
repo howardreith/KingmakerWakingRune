@@ -191,6 +191,9 @@ namespace KingmakerWakingRune.Tests
             GridPoint? second = KruneRules.ChoosePlacement(KruneRules.EmergenceCandidates(), crowd, KruneRules.A5Floor);
             Assert.Equal(true, second.HasValue && (second.Value.X != first.Value.X || second.Value.Y != first.Value.Y), "someone on the preferred point: elsewhere");
             Assert.Equal(10, KruneRules.StepFeet(SanctumPlan.SarcophagusCenter.X, SanctumPlan.SarcophagusCenter.Y, SanctumPlan.SarcophagusCenter.X + 1.55f, SanctumPlan.SarcophagusCenter.Y), "two squares out of the coffin");
+            Assert.Equal(1, KruneRules.StepUses(10), "a 10-foot step is one of the game's 30-foot uses");
+            Assert.Equal(2, KruneRules.StepUses(35), "35 feet takes two");
+            Assert.Equal(510, KruneRules.StepsFeetPerUse * 17, "17 uses are the printed 510 feet");
         }
 
         public static void TestOlderDueSaveIsOfferedAChoiceAndKeepsItsRecord()

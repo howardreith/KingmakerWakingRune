@@ -60,7 +60,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
         /// <summary>A fixture by identity even when it is out of the index (the retired support Vandiana).</summary>
         public static UnitEntityData FindRetired(string id)
         {
-            return Game.Instance.State.Units.FirstOrDefault(u => IdOf(u) == id);
+            // The whole pool: its enumeration skips units out of the game, which a retired fixture is.
+            return Game.Instance.State.Units.All.FirstOrDefault(u => IdOf(u) == id);
         }
 
         /// <summary>The support Vandiana is not wanted once the encounter has (or will have) the real one.</summary>

@@ -63,7 +63,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 }
                 if (s_Bound == null || s_Bound.UniqueId != krune.EntityId || s_Bound.Descriptor == null)
                 {
-                    s_Bound = Game.Instance.State.Units.FirstOrDefault(u => u.UniqueId == krune.EntityId);
+                    // The pool by identity: its enumeration skips anyone out of the game, as he is until he steps out.
+                    s_Bound = Game.Instance.State.Units[krune.EntityId];
                 }
                 return s_Bound;
             }
@@ -231,7 +232,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 WardKrune.Sync(state, now);
                 FeederRules.Expire(state.Door.Feeder, now);
                 // 3. One actor: a partial one from an interrupted attempt is adopted, never duplicated.
-                UnitEntityData actor = Game.Instance.State.Units.FirstOrDefault(IsKrune);
+                UnitEntityData actor = Game.Instance.State.Units.All.FirstOrDefault(IsKrune);
                 if (actor == null)
                 {
                     actor = Spawn(state, out string refusal);
@@ -434,7 +435,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             int feet = KruneRules.StepFeet(coffin.X, coffin.Y, krune.EmergedX, krune.EmergedY);
             if (krune.StepsFeetSpent == 0)
             {
-                actor.Descriptor.Resources.Spend(KruneBlueprints.DimensionalSteps, feet / 5);
+                actor.Descriptor.Resources.Spend(KruneBlueprints.DimensionalSteps, KruneRules.StepUses(feet));
                 krune.StepsFeetSpent = feet;
             }
             SpawnStepFx(World(coffin), actor);
@@ -458,7 +459,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             {
                 EventBus.RaiseEvent(delegate(IWarningNotificationUIHandler h) { h.HandleWarning("Somewhere deep in the sanctum, a vast presence stirs."); });
             }
-            Note($"EMERGED at ({krune.EmergedX:0.00},{krune.EmergedY:0.00}) by dimensional steps, {feet} ft of {KruneRules.StepsFeetPerDay}/day spent once (resource left {actor.Descriptor.Resources.GetResourceAmount(KruneBlueprints.DimensionalSteps)}x5 ft); stagger {krune.OpeningStaggerApplied}; seen by the party {seen}.");
+            Note($"EMERGED at ({krune.EmergedX:0.00},{krune.EmergedY:0.00}) by dimensional steps, {feet} ft of {KruneRules.StepsFeetPerDay}/day spent once as {KruneRules.StepUses(feet)} use of the game's own conjuration-school resource ({actor.Descriptor.Resources.GetResourceAmount(KruneBlueprints.DimensionalSteps)} of 17 uses of 30 ft left); stagger {krune.OpeningStaggerApplied}; seen by the party {seen}.");
         }
 
         private static void Opening(SanctumState state, double now)
@@ -607,7 +608,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public static void SyncLinks(SanctumState state, double now)
         {
             UnitEntityData actor = Actor;
-            if (actor == null || actor.Descriptor.State.IsDead || state.Krune.Stage < AwakeningStage.ActorReady)
+            if (actor == null || actor.Descriptor.State.IsDead || !actor.IsInGame || state.Krune.Stage < AwakeningStage.ActorReady)
             {
                 return;
             }

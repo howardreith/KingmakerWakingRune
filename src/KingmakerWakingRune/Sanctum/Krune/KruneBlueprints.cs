@@ -139,16 +139,18 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
             OpeningStagger = Buff(staggered, "KWR_KruneOpeningStagger", "Staggered (early release)", "Torn from stasis before his ritual was complete, Krune is staggered for one round.", false, false, Condition(UnitCondition.Staggered));
 
-            DimensionalSteps = Resource("KWR_KruneDimensionalSteps", KruneRules.StepsFeetPerDay / 5);
+            // The game's own conjuration school gives dimensional steps as uses of up to 30 feet, one a wizard level: 17 a day,
+            // the printed 510 feet. That native resource is the one the opening spends.
+            DimensionalSteps = Named<BlueprintAbilityResource>("ConjurationDimensionalStepsResource");
             RodCharges = Resource("KWR_KruneRodCharges", RodChargesPerDay);
             BuildItems();
 
             var immunePoison = Component<BuffDescriptorImmunity>("KWR_KruneNoPoison");
             immunePoison.Descriptor = SpellDescriptor.Poison;
-            Nature = Feature("KWR_KruneNature", "Runelord of Sloth", "Krune's own rules: his inherent bonuses (+3 Intelligence, Wisdom and Charisma, from wish) and runic ability bonuses (+6 enhancement to the same, Su), the revival's caster-level loss for 24 hours after he wakes, his dimensional steps (510 feet a day) and his rod's 10 daily charges.",
+            Nature = Feature("KWR_KruneNature", "Runelord of Sloth", "Krune's own rules: his inherent bonuses (+3 Intelligence, Wisdom and Charisma, from wish) and runic ability bonuses (+6 enhancement to the same, Su), the revival's caster-level loss for 24 hours after he wakes, and his rod's 10 daily charges.",
                 Stat(StatType.Intelligence, 3, ModifierDescriptor.Inherent), Stat(StatType.Wisdom, 3, ModifierDescriptor.Inherent), Stat(StatType.Charisma, 3, ModifierDescriptor.Inherent),
                 Stat(StatType.Intelligence, 6, ModifierDescriptor.Enhancement), Stat(StatType.Wisdom, 6, ModifierDescriptor.Enhancement), Stat(StatType.Charisma, 6, ModifierDescriptor.Enhancement),
-                Component<KwrKruneRevivalCasterLevel>("KWR_KruneRevivalCasterLevel"), GrantResource(DimensionalSteps), GrantResource(RodCharges));
+                Component<KwrKruneRevivalCasterLevel>("KWR_KruneRevivalCasterLevel"), GrantResource(RodCharges));
 
             var facts = new List<BlueprintUnitFact> { Nature };
             foreach (string[] feat in new[]

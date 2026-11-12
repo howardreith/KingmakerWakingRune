@@ -145,6 +145,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public const double RevivalPenaltySeconds = WardProfile.DaySeconds;
         /// <summary>Dimensional steps: 510 feet a day (page 16), kept as a native resource in 5-foot units.</summary>
         public const int StepsFeetPerDay = 510;
+        /// <summary>The game's conjuration school gives the 510 feet as 17 uses of up to 30 feet each.</summary>
+        public const int StepsFeetPerUse = 30;
         public const double EmergenceDelaySeconds = 3d;
         /// <summary>His footprint in plan squares (a Medium creature's half-width plus a little room).</summary>
         public const float FootprintSquares = 0.45f;
@@ -237,6 +239,12 @@ namespace KingmakerWakingRune.Sanctum.Krune
         {
             double squares = Math.Sqrt((toX - fromX) * (toX - fromX) + (toY - fromY) * (toY - fromY));
             return Math.Max(1, (int)Math.Ceiling(squares - 1e-4)) * 5;
+        }
+
+        /// <summary>Uses of the native dimensional-steps resource a step of this length takes: one per 30 feet or part.</summary>
+        public static int StepUses(int feet)
+        {
+            return Math.Max(1, (feet + StepsFeetPerUse - 1) / StepsFeetPerUse);
         }
 
         /// <summary>

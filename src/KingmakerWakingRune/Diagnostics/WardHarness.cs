@@ -1244,7 +1244,7 @@ namespace KingmakerWakingRune.Diagnostics
             SanctumState state = WardRuntime.State;
             UnitEntityData actor = KingmakerWakingRune.Sanctum.Krune.KruneAwakening.Actor;
             UnitEntityData receiver = WardFixtures.FindRetired("Krune");
-            int kruneUnits = Game.Instance.State.Units.Count(KingmakerWakingRune.Sanctum.Krune.KruneAwakening.IsKrune);
+            int kruneUnits = Game.Instance.State.Units.All.Count(KingmakerWakingRune.Sanctum.Krune.KruneAwakening.IsKrune);
             RitualState r = state.Ritual;
             string grants = string.Join("; ", state.Door.Feeder.Grants.Select(g => g.Amount + "->" + g.Remaining + " until " + g.ExpiresAt.ToString("0")).ToArray());
             var sb = new StringBuilder("READ Krune: " + WardStore.Dump(state.Krune) + "\n");

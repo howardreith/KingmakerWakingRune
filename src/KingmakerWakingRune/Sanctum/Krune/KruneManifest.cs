@@ -124,7 +124,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
 
         public static readonly ManifestItem[] Resources =
         {
-            I("DimensionalSteps", "Dimensional steps", "510 feet a day (conjurer 17 teleportation school), a native resource in 5-foot units; the opening spends its own step once", ManifestStatus.Native),
+            I("DimensionalSteps", "Dimensional steps", "510 feet a day: the game's own conjuration-school resource, 17 uses of up to 30 feet; the opening spends one use, once", ManifestStatus.Native),
             I("AcidDart", "Acid dart", "13/day, 1d6+8 (conjuration school); combat use deferred", ManifestStatus.Deferred),
             I("RodCharges", "Rune-carved rod charges", "10 a day, the rod's own pool", ManifestStatus.Native),
             I("Contingency", "Contingency (dispel magic CL 17 on a teleport-impeding effect)", "deferred", ManifestStatus.Deferred),

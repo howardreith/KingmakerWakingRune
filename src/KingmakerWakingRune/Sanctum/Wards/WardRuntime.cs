@@ -43,8 +43,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
         {
             Buff buff = WardFixtures.Krune?.Buffs.GetBuff(WardBlueprints.FeederTempHp);
             KwrFeederTempHp logic = buff?.SelectComponents<KwrFeederTempHp>().FirstOrDefault();
-            if (logic == null)
+            if (logic == null || !buff.Active)
             {
+                // A buff not yet active (its owner out of the game) has shown nothing and so has spent nothing.
                 return;
             }
             // An older build's buff: whatever the saved grants show beyond what is left was spent.
@@ -61,9 +62,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public static void Refresh(SanctumState state, double now)
         {
             UnitEntityData krune = WardFixtures.Krune;
-            if (krune == null || krune.Descriptor.State.IsDead)
+            if (krune == null || krune.Descriptor.State.IsDead || !krune.IsInGame)
             {
-                // A dead Krune is fed nothing; his death stands.
+                // A dead Krune is fed nothing; his death stands. One not yet stepped out of the coffin is fed when he does.
                 return;
             }
             Sync(state, now);
