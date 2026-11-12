@@ -444,6 +444,10 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         ScorchingRay,
         MagicMissile,
         RayOfEnfeeblement,
+        BlurPotion,
+        StrengthPotion,
+        GracePotion,
+        HealingPotion,
     }
 
     /// <summary>The caster's own situation.</summary>
@@ -460,6 +464,9 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         public bool AlliesSeeInDarkness;
         public bool SummonedAlready;
         public bool DivineFavorActive;
+        public bool Blurred;
+        public bool Strengthened;
+        public bool Graced;
     }
 
     /// <summary>One candidate target, as the adapters read it from the field.</summary>
@@ -520,6 +527,15 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 case A4Aim.ChannelNegative:
                     // No Selective Channel: she never channels with a living ally in the burst.
                     return self.LivingAlliesWithin30Feet > 0 || self.EnemiesWithin30Feet < 2 ? 0f : 1f;
+                case A4Aim.BlurPotion:
+                    // NPC Codex 236: in combat the Blackstrike drinks its blur; a potion is drunk once, so only when not blurred.
+                    return self.Blurred ? 0f : 1f;
+                case A4Aim.StrengthPotion:
+                    return self.Strengthened ? 0f : 1f;
+                case A4Aim.GracePotion:
+                    return self.Graced ? 0f : 1f;
+                case A4Aim.HealingPotion:
+                    return self.HitPointFraction < 0.4d ? 1f : 0f;
                 default:
                     return 1f;
             }
@@ -536,6 +552,10 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                     case A4Aim.Darkness:
                     case A4Aim.DivineFavor:
                     case A4Aim.ChannelNegative:
+                    case A4Aim.BlurPotion:
+                    case A4Aim.StrengthPotion:
+                    case A4Aim.GracePotion:
+                    case A4Aim.HealingPotion:
                         return 1f;
                     case A4Aim.Haste:
                         return t.AlliesNotHastedWithin15Feet >= 1 ? 1f : 0f;

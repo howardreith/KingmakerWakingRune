@@ -5,6 +5,7 @@ using Kingmaker;
 using Kingmaker.Blueprints;
 using Kingmaker.Blueprints.Classes.Spells;
 using Kingmaker.Controllers.Brain;
+using Kingmaker.Controllers.Brain.Blueprints;
 using Kingmaker.EntitySystem.Entities;
 using Kingmaker.EntitySystem.Persistence;
 using Kingmaker.EntitySystem.Stats;
@@ -150,6 +151,15 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 }
                 if (unit != null && !unit.Descriptor.State.IsDead)
                 {
+                    BlueprintBrain brain = unit.Blueprint.Brain;
+                    if (brain != null && (unit.Brain.Blueprint != brain || unit.Brain.Actions.Count != brain.Actions.Length || unit.Brain.Actions.Select(a => a.Blueprint).Except(brain.Actions).Any()))
+                    {
+                        // A save from an earlier build of this encounter keeps its unit's old action list: the blueprint's is current.
+                        unit.Brain.Blueprint = brain;
+                        unit.Brain.Actions.Clear();
+                        unit.Brain.Actions.AddRange(brain.Actions.Select(a => new AiAction(a)));
+                        Note($"{key}: brain actions brought up to date ({brain.Actions.Length}).");
+                    }
                     // Recomputed from what is still castable now: it restores no slot or use, it only lists them.
                     unit.Brain.RestoreAvailableActions();
                 }
@@ -661,8 +671,9 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 {
                     continue;
                 }
-                if (unit.Descriptor.State.IsDead)
+                if (unit.Descriptor.State.IsDead || unit.IsInCombat)
                 {
+                    // In combat a defender's own brain drinks its potions, in its own turn (see the brains); nothing is forced.
                     continue;
                 }
                 PrepRecord prep = a4.Preparation(next);
@@ -954,6 +965,9 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                     AlliesSeeInDarkness = allies.Any(a => a.Descriptor.HasFact(LashmistressBlueprints.DarkvisionSense)),
                     SummonedAlready = Game.Instance.State.Units.Any(u => u.Get<UnitPartSummonedMonster>()?.Summoner == unit && !u.Descriptor.State.IsDead),
                     DivineFavorActive = unit.Buffs.Enumerable.Any(b => b.Blueprint.name.StartsWith("DivineFavor", StringComparison.Ordinal)),
+                    Blurred = unit.Buffs.Enumerable.Any(b => b.Blueprint.name == "BlurBuff"),
+                    Strengthened = unit.Buffs.Enumerable.Any(b => b.Blueprint.name == "BullsStrengthBuff"),
+                    Graced = unit.Buffs.Enumerable.Any(b => b.Blueprint.name == "CatsGraceBuff"),
                 };
                 return LashmistressTactics.Actor(aim, self);
             }

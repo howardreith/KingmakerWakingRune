@@ -699,6 +699,8 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 actions.Add(CastAction("KWR_VandianaAi_" + source + (variant ?? string.Empty), ability, aim, score, variant == null ? null : s_All.OfType<BlueprintAbility>().First(a => a.name == variant)));
             }
             Cast("CureCriticalWoundsCast", A4Aim.CureSelf, 11f);
+            // Her potion, if the east door was never heard before the fight: drunk once, as her own action.
+            actions.Add(CastAction("KWR_VandianaAi_CatsGracePotion", Named<BlueprintAbility>("CatsGrace"), A4Aim.GracePotion, 9.2f, null));
             Cast("Haste", A4Aim.Haste, 10f);
             Cast("ConfusionSpell", A4Aim.Confusion, 8.6f);
             Cast("BalefulPolymorph", A4Aim.BalefulPolymorph, 8.4f);
@@ -753,9 +755,17 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             return Brain("KWR_DarkNagaBrain", actions);
         }
 
+        /// <summary>The Blackstrike: its greatsword, and its own potions drunk as its own actions (NPC Codex 236 tactics).</summary>
         private static BlueprintBrain MeleeBrain(string key)
         {
-            return Brain("KWR_" + key.Replace("-", string.Empty) + "Brain", new List<BlueprintAiAction> { AttackAction("KWR_" + key.Replace("-", string.Empty) + "Ai_Melee", 5f) });
+            string name = "KWR_" + key.Replace("-", string.Empty);
+            return Brain(name + "Brain", new List<BlueprintAiAction>
+            {
+                CastAction(name + "Ai_Blur", Named<BlueprintAbility>("Blur"), A4Aim.BlurPotion, 9.5f, null),
+                CastAction(name + "Ai_BullsStrength", Named<BlueprintAbility>("BullsStrength"), A4Aim.StrengthPotion, 9f, null),
+                CastAction(name + "Ai_CureModerate", Named<BlueprintAbility>("CureModerateWoundsCast"), A4Aim.HealingPotion, 8f, null),
+                AttackAction(name + "Ai_Melee", 5f),
+            });
         }
 
         private static BlueprintBrain Brain(string name, List<BlueprintAiAction> actions)
