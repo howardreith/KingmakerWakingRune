@@ -224,6 +224,20 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 }
             }
             RetireFixture(a4);
+            int marked = 0;
+            foreach (UnitEntityData unit in Game.Instance.State.Units)
+            {
+                foreach (Buff buff in unit.Buffs.Enumerable.Where(b => !b.IsFromSpell && LashmistressBlueprints.SpellEffectBuffs.Contains(b.Blueprint)))
+                {
+                    // Saved before 0.7.22, when these spell effects lacked the game's "from a spell" flag: dispellable now.
+                    buff.IsFromSpell = true;
+                    marked++;
+                }
+            }
+            if (marked > 0)
+            {
+                Note($"{marked} saved spell effect(s) marked as from a spell, so dispel magic can end them (current build).");
+            }
         }
 
         /// <summary>

@@ -149,6 +149,15 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         private const string SickenedBuff = "4e42460798665fd4cb9173ffa7ada323";
         private const string DazeBuffGuid = "9934fedff1b14994ea90205d189c8759";
 
+        /// <summary>
+        /// The game's own "from a spell" buff flag: native Dispel Magic considers only buffs that carry it. Every spell effect
+        /// this encounter builds carries it (before 0.7.22 none did, so none could be dispelled).
+        /// </summary>
+        private const int SpellEffect = 1;
+
+        /// <summary>The spell-effect buffs, so a buff saved before 0.7.22 is marked at load as a new one is at creation.</summary>
+        public static readonly List<BlueprintBuff> SpellEffectBuffs = new List<BlueprintBuff>();
+
         public static readonly Dictionary<string, BlueprintUnit> Units = new Dictionary<string, BlueprintUnit>();
         public static BlueprintFeature AdvancedCreature { get; private set; }
         public static BlueprintBuff Calibration { get; private set; }
@@ -239,7 +248,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 Stat(StatType.Strength, 4, ModifierDescriptor.UntypedStackable), Stat(StatType.Dexterity, 4, ModifierDescriptor.UntypedStackable), Stat(StatType.Constitution, 4, ModifierDescriptor.UntypedStackable),
                 Stat(StatType.Intelligence, 4, ModifierDescriptor.UntypedStackable), Stat(StatType.Wisdom, 4, ModifierDescriptor.UntypedStackable), Stat(StatType.Charisma, 4, ModifierDescriptor.UntypedStackable));
             Calibration = Buff(buffDonor, "KWR_A4Calibration", "Printed statistics", "The differences between this game's class tables and the printed statistics, computed once when the creature appeared, without the difficulty preset's own bonuses.", 0, Component<KwrA4Calibration>("KWR_A4CalibrationLogic"));
-            PreparedFalseLife = Buff(buffDonor, "KWR_VandianaFalseLife", "False Life", "Vandiana cast false life before beginning the ritual: 14 temporary hit points (as printed), lost to damage and never refilled.", 0, Component<KwrPreparedFalseLife>("KWR_VandianaFalseLifeLogic"));
+            PreparedFalseLife = Buff(buffDonor, "KWR_VandianaFalseLife", "False Life", "Vandiana cast false life before beginning the ritual: 14 temporary hit points (as printed), lost to damage and never refilled.", SpellEffect, Component<KwrPreparedFalseLife>("KWR_VandianaFalseLifeLogic"));
             MageArmor = Get<BlueprintBuff>(MageArmorBuffGuid);
             Sickened = Get<BlueprintBuff>(SickenedBuff);
             Dazed = Get<BlueprintBuff>(DazeBuffGuid);
@@ -262,9 +271,9 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             s_Register(darknessArea);
             var aura = Component<AddAreaEffect>("KWR_A4DarknessAura");
             aura.AreaEffect = darknessArea;
-            DarknessAura = Buff(buffDonor, "KWR_VandianaDarkness", "Darkness", "Magical darkness radiates 20 feet from an object Vandiana carries: creatures in it have concealment (20% miss chance) from anyone without darkvision. A spell effect: dispel magic ends it.", 0, aura);
-            DarkvisionBuff = Buff(buffDonor, "KWR_VandianaDarkvisionBuff", "Darkvision", "Vandiana sees in darkness to 60 feet: her own darkness does not hide her foes from her.", 0, Component<KwrDarkvisionSense>("KWR_VandianaDarkvisionSense"));
-            CommandHalt = Buff(buffDonor, "KWR_A4CommandHalt", "Commanded: Halt", "Obeying Vandiana's command, this creature stands in place and takes no actions this round.", 0x40,
+            DarknessAura = Buff(buffDonor, "KWR_VandianaDarkness", "Darkness", "Magical darkness radiates 20 feet from an object Vandiana carries: creatures in it have concealment (20% miss chance) from anyone without darkvision. A spell effect: dispel magic ends it.", SpellEffect, aura);
+            DarkvisionBuff = Buff(buffDonor, "KWR_VandianaDarkvisionBuff", "Darkvision", "Vandiana sees in darkness to 60 feet: her own darkness does not hide her foes from her.", SpellEffect, Component<KwrDarkvisionSense>("KWR_VandianaDarkvisionSense"));
+            CommandHalt = Buff(buffDonor, "KWR_A4CommandHalt", "Commanded: Halt", "Obeying Vandiana's command, this creature stands in place and takes no actions this round.", SpellEffect | 0x40,
                 Condition(UnitCondition.CantAct), Condition(UnitCondition.CantMove), Descriptor(SpellDescriptor.MindAffecting | SpellDescriptor.Compulsion));
             NagaSleep = Buff(buffDonor, "KWR_DarkNagaSleep", "Dark Naga Poison: Asleep", "Asleep from the dark naga's sting for 2d4 minutes: helpless. A poison: neutralize poison ends it, and creatures immune to poison or sleep are unaffected. Damage or an ally's wake action rouses the sleeper.", 0x40,
                 Condition(UnitCondition.Sleeping), Descriptor(SpellDescriptor.Poison | SpellDescriptor.Sleep), Component<Wards.KwrMistSleepWake>("KWR_DarkNagaSleepWake"));
@@ -327,7 +336,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         /// </summary>
         private static void BuildWardSpells(BlueprintBuff buffDonor)
         {
-            SanctuaryBuff = Buff(buffDonor, "KWR_VandianaSanctuary", "Sanctuary", "Any opponent that tries to attack Vandiana directly must succeed on a Will save or lose that attack and be unable to attack her while the ward lasts; each saves once against this casting. Area effects are unaffected. It ends if she attacks or casts a harmful spell at a foe. A spell effect: dispel magic ends it.", 0,
+            SanctuaryBuff = Buff(buffDonor, "KWR_VandianaSanctuary", "Sanctuary", "Any opponent that tries to attack Vandiana directly must succeed on a Will save or lose that attack and be unable to attack her while the ward lasts; each saves once against this casting. Area effects are unaffected. It ends if she attacks or casts a harmful spell at a foe. A spell effect: dispel magic ends it.", SpellEffect,
                 Component<KwrSanctuaryWard>("KWR_VandianaSanctuaryWard"), Component<KwrSanctuaryEnds>("KWR_VandianaSanctuaryEnds"));
 
             var circleArea = Create<BlueprintAbilityAreaEffect>("KWR_A4MagicCircleArea");
@@ -343,7 +352,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             s_Register(circleArea);
             var emanation = Component<AddAreaEffect>("KWR_A4MagicCircleAura");
             emanation.AreaEffect = circleArea;
-            MagicCircleAura = Buff(buffDonor, "KWR_VandianaMagicCircle", "Magic Circle against Good", "A 10-foot emanation from the warded creature: it and its allies inside have the game's own Protection from Good (deflection and resistance bonuses against good creatures) for 10 minutes per level. A spell effect: dispel magic ends it.", 0, emanation);
+            MagicCircleAura = Buff(buffDonor, "KWR_VandianaMagicCircle", "Magic Circle against Good", "A 10-foot emanation from the warded creature: it and its allies inside have the game's own Protection from Good (deflection and resistance bonuses against good creatures) for 10 minutes per level. A spell effect: dispel magic ends it.", SpellEffect, emanation);
 
             BlueprintAbility touchDonor = Named<BlueprintAbility>("TouchOfFatigueEffect");
             var strike = UnityEngine.Object.Instantiate(touchDonor);
@@ -356,7 +365,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 .Concat(new BlueprintComponent[] { RunActions(ScriptableObject.CreateInstance<KwrChillTouchStrikeAction>()), School(SpellSchool.Necromancy) }).ToArray();
             s_Register(strike);
             ChillTouchStrike = strike;
-            ChillTouchCharge = Buff(buffDonor, "KWR_VandianaChillTouch", "Chill Touch (held)", "Vandiana holds one touch of Chill Touch per caster level. Casting another spell dissipates the rest.", 0,
+            ChillTouchCharge = Buff(buffDonor, "KWR_VandianaChillTouch", "Chill Touch (held)", "Vandiana holds one touch of Chill Touch per caster level. Casting another spell dissipates the rest.", SpellEffect,
                 Component<KwrChillTouchCharges>("KWR_VandianaChillTouchCharges"), AddFactsOf("KWR_VandianaChillTouchStrikeFact", new BlueprintUnitFact[] { strike }));
 
             ArcaneBondResource = Resource("KWR_VandianaArcaneBondUses", 1);
@@ -1064,6 +1073,10 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             buff.Stacking = StackingType.Replace;
             var field = AccessTools.Field(typeof(BlueprintBuff), "m_Flags");
             field.SetValue(buff, Enum.ToObject(field.FieldType, flags));
+            if ((flags & SpellEffect) != 0)
+            {
+                SpellEffectBuffs.Add(buff);
+            }
             buff.ComponentsArray = components;
             s_Register(buff);
             return buff;
