@@ -157,7 +157,7 @@ namespace KingmakerWakingRune.Diagnostics
                 }
                 case "a4order":
                 {
-                    // PLAYER-equivalent: an order to a defender the party now controls (domination), as a click would give it.
+                    // HARNESS-COMMANDED: an order to a defender the party now controls directly, dispatched as a command (not UI input).
                     UnitEntityData unit = Defender(args[1]);
                     string missing = Resolve(args[2], out UnitEntityData victim);
                     if (unit == null || missing != null)
@@ -169,7 +169,7 @@ namespace KingmakerWakingRune.Diagnostics
                         return $"{unit.CharacterName} is not under the player's direct control (faction {unit.Descriptor.Faction?.name}).";
                     }
                     unit.Commands.Run(new UnitAttack(victim));
-                    return $"PLAYER order: {unit.CharacterName} (dominated) attacks {victim.CharacterName}.";
+                    return $"HARNESS-COMMANDED order: {unit.CharacterName} (dominated) attacks {victim.CharacterName}.";
                 }
                 case "areas":
                 {
@@ -196,10 +196,74 @@ namespace KingmakerWakingRune.Diagnostics
                     }
                     return sb.ToString();
                 }
+                case "setnonlethal":
+                {
+                    // INJECTED negative control: the game's own nonlethal total set directly, standing for damage from another
+                    // source (another campaign mechanic or mod). It carries no whip ledger, so this mod must leave it alone.
+                    string missing = Resolve(args[1], out UnitEntityData unit);
+                    if (missing != null)
+                    {
+                        return missing;
+                    }
+                    unit.Stats.DamageNonLethal.BaseValue = int.Parse(args[2]);
+                    return $"INJECTED foreign nonlethal on {unit.CharacterName}: total {unit.Stats.DamageNonLethal.BaseValue}, whip's share {KingmakerWakingRune.Sanctum.Lashmistress.WhipNonlethal.Owned(unit.Descriptor)}, hp {unit.HPLeft}/{unit.Stats.HitPoints.ModifiedValue}.";
+                }
+                case "rest":
+                {
+                    // INJECTED: the game's own per-unit rest application (what a camp rest runs for each member), on one unit.
+                    string missing = Resolve(args[1], out UnitEntityData unit);
+                    if (missing != null)
+                    {
+                        return missing;
+                    }
+                    int before = unit.Stats.DamageNonLethal.BaseValue;
+                    Kingmaker.Controllers.Rest.RestController.ApplyRest(unit.Descriptor);
+                    return $"INJECTED native rest on {unit.CharacterName}: nonlethal {before} -> {unit.Stats.DamageNonLethal.BaseValue}, whip's share {KingmakerWakingRune.Sanctum.Lashmistress.WhipNonlethal.Owned(unit.Descriptor)}.";
+                }
+                case "damage":
+                {
+                    // INJECTED: lethal damage through the native rule, from the creature itself (no one engages), to set a test's
+                    // starting hit points.
+                    string missing = Resolve(args[1], out UnitEntityData unit);
+                    if (missing != null)
+                    {
+                        return missing;
+                    }
+                    var hit = new Kingmaker.RuleSystem.Rules.Damage.DirectDamage(new Kingmaker.RuleSystem.DiceFormula(0, Kingmaker.RuleSystem.DiceType.Zero), int.Parse(args[2]));
+                    Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.Damage.RuleDealDamage(unit, unit, new Kingmaker.RuleSystem.Rules.Damage.DamageBundle(hit)));
+                    return $"INJECTED {args[2]} lethal damage on {unit.CharacterName}: hp {unit.HPLeft}/{unit.Stats.HitPoints.ModifiedValue}.";
+                }
+                case "armcontrol":
+                {
+                    // INJECTED timing fixture: waits for the director's own command to be running for this defender, then in the
+                    // same tick applies a native control buff (as a failed save would), so the director's cancellation of a
+                    // running command can be observed. Fires once.
+                    UnitEntityData unit = Defender(args[1]);
+                    string key = KingmakerWakingRune.Sanctum.Lashmistress.LashmistressEncounter.KeyOf(unit);
+                    var buff = ResourcesLibrary.GetBlueprints<Kingmaker.UnitLogic.Buffs.Blueprints.BlueprintBuff>().FirstOrDefault(b => b.name == args[2]);
+                    if (key == null || buff == null)
+                    {
+                        return $"no defender {args[1]} or buff {args[2]}";
+                    }
+                    double seconds = double.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture);
+                    UnitEntityData caster = Member(args.Length > 4 ? args[4] : "0");
+                    KingmakerWakingRune.Sanctum.Lashmistress.LashmistressEncounter.TestHook = () =>
+                    {
+                        if (!KingmakerWakingRune.Sanctum.Lashmistress.LashmistressEncounter.DirectorCommandRunning(key))
+                        {
+                            return;
+                        }
+                        KingmakerWakingRune.Sanctum.Lashmistress.LashmistressEncounter.TestHook = null;
+                        var running = unit.Commands.Raw.Where(c => c != null && !c.IsFinished).Select(c => c.GetType().Name + (c is UnitUseAbility u ? ":" + u.Spell.Blueprint.name : string.Empty)).ToArray();
+                        var applied = unit.Descriptor.AddBuff(buff, caster, TimeSpan.FromSeconds(seconds));
+                        KingmakerWakingRune.Sanctum.Lashmistress.LashmistressEncounter.Note($"INJECTED timing fixture: {args[2]} applied to {unit.CharacterName} ({applied != null}) while the director's command ran [{string.Join(", ", running)}]; still running after the buff: {unit.Commands.Raw.Count(c => c != null && !c.IsFinished)}.");
+                    };
+                    return $"INJECTED timing fixture armed: {args[2]} on {unit.CharacterName} when the director next has a command running.";
+                }
                 case "ai":
-                    // PLAYER-equivalent: the per-character AI toggle on the portrait, a player setting.
+                    // HARNESS-COMMANDED: sets the per-character AI property the portrait toggle sets (not UI input).
                     Member(args[1]).IsAIEnabled = args[2] == "on";
-                    return $"PLAYER setting: {Member(args[1]).CharacterName} AI {(Member(args[1]).IsAIEnabled ? "on" : "off")}.";
+                    return $"HARNESS-COMMANDED setting: {Member(args[1]).CharacterName} AI {(Member(args[1]).IsAIEnabled ? "on" : "off")}.";
                 case "buff":
                 {
                     // INJECTED: a native buff on any unit, cast by a party member, for a chosen time: a failed save's effect is
@@ -252,7 +316,7 @@ namespace KingmakerWakingRune.Diagnostics
                 }
                 case "equip":
                 {
-                    // PLAYER-equivalent: a member wields an item from the shared inventory in the primary hand.
+                    // HARNESS-COMMANDED: a member wields an item from the shared inventory in the primary hand (not UI input).
                     UnitEntityData member = Member(args[1]);
                     Kingmaker.Items.ItemEntity item = Game.Instance.Player.Inventory.FirstOrDefault(i => i.Blueprint.name == args[2]);
                     if (item == null)
@@ -264,7 +328,7 @@ namespace KingmakerWakingRune.Diagnostics
                     {
                         member.Body.PrimaryHand.InsertItem(item);
                     }
-                    return $"PLAYER equip: {member.CharacterName} wields {args[2]}: {ok}.";
+                    return $"HARNESS-COMMANDED equip: {member.CharacterName} wields {args[2]}: {ok}.";
                 }
                 case "nonlethal":
                 {
@@ -332,7 +396,7 @@ namespace KingmakerWakingRune.Diagnostics
                     return Units();
                 case "move":
                     Member(args[1]).Commands.Run(new UnitMoveTo(new Vector3(SanctumPlan.ToWorldX(float.Parse(args[2])), SanctumPlan.HeightAt(float.Parse(args[2]), float.Parse(args[3])) ?? 0f, SanctumPlan.ToWorldZ(float.Parse(args[3])))));
-                    return $"SETUP move order: {Member(args[1]).CharacterName} to ({args[2]},{args[3]}).";
+                    return $"HARNESS-COMMANDED move order: {Member(args[1]).CharacterName} to ({args[2]},{args[3]}).";
                 case "stock":
                     return Stock();
                 case "slots":
@@ -358,7 +422,7 @@ namespace KingmakerWakingRune.Diagnostics
                 case "token":
                     // The Refuge Token ability's own callback, for when the action bar cannot be clicked.
                     KingmakerWakingRune.Sanctum.RefugeTransit.Request();
-                    return "SETUP Refuge Token used through the ability's own entry point.";
+                    return "HARNESS-COMMANDED Refuge Token: the ability's own callback was invoked (not UI input).";
                 case "tbm":
                     // The rook button's own handler; the setting it flips is restored with the registry at the run's end.
                     UnityEngine.Object.FindObjectOfType<Kingmaker.UI.IngameMenu.IngameMenuController>().OnTBMToggle();
@@ -372,7 +436,7 @@ namespace KingmakerWakingRune.Diagnostics
                     }
                     string who = turn.Unit.CharacterName;
                     turn.ForceToEnd();
-                    return $"SETUP ended {who}'s turn, as the end-turn button would.";
+                    return $"HARNESS-COMMANDED end of {who}'s turn (ForceToEnd, not the button).";
                 }
                 case "turn":
                 {
@@ -980,7 +1044,7 @@ namespace KingmakerWakingRune.Diagnostics
             }
             bool can = data.CanTarget(wrapper);
             caster.Commands.Run(UnitUseAbility.CreateCastCommand(data, wrapper));
-            return $"SETUP cast from {caster.CharacterName}'s own spellbook: {data.Blueprint.name} ({data.Spellbook?.Blueprint.name}) {where} canTarget={can}; native rules resolve it and spend the slot.";
+            return $"HARNESS-COMMANDED cast from {caster.CharacterName}'s own spellbook: {data.Blueprint.name} ({data.Spellbook?.Blueprint.name}) {where} canTarget={can}; native rules resolve it and spend the slot.";
         }
 
         /// <summary>Presses the open message box's Yes or No through the box's own button handler, as a click would.</summary>
@@ -1174,7 +1238,7 @@ namespace KingmakerWakingRune.Diagnostics
                 return missing;
             }
             attacker.Commands.Run(UnitAttack.CreateAttackCommand(attacker, victim));
-            return $"SETUP attack command issued: {attacker.CharacterName} -> {target}.";
+            return $"HARNESS-COMMANDED attack: {attacker.CharacterName} -> {target}.";
         }
     }
 }

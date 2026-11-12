@@ -343,6 +343,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             }
             Prepare(state, now);
             Direct(state, now);
+            TestHook?.Invoke();
             if (state.Ritual.AwakeningDue && !a4.AwakeningNoted)
             {
                 a4.AwakeningNoted = true;
@@ -699,21 +700,22 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 switch (ControlOwnership.Observe(record, reason, now))
                 {
                     case ControlChange.Yielded:
-                        int cancelled = 0;
+                        var cancelled = new List<string>();
                         foreach (string prep in Prep.All.Where(p => Prep.Actor(p) == key))
                         {
                             if (s_PrepCommands.TryGetValue(prep, out UnitCommand command) && command != null && !command.IsFinished)
                             {
                                 command.Interrupt();
-                                cancelled++;
+                                cancelled.Add($"{prep} ({command.Result})");
                             }
                         }
                         if (s_DirectCommands.TryGetValue(key, out UnitCommand directed) && directed != null && !directed.IsFinished)
                         {
                             directed.Interrupt();
-                            cancelled++;
+                            cancelled.Add($"directed {directed.GetType().Name} ({directed.Result})");
                         }
-                        Note($"CONTROL {key} yielded at {now:0.0}: {reason}; {cancelled} director command(s) cancelled; native or player control acts (faction {unit.Descriptor.Faction?.name}, group {unit.GroupId}).");
+                        int others = unit.Commands.Raw.Count(c => c != null && !c.IsFinished);
+                        Note($"CONTROL {key} yielded at {now:0.0}: {reason}; {cancelled.Count} director command(s) cancelled [{string.Join(", ", cancelled.ToArray())}]; {others} other command(s) left to native or player control (faction {unit.Descriptor.Faction?.name}, group {unit.GroupId}).");
                         break;
                     case ControlChange.Resumed:
                         Note($"CONTROL {key} resumed at {now:0.0}: the effect has ended (yielded {record.Yields} time(s)); nothing refilled.");
@@ -722,7 +724,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             }
         }
 
-        /// <summary>Her whip's nonlethal damage heals naturally at one point per Hit Die per hour, on every creature that has it.</summary>
+        /// <summary>Her whip's nonlethal damage heals naturally at one point per Hit Die per hour, on every creature it hit.</summary>
         private static void RecoverNonlethal(LashmistressState a4, double now)
         {
             if (a4.NonlethalHourMark < 0d)
@@ -733,14 +735,21 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             while (now - a4.NonlethalHourMark >= 3600d)
             {
                 a4.NonlethalHourMark += 3600d;
-                foreach (UnitEntityData unit in Game.Instance.State.Units.Where(u => u.Stats.DamageNonLethal.BaseValue > 0 && !u.Descriptor.State.IsDead).ToList())
+                foreach (UnitEntityData unit in Game.Instance.State.Units.Where(u => WhipNonlethal.Owned(u.Descriptor) > 0 && !u.Descriptor.State.IsDead).ToList())
                 {
-                    int before = unit.Stats.DamageNonLethal.BaseValue;
-                    unit.Stats.DamageNonLethal.BaseValue = Nonlethal.Recover(before, unit.Descriptor.Progression.CharacterLevel, 1);
-                    Note($"an hour's recovery: {unit.CharacterName} nonlethal {before} -> {unit.Stats.DamageNonLethal.BaseValue}.");
+                    WhipNonlethal.RecoverHour(unit);
                 }
             }
         }
+
+        /// <summary>The director's own command (a preparation, hiding, a Dimension Door) is running for this defender now.</summary>
+        public static bool DirectorCommandRunning(string key)
+        {
+            return DirectorPreparing(key) || (s_DirectCommands.TryGetValue(key, out UnitCommand c) && c != null && !c.IsFinished);
+        }
+
+        /// <summary>A diagnostics-only hook, called once a tick after the director has acted; null in normal play.</summary>
+        internal static Action TestHook;
 
         /// <summary>The first real engagement commits the printed countdown through the one existing commit.</summary>
         public static void Engage(EngagementCause cause, string detail, UnitEntityData by)

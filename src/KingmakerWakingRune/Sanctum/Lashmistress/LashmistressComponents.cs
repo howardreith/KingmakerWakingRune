@@ -324,9 +324,80 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         }
     }
 
+    /// <summary>
+    /// The ledger of nonlethal damage her whip dealt to this creature, created by a real whip hit and nothing else. It is
+    /// the only nonlethal damage this mod ever heals, recovers, clears or reduces; the rest of the game's total is not ours.
+    /// </summary>
+    public sealed class KwrWhipNonlethalPart : UnitPart
+    {
+        [JsonProperty]
+        public int Owned;
+    }
+
     /// <summary>The game's own nonlethal total, written for the one source in this mod that deals it (her whip).</summary>
     internal static class WhipNonlethal
     {
+        /// <summary>The whip's share of this creature's nonlethal total; zero for every creature it never hit.</summary>
+        public static int Owned(UnitDescriptor unit)
+        {
+            return Math.Max(0, unit?.Get<KwrWhipNonlethalPart>()?.Owned ?? 0);
+        }
+
+        /// <summary>Writes a new total and owned share; the ledger goes once the whip's share is healed.</summary>
+        private static void Write(UnitDescriptor unit, int total, int owned)
+        {
+            unit.Stats.DamageNonLethal.BaseValue = total;
+            if (owned > 0)
+            {
+                unit.Ensure<KwrWhipNonlethalPart>().Owned = owned;
+            }
+            else
+            {
+                unit.Remove<KwrWhipNonlethalPart>();
+            }
+        }
+
+        /// <summary>A full rest: the whip's share is healed; any other nonlethal damage is the game's business.</summary>
+        public static void Rest(UnitDescriptor unit)
+        {
+            int owned = Owned(unit);
+            if (owned <= 0)
+            {
+                return;
+            }
+            int total = unit.Stats.DamageNonLethal.BaseValue;
+            Nonlethal.RestOwned(total, owned, out int newTotal, out int newOwned);
+            Write(unit, newTotal, newOwned);
+            LashmistressEncounter.Note($"rest: {unit.CharacterName} whip nonlethal {owned} healed, total {total} -> {newTotal}.");
+        }
+
+        /// <summary>After the game's revival, the whip's share no longer holds the creature down.</summary>
+        public static void Revive(UnitEntityData unit)
+        {
+            int owned = Owned(unit.Descriptor);
+            if (owned <= 0)
+            {
+                return;
+            }
+            int total = unit.Stats.DamageNonLethal.BaseValue;
+            Nonlethal.ReviveOwned(total, owned, unit.Stats.HitPoints.ModifiedValue, unit.Damage, out int newTotal, out int newOwned);
+            Write(unit.Descriptor, newTotal, newOwned);
+            LashmistressEncounter.Note($"revived after the fight: {unit.CharacterName} nonlethal {total} -> {newTotal} (whip's share {owned} -> {newOwned}).");
+        }
+
+        /// <summary>An hour's natural recovery of the whip's share.</summary>
+        public static void RecoverHour(UnitEntityData unit)
+        {
+            int owned = Owned(unit.Descriptor);
+            if (owned <= 0)
+            {
+                return;
+            }
+            int total = unit.Stats.DamageNonLethal.BaseValue;
+            Nonlethal.RecoverOwned(total, owned, unit.Descriptor.Progression.CharacterLevel, 1, out int newTotal, out int newOwned);
+            Write(unit.Descriptor, newTotal, newOwned);
+            LashmistressEncounter.Note($"an hour's recovery: {unit.CharacterName} nonlethal {total} -> {newTotal} (whip's share {owned} -> {newOwned}).");
+        }
         public static int ArmorBonus(UnitEntityData unit)
         {
             return unit.Stats.AC.Modifiers.Where(m => m.ModDescriptor == ModifierDescriptor.Armor || m.ModDescriptor == ModifierDescriptor.ArmorEnhancement).Sum(m => m.ModValue);
@@ -344,22 +415,24 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 return;
             }
             int before = target.Stats.DamageNonLethal.BaseValue;
+            int owned = Owned(target.Descriptor);
             bool canFall = target.Descriptor.State.AllowDyingCondition;
             Nonlethal.Apply(before, amount, target.Stats.HitPoints.ModifiedValue, target.Damage, canFall, out int after, out int overflow);
-            target.Stats.DamageNonLethal.BaseValue = after;
+            Write(target.Descriptor, after, owned + (after - before));
             if (overflow > 0)
             {
                 var direct = new DirectDamage(DiceFormula.Zero, overflow);
                 Rulebook.Trigger(new RuleDealDamage(source, target, new DamageBundle(direct)));
             }
-            LashmistressEncounter.Note($"{what} ({source?.CharacterName}) on {target.CharacterName}: {amount} nonlethal, total {before} -> {after} (hp {target.HPLeft}/{target.Stats.HitPoints.ModifiedValue}, lethal damage {target.Damage}{(overflow > 0 ? $", {overflow} past maximum hit points dealt as lethal" : string.Empty)}{(canFall ? string.Empty : "; cannot fall unconscious in this game, stops one short")}).");
+            LashmistressEncounter.Note($"{what} ({source?.CharacterName}) on {target.CharacterName}: {amount} nonlethal, total {before} -> {after}, whip's share {owned} -> {Owned(target.Descriptor)} (hp {target.HPLeft}/{target.Stats.HitPoints.ModifiedValue}, lethal damage {target.Damage}, life {target.Descriptor.State.LifeState}{(overflow > 0 ? $", {overflow} past maximum hit points dealt as lethal" : string.Empty)}{(canFall ? string.Empty : "; cannot fall unconscious in this game, stops one short")}).");
         }
     }
 
     /// <summary>
-    /// Healing magic heals the same amount of nonlethal damage (Core Rulebook). The native heal is capped at lethal damage, so
-    /// for a creature with nonlethal damage only, the cap is raised for that one rule to the larger of the two totals and each
-    /// total is then healed by what the roll covers. Untouched for every creature without nonlethal damage.
+    /// Healing magic heals the same amount of her whip's nonlethal damage (Core Rulebook). The native heal is capped at lethal
+    /// damage, so for a creature whose whip damage exceeds its lethal damage the cap is raised for that one rule to the whip's
+    /// share, and each is then healed by what the roll covers. Only a creature with the whip's ledger is touched; any other
+    /// nonlethal damage, and every other creature's healing, is exactly native.
     /// </summary>
     internal sealed class NonlethalHealing : IGlobalRulebookHandler<RuleHealDamage>
     {
@@ -368,15 +441,15 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         public void OnEventAboutToTrigger(RuleHealDamage evt)
         {
             UnitEntityData target = evt.Target;
-            int nonlethal = target?.Stats.DamageNonLethal.BaseValue ?? 0;
-            if (nonlethal <= 0)
+            int owned = WhipNonlethal.Owned(target?.Descriptor);
+            if (owned <= 0)
             {
                 return;
             }
             m_Before[evt] = target.Damage;
-            if (nonlethal > target.Damage)
+            if (owned > target.Damage)
             {
-                target.Damage = nonlethal;
+                target.Damage = owned;
             }
         }
 
@@ -388,10 +461,20 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             }
             m_Before.Remove(evt);
             UnitEntityData target = evt.Target;
-            int nonlethal = target.Stats.DamageNonLethal.BaseValue;
+            int total = target.Stats.DamageNonLethal.BaseValue;
+            int owned = WhipNonlethal.Owned(target.Descriptor);
             target.Damage = Math.Max(0, lethalBefore - Math.Min(evt.Value, lethalBefore));
-            target.Stats.DamageNonLethal.BaseValue = Nonlethal.Heal(nonlethal, evt.Value);
-            LashmistressEncounter.Note($"healing on {target.CharacterName}: {evt.Value} heals lethal {lethalBefore} -> {target.Damage} and nonlethal {nonlethal} -> {target.Stats.DamageNonLethal.BaseValue}.");
+            Nonlethal.HealOwned(total, owned, evt.Value, out int newTotal, out int newOwned);
+            target.Stats.DamageNonLethal.BaseValue = newTotal;
+            if (newOwned > 0)
+            {
+                target.Descriptor.Ensure<KwrWhipNonlethalPart>().Owned = newOwned;
+            }
+            else
+            {
+                target.Descriptor.Remove<KwrWhipNonlethalPart>();
+            }
+            LashmistressEncounter.Note($"healing on {target.CharacterName}: {evt.Value} heals lethal {lethalBefore} -> {target.Damage} and the whip's nonlethal {owned} -> {newOwned} (total {total} -> {newTotal}).");
         }
     }
 
@@ -416,10 +499,11 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             {
                 Verdicts = new Dictionary<string, bool>();
             }
-            bool barred = SanctuaryRule.Barred(Verdicts, attacker.UniqueId, () => Context.TriggerRule(new RuleSavingThrow(attacker, SavingThrowType.Will, Context.Params.DC)).IsPassed, out bool rolled);
+            RuleSavingThrow save = null;
+            bool barred = SanctuaryRule.Barred(Verdicts, attacker.UniqueId, () => (save = Context.TriggerRule(new RuleSavingThrow(attacker, SavingThrowType.Will, Context.Params.DC))).IsPassed, out bool rolled);
             if (rolled)
             {
-                LashmistressEncounter.Note($"Sanctuary on {Owner.Unit.CharacterName}: {attacker.CharacterName} tries to {how}: Will vs {Context.Params.DC} {(barred ? "failed: it cannot attack her while the ward lasts" : "passed: unaffected by this casting")}.");
+                LashmistressEncounter.Note($"Sanctuary on {Owner.Unit.CharacterName}: {attacker.CharacterName} tries to {how}: Will {save?.RollResult} vs {Context.Params.DC} {(barred ? "failed: it cannot attack her while the ward lasts" : "passed: unaffected by this casting")}.");
             }
             return barred;
         }
@@ -427,6 +511,18 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         public bool KnownBarred(UnitEntityData attacker)
         {
             return attacker != null && Verdicts != null && SanctuaryRule.KnownBarred(Verdicts, attacker.UniqueId);
+        }
+
+        [NonSerialized]
+        private HashSet<string> m_Noted;
+
+        /// <summary>Evidence: a kept failure barring a command, logged once per attacker and kind of command.</summary>
+        public void NoteBarred(UnitEntityData attacker, string command)
+        {
+            if ((m_Noted ?? (m_Noted = new HashSet<string>())).Add(attacker.UniqueId + command))
+            {
+                LashmistressEncounter.Note($"Sanctuary on {Owner.Unit.CharacterName}: {attacker.CharacterName}'s {command} is barred (it failed its save against this casting).");
+            }
         }
 
         public void OnEventAboutToTrigger(RuleAttackRoll evt)

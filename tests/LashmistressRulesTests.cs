@@ -332,10 +332,43 @@ namespace KingmakerWakingRune.Tests
             Nonlethal.Apply(30, 30, 50, 10, false, out after, out overflow);
             Assert.Equal(39, after, "a creature this game would kill stops one short");
             Assert.Equal(0, overflow, "and takes no lethal overflow");
-            Assert.Equal(2, Nonlethal.Heal(10, 8), "healing heals nonlethal too");
-            Assert.Equal(0, Nonlethal.Recover(10, hitDice: 12, hours: 1), "a Hit Die an hour");
-            Assert.Equal(49, Nonlethal.AfterCombat(70, 60, 10), "revived after the fight: no longer held down");
+            Nonlethal.HealOwned(10, 10, 8, out int total, out int owned);
+            Assert.Equal("2/2", $"{total}/{owned}", "healing heals the whip's nonlethal too");
+            Nonlethal.RecoverOwned(10, 10, hitDice: 12, hours: 1, out total, out owned);
+            Assert.Equal("0/0", $"{total}/{owned}", "a Hit Die an hour");
+            Nonlethal.ReviveOwned(70, 70, 60, 10, out total, out owned);
+            Assert.Equal("49/49", $"{total}/{owned}", "revived after the fight: no longer held down");
             Assert.Equal(5, Nonlethal.AfterCombat(5, 60, 10), "a small total is kept");
+        }
+
+        public static void TestTheModNeverTouchesNonlethalDamageItDidNotDeal()
+        {
+            // Another source's nonlethal damage (another campaign mechanic or mod): no whip ledger, so nothing changes.
+            Nonlethal.HealOwned(12, 0, 30, out int total, out int owned);
+            Assert.Equal("12/0", $"{total}/{owned}", "healing leaves foreign nonlethal to the game");
+            Nonlethal.RestOwned(12, 0, out total, out owned);
+            Assert.Equal("12/0", $"{total}/{owned}", "rest leaves it");
+            Nonlethal.ReviveOwned(80, 0, 60, 0, out total, out owned);
+            Assert.Equal("80/0", $"{total}/{owned}", "revival leaves it, even holding the creature down");
+            Nonlethal.RecoverOwned(12, 0, 10, 3, out total, out owned);
+            Assert.Equal("12/0", $"{total}/{owned}", "hours leave it");
+            // Both at once: only the whip's share moves.
+            Nonlethal.HealOwned(15, 5, 30, out total, out owned);
+            Assert.Equal("10/0", $"{total}/{owned}", "a heal takes only the whip's 5");
+            Nonlethal.RestOwned(15, 5, out total, out owned);
+            Assert.Equal("10/0", $"{total}/{owned}", "a rest clears only the whip's 5");
+            Nonlethal.ReviveOwned(70, 20, 60, 10, out total, out owned);
+            Assert.Equal("50/0", $"{total}/{owned}", "revival reduces only the whip's share, though 49 would stand");
+        }
+
+        public static void TestASanctuaryFailureBarsOnlyAnEnemysHostileTargeting()
+        {
+            Assert.Equal(true, SanctuaryRule.BarsTargeting(failedBefore: true, currentlyEnemy: true, hostileCommand: true), "its next attack is barred");
+            Assert.Equal(true, SanctuaryRule.BarsTargeting(true, true, null), "an enemy's brain surveying targets does not see her");
+            Assert.Equal(false, SanctuaryRule.BarsTargeting(true, true, false), "a harmless command is never barred");
+            Assert.Equal(false, SanctuaryRule.BarsTargeting(true, false, true), "once she is no longer its enemy (controlled), nothing is barred");
+            Assert.Equal(false, SanctuaryRule.BarsTargeting(true, false, null), "nor surveyed");
+            Assert.Equal(false, SanctuaryRule.BarsTargeting(false, true, true), "one that passed, or never tried, is not barred");
         }
 
         public static void TestSanctuaryBarsEachAttackerByItsOneSave()

@@ -145,8 +145,22 @@ namespace KingmakerWakingRune.Patches
                 return;
             }
             Kingmaker.UnitLogic.Commands.Base.UnitCommand ticking = SanctuaryCommandTick.Current;
-            bool attempt = ticking != null && ticking.Executor == attacker && ticking.TargetUnit == targetUnit && SanctuaryCommandTick.IsHostile(ticking);
-            __result = attempt ? ward.Attempt(attacker, "act against her (" + ticking.GetType().Name + ")") : ward.KnownBarred(attacker);
+            bool thisCommand = ticking != null && ticking.Executor == attacker && ticking.TargetUnit == targetUnit;
+            bool? hostile = thisCommand ? SanctuaryCommandTick.IsHostile(ticking) : (bool?)null;
+            bool enemy = attacker.IsEnemy(targetUnit);
+            if (hostile == true && enemy && !ward.KnownBarred(attacker))
+            {
+                // A real attempt: its save, once for this casting.
+                __result = ward.Attempt(attacker, "act against her (" + ticking.GetType().Name + ")");
+                return;
+            }
+            // A kept failure bars only a current enemy's hostile targeting: never a heal or other help, never once she is no
+            // longer its enemy.
+            __result = Sanctum.Lashmistress.SanctuaryRule.BarsTargeting(ward.KnownBarred(attacker), enemy, hostile);
+            if (__result && thisCommand)
+            {
+                ward.NoteBarred(attacker, ticking.GetType().Name);
+            }
         }
     }
 
@@ -176,32 +190,35 @@ namespace KingmakerWakingRune.Patches
         }
     }
 
-    /// <summary>A full rest clears the nonlethal damage of her whip, as rest heals it (one point per Hit Die per hour, at least).</summary>
+    /// <summary>
+    /// A full rest heals her whip's nonlethal damage. Only a creature with the whip's ledger is touched, and only by the
+    /// whip's share; any other nonlethal damage is left exactly as the game leaves it.
+    /// </summary>
     [HarmonyPatch(typeof(Kingmaker.Controllers.Rest.RestController), nameof(Kingmaker.Controllers.Rest.RestController.ApplyRest))]
     internal static class NonlethalRestPatch
     {
         private static void Postfix(UnitDescriptor unit)
         {
-            if (unit != null && unit.Stats.DamageNonLethal.BaseValue > 0)
+            if (unit != null)
             {
-                unit.Stats.DamageNonLethal.BaseValue = 0;
+                Sanctum.Lashmistress.WhipNonlethal.Rest(unit);
             }
         }
     }
 
-    /// <summary>When the game revives the fallen after a fight, nonlethal damage no longer holds a creature down.</summary>
+    /// <summary>
+    /// When the game revives the fallen after a fight, her whip's nonlethal damage no longer holds a creature down. Only the
+    /// whip's share is reduced, and only on a creature with its ledger.
+    /// </summary>
     [HarmonyPatch(typeof(Kingmaker.Controllers.Units.UnitReturnToConsciousController), nameof(Kingmaker.Controllers.Units.UnitReturnToConsciousController.MakeUnitConscious))]
     internal static class NonlethalRevivePatch
     {
         private static void Postfix(UnitEntityData unit)
         {
-            int nonlethal = unit?.Stats.DamageNonLethal.BaseValue ?? 0;
-            if (nonlethal <= 0)
+            if (unit != null)
             {
-                return;
+                Sanctum.Lashmistress.WhipNonlethal.Revive(unit);
             }
-            unit.Stats.DamageNonLethal.BaseValue = Sanctum.Lashmistress.Nonlethal.AfterCombat(nonlethal, unit.Stats.HitPoints.ModifiedValue, unit.Damage);
-            Sanctum.Lashmistress.LashmistressEncounter.Note($"revived after the fight: {unit.CharacterName} nonlethal {nonlethal} -> {unit.Stats.DamageNonLethal.BaseValue}.");
         }
     }
 

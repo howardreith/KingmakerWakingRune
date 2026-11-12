@@ -486,16 +486,42 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             lethalOverflow = total - newNonlethal;
         }
 
-        /// <summary>Healing magic heals the same amount of nonlethal damage.</summary>
-        public static int Heal(int nonlethal, int healed)
+        // The game keeps one nonlethal total per creature. Only the part her whip dealt, kept in a ledger on the creature
+        // ("owned"), is ever healed, recovered, cleared or reduced here; nonlethal damage from any other source is left as it
+        // is. Each returns the new total and the new owned part.
+
+        /// <summary>Healing magic heals the same amount of the whip's nonlethal damage.</summary>
+        public static void HealOwned(int total, int owned, int healed, out int newTotal, out int newOwned)
         {
-            return Math.Max(0, nonlethal - Math.Max(0, healed));
+            Cut(total, owned, Math.Max(0, healed), out newTotal, out newOwned);
         }
 
-        /// <summary>One point per Hit Die per hour of rest or ordinary time.</summary>
-        public static int Recover(int nonlethal, int hitDice, int hours)
+        /// <summary>One point per Hit Die per hour of ordinary time.</summary>
+        public static void RecoverOwned(int total, int owned, int hitDice, int hours, out int newTotal, out int newOwned)
         {
-            return Math.Max(0, nonlethal - Math.Max(1, hitDice) * Math.Max(0, hours));
+            Cut(total, owned, Math.Max(1, hitDice) * Math.Max(0, hours), out newTotal, out newOwned);
+        }
+
+        /// <summary>A full rest heals all of it.</summary>
+        public static void RestOwned(int total, int owned, out int newTotal, out int newOwned)
+        {
+            Cut(total, owned, owned, out newTotal, out newOwned);
+        }
+
+        /// <summary>
+        /// When the game revives the fallen after a fight, the whip's nonlethal damage stops holding the creature down, as
+        /// the game's own revival does for lethal damage. Another source's nonlethal damage is not reduced.
+        /// </summary>
+        public static void ReviveOwned(int total, int owned, int maxHitPoints, int lethalDamage, out int newTotal, out int newOwned)
+        {
+            Cut(total, owned, total - AfterCombat(total, maxHitPoints, lethalDamage), out newTotal, out newOwned);
+        }
+
+        private static void Cut(int total, int owned, int amount, out int newTotal, out int newOwned)
+        {
+            int cut = Math.Max(0, Math.Min(Math.Max(0, owned), Math.Min(amount, total)));
+            newTotal = total - cut;
+            newOwned = Math.Max(0, owned) - cut;
         }
 
         /// <summary>
@@ -528,6 +554,16 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         public static bool KnownBarred(Dictionary<string, bool> verdicts, string attackerId)
         {
             return verdicts.TryGetValue(attackerId, out bool passed) && !passed;
+        }
+
+        /// <summary>
+        /// Whether a kept failure bars this targeting now: only while the creature is still her enemy, and only for a hostile
+        /// command (an attack or a harmful spell) or, with no command (a brain surveying its targets, an attack of
+        /// opportunity), an enemy's targeting. A failed save is a bar on attacking her, never on helping her.
+        /// </summary>
+        public static bool BarsTargeting(bool failedBefore, bool currentlyEnemy, bool? hostileCommand)
+        {
+            return failedBefore && currentlyEnemy && hostileCommand != false;
         }
     }
 
