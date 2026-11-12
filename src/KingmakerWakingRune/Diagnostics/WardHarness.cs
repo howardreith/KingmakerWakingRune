@@ -1262,6 +1262,10 @@ namespace KingmakerWakingRune.Diagnostics
         private static string KruneReport()
         {
             SanctumState state = WardRuntime.State;
+            if (state == null)
+            {
+                return "READ Krune: no sanctum state in this game.";
+            }
             UnitEntityData actor = KingmakerWakingRune.Sanctum.Krune.KruneAwakening.Actor;
             UnitEntityData receiver = WardFixtures.FindRetired("Krune");
             int kruneUnits = Game.Instance.State.Units.All.Count(KingmakerWakingRune.Sanctum.Krune.KruneAwakening.IsKrune);

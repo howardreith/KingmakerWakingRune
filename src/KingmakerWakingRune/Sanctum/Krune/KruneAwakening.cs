@@ -743,7 +743,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
                     {
                         KruneRules.AdoptLegacy(krune, state.Ritual, state.RuneMask, now);
                         Note($"LEGACY ADOPTED: the recorded awakening ({krune.Cause} at {krune.EffectiveAt:0}) is initialized now; the current saved mask {krune.RevivalMask} is the migration snapshot (no history was recorded).");
-                        SoulReturnCue(state);
+                        OnCommitted(state, now);
                     }
                     else
                     {
@@ -830,7 +830,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             Note($"revival study: {best.CharacterName} Arcana {roll.RollResult} vs 27: {(roll.IsPassed ? "learned" : "nothing learned")}.");
             if (roll.IsPassed)
             {
-                WardRuntime.Say($"{best.CharacterName} watches the light leave the emerald and follows its path: the soul was never trapped, only waiting, and the rite simply let it home.");
+                WardRuntime.Say($"{best.CharacterName} follows the surge of light into the sarcophagus and reads the rite in it: the soul was never trapped, only waiting, and the ritual simply let it home.");
             }
         }
 

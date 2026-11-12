@@ -55,7 +55,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 int before = FeederRules.ExposedTemporaryHP(state.Door.Feeder, now);
                 FeederRules.Consume(state.Door.Feeder, spent, now);
-                Log.Info($"Krune receiver: {spent} feeder temporary HP spent; {before} -> {FeederRules.ExposedTemporaryHP(state.Door.Feeder, now)}.");
+                Log.Info($"Krune ({(Sanctum.Krune.KruneAwakening.Authoritative ? "woken" : "receiver")}): {spent} feeder temporary HP spent; {before} -> {FeederRules.ExposedTemporaryHP(state.Door.Feeder, now)}.");
             }
         }
 
@@ -88,7 +88,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 PendingTemporaryHP = amount;
                 krune.Descriptor.AddBuff(WardBlueprints.FeederTempHp, krune, TimeSpan.FromSeconds(strongest.ExpiresAt - now));
             }
-            Log.Info($"Krune receiver: {amount} temporary HP (was {shown}).");
+            Log.Info($"Krune ({(Sanctum.Krune.KruneAwakening.Authoritative ? "woken" : "receiver")}): {amount} temporary HP (was {shown}).");
         }
     }
 
