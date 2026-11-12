@@ -217,6 +217,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
                     HoldCheckpoint();
                 }
             }
+            HoldStaggerForTurn(state);
             SyncLinks(state, now);
         }
 
@@ -530,8 +531,48 @@ namespace KingmakerWakingRune.Sanctum.Krune
             if (krune.Hostile)
             {
                 KruneRules.Advance(krune, AwakeningStage.Emerged, AwakeningStage.OpeningResolved);
+                // The hostile handoff in the same tick: no slice of simulation with him resolved but not yet hostile.
+                HandOff(state, now);
                 Note($"OPENING RESOLVED: {krune.Opening}; hostile ({krune.HostileCause}: {krune.HostileDetail}); identified {krune.Identified}, told of the fall {krune.ToldOfFall}, calculated {krune.Calculated}.");
             }
+        }
+
+        /// <summary>
+        /// Turn-based play counts the opening stagger in his turns, not seconds: each turn spends game time, so a round of
+        /// game time can run out before his first turn. While he has not ended a turn, the stagger is kept from expiring;
+        /// his first completed turn ends it. Real time keeps its native one round of game time.
+        /// </summary>
+        private static void HoldStaggerForTurn(SanctumState state)
+        {
+            KruneState krune = state.Krune;
+            UnitEntityData actor = Actor;
+            if (!krune.OpeningStaggerApplied || krune.OpeningStaggerTurnServed || actor == null || !actor.IsInCombat || !TurnBased.Controllers.CombatController.IsInTurnBasedCombat())
+            {
+                return;
+            }
+            Buff stagger = actor.Buffs.GetBuff(KruneBlueprints.OpeningStagger);
+            TimeSpan floor = Game.Instance.TimeController.GameTime + TimeSpan.FromSeconds(1d);
+            if (stagger != null && stagger.EndTime < floor)
+            {
+                stagger.EndTime = floor;
+            }
+        }
+
+        /// <summary>His first completed turn in turn-based play spends the opening stagger.</summary>
+        public static void OnTurnEnded(UnitEntityData unit, bool completed)
+        {
+            KruneState krune = State?.Krune;
+            if (krune == null || !completed || !IsKrune(unit) || !krune.OpeningStaggerApplied || krune.OpeningStaggerTurnServed)
+            {
+                return;
+            }
+            krune.OpeningStaggerTurnServed = true;
+            Buff stagger = unit.Buffs.GetBuff(KruneBlueprints.OpeningStagger);
+            if (stagger != null)
+            {
+                stagger.Remove();
+            }
+            Note("the opening stagger ends with his first turn (turn-based).");
         }
 
         public static void OnParleyStarted()

@@ -80,6 +80,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public bool OpeningStaggerOwed;
         public bool OpeningStaggerApplied;
         public double OpeningStaggerAppliedAt = -1d;
+        /// <summary>Turn-based play: his first completed turn has spent the stagger.</summary>
+        public bool OpeningStaggerTurnServed;
 
         /// <summary>The real actor's stable identity. Once set it is authoritative, living or dead.</summary>
         public string EntityId = string.Empty;

@@ -482,6 +482,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 return;
             }
+            Krune.KruneAwakening.OnTurnEnded(unit, completed);
             MistRecord record = state.MistOf(unit.UniqueId);
             double lastTick = record.NextDueAt - WardProfile.RoundSeconds;
             if (s_TurnStartedAt.TryGetValue(unit.UniqueId, out double started) && record.NextDueAt >= 0d && lastTick >= started)
