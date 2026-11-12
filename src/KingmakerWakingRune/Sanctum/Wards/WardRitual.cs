@@ -25,6 +25,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
         /// <summary>False Life and Mage Armor are her baseline for the ritual, not an alarm's reward. Applied once per save.</summary>
         public static void EnsureBaseline(SanctumState state)
         {
+            if (state.Lashmistress.IsPresent)
+            {
+                // The real Vandiana's preparation is applied once by the encounter and never re-added here.
+                return;
+            }
             UnitEntityData vandiana = WardFixtures.Vandiana;
             if (vandiana == null || vandiana.Buffs.GetBuff(Buff(MageArmorBuff)) != null)
             {
@@ -42,8 +47,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
             Log.Info($"Awareness {cause} ({detail}): first={first}; causes={string.Join(",", state.Ritual.Causes.Select(c => c.Cause.ToString()).ToArray())}.");
             if (first)
             {
-                // Vandiana has no native Darkvision to cast in this game; the preparation is stored for the later encounter.
-                Log.Info("Vandiana warns her allies; Darkvision preparation stored for the encounter (no native buff exists).");
+                Log.Info("Vandiana warns her allies; Darkvision preparation stored for the encounter.");
+                // The real defenders act on it with their own spell and potions; none of them is moved toward the cause.
+                Lashmistress.LashmistressEncounter.OnAwareness(state);
             }
         }
 
@@ -66,6 +72,12 @@ namespace KingmakerWakingRune.Sanctum.Wards
             SanctumState state = WardRuntime.State;
             if (!RitualRules.HearDoor(state.Ritual, WardRuntime.Now))
             {
+                return;
+            }
+            if (Lashmistress.LashmistressEncounter.OnDoorHeard(state))
+            {
+                // Requested only: the potion and the naga's two castings happen as their own native actions.
+                Log.Info("East door heard: Vandiana's potion and the naga's Invisibility requested from the real defenders.");
                 return;
             }
             UnitEntityData vandiana = WardFixtures.Vandiana;

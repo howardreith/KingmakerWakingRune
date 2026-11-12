@@ -118,6 +118,228 @@ namespace KingmakerWakingRune.Diagnostics
                     return Hurt(Member(args[1]), args[2], int.Parse(args[3]));
                 case "blueprint":
                     return DumpBlueprint(args[1]);
+                case "catalog":
+                    return Catalog(args[1]);
+                case "a4ai":
+                    // Read only: the latest brain scores, optionally for one defender.
+                    return "READ A4 brain scores:\n" + string.Join("\n", KingmakerWakingRune.Sanctum.Lashmistress.LashmistressEncounter.LastScores
+                        .Where(p => args.Length < 2 || p.Key.IndexOf(args[1], StringComparison.OrdinalIgnoreCase) >= 0)
+                        .OrderBy(p => p.Key).Select(p => p.Key + " = " + p.Value).ToArray());
+                case "a4":
+                {
+                    // Read only: the A4 state and every defender's live sheet.
+                    var sb = new StringBuilder("READ A4 state: " + WardStore.Dump(WardRuntime.State?.Lashmistress) + "\n");
+                    sb.AppendLine($"ritual: aware {WardRuntime.State?.Ritual.VandianaAware} doorHeard {WardRuntime.State?.Ritual.A4DoorHeard} confrontation {WardRuntime.State?.Ritual.ConfrontationStarted} roll {WardRuntime.State?.Ritual.ConfrontationRoll} deadline {WardRuntime.State?.Ritual.ConfrontationDeadline:0} global {WardRuntime.State?.Ritual.GlobalDeadline:0} due {WardRuntime.State?.Ritual.AwakeningDue} reason {WardRuntime.State?.Ritual.Reason} now {WardRuntime.Now:0}");
+                    sb.AppendLine($"fixture Vandiana: indexed {WardFixtures.Find("Vandiana") != null}, entity {WardFixtures.FindRetired("Vandiana")?.UniqueId ?? "none"} inGame {WardFixtures.FindRetired("Vandiana")?.IsInGame}; resolver -> {WardFixtures.Vandiana?.UniqueId} ({WardFixtures.Vandiana?.Blueprint.name})");
+                    foreach (string key in KingmakerWakingRune.Sanctum.Lashmistress.DefenderKeys.All)
+                    {
+                        if (args.Length < 2 || key.EndsWith(args[1], StringComparison.OrdinalIgnoreCase))
+                        {
+                            sb.AppendLine(KingmakerWakingRune.Sanctum.Lashmistress.LashmistressEncounter.Report(KingmakerWakingRune.Sanctum.Lashmistress.LashmistressEncounter.Find(key)));
+                        }
+                    }
+                    return sb.ToString();
+                }
+                case "a4cast":
+                    return A4Cast(args[1], args[2], args.Skip(3).ToArray());
+                case "a4attack":
+                {
+                    // INJECTED decision: a defender attacks this target with its own weapons; every roll and effect is native.
+                    UnitEntityData unit = Defender(args[1]);
+                    string missing = Resolve(args[2], out UnitEntityData victim);
+                    if (unit == null || missing != null)
+                    {
+                        return missing ?? $"no defender {args[1]}";
+                    }
+                    unit.Commands.InterruptAiCommands();
+                    unit.Commands.Run(new UnitAttack(victim));
+                    return $"INJECTED decision: {unit.CharacterName} attacks {victim.CharacterName}; the attacks and their effects are native.";
+                }
+                case "a4order":
+                {
+                    // HARNESS-COMMANDED: an order to a defender the party now controls directly, dispatched as a command (not UI input).
+                    UnitEntityData unit = Defender(args[1]);
+                    string missing = Resolve(args[2], out UnitEntityData victim);
+                    if (unit == null || missing != null)
+                    {
+                        return missing ?? $"no defender {args[1]}";
+                    }
+                    if (!unit.IsDirectlyControllable)
+                    {
+                        return $"{unit.CharacterName} is not under the player's direct control (faction {unit.Descriptor.Faction?.name}).";
+                    }
+                    unit.Commands.Run(new UnitAttack(victim));
+                    return $"HARNESS-COMMANDED order: {unit.CharacterName} (dominated) attacks {victim.CharacterName}.";
+                }
+                case "areas":
+                {
+                    // Read only: every live area effect, and for each party member and defender whether its shape holds them
+                    // and whether the fog-of-war line of sight from its centre is blocked (the native inclusion test).
+                    var sb = new StringBuilder("READ area effects:\n");
+                    foreach (AreaEffectEntityData area in Game.Instance.State.AreaEffects)
+                    {
+                        var view = area.View;
+                        Vector3 centre = area.Position;
+                        sb.AppendLine($"  {area.Blueprint.name} {area.UniqueId} view {view != null} shape {view?.Shape != null} ended {area.IsEnded} at ({centre.x / SanctumPlan.MetersPerSquare + SanctumPlan.OriginX:0.0},{SanctumPlan.OriginY - centre.z / SanctumPlan.MetersPerSquare:0.0}) y {centre.y:0.00}");
+                        if (view?.Shape == null)
+                        {
+                            continue;
+                        }
+                        var found = new System.Collections.Generic.List<Kingmaker.EntitySystem.EntityDataBase>();
+                        Bounds bounds = view.Shape.GetBounds();
+                        Game.Instance.CurrentScene.Area.InteractiveObjectGrid.GetInBounds(bounds, found);
+                        sb.AppendLine($"    grid search in bounds {bounds.center} size {bounds.size}: {found.Count} entities [{string.Join(", ", found.OfType<UnitEntityData>().Select(u => u.CharacterName).ToArray())}]");
+                        foreach (UnitEntityData u in Game.Instance.State.Units.Where(u => u.IsInGame && (u.IsPlayerFaction || KingmakerWakingRune.Sanctum.Lashmistress.LashmistressEncounter.IsDefender(u))))
+                        {
+                            sb.AppendLine($"    {u.CharacterName}: in shape {view.Shape.Contains(u.Position, u.View.Corpulence)}, sight blocked {Kingmaker.Visual.FogOfWar.LineOfSightGeometry.Instance.HasObstacle(view.transform.position, u.Position)}, {Vector3.Distance(centre, u.Position):0.0} m, unit y {u.Position.y:0.00}");
+                        }
+                    }
+                    return sb.ToString();
+                }
+                case "setnonlethal":
+                {
+                    // INJECTED negative control: the game's own nonlethal total set directly, standing for damage from another
+                    // source (another campaign mechanic or mod). It carries no whip ledger, so this mod must leave it alone.
+                    string missing = Resolve(args[1], out UnitEntityData unit);
+                    if (missing != null)
+                    {
+                        return missing;
+                    }
+                    unit.Stats.DamageNonLethal.BaseValue = int.Parse(args[2]);
+                    return $"INJECTED foreign nonlethal on {unit.CharacterName}: total {unit.Stats.DamageNonLethal.BaseValue}, whip's share {KingmakerWakingRune.Sanctum.Lashmistress.WhipNonlethal.Owned(unit.Descriptor)}, hp {unit.HPLeft}/{unit.Stats.HitPoints.ModifiedValue}.";
+                }
+                case "rest":
+                {
+                    // INJECTED: the game's own per-unit rest application (what a camp rest runs for each member), on one unit.
+                    string missing = Resolve(args[1], out UnitEntityData unit);
+                    if (missing != null)
+                    {
+                        return missing;
+                    }
+                    int before = unit.Stats.DamageNonLethal.BaseValue;
+                    Kingmaker.Controllers.Rest.RestController.ApplyRest(unit.Descriptor);
+                    return $"INJECTED native rest on {unit.CharacterName}: nonlethal {before} -> {unit.Stats.DamageNonLethal.BaseValue}, whip's share {KingmakerWakingRune.Sanctum.Lashmistress.WhipNonlethal.Owned(unit.Descriptor)}.";
+                }
+                case "damage":
+                {
+                    // INJECTED: lethal damage through the native rule, from the creature itself (no one engages), to set a test's
+                    // starting hit points.
+                    string missing = Resolve(args[1], out UnitEntityData unit);
+                    if (missing != null)
+                    {
+                        return missing;
+                    }
+                    var hit = new Kingmaker.RuleSystem.Rules.Damage.DirectDamage(new Kingmaker.RuleSystem.DiceFormula(0, Kingmaker.RuleSystem.DiceType.Zero), int.Parse(args[2]));
+                    Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.Damage.RuleDealDamage(unit, unit, new Kingmaker.RuleSystem.Rules.Damage.DamageBundle(hit)));
+                    return $"INJECTED {args[2]} lethal damage on {unit.CharacterName}: hp {unit.HPLeft}/{unit.Stats.HitPoints.ModifiedValue}.";
+                }
+                case "armcontrol":
+                {
+                    // INJECTED timing fixture: waits for the director's own command to be running for this defender, then in the
+                    // same tick applies a native control buff (as a failed save would), so the director's cancellation of a
+                    // running command can be observed. Fires once.
+                    UnitEntityData unit = Defender(args[1]);
+                    string key = KingmakerWakingRune.Sanctum.Lashmistress.LashmistressEncounter.KeyOf(unit);
+                    var buff = ResourcesLibrary.GetBlueprints<Kingmaker.UnitLogic.Buffs.Blueprints.BlueprintBuff>().FirstOrDefault(b => b.name == args[2]);
+                    if (key == null || buff == null)
+                    {
+                        return $"no defender {args[1]} or buff {args[2]}";
+                    }
+                    double seconds = double.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture);
+                    UnitEntityData caster = Member(args.Length > 4 ? args[4] : "0");
+                    KingmakerWakingRune.Sanctum.Lashmistress.LashmistressEncounter.TestHook = () =>
+                    {
+                        if (!KingmakerWakingRune.Sanctum.Lashmistress.LashmistressEncounter.DirectorCommandRunning(key))
+                        {
+                            return;
+                        }
+                        KingmakerWakingRune.Sanctum.Lashmistress.LashmistressEncounter.TestHook = null;
+                        var running = unit.Commands.Raw.Where(c => c != null && !c.IsFinished).Select(c => c.GetType().Name + (c is UnitUseAbility u ? ":" + u.Spell.Blueprint.name : string.Empty)).ToArray();
+                        var applied = unit.Descriptor.AddBuff(buff, caster, TimeSpan.FromSeconds(seconds));
+                        KingmakerWakingRune.Sanctum.Lashmistress.LashmistressEncounter.Note($"INJECTED timing fixture: {args[2]} applied to {unit.CharacterName} ({applied != null}) while the director's command ran [{string.Join(", ", running)}]; still running after the buff: {unit.Commands.Raw.Count(c => c != null && !c.IsFinished)}.");
+                    };
+                    return $"INJECTED timing fixture armed: {args[2]} on {unit.CharacterName} when the director next has a command running.";
+                }
+                case "ai":
+                    // HARNESS-COMMANDED: sets the per-character AI property the portrait toggle sets (not UI input).
+                    Member(args[1]).IsAIEnabled = args[2] == "on";
+                    return $"HARNESS-COMMANDED setting: {Member(args[1]).CharacterName} AI {(Member(args[1]).IsAIEnabled ? "on" : "off")}.";
+                case "buff":
+                {
+                    // INJECTED: a native buff on any unit, cast by a party member, for a chosen time: a failed save's effect is
+                    // applied directly (no roll). What the buff does from then on (a change of faction, a condition, its expiry)
+                    // is the game's own.
+                    string missing = Resolve(args[1], out UnitEntityData unit);
+                    Kingmaker.UnitLogic.Buffs.Blueprints.BlueprintBuff buff = ResourcesLibrary.GetBlueprints<Kingmaker.UnitLogic.Buffs.Blueprints.BlueprintBuff>().FirstOrDefault(b => b.name == args[2]);
+                    if (missing != null || buff == null)
+                    {
+                        return missing ?? $"no buff {args[2]}";
+                    }
+                    UnitEntityData caster = Member(args.Length > 4 ? args[4] : "0");
+                    Kingmaker.UnitLogic.Buffs.Buff applied = unit.Descriptor.AddBuff(buff, caster, TimeSpan.FromSeconds(double.Parse(args[3], System.Globalization.CultureInfo.InvariantCulture)));
+                    return $"INJECTED native {args[2]} on {unit.CharacterName} from {caster.CharacterName} for {args[3]} s: applied {applied != null}; faction now {unit.Descriptor.Faction?.name}.";
+                }
+                case "unbuff":
+                {
+                    // INJECTED: one native buff removed from any unit, as its expiry, a break-free or a dispel would.
+                    string missing = Resolve(args[1], out UnitEntityData unit);
+                    Kingmaker.UnitLogic.Buffs.Buff buff = unit?.Buffs.Enumerable.FirstOrDefault(b => b.Blueprint.name == args[2]);
+                    if (missing != null || buff == null)
+                    {
+                        return missing ?? $"no {args[2]} on {args[1]}";
+                    }
+                    buff.Remove();
+                    return $"INJECTED removal of {args[2]} from {unit.CharacterName} at {WardRuntime.Now:0.0}.";
+                }
+                case "a4take":
+                {
+                    // INJECTED: one potion is taken from a defender before the fight, for the unavailable-preparation check.
+                    UnitEntityData unit = Defender(args[1]);
+                    Kingmaker.Items.ItemEntity item = unit?.Body.QuickSlots.Select(s => s.MaybeItem).FirstOrDefault(i => i != null && i.Blueprint.name == args[2]);
+                    if (item == null)
+                    {
+                        return $"no {args[2]} in {args[1]}'s quick slots";
+                    }
+                    unit.Inventory.Remove(item);
+                    return $"INJECTED removal: {args[2]} taken from {unit.CharacterName}; left {unit.Body.QuickSlots.Select(s => s.MaybeItem).Count(i => i != null && i.Blueprint.name == args[2])}.";
+                }
+                case "give":
+                {
+                    // SETUP: an item placed in the shared inventory (a member equips it as a player would).
+                    Kingmaker.Blueprints.Items.BlueprintItem blueprint = ResourcesLibrary.GetBlueprints<Kingmaker.Blueprints.Items.BlueprintItem>().FirstOrDefault(b => b.name == args[1]);
+                    if (blueprint == null)
+                    {
+                        return $"no item {args[1]}";
+                    }
+                    Game.Instance.Player.Inventory.Add(blueprint, args.Length > 2 ? int.Parse(args[2]) : 1);
+                    return $"SETUP granted item {blueprint.name} to the party's inventory.";
+                }
+                case "equip":
+                {
+                    // HARNESS-COMMANDED: a member wields an item from the shared inventory in the primary hand (not UI input).
+                    UnitEntityData member = Member(args[1]);
+                    Kingmaker.Items.ItemEntity item = Game.Instance.Player.Inventory.FirstOrDefault(i => i.Blueprint.name == args[2]);
+                    if (item == null)
+                    {
+                        return $"no {args[2]} in the party's inventory";
+                    }
+                    bool ok = member.Body.PrimaryHand.CanInsertItem(item);
+                    if (ok)
+                    {
+                        member.Body.PrimaryHand.InsertItem(item);
+                    }
+                    return $"HARNESS-COMMANDED equip: {member.CharacterName} wields {args[2]}: {ok}.";
+                }
+                case "nonlethal":
+                {
+                    // Read only: every creature with nonlethal damage, and its hit points.
+                    var sb = new StringBuilder("READ nonlethal:\n");
+                    foreach (UnitEntityData u in Game.Instance.State.Units.Where(u => u.Stats.DamageNonLethal.BaseValue > 0 || u.IsPlayerFaction))
+                    {
+                        sb.AppendLine($"  {u.CharacterName}: nonlethal {u.Stats.DamageNonLethal.BaseValue}, hp {u.HPLeft}/{u.Stats.HitPoints.ModifiedValue}, lethal {u.Damage}, life {u.Descriptor.State.LifeState}, AC armor {KingmakerWakingRune.Sanctum.Lashmistress.WhipNonlethal.ArmorBonus(u)} natural {KingmakerWakingRune.Sanctum.Lashmistress.WhipNonlethal.NaturalArmorBonus(u)}");
+                    }
+                    return sb.ToString();
+                }
                 case "builds":
                     return Builds();
                 case "grab":
@@ -174,7 +396,7 @@ namespace KingmakerWakingRune.Diagnostics
                     return Units();
                 case "move":
                     Member(args[1]).Commands.Run(new UnitMoveTo(new Vector3(SanctumPlan.ToWorldX(float.Parse(args[2])), SanctumPlan.HeightAt(float.Parse(args[2]), float.Parse(args[3])) ?? 0f, SanctumPlan.ToWorldZ(float.Parse(args[3])))));
-                    return $"SETUP move order: {Member(args[1]).CharacterName} to ({args[2]},{args[3]}).";
+                    return $"HARNESS-COMMANDED move order: {Member(args[1]).CharacterName} to ({args[2]},{args[3]}).";
                 case "stock":
                     return Stock();
                 case "slots":
@@ -200,7 +422,7 @@ namespace KingmakerWakingRune.Diagnostics
                 case "token":
                     // The Refuge Token ability's own callback, for when the action bar cannot be clicked.
                     KingmakerWakingRune.Sanctum.RefugeTransit.Request();
-                    return "SETUP Refuge Token used through the ability's own entry point.";
+                    return "HARNESS-COMMANDED Refuge Token: the ability's own callback was invoked (not UI input).";
                 case "tbm":
                     // The rook button's own handler; the setting it flips is restored with the registry at the run's end.
                     UnityEngine.Object.FindObjectOfType<Kingmaker.UI.IngameMenu.IngameMenuController>().OnTBMToggle();
@@ -214,7 +436,7 @@ namespace KingmakerWakingRune.Diagnostics
                     }
                     string who = turn.Unit.CharacterName;
                     turn.ForceToEnd();
-                    return $"SETUP ended {who}'s turn, as the end-turn button would.";
+                    return $"HARNESS-COMMANDED end of {who}'s turn (ForceToEnd, not the button).";
                 }
                 case "turn":
                 {
@@ -414,6 +636,70 @@ namespace KingmakerWakingRune.Diagnostics
                 sb.AppendLine($"  [{component?.GetType().Name}] {(component == null ? string.Empty : Fields(component))}");
             }
             return sb.ToString();
+        }
+
+        /// <summary>Read only: the installed game's classes, spellbooks, spell lists, abilities, features, buffs, usable items and units, to a file.</summary>
+        private static string Catalog(string path)
+        {
+            var all = ResourcesLibrary.LibraryObject.GetAllBlueprints().Where(b => b != null).ToList();
+            var sb = new StringBuilder();
+            foreach (var c in all.OfType<Kingmaker.Blueprints.Classes.BlueprintCharacterClass>())
+            {
+                sb.AppendLine($"CLASS|{c.name}|{c.AssetGuid}|{Safe(() => c.Name)}|prestige={c.PrestigeClass}|hd={c.HitDie}|bab={c.BaseAttackBonus?.name}|f={c.FortitudeSave?.name}|r={c.ReflexSave?.name}|w={c.WillSave?.name}|book={c.Spellbook?.name}|prog={c.Progression?.name}|arch=[{string.Join(",", (c.Archetypes ?? new Kingmaker.Blueprints.Classes.BlueprintArchetype[0]).Select(a => a.name).ToArray())}]");
+                if (c.Progression != null)
+                {
+                    foreach (var entry in c.Progression.LevelEntries ?? new Kingmaker.Blueprints.Classes.LevelEntry[0])
+                    {
+                        sb.AppendLine($"  L{entry.Level}: {string.Join(",", entry.Features.Select(f => f.name).ToArray())}");
+                    }
+                }
+            }
+            foreach (var book in all.OfType<Kingmaker.Blueprints.Classes.Spells.BlueprintSpellbook>())
+            {
+                sb.AppendLine($"BOOK|{book.name}|{book.AssetGuid}|list={book.SpellList?.name}|spontaneous={book.Spontaneous}|stat={book.CastingAttribute}|arcane={book.IsArcane}|perday={book.SpellsPerDay?.name}|known={book.SpellsKnown?.name}|cantrips={book.CantripsType}");
+            }
+            foreach (var list in all.OfType<Kingmaker.Blueprints.Classes.Spells.BlueprintSpellList>())
+            {
+                sb.AppendLine($"LIST|{list.name}|{list.AssetGuid}|" + string.Join(";", (list.SpellsByLevel ?? new Kingmaker.Blueprints.Classes.Spells.SpellLevelList[0]).Select(l => l.SpellLevel + ":" + string.Join(",", l.Spells.Where(s => s != null).Select(s => s.name).ToArray())).ToArray()));
+            }
+            foreach (var a in all.OfType<BlueprintAbility>())
+            {
+                sb.AppendLine($"ABILITY|{a.name}|{a.AssetGuid}|{Safe(() => a.Name)}|{a.Type}|{a.ActionType}|full={a.IsFullRoundAction}|range={a.Range}|variants={a.HasVariants}|school={a.School}|comps=[{string.Join(",", (a.ComponentsArray ?? new BlueprintComponent[0]).Where(x => x != null).Select(x => x.GetType().Name).Distinct().ToArray())}]");
+            }
+            foreach (var f in all.OfType<Kingmaker.Blueprints.Classes.BlueprintFeature>())
+            {
+                sb.AppendLine($"FEATURE|{f.name}|{f.AssetGuid}|{Safe(() => f.Name)}|comps=[{string.Join(",", (f.ComponentsArray ?? new BlueprintComponent[0]).Where(x => x != null).Select(x => x.GetType().Name).Distinct().ToArray())}]");
+            }
+            foreach (var b in all.OfType<Kingmaker.UnitLogic.Buffs.Blueprints.BlueprintBuff>())
+            {
+                sb.AppendLine($"BUFF|{b.name}|{b.AssetGuid}|{Safe(() => b.Name)}|comps=[{string.Join(",", (b.ComponentsArray ?? new BlueprintComponent[0]).Where(x => x != null).Select(x => x.GetType().Name).Distinct().ToArray())}]");
+            }
+            foreach (var i in all.OfType<Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipmentUsable>())
+            {
+                sb.AppendLine($"USABLE|{i.name}|{i.AssetGuid}|{Safe(() => i.Name)}|{i.Type}|ability={i.Ability?.name}|cl={i.CasterLevel}|charges={i.Charges}");
+            }
+            foreach (var w in all.OfType<Kingmaker.Blueprints.Items.Weapons.BlueprintItemWeapon>())
+            {
+                sb.AppendLine($"WEAPON|{w.name}|{w.AssetGuid}|{Safe(() => w.Name)}|type={w.Type?.name}|ench=[{string.Join(",", w.Enchantments.Select(e => e.name).ToArray())}]");
+            }
+            foreach (var u in all.OfType<BlueprintUnit>())
+            {
+                sb.AppendLine($"UNIT|{u.name}|{u.AssetGuid}|{Safe(() => u.CharacterName)}|race={u.Race?.name}|size={u.Size}|gender={u.Gender}|prefab={u.Prefab?.AssetId}|facts=[{string.Join(",", (u.AddFacts ?? new Kingmaker.Blueprints.Facts.BlueprintUnitFact[0]).Where(x => x != null).Select(x => x.name).ToArray())}]|levels=[{string.Join(",", (u.ComponentsArray ?? new BlueprintComponent[0]).OfType<Kingmaker.Blueprints.Classes.AddClassLevels>().Select(l => l.CharacterClass?.name + "x" + l.Levels).ToArray())}]");
+            }
+            System.IO.File.WriteAllText(path, sb.ToString());
+            return $"READ catalog of {all.Count} blueprints written to {path}.";
+        }
+
+        private static string Safe(Func<string> name)
+        {
+            try
+            {
+                return name();
+            }
+            catch (Exception)
+            {
+                return "?";
+            }
         }
 
         private static string Fields(object o)
@@ -617,8 +903,83 @@ namespace KingmakerWakingRune.Diagnostics
 
         private static string Resolve(string target, out UnitEntityData unit)
         {
-            unit = target == "kurshu" ? KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu : target.StartsWith("party:") ? Member(target.Substring(6)) : target.StartsWith("body:") ? BodyOf(target.Substring(5)) : WardFixtures.Find(target);
+            unit = target == "kurshu" ? KingmakerWakingRune.Sanctum.Encounter.KurshuEncounter.Kurshu : target.StartsWith("party:") ? Member(target.Substring(6)) : target.StartsWith("body:") ? BodyOf(target.Substring(5)) : target.StartsWith("a4:") ? Defender(target.Substring(3)) : target.StartsWith("unit:") ? Game.Instance.State.Units.FirstOrDefault(u => u.UniqueId == target.Substring(5)) : target.StartsWith("name:") ? Game.Instance.State.Units.FirstOrDefault(u => u.IsInGame && !u.Descriptor.State.IsDead && u.CharacterName.IndexOf(target.Substring(5), StringComparison.OrdinalIgnoreCase) >= 0) : WardFixtures.Find(target);
             return unit == null ? $"no target {target}" : null;
+        }
+
+        /// <summary>An A4 defender by the end of its key: "Vandiana", "Agarik", "Jorgas" or "DarkNaga".</summary>
+        private static UnitEntityData Defender(string suffix)
+        {
+            string key = KingmakerWakingRune.Sanctum.Lashmistress.DefenderKeys.All.FirstOrDefault(k => k.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
+            return key == null ? null : KingmakerWakingRune.Sanctum.Lashmistress.LashmistressEncounter.Find(key);
+        }
+
+        /// <summary>
+        /// INJECTED decision: one defender casts one of its own ready spells or abilities (a prepared slot, a naga slot, an
+        /// ability fact) at a unit or a grid point, in place of its brain's choice. The slot or use is spent natively, and the
+        /// spell's saves, spell resistance and effects all resolve natively. For the focused spell checks only.
+        /// </summary>
+        private static string A4Cast(string who, string name, string[] target)
+        {
+            UnitEntityData unit = Defender(who);
+            if (unit == null)
+            {
+                return $"no defender {who}";
+            }
+            BlueprintAbility wanted = KingmakerWakingRune.Sanctum.Lashmistress.LashmistressBlueprints.PreparedAbilities.TryGetValue(name, out BlueprintAbility prepared) ? prepared : null;
+            AbilityData data = null;
+            foreach (Spellbook book in unit.Descriptor.Spellbooks)
+            {
+                foreach (SpellSlot slot in book.GetAllMemorizedSpells().Where(s => s.Available && s.Spell != null))
+                {
+                    if (slot.Spell.Blueprint == wanted || slot.Spell.Blueprint.name == name)
+                    {
+                        data = slot.Spell;
+                        break;
+                    }
+                    // A variant (a summon's creature list) is cast through its prepared base spell.
+                    BlueprintAbility variant = slot.Spell.Blueprint.GetComponent<Kingmaker.UnitLogic.Abilities.Components.AbilityVariants>()?.Variants.FirstOrDefault(v => v.name == name);
+                    if (variant != null)
+                    {
+                        data = new AbilityData(slot.Spell, variant);
+                        break;
+                    }
+                }
+                if (data != null)
+                {
+                    break;
+                }
+            }
+            if (data == null)
+            {
+                data = unit.Descriptor.Abilities.Enumerable.FirstOrDefault(a => a.Blueprint.name == name || a.Blueprint.name == "KWR_DarkNaga" + name)?.Data;
+            }
+            if (data == null || !data.IsAvailableForCast)
+            {
+                return $"{unit.CharacterName} has no ready {name} (found {data != null})";
+            }
+            TargetWrapper wrapper;
+            string where;
+            if (target.Length >= 2)
+            {
+                float x = float.Parse(target[0], System.Globalization.CultureInfo.InvariantCulture), y = float.Parse(target[1], System.Globalization.CultureInfo.InvariantCulture);
+                wrapper = new Vector3(SanctumPlan.ToWorldX(x), SanctumPlan.HeightAt(x, y) ?? 0f, SanctumPlan.ToWorldZ(y));
+                where = $"point ({x},{y})";
+            }
+            else
+            {
+                string missing = Resolve(target.Length == 0 ? "a4:" + who : target[0], out UnitEntityData victim);
+                if (missing != null)
+                {
+                    return missing;
+                }
+                wrapper = victim;
+                where = victim.CharacterName;
+            }
+            bool can = data.CanTarget(wrapper);
+            unit.Commands.InterruptAiCommands();
+            unit.Commands.Run(UnitUseAbility.CreateCastCommand(data, wrapper));
+            return $"INJECTED decision: {unit.CharacterName} casts {data.Blueprint.name} at {where} (canTarget {can}); the slot and the spell's rules are native.";
         }
 
         /// <summary>The restored or dead body that replaced a statue, by the statue's id.</summary>
@@ -683,7 +1044,7 @@ namespace KingmakerWakingRune.Diagnostics
             }
             bool can = data.CanTarget(wrapper);
             caster.Commands.Run(UnitUseAbility.CreateCastCommand(data, wrapper));
-            return $"SETUP cast from {caster.CharacterName}'s own spellbook: {data.Blueprint.name} ({data.Spellbook?.Blueprint.name}) {where} canTarget={can}; native rules resolve it and spend the slot.";
+            return $"HARNESS-COMMANDED cast from {caster.CharacterName}'s own spellbook: {data.Blueprint.name} ({data.Spellbook?.Blueprint.name}) {where} canTarget={can}; native rules resolve it and spend the slot.";
         }
 
         /// <summary>Presses the open message box's Yes or No through the box's own button handler, as a click would.</summary>
@@ -877,7 +1238,7 @@ namespace KingmakerWakingRune.Diagnostics
                 return missing;
             }
             attacker.Commands.Run(UnitAttack.CreateAttackCommand(attacker, victim));
-            return $"SETUP attack command issued: {attacker.CharacterName} -> {target}.";
+            return $"HARNESS-COMMANDED attack: {attacker.CharacterName} -> {target}.";
         }
     }
 }

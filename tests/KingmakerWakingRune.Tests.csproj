@@ -30,6 +30,7 @@
     <Compile Include="WardRulesTests.cs" />
     <Compile Include="KurshuRulesTests.cs" />
     <Compile Include="DepartureRecordTests.cs" />
+    <Compile Include="LashmistressRulesTests.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\WardProfile.cs" Link="Linked\WardProfile.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\KruneProjection.cs" Link="Linked\KruneProjection.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\RuneRules.cs" Link="Linked\RuneRules.cs" />
@@ -39,6 +40,7 @@
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\RitualRules.cs" Link="Linked\RitualRules.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\SanctumState.cs" Link="Linked\SanctumState.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\Encounter\KurshuRules.cs" Link="Linked\KurshuRules.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\Lashmistress\LashmistressRules.cs" Link="Linked\LashmistressRules.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\WardGeometry.cs" Link="Linked\WardGeometry.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\CredentialRules.cs" Link="Linked\CredentialRules.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\RuneVulnerability.cs" Link="Linked\RuneVulnerability.cs" />

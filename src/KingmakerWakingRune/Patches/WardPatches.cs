@@ -4,11 +4,224 @@ using Kingmaker.Controllers;
 using Kingmaker.RuleSystem.Rules;
 using Kingmaker.UnitLogic.Abilities.Components.TargetCheckers;
 using Kingmaker.EntitySystem.Entities;
+using Kingmaker.UnitLogic;
 using Kingmaker.Utility;
 using KingmakerWakingRune.Sanctum.Wards;
 
 namespace KingmakerWakingRune.Patches
 {
+    /// <summary>
+    /// Vandiana's darkness (WR-06): a creature standing in it has partial concealment (20%), as if the native concealment
+    /// list held one more entry. Every native reason a partial concealment would not count is honoured (the attacker ignores
+    /// concealment or has blindsight in reach, the target cannot benefit, the attacker ignores partial concealment), and it
+    /// is seen through by darkvision within 60 feet and by true seeing. Only a target carrying the darkness buff is touched.
+    /// </summary>
+    [HarmonyPatch(typeof(Kingmaker.UnitLogic.Parts.UnitPartConcealment), nameof(Kingmaker.UnitLogic.Parts.UnitPartConcealment.Calculate))]
+    internal static class DarknessConcealmentPatch
+    {
+        private static readonly System.Reflection.FieldInfo s_Blindsight = AccessTools.Field(typeof(Kingmaker.UnitLogic.Parts.UnitPartConcealment), "m_BlindsightRanges");
+        private static readonly System.Collections.Generic.Dictionary<string, bool> s_LastLogged = new System.Collections.Generic.Dictionary<string, bool>();
+
+        private static void Postfix(UnitEntityData initiator, UnitEntityData target, bool attack, ref Kingmaker.Enums.Concealment __result)
+        {
+            var darkness = Sanctum.Lashmistress.LashmistressBlueprints.InDarkness;
+            if (target == null || initiator == null || darkness == null || target.Buffs.GetBuff(darkness) == null)
+            {
+                return;
+            }
+            var mine = initiator.Get<Kingmaker.UnitLogic.Parts.UnitPartConcealment>();
+            var theirs = target.Get<Kingmaker.UnitLogic.Parts.UnitPartConcealment>();
+            var facts = new Sanctum.Lashmistress.DarknessFacts
+            {
+                TargetInDarkness = true,
+                AttackerIgnoresAllConcealment = mine != null && mine.IgnoreAll,
+                AttackerBlindsightReaches = BlindsightReaches(mine, initiator, target),
+                TargetCannotBenefit = theirs != null && theirs.Disable,
+                AttackerIgnoresPartial = mine != null && mine.IgnorePartial,
+                AttackerDarkvisionWithin60 = (initiator.Descriptor.HasFact(Sanctum.Lashmistress.LashmistressBlueprints.DarkvisionSense) || initiator.Buffs.GetBuff(Sanctum.Lashmistress.LashmistressBlueprints.DarkvisionBuff) != null)
+                    && initiator.DistanceTo(target) <= 60f * Sanctum.SanctumPlan.MetersPerFoot,
+                AttackerTrueSeeing = initiator.Descriptor.State.HasCondition(UnitCondition.TrueSeeing),
+            };
+            bool none = __result == Kingmaker.Enums.Concealment.None;
+            bool adds = Sanctum.Lashmistress.DarknessRule.AddsConcealment(none, facts);
+            if (adds)
+            {
+                __result = Kingmaker.Enums.Concealment.Partial;
+            }
+            if (attack)
+            {
+                // Evidence: each attacker and target pair is logged when its answer changes.
+                string pair = initiator.UniqueId + ">" + target.UniqueId;
+                if (!s_LastLogged.TryGetValue(pair, out bool last) || last != adds)
+                {
+                    s_LastLogged[pair] = adds;
+                    Sanctum.Lashmistress.LashmistressEncounter.Note($"darkness: {initiator.CharacterName} attacking {target.CharacterName}: {(adds ? "partial concealment (20%)" : "no darkness concealment")} ({Sanctum.Lashmistress.DarknessRule.Why(none, facts)}); result {__result}.");
+                }
+            }
+        }
+
+        private static bool BlindsightReaches(Kingmaker.UnitLogic.Parts.UnitPartConcealment part, UnitEntityData initiator, UnitEntityData target)
+        {
+            var ranges = part == null ? null : s_Blindsight.GetValue(part) as System.Collections.Generic.List<Feet>;
+            if (ranges == null || ranges.Count == 0)
+            {
+                return false;
+            }
+            float meters = ranges.Max(r => r.Meters);
+            return initiator.DistanceTo(target) - (initiator.View.Corpulence + target.View.Corpulence) <= meters;
+        }
+    }
+
+    /// <summary>
+    /// A potion is drunk by its holder on itself. The game's own target check refuses a spell whose blueprint cannot target
+    /// allies (Blur) on any creature outside the player's faction, the drinker included, so a Blackstrike could never drink
+    /// the Blur potion it carries. Only an A4 defender's own potion, on itself, is let through; everything else is native.
+    /// </summary>
+    [HarmonyPatch(typeof(Kingmaker.UnitLogic.Abilities.AbilityData), nameof(Kingmaker.UnitLogic.Abilities.AbilityData.CanTarget))]
+    internal static class DefenderOwnPotionPatch
+    {
+        private static void Postfix(Kingmaker.UnitLogic.Abilities.AbilityData __instance, TargetWrapper target, ref bool __result)
+        {
+            if (__result || target?.Unit == null || __instance.Caster?.Unit != target.Unit)
+            {
+                return;
+            }
+            var usable = __instance.SourceItemUsableBlueprint;
+            if (usable != null && usable.Type == Kingmaker.Blueprints.Items.Equipment.UsableItemType.Potion && !__instance.PotionForOther && Sanctum.Lashmistress.LashmistressEncounter.IsDefender(target.Unit)
+                && !target.Unit.Descriptor.State.IsDead)
+            {
+                __result = true;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Disruptive (the Blackstrikes): a foe casting defensively while one of them threatens it faces a DC 4 higher, on the
+    /// game's own defensive-casting check.
+    /// </summary>
+    [HarmonyPatch(typeof(Kingmaker.RuleSystem.Rules.Abilities.RuleCheckCastingDefensively), nameof(Kingmaker.RuleSystem.Rules.Abilities.RuleCheckCastingDefensively.OnTrigger))]
+    internal static class DisruptivePatch
+    {
+        private static readonly System.Reflection.PropertyInfo s_DC = AccessTools.Property(typeof(Kingmaker.RuleSystem.Rules.Abilities.RuleCheckCastingDefensively), "DC");
+
+        private static void Postfix(Kingmaker.RuleSystem.Rules.Abilities.RuleCheckCastingDefensively __instance)
+        {
+            var disruptive = Sanctum.Lashmistress.LashmistressBlueprints.Disruptive;
+            UnitEntityData caster = __instance.Initiator;
+            if (disruptive == null || caster == null)
+            {
+                return;
+            }
+            UnitEntityData by = caster.CombatState.EngagedBy.FirstOrDefault(u => u != null && u.Descriptor.State.IsConscious && u.Descriptor.HasFact(disruptive) && u.IsEnemy(caster));
+            if (by == null)
+            {
+                return;
+            }
+            int before = __instance.DC;
+            s_DC.SetValue(__instance, before + Sanctum.Lashmistress.ConjurerRules.DisruptiveBonus, null);
+            Sanctum.Lashmistress.LashmistressEncounter.Note($"Disruptive: {caster.CharacterName} casts {__instance.Spell?.Blueprint.name} defensively while {by.CharacterName} threatens: DC {before} -> {__instance.DC}; roll {__instance.ResultRoll} {(__instance.Success ? "succeeds" : "fails")}.");
+        }
+    }
+
+    /// <summary>
+    /// Her Sanctuary, for commands that target her: when a foe's attack or harmful spell command comes to her, that foe makes
+    /// its Will save (once for the casting); a foe that failed cannot target her, so its command is lost and its brain chooses
+    /// another target. Area effects and rules (damage from a burst) are not commands at her and are untouched.
+    /// </summary>
+    [HarmonyPatch(typeof(Kingmaker.UnitLogic.Commands.Base.UnitCommand), nameof(Kingmaker.UnitLogic.Commands.Base.UnitCommand.CommandTargetUntargetable))]
+    internal static class SanctuaryTargetPatch
+    {
+        private static void Postfix(Kingmaker.EntitySystem.EntityDataBase sourceEntity, UnitEntityData targetUnit, Kingmaker.RuleSystem.RulebookEvent evt, ref bool __result)
+        {
+            var sanctuary = Sanctum.Lashmistress.LashmistressBlueprints.SanctuaryBuff;
+            if (__result || evt != null || sanctuary == null || targetUnit == null || !(sourceEntity is UnitEntityData attacker))
+            {
+                return;
+            }
+            Kingmaker.UnitLogic.Buffs.Buff buff = targetUnit.Buffs.GetBuff(sanctuary);
+            var ward = buff?.SelectComponents<Sanctum.Lashmistress.KwrSanctuaryWard>().FirstOrDefault();
+            if (ward == null)
+            {
+                return;
+            }
+            Kingmaker.UnitLogic.Commands.Base.UnitCommand ticking = SanctuaryCommandTick.Current;
+            bool thisCommand = ticking != null && ticking.Executor == attacker && ticking.TargetUnit == targetUnit;
+            bool? hostile = thisCommand ? SanctuaryCommandTick.IsHostile(ticking) : (bool?)null;
+            bool enemy = attacker.IsEnemy(targetUnit);
+            if (hostile == true && enemy && !ward.KnownBarred(attacker))
+            {
+                // A real attempt: its save, once for this casting.
+                __result = ward.Attempt(attacker, "act against her (" + ticking.GetType().Name + ")");
+                return;
+            }
+            // A kept failure bars only a current enemy's hostile targeting: never a heal or other help, never once she is no
+            // longer its enemy.
+            __result = Sanctum.Lashmistress.SanctuaryRule.BarsTargeting(ward.KnownBarred(attacker), enemy, hostile);
+            if (__result && thisCommand)
+            {
+                ward.NoteBarred(attacker, ticking.GetType().Name);
+            }
+        }
+    }
+
+    /// <summary>Which command the native action controller is checking, so Sanctuary knows a real attempt from a brain's survey.</summary>
+    [HarmonyPatch(typeof(Kingmaker.Controllers.Units.UnitActionController), "TickCommand")]
+    internal static class SanctuaryCommandTick
+    {
+        public static Kingmaker.UnitLogic.Commands.Base.UnitCommand Current;
+
+        public static bool IsHostile(Kingmaker.UnitLogic.Commands.Base.UnitCommand command)
+        {
+            if (command is Kingmaker.UnitLogic.Commands.UnitAttack)
+            {
+                return true;
+            }
+            return command is Kingmaker.UnitLogic.Commands.UnitUseAbility use && use.Spell?.Blueprint.EffectOnEnemy == Kingmaker.UnitLogic.Abilities.Blueprints.AbilityEffectOnUnit.Harmful;
+        }
+
+        private static void Prefix(Kingmaker.UnitLogic.Commands.Base.UnitCommand command)
+        {
+            Current = command;
+        }
+
+        private static void Postfix()
+        {
+            Current = null;
+        }
+    }
+
+    /// <summary>
+    /// A full rest heals her whip's nonlethal damage. Only a creature with the whip's ledger is touched, and only by the
+    /// whip's share; any other nonlethal damage is left exactly as the game leaves it.
+    /// </summary>
+    [HarmonyPatch(typeof(Kingmaker.Controllers.Rest.RestController), nameof(Kingmaker.Controllers.Rest.RestController.ApplyRest))]
+    internal static class NonlethalRestPatch
+    {
+        private static void Postfix(UnitDescriptor unit)
+        {
+            if (unit != null)
+            {
+                Sanctum.Lashmistress.WhipNonlethal.Rest(unit);
+            }
+        }
+    }
+
+    /// <summary>
+    /// When the game revives the fallen after a fight, her whip's nonlethal damage no longer holds a creature down. Only the
+    /// whip's share is reduced, and only on a creature with its ledger.
+    /// </summary>
+    [HarmonyPatch(typeof(Kingmaker.Controllers.Units.UnitReturnToConsciousController), nameof(Kingmaker.Controllers.Units.UnitReturnToConsciousController.MakeUnitConscious))]
+    internal static class NonlethalRevivePatch
+    {
+        private static void Postfix(UnitEntityData unit)
+        {
+            if (unit != null)
+            {
+                Sanctum.Lashmistress.WhipNonlethal.Revive(unit);
+            }
+        }
+    }
+
     /// <summary>The ward clock's only per-tick hook: native code runs this in simulation modes alone, never in pause or menus.</summary>
     [HarmonyPatch(typeof(TimeController), "Tick")]
     internal static class TimeControllerTickPatch

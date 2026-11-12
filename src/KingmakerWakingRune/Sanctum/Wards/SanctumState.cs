@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using KingmakerWakingRune.Sanctum.Encounter;
+using KingmakerWakingRune.Sanctum.Lashmistress;
 
 // Saved fields: some are only ever written by the native adapters or the JSON reader.
 #pragma warning disable CS0649
@@ -121,7 +122,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
     /// </summary>
     internal sealed class SanctumState
     {
-        public const int CurrentVersion = 4;
+        public const int CurrentVersion = 5;
 
         public int Version = CurrentVersion;
         public string ProfileSubtier = WardProfile.Subtier;
@@ -157,12 +158,16 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public List<SummonOrderRecord> SummonOrders = new List<SummonOrderRecord>();
         /// <summary>Kurshu's A1 encounter (WR-05). A state older than version 4 was already inside the sanctum and does not get it.</summary>
         public KurshuState Kurshu = new KurshuState();
+        /// <summary>The A4 defenders (WR-06). A version 4 state already inside is checked at its first load before anything is added.</summary>
+        public LashmistressState Lashmistress = new LashmistressState();
 
         /// <summary>
         /// Brings an older save forward without resetting anything it recorded. Version 1 predates credentials and route
         /// progress: a runner already under way keeps going from the start of its route, and nothing is re-granted. Version 2
         /// predates saved summon orders and settled reporter hostility; its reporters are checked on their next tick. Version 3
         /// predates Kurshu: a party already inside keeps its sanctum as it was, with no fight inserted and no clock started.
+        /// Version 4 predates the A4 defenders: whether they can be added is decided at the first load, from where the party
+        /// stands and what has already happened (<see cref="LashmistressRules.DecideUpgrade"/>).
         /// </summary>
         public bool Migrate()
         {
@@ -174,9 +179,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
             KruneSummons = KruneSummons ?? new List<string>();
             SummonOrders = SummonOrders ?? new List<SummonOrderRecord>();
             Kurshu = Kurshu ?? new KurshuState();
+            Lashmistress = Lashmistress ?? new LashmistressState();
             if (Initialized)
             {
                 KurshuRules.DecideForExistingSave(Kurshu);
+                LashmistressRules.MarkForUpgradeCheck(Lashmistress);
             }
             Version = CurrentVersion;
             return true;
@@ -241,6 +248,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             Clock = now;
             MigratedLegacy = legacyEntered;
             KurshuRules.DecideOnInitialize(Kurshu, legacyEntered);
+            LashmistressRules.DecideOnInitialize(Lashmistress, legacyEntered);
             Alarm.ExpiresAt = now + WardProfile.AlarmDurationSeconds;
             Hound.ExpiresAt = now + WardProfile.HoundDurationSeconds;
             if (legacyEntered)

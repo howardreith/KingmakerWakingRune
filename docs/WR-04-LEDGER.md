@@ -197,3 +197,52 @@ Rows above that this round changes are restated here. Everything else carries fo
 | Item | Status | Evidence | Notes |
 |---|---|---|---|
 | A slam right after restoration, before the recovery check, keeps its drain | Proven (with injection: fixed drains and the `armslam` ordering fixture; native Restoration scrolls by player input) | 0.6.16, cases A–C, across a full restart | Defect in 0.6.15 found by owner review. Unit tests added. |
+
+## WR-06 (A4, The Lashmistress), 0.7.0–0.7.10, run `wr06-recon`
+
+| Item | Status | Evidence | Notes |
+|---|---|---|---|
+| Four real A4 defenders, advanced template on three | Proven (native play) | 0.7.10 sheets | Vandiana cleric 3 / wizard 4 / mystic theurge 5 with two native books, full printed lists. |
+| Support Vandiana retired; one canonical Vandiana | Proven | 0.7.2+ | Glyph context and hound tether follow her. |
+| Door heard: real potion and naga Invisibility ×2 | Proven (player door click) | 0.7.6 | No clock. |
+| Warning prepares Darkvision once | Proven (upgrade path) | 0.7.6 | Messenger not run. |
+| Engagement commits one 1d6+6; no reroll on reload | Proven | 0.7.7–0.7.10 | The glyph no longer commits (0.7.7 fix). |
+| Awakening due during A4 fires once; A4 continues | Proven | 0.7.10 | Krune (A5) is next. |
+| Legitimate victory | Proven (party AI; setup placement) | 0.7.10 | Three of six party members fell. |
+| Persistence through full restarts | Proven | 976–978 | Live mid-combat save not run. |
+| Stock isolation | Proven | 0.7.10 | |
+| Turn-based | Partial | 0.7.10 | Defenders act; party AI does not act in turn-based mode. |
+| Undetected scout, Darkness concealment, Blur/hide in combat, sting save, dispel, fresh pre-departure path | Not shown in surviving evidence | | See `ACCEPTANCE-WR-06.md`. Every one was shown in the review pass below. |
+| Deferred abilities | Not implemented | | Listed in `WR-06-LASHMISTRESS.md`. Re-audited in the review pass. |
+
+## WR-06 review pass, 0.7.11–0.7.19, run `wr06-pass2`
+
+| Item | Status | Evidence | Notes |
+|---|---|---|---|
+| Combat preparations settle whoever acts, and gate nothing | Proven (one potion taken, INJECTED) | 0.7.15, 0.7.19 | Agarik's brain drank Blur and then hid. Jorgas's missing Blur ended after a round. |
+| In-combat potions actually drunk | Proven | 0.7.15 | Three engine details. The AI treats item abilities as spent (0.7.12). A potion is a move action the brain kept replacing (0.7.13). Ambush flicker (0.7.14). Blur can't target a non-party drinker (0.7.15). Every 0.7.10 in-combat potion action had been inert. |
+| Director yields to domination, confusion, fear and resumes | Proven in real time (native buffs applied by INJECTION; a natural confusion too) | 0.7.17, 0.7.11 | Cancel-at-change count was 0 in every observed case. Not landed in turn-based play. |
+| Darkness: native exemptions, darkvision, true seeing | Proven | 0.7.16 | The area had never appeared before 0.7.16 (null effect link); Magic Circle had the same defect. Dispel of the darkness itself not shown. |
+| Burst outsider rule and descriptors | Proven (SETUP deva) | 0.7.18 | Deva 8d6 against the True Neutral party's 4d8 half share. |
+| Whip: weapon enchantment, nonlethal, armor rule, healing | Proven, partly unit-tested (Barkskin removed, INJECTED) | 0.7.16–0.7.17 | Knock-out, revival, rest and another wielder: unit tests only. |
+| Naga sting: save, immunity, cure, persistence | Proven (Delay Poison removed, INJECTED) | 0.7.18 | Asleep 4 min, Delay Poison refuses it, Neutralize Poison cures it, survives a restart. |
+| Undetected peek | Proven (SETUP Invisibility) | 0.7.18 | Clock untouched. |
+| Dispel and restart | Proven (INJECTED combat exit for the save) | 0.7.16 | Mage Armor stays gone, and nothing refills. |
+| Fresh arrival from the lodge | Proven (player) | 0.7.18 | Policy Active, placed after the transfer, books filled. |
+| Turn-based with manual party orders | Proven (both sides act; the clock commits by rounds) | 0.7.18 | The party lost. |
+| Shield, Disruptive, summoner's charm, arcane bond, Magic Circle, Sanctuary, Chill Touch | Proven | 0.7.11–0.7.19 | No failed Sanctuary save seen (DC 15). |
+| Older 0.7.10 saves | Proven | 0.7.11, 0.7.19 | Placeholders swapped in place; new facts added. |
+| Stock isolation | Proven | 0.7.18 | |
+| Fresh A4 victory against 0.7.19 | Not run | | The defenders are stronger than in the 0.7.10 victory. |
+
+## WR-06 third pass, 0.7.20–0.7.22, run `wr06-pass3`
+
+| Item | Status | Evidence | Notes |
+|---|---|---|---|
+| Nonlethal recovery scoped to the whip's own damage | Proven (negative control with INJECTED foreign nonlethal on a stock save) | 0.7.20 | Heal, rest and revival left 10 and 60 foreign nonlethal untouched. |
+| Sanctuary: a kept failure bars only an enemy's hostile targeting | Proven (a real failed save; INJECTED halt and domination) | 0.7.20 | Barred re-attack, then the same character's heal landed after the allegiance change. |
+| Director cancels its own running command at a control change | Proven (INJECTED timing fixture) | 0.7.21 | Found the stuck-confusion defect on 0.7.20. |
+| Darkness dispelled | Proven (the party's own Greater Dispel, harness-commanded) | 0.7.22 | Found that none of the encounter's spell effects were dispellable before 0.7.22. |
+| Whip: another wielder, knock-out, persistence, recovery | Proven (INJECTED setup: HP, Barkskin, halts) | 0.7.22 | Hostile NPCs cannot be knocked out in this game; the whip stops one short. |
+| Victory against the repaired encounter | Proven (PARTY AI; PLAYER door and pause; SETUP placement; harness-commanded pre-buffs and opening spells) | 0.7.22 | One of six fell. Deadline passed natively afterwards. |
+| Input labels | Corrected | | PLAYER now means real mouse or keyboard input only; harness dispatches are HARNESS-COMMANDED. |

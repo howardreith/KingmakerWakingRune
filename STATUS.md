@@ -1,92 +1,143 @@
 # Status: The Waking Rune
 
-**Milestone:** WR-05, Kurshu the Undying in A1. The review round is done, and the restoration-order closeout is fixed in 0.6.16. Ready for owner review.
+**Milestone:** WR-06, the Lashmistress encounter in A4. The third pass (the owner's closeout review) is ready for owner review. The review closed the four original findings, and Phase A (WR-05 closeout, 0.6.16) was accepted.
 
-**Branch:** `feature/wr-05-kurshu`, a child of `feature/wr-04-sanctum-wards`.
-- PR #4 (WR-04) is still open and unmerged, so the WR-05 draft PR #5 targets the WR-04 branch and shows only WR-05.
-- Do not merge, tag or release without owner review. Merge PR #4 first.
+## Third pass (0.7.20–0.7.22): candidate 0.7.22
+- **Candidate:**
+  - commit `793622e`;
+  - DLL `64f2d95698df88d795b7adb0ef0139c1a28e0d5c8d58ab43b898195cd8b368d1`;
+  - zip `artifacts\KingmakerWakingRune-0.7.22.zip`, `b0c809de1902381b4aa901e523640bf400dbbd997bed216386804c53e0881f04`;
+  - 198 unit tests pass.
+- **Installed:** 0.7.22. **Backed up:** 0.7.19, at `runtime-backups\wr06-pass3\mod-existing`. Transaction `wr06-pass3` restored and verified.
+- **Fixed:**
+  - nonlethal recovery is scoped to a whip-hit ledger;
+  - Sanctuary's kept failure bars only an enemy's hostile targeting;
+  - confusion is read from its condition (0.7.21);
+  - the encounter's spell effects are dispellable (0.7.22).
+- **Proven:**
+  - the foreign-nonlethal negative control;
+  - the Sanctuary failure branch with an allegiance change;
+  - a running director command cancelled at a control change;
+  - the darkness dispelled;
+  - the whip in another wielder's hand;
+  - a real nonlethal knock-out with restart persistence and healing;
+  - **a victory against 0.7.22** (party AI; one of six fell; the deadline passed natively afterwards).
+- **Labels:** PLAYER now means real mouse or keyboard input only. Harness dispatches are HARNESS-COMMANDED (see `ACCEPTANCE-WR-06.md`).
+- **Owner decision:** hostile NPCs cannot be knocked out by nonlethal in this game (they die at 0), so the whip stops one short on them. Whether to add an encounter-local knock-out is open.
+- **New seeds:** 984 (Kael knocked out by the whip) and 985 (after the 0.7.22 victory), in `runtime-evidence\wr06-pass3\saves`.
+- **New harness commands (INJECTED):** `setnonlethal`, `rest`, `damage`, `armcontrol`.
+
+The sections below describe the second pass and are kept for history; where they differ, the third pass above is current.
+
+**Branches** (do not merge, tag or release without owner review):
+- `feature/wr-04-sanctum-wards`: draft PR #4, base `main`.
+- `feature/wr-05-kurshu`: draft PR #5, base the WR-04 branch. Head `caa2e09`.
+- `feature/wr-06-lashmistress`: draft PR #6, base the WR-05 branch.
+
+Merge order: PR #4, then #5, then #6.
 
 Results:
-- `docs/ACCEPTANCE-WR-05.md`: both rounds, PASS / PARTIAL / NOT RUN by check, and the victory.
-- `docs/WR-05-KURSHU.md`: the source-to-runtime sheet, the maneuver chain, the feats, and every adaptation (grapple, Intelligence drain).
-- `docs/WR-05-PROGRESS.md`: checkpoint A and both rounds.
-- `docs/WR-04-LEDGER.md`: the cumulative ledger, with both WR-05 sections.
-- `docs/WR-04-RULES.md`: the departure row, revised for the two-step departure.
+- `docs/ACCEPTANCE-WR-06.md`: the review's findings and what was done, the second pass's builds, defects and checks, then the first pass.
+- `docs/WR-06-LASHMISTRESS.md`: sheets, ability coverage with the audit of what is not implemented, adaptations, countdown and saves.
+- `docs/WR-04-LEDGER.md`: the cumulative ledger, with a WR-06 review-pass section.
 
 ## Candidate
-- Version 0.6.16, commit `b630849`: the reviewed 0.6.15 (`1891bf0`) plus the restoration-order repair.
-- DLL SHA-256 `8bb3a2e72b08be9b744edaf2a304d7a124ea439ea41e5109ad31674459691848`.
-- Zip `artifacts\KingmakerWakingRune-0.6.16.zip`, SHA-256 `8e78d52ceb2aec89bd16a53bd3e7f167faae4b00c8959bb353aeeb3ffc276c20`. Tested in `wr06-a` and now installed; 0.6.15 is backed up at `runtime-backups\wr06-a\mod-existing`.
-- 174 unit tests pass (23 for WR-05).
-- Earlier test builds 0.6.0–0.6.15 have their own versions and zips; none were replaced.
+- Version 0.7.19, commit `4f8632a`.
+- DLL SHA-256 `32e45672ea18ae5d3b8a656c2f22147d4ae0d55710a0465f4f427ab7a5b43695`.
+- Zip `artifacts\KingmakerWakingRune-0.7.19.zip`, SHA-256 `aaf30457fcb39aec1fbc6dacacee632e3b066a569c6f68023d14857f2dea3b89`. Tested last and now installed.
+- 196 unit tests pass.
+- Test builds 0.7.11–0.7.18 each have their own zip; none was replaced. A `0.7.15-dirty` diagnostic package is not a candidate.
 
-## What WR-05 adds
-- **Kurshu as a real hostile combat unit.**
-  - Large outsider, drawn with the Erinyes model at Large size.
-  - Native class Hit Dice.
-  - Stats from the printed Subtier 10–11 block with the extra challenge (Weakness and one negative level removed); the player's preset applies on top.
-- **Native defenses:** regeneration 5 (acid), DR 10/cold iron and magic, resistance 30, SR 26, trip immunity.
-- **Feats:** native Combat Casting and Combat Reflexes, and the printed Improved Iron Will reroll.
-- **Attacks:**
-  - Two slams with 1d4 Intelligence drain. Drain to 0 leaves the victim comatose; restoration wakes it.
-  - A tail grab: a real grapple with its costs (maintain or let go each turn, one hold, freedom of movement defeats it), with constrict.
-- **Spell-like abilities** with saved daily uses, including bounded limited wishes, one already spent.
-- **Power Surge, Divine Separation and Feed.**
-- **Tactics:** her tactics run through the native brain, with considerations for her printed priorities, plus a bounded director for feeding, the grapple and a self-only teleport.
-- **Narrative:** the wound speech, the blood message, and the existing 90-minute deadline, started once on her defeat.
-- **Departure:** rest, then prepare in the lodge, then depart by a second use of the token. Spending never forces another rest.
-- **Saves:** version 4. Pre-departure saves get the fight. Saves already inside the sanctum keep their state, with a notice.
+## What the second pass changed
+- **Preparations:** settled whoever acts; the record keeps who acted and what was spent; they end for good when they can no longer happen. None gates the director.
+- **Control:** the director yields to charm, domination, confusion and fear, cancelling only its own commands, and resumes when the effect ends. The tactics read native allegiance.
+- **Darkness:** one more native concealment entry, with every native exemption, darkvision and true seeing. Before 0.7.16 the area never appeared, and neither did Magic Circle's.
+- **Order's Wrath and Unholy Blight:** the outsider rule (1d6 per caster level) and the [lawful] / [evil] descriptors.
+- **Whip:** a weapon enchantment dealing real nonlethal damage to the game's own total, with the armor rule. Healing, recovery, rest and revival are handled.
+- **In-combat potions really drunk:** three engine details fixed. The game's AI treats item abilities as spent, it replaced an unstarted move-action drink, and Blur cannot target a non-party drinker. The engagement also ends the Blackstrikes' ambush.
+- **Formerly deferred, now in:**
+  - the naga's Shield (native);
+  - Disruptive;
+  - summoner's charm;
+  - arcane bond (an accepted adaptation);
+  - Magic Circle against Good;
+  - Sanctuary;
+  - Chill Touch.
 
-## Proven
-Both rounds, in native play unless labelled:
-- ordinary input, the fresh shop, arrival gating, the hidden check, finite spell-like abilities and the pre-spent wish, Power Surge (including a lapse);
-- DR, resistance and SR, regeneration and acid;
-- the grapple, with injected tail hits;
-- comatose drain and restoration, with injected drains;
-- the maneuver chain before and after Feed, and Feed in both modes;
-- a **legitimate victory**, then defeat to A2;
-- reloads after a full restart, dead and alive (the live save through a labelled one-frame combat pause);
-- stock isolation and the legacy notice.
+  What is still not implemented is audited by category.
+- **Older 0.7.x saves:** upgraded in place.
+
+## Proven in the second pass
+Native play, with labelled setup and injections:
+- preparation during combat;
+- control yield and resume in real time;
+- darkness and its counters;
+- the outsider burst;
+- the whip's armor rule, nonlethal damage and healing;
+- the naga's sting: save, immunity, cure and persistence;
+- an undetected peek;
+- dispel and restart;
+- fresh arrival from the lodge;
+- a turn-based engagement with every party order by hand;
+- each new ability;
+- the older-save upgrade;
+- stock isolation.
 
 Details and labels are in the acceptance report.
 
 ## Not done or not proven
-- **Not implemented, deliberately:** plane shift and the non-combat at-will abilities.
-- **A held creature's escape attempt** is automatic and costs it no action (no grapple interface). This favours the party.
-- **Balance:** two fights, one won with the printed counters and one lost without them, are not a balance study.
-- **Carried forward:** earlier ledger rows that are still open.
-
-## Owner decisions
-- **Merge order:** PR #4, then the WR-05 PR.
-- **Python 3.15 removal** remains yours to authorize. None was used.
+- **Not shown in play:**
+  - a director command cancelled at the instant of a control change (count 0 each time);
+  - control landing in turn-based play;
+  - a failed Sanctuary save;
+  - the darkness itself dispelled;
+  - a knock-out by nonlethal;
+  - the whip in another wielder's hand;
+  - a messenger warning;
+  - emerald destruction in WR-06.
+- **No fresh A4 victory against 0.7.19.** The 0.7.10 victory was won while the darkness, in-combat potions and Magic Circle silently did nothing; the defenders are stronger now.
+- **Not implemented:** Wind Wall and the naga's Silent Image (explicit incompleteness), Bleed and the naga's detect thoughts (no such mechanic), and the noncombat and information spells (out of scope).
+- **Not part of WR-06:** Krune (A5), the return portal, the finale, Society rewards. Plane Shift (WR-05) stays deferred.
 
 ## Environment state
-- **Installed:** candidate 0.6.16, per the owner's standing preference (run `wr06-a`; 0.6.15 backed up at `runtime-backups\wr06-a\mod-existing`).
-- **Backed up:** the 0.6.7 install it replaced, at `C:\Dev\KingmakerWakingRuneLab\runtime-backups\wr05-b\mod-existing` (DLL `07a6823c…`).
-- **Restored and verified:** transaction `wr05-b` (profile, Steam mirror, registry with the turn-based setting reset, UMM Params and Mods).
-- **Saves:** no owner save was opened.
+- **Installed:** candidate 0.7.19.
+- **Backed up:** 0.7.10, at `C:\Dev\KingmakerWakingRuneLab\runtime-backups\wr06-pass2\mod-existing`.
+- **Restored and verified:** transaction `wr06-pass2` (profile, Steam mirror, registry, UMM Params and Mods).
+- **Saves:** no owner save was opened. No Python was used and nothing was installed.
 
 ## How to test again
 ```powershell
 .\scripts\Build.ps1                  # refuses to replace an existing clean package
-.\scripts\KwrRuntime.ps1 Begin -RunId <new-id> -PackagePath .\artifacts\KingmakerWakingRune-0.6.16.zip
-.\scripts\KwrRuntime.ps1 Launch      # then Shot / Click / Key / Command ..., Close, Collect
+.\scripts\KwrRuntime.ps1 Begin -RunId <new-id> -PackagePath .\artifacts\KingmakerWakingRune-0.7.19.zip
+.\scripts\KwrRuntime.ps1 Launch      # then Command "load Manual_97x", Shot / Click (window pixels are 2x the screenshot's) / Key ..., Collect BEFORE Close
 .\scripts\KwrRuntime.ps1 End -KeepInstalled
 ```
 
-**Seeds** (in `runtime-evidence\wr05-b\saves`):
-- `Manual_334_Before_the_Sanctum_of_Sloth_2.zks`: the departure checkpoint of the buffed, re-equipped party. The token departs without a rest.
-- `Manual_335_KWR_AUTOMATION_WR05B_KURSHU_VICTORY.zks`: after her death.
-- `Manual_337_KWR_AUTOMATION_WR05B_LIVE_DAMAGED.zks`: alive mid-fight at 159/219.
-- `Manual_960_KWR_AUTOMATION_WR05B_STOCK_TBM.zks`: the stock-campaign check.
-- The first-round seeds remain in `wr05-a`.
+**Seeds** (in `runtime-evidence\wr06-recon\saves`, plus 980–981 in `runtime-evidence\wr06-pass2\saves`):
 
-**Harness additions in WR-05:**
-- **Read-only:** `kurshu` (with the maneuver chain, hold and feats), `known <member>`, `paused`, `blueprint <name>`, `builds`.
+| Save | Contents |
+|---|---|
+| `974` | Kurshu slain, state version 4: the upgrade path |
+| `975` | The lodge, before departure: the fresh-arrival path |
+| `976` | A4 placed (saved by 0.7.10) |
+| `977` | East door opened, defenders prepared |
+| `978` | After the 0.7.10 A4 victory |
+| `979` | Stock |
+| `980` | Mage Armor dispelled, mid-combat (INJECTED combat exit) |
+| `981` | Brena asleep from the naga's sting |
+
+**Harness additions:**
+- **Read-only:** `catalog <path>`, `a4 [name]`, `a4ai [name]`, `areas`, `nonlethal`.
 - **INJECTED:**
-  - `hurt <member> <kind> <n>`, `corpse <kind> [m]`, `kurshudefeat`;
-  - `grab <member>` (a tail hit), `drain <member> <n>`, `armslam <member> <n>` (a fixed slam drain delivered inside the next native Intelligence heal);
-  - `kurshufixture <damage> <uses…>`, `combatsave <name>`.
+  - `armslam <member> <n>` (Phase A);
+  - `a4cast <defender> <spell> [target | x y]`;
+  - `a4attack <defender> <target>`;
+  - `a4take <defender> <item>`;
+  - `buff <target> <buff> <seconds> [caster]`;
+  - `unbuff <target> <buff>`.
+- **PLAYER:** `ai <member> on|off`, `a4order <defender> <target>`, `equip <member> <item>`.
+- **SETUP:** `give <item> [count]`.
+- **Targets:** `party:N`, `a4:<name>`, `name:<text>`, `unit:<id>`.
 
 ## Next exact action
-Owner review of PR #4, then of the WR-05 draft PR #5.
+Owner review of PR #6 (second pass), with PR #4 and #5. If accepted, the next milestone is Krune (A5). A fresh legitimate A4 victory against 0.7.19 could come first, if the owner wants one.

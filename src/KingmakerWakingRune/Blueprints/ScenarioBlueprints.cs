@@ -122,6 +122,7 @@ namespace KingmakerWakingRune.Blueprints
                 KingmakerWakingRune.Sanctum.Wards.WardTraps.Build(register);
                 KingmakerWakingRune.Sanctum.Wards.WardDialogs.Build(register);
                 KingmakerWakingRune.Sanctum.Encounter.KurshuBlueprints.Build(root, all, register);
+                KingmakerWakingRune.Sanctum.Lashmistress.LashmistressBlueprints.Build(root, all, register);
                 QuartermasterStock.Attach(LodgeCast.Find("quartermaster").Unit, all, register);
                 LocalizedText.InjectInto(LocalizationManager.CurrentPack);
 
