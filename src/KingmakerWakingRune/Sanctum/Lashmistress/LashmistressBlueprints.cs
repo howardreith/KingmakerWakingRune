@@ -471,13 +471,15 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 SecondaryHand = Get<BlueprintItemShield>(LightShieldPlus2),
                 Neck = Get<BlueprintItemEquipmentNeck>(AmuletNaturalArmor1),
                 Shoulders = Get<BlueprintItemEquipmentShoulders>(CloakResistance2),
-                Head = Get<BlueprintItemEquipmentHead>(HeadbandIntelligence2),
                 Ring1 = Get<BlueprintItemEquipmentRing>(RingProtection2),
                 QuickSlots = new BlueprintItemEquipmentUsable[] { Get<BlueprintItemEquipmentUsable>(PotionCatsGrace), null, null, null, null },
             };
-            // The human's flexible +2 is spent on Charisma, which is therefore built 2 lower: the printed 14 is the result.
-            BlueprintUnit unit = Unit(root, donor, DefenderKeys.Vandiana, "Vandiana the Lashmistress", new Abilities(scores.Str, scores.Dex, scores.Con, scores.Int, scores.Wis, scores.Cha - 2), human, Size.Medium, Alignment.LawfulEvil, Gender.Female, 30,
+            // This game gives a non-party caster bonus spells from the casting score's base value only, so the printed Int 17
+            // (which includes her headband of vast intelligence +2) is her base score, and the headband is carried, not worn:
+            // counted once, and still recoverable. The human's flexible +2 is spent on Charisma, built 2 lower for the printed 14.
+            BlueprintUnit unit = Unit(root, donor, DefenderKeys.Vandiana, "Vandiana the Lashmistress", new Abilities(scores.Str, scores.Dex, scores.Con, scores.Int + LashmistressProfile.VandianaHeadband, scores.Wis, scores.Cha - 2), human, Size.Medium, Alignment.LawfulEvil, Gender.Female, 30,
                 body, new BlueprintComponent[] { cleric, wizard, theurge }, facts, VandianaBrain());
+            unit.StartingInventory = new BlueprintItem[] { Get<BlueprintItemEquipmentHead>(HeadbandIntelligence2) };
             Units[DefenderKeys.Vandiana] = unit;
         }
 

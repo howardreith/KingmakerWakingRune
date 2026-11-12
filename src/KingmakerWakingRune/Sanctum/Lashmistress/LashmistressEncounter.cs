@@ -409,6 +409,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
 
         private static void Prepare(Spellbook book, PreparedEntry[] entries, BlueprintSpellList special, string what)
         {
+            Func<Spellbook, int> vandianaStat = b => b.Owner.Stats.GetStat(b.Blueprint.CastingAttribute).ModifiedValue;
             foreach (SpellSlot slot in book.GetAllMemorizedSpells().ToList())
             {
                 book.ForgetMemorized(slot);
@@ -434,6 +435,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                 }
             }
             book.Rest();
+            Note($"{what} book slots by level (common/special): {string.Join(" ", Enumerable.Range(1, 5).Select(l => $"L{l} {book.CalcSlotsLimit(l, SpellSlotType.Common)}/{book.CalcSlotsLimit(l, SpellSlotType.Favorite)}").ToArray())}; special-eligible [{string.Join(", ", entries.Where(Special).Select(e => e.Name).ToArray())}]; casting stat {book.Blueprint.CastingAttribute} {vandianaStat(book)}.");
             Note($"{what} book CL {book.CasterLevel}: prepared {book.GetAllMemorizedSpells().Count(s => s.Spell != null)} of {entries.Length}{(failed.Count == 0 ? string.Empty : "; NOT placed: " + string.Join(", ", failed.ToArray()))}.");
         }
 
