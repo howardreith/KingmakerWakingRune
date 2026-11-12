@@ -69,10 +69,10 @@ namespace KingmakerWakingRune.Tests
         public static void TestPreparationIsRequestedOnceAndStaysSpent()
         {
             var state = new LashmistressState { Policy = LashmistressPolicy.Active };
-            Assert.Equal(3, LashmistressRules.OnAwareness(state, darkvisionPrepared: true, now: 10d).Count(), "darkvision and two potions");
+            Assert.Equal(1, LashmistressRules.OnAwareness(state, darkvisionPrepared: true, now: 10d).Count(), "darkvision only: the potions wait for the battle");
             Assert.Equal(0, LashmistressRules.OnAwareness(state, true, 20d).Count(), "a second cause prepares nothing again");
             string[] door = LashmistressRules.OnDoorHeard(state, 30d).ToArray();
-            Assert.Equal(3, door.Length, "cat's grace and the two invisibilities; the potions were already requested");
+            Assert.Equal(5, door.Length, "cat's grace, the two invisibilities and the two Bull's Strength potions");
             Assert.Equal(0, LashmistressRules.OnDoorHeard(state, 40d).Count(), "opening the door again refills nothing");
             Assert.Equal(Prep.NagaInvisibilitySelf, LashmistressRules.NextFor(state, DefenderKeys.Naga), "itself first");
             LashmistressRules.Issued(state, Prep.NagaInvisibilitySelf, 31d);

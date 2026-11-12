@@ -735,17 +735,11 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
         /// <summary>What awareness prepares, and what hearing the east door prepares (page 12 and 13 tactics, NPC Codex 236).</summary>
         public static IEnumerable<string> OnAwareness(LashmistressState state, bool darkvisionPrepared, double now)
         {
+            // Page 13: the alarm prepares her Darkvision. A Blackstrike's three-minute potion waits for the battle itself (the
+            // east door, or combat): a distant warning does not tell it when the fight will come.
             if (darkvisionPrepared && Request(state, Prep.VandianaDarkvision, "awareness", now))
             {
                 yield return Prep.VandianaDarkvision;
-            }
-            // A Blackstrike who knows where the battle will be drinks Bull's Strength before it.
-            foreach (string key in new[] { Prep.AgarikBullsStrength, Prep.JorgasBullsStrength })
-            {
-                if (Request(state, key, "awareness", now))
-                {
-                    yield return key;
-                }
             }
         }
 

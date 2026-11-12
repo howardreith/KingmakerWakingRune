@@ -279,6 +279,11 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             a4.SpawnedAt = now;
             InitializeVandiana(state, now);
             RetireFixture(a4);
+            if (state.Ritual.VandianaAware)
+            {
+                // An upgraded save was warned before the defenders existed: what that warning prepares is carried forward, once.
+                OnAwareness(state);
+            }
             foreach (string key in DefenderKeys.All)
             {
                 Log.Info($"A4 sheet [placed] {Report(Find(key))}");
