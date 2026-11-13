@@ -512,6 +512,15 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(20, WardProfile.GemHardness, "the emerald keeps its own hardness");
         }
 
+        public static void TestOnlyTheFiveEnergiesAreHalvedAgainstStone()
+        {
+            Assert.Equal(20, DoorRules.EnergyShare("Fire", 40), "a fireball is halved");
+            Assert.Equal(5, DoorRules.EnergyShare("Acid", 11), "acid is halved, rounded down");
+            Assert.Equal(0, DoorRules.EnergyShare("NegativeEnergy", 30), "life energy does not harm stone");
+            Assert.Equal(22, DoorRules.EnergyShare("Magic", 22), "Disintegrate and force apply in full");
+            Assert.Equal(10, DoorRules.EnergyShare("Divine", 10), "divine power is not energy under the object rule");
+        }
+
         public static void TestDoorFeedbackIsRestrained()
         {
             Assert.Equal("The blow leaves no more than a scratch.", DoorRules.Describe(0, 75, 75), "ineffective");

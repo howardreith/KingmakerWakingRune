@@ -924,7 +924,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             Note($"revival study: {best.CharacterName} Arcana {roll.RollResult} vs 27: {(roll.IsPassed ? "learned" : "nothing learned")}.");
             if (roll.IsPassed)
             {
-                WardRuntime.Say($"{best.CharacterName} follows the surge of light into the sarcophagus and reads the rite in it: his soul was held apart from his preserved body, and the ritual has reunited them.");
+                WardRuntime.Say($"{best.CharacterName} follows the surge of light into the sarcophagus and reads the rite in it. His soul was held apart from his preserved body. The ritual has reunited them.");
             }
         }
 
