@@ -1,37 +1,42 @@
 # Status: The Waking Rune
 
-**Milestone:** WR-FINAL draft on `feature/wr-final-draft` (from `main` at `c110f8b`), PR #8 (draft). The combat
-repairs of the first review are closed by the second review; its rod-renewal defect is fixed (0.9.26). **Not
-qualified:** the legitimate journey reaches Krune at mask 75 (Kurshu and the A4 defenders slain by legal play, four
-rune foci sabotaged), but no legal victory over Krune exists yet (closest: Krune at 12/233).
+**Milestone:** WR-FINAL draft on `feature/wr-final-draft` (from `main` at `c110f8b`), PR #8 (draft, owner review).
+The legitimate journey is complete on 0.9.30:
+- A4 → Krune slain → both artifacts → portal → debrief (Success) → reload of the completed outcome.
+- Krune was at full strength for mask 75; nothing was weakened, injected or skipped.
 
-## WR-FINAL: 0.9.28 (second review pass)
-- **Build:** 0.9.28, commit `253ee17`; zip `artifacts\KingmakerWakingRune-0.9.28.zip`
-  (`f5c472ec8dca365cfd95fc1bddac130082ef5e8b8bd13176d9d0d896339654ff`); DLL
-  `8460faeede0ca675e472e4fb48a8ea97479813942058170d1562e104cae5d4d8`. 243 unit tests pass. 0.9.28 differs from 0.9.27
-  only by READ/camera harness commands.
-- **Since the second review** (ledger, "WR-FINAL second review pass"):
-  - the rod renews on a fixed schedule: a renewal due while full is taken, so a spend is never refunded (reproduced
-    the reviewer's sequence natively: 10 → 7 and kept); balance survives save and load; a depleted rod renews;
-  - a cast's charges are promised for a round: two casters cannot both draw the last charges; with too few, no
-    metamagic and the spell casts normally;
-  - Enlarge labelled an adaptation (Reach); Silent, Still and Widen "not implemented in this draft";
-  - his director takes up a dropped spear in combat (seen), and out of combat at once (0.9.27, seen).
-- **Superseded:** any claim resting on reloading an awakened Krune before 0.9.22 (see the ledger).
-- **Installed:** 0.9.28 (transaction `wrfinal-p5` ended; owner saves, Steam mirror and registry restored; 0.9.25 backed
-  up in `runtime-backups\wrfinal-p5\mod-existing`). Seeds: `runtime-evidence\wrfinal-p5\seeds`.
-
-## Open blockers
-- **A legal victory over Krune**, then the artifacts, the return, the debrief and a reload of the completed outcome.
-  Resume from `Manual_1022_KWR_AUTOMATION_P15_BEFORE_KRUNE_REPLAY` (all six alive and buffed, mask 75, Krune awake at
-  233). Five real-time attempts with party AI lost (closest 12/233); the next attempt should be hand-commanded in
-  turn-based mode, with a ranged finisher (Cone of Cold) and the party kept together against his summons.
+## WR-FINAL: 0.9.30 (third review pass)
+- **Build:** 0.9.30, commit `6886bcb`; zip `artifacts\KingmakerWakingRune-0.9.30.zip`
+  (`b6adbe38fbff3f56c8b3e8d3f3d954efb263a4e42c87d7a780c3d973c17160b1`); DLL
+  `317dc363cc2426af65b903f58a306a00103f6959480840a2a5246a3289819688`. 243 unit tests pass.
+- **Since the third review** (ledger, "WR-FINAL third review pass"):
+  - **Spear, out of combat (0.9.29):** Krune takes up his dropped spear only by his own will. A dominated, charmed,
+    confused, frightened or cowering Krune leaves it where it lies (seen under Confusion).
+  - **Spear, end of the dance (0.9.30):** the same test applies.
+  - **Rod (0.9.29):** charges are promised only inside the cast rule itself. A failed concentration check holds
+    nothing back; a preview and cancel reserve nothing; a delayed cast gets no metamagic if the charges are gone.
+    Each was checked natively.
+  - **Harness:** refuses quicksave and quickload; the game's quick slots rotate across every campaign.
+- **The completed journey** (ledger, "WR-FINAL legitimate journey, completed"):
+  - **Attempts:** three hand-commanded turn-based attempts were abandoned by legal reload; the fourth, in real time
+    with paused PLAYER orders, killed Krune.
+  - **Artifacts:** collected (PLAYER); the post-death restart was verified.
+  - **Portal and debrief:** Yadmila took the Pedestal's "Step through to the lodge"; the debrief handed over both
+    artifacts with outcome Success.
+  - **Reloads:** the completed outcome and the pre-return checkpoint both reload cleanly in fresh game processes.
+- **Installed:** 0.9.30. Transaction `wrfinal-p6` ended (owner saves, Steam mirror and registry restored); 0.9.28 is
+  backed up in `runtime-backups\wrfinal-p6\mod-existing`. Seeds: `runtime-evidence\wrfinal-p6\seeds`.
 
 ## Open boundaries
-None beyond the blockers. The current-build reloads still to capture during the ending: post-death loot, the returned
-lodge and the completed debrief.
+- One of Orin's Cones of Cold, cast from A5 at Krune in the north hall, resolved with no damage or saves (attempt 7).
+  Not investigated; line of effect through the A5 wall is the likely cause.
+- The debrief begins as the party arrives at the lodge, so no save exists between arrival and handover. The pre-return
+  checkpoint and the completed save bracket it.
 
 The sections below are earlier milestones, kept for history.
+
+## WR-FINAL: 0.9.28 (history)
+- 0.9.28, commit `253ee17`: the rod's renewal fix and native checks, the spear's pickup. Superseded by 0.9.30 above.
 
 ## WR-FINAL: 0.9.25 (history)
 - 0.9.25, commit `227c3d8`: the first review's repairs (fog, tentacles, session state, perception, dancing spear, rod,

@@ -435,7 +435,62 @@ fights; READ for state and the camera; SETUP only for named seed saves and loads
 | Artifacts, return, debrief, completed-outcome reload | **Not reached** | |
 
 **Assessment.** These are real-time fights driven by party AI with my re-issued attack orders; the AI chases a
-relocating Krune into his summons. Attempt 3 shows the encounter is winnable at mask 75: a finisher at range in the
-round he fell to 12 (Cone of Cold is 5th level, so his Globe and Spell Turning do not stop it) or holding the party
-together against the summons would likely have ended it. The next step is the same fight from `Manual_1022`, hand
-commanded in turn-based mode, which this session did not finish. Nothing here suggests lowering Krune.
+relocating Krune into his summons. Attempt 3 brought him to 12/233 at mask 75. *(Corrected after the third review:
+this showed that the party could bring him close to death, not that the fight could be won, nor that the final attack,
+his death, the loot and the return work together. The completed run in the next section now shows those.)* The five
+losses were two at mask 50 (293 hp, fast healing 3) and three at mask 75 (233 hp, no fast healing). Nothing here
+suggests lowering Krune.
+
+## WR-FINAL third review pass, 0.9.29–0.9.30, run `wrfinal-p6`
+
+Builds:
+- `b973612` (0.9.29): the spear's control guard; the rod's promise bound to the cast rule; harness `armdamage`.
+- `6886bcb` (0.9.30): the dance's end follows the same control test.
+
+The harness also refuses F5 and F9 (script-only commit `78fc403`; see the install report). Logs are in
+`runtime-evidence\wrfinal-p6\umm-log-launch1…6`.
+
+| Item | Status | Evidence | Notes |
+|---|---|---|---|
+| Out-of-combat spear pickup under a control effect | **Defect fixed (0.9.29–0.9.30)**, Proven | launch 3 (0.9.30) | **Fixture (seed 998):** HARNESS-COMMANDED loose; INJECTED Stunned as the dance ended, plus INJECTED native Confusion for 36 s. **Result:** "its dance over… drops in his space", then "out of combat, his spear lies at his feet, but he is not his own master (… confused True …): it stays there". It lay there for 33 s and was taken up only once the confusion ended. **On 0.9.29 (launch 2), with Dominate Person:** the native buff lapsed about 3 s after the brief fight its faction change started, so that run did not isolate domination. It did show that the end of the dance still tested only "can act", so 0.9.30 applies the same control test there. |
+| Dance ends while dominated | Seen (0.9.30) | launch 3 | **Fixture:** INJECTED Dominate Person for 60 s with no stun. **Result:** the spear dropped as the dance ended ("he could not grasp it"), because he was not his own master. His director took it up only after the domination had lapsed and he was back with the Mobs. |
+| Rod: a preview and cancel by one caster, then another caster's cast | Proven (0.9.29) | launch 1 | **Fixture (seed `P5_ROD_ONE`):** time and rests INJECTED to reach 4 charges. **Preview (PLAYER):** Ilsa selected Burning Arc and aimed it (`pointerMode=Ability`), hovered an ally, then right-clicked to cancel. READ after each step: `pending []`, 4 stored. **Then:** Brena's Maximize (HARNESS-COMMANDED cast) applied: "3 charges spent, 1 left". A preview or cancel reserves nothing; the decompiled game never calculates spell parameters for the UI. |
+| Rod: interrupted cast | **Source defect fixed (0.9.29)**, Proven | launch 1 | **The defect (source):** a concentration check calculates the spell's parameters (when entangled, or damaged mid-cast). In 0.9.28 that calculation reserved the charges for 6 s, so a failed check held them back from other casters. **Fix:** in 0.9.29 only the cast rule's own calculation promises charges. **Run:** INJECTED timing fixture `armdamage`: 60 damage while Ilsa's Maximize False Life was being cast. Logged: "read outside its cast (a concentration check): [Maximize], nothing promised (4 charges free)". The spell was interrupted and its slot spent natively; nothing was charged and `pending []`. Brena's Maximize then applied with the same 4 charges (1 left). Not reproduced on 0.9.28. |
+| Rod: delayed cast | Proven (0.9.29) | launch 1 | With 4 charges, Brena was ordered (HARNESS-COMMANDED) to cast Maximize Breath of Life on Kael, placed 8 squares away by an INJECTED teleport, so she walked there. Ilsa's Maximize False Life went first ("3 charges spent, 1 left"). Brena's cast, when it resolved: "[Maximize] not applied (1 charges free)", cast normally, balance 1. Nothing was unpaid. |
+| Rod: effects recalculating parameters later | Source-closed (0.9.29) | source | A recalculation without the spell's own data (a lingering effect's context) now gets nothing from the rod. Before 0.9.29 such a calculation could add rod metamagic that was never paid. Not observed in play. |
+| Owner quicksave rotation | **Process corrected** | run end | **Cause (decompiled `SaveManager.GetNextQuickslot`):** quick slots rotate across every campaign, so a test F5 overwrites the owner's oldest quicksave; autosaves rotate per game. **Correction:** the harness now refuses F5 and F9, and test saves are named harness saves. **This run:** no quicksave or autosave was written; the owner's newest quick and auto saves still date from 11-10. |
+
+### WR-FINAL legitimate journey, completed, 0.9.30, run `wrfinal-p6`
+
+From `Manual_1022_KWR_AUTOMATION_P15_BEFORE_KRUNE_REPLAY`, the legitimate mask-75 seed of the third attempt:
+- **Party:** six alive and buffed; Krune awake at 233.
+- **Party actions:** all PLAYER (portraits, spellbook, quick bar, turn-based buttons, floor and target clicks, dialogue, inventory); PARTY AI in real-time fights.
+- **Harness:** READ for state and the camera; SETUP only for named saves and loads.
+- **Excluded:** no injected damage, buffs, rests, gold, masks, teleports or extra slots.
+
+Legal retries were reloads of the same pre-fight save, with the pre-fight buffs re-cast each time.
+
+| Step | Result | Notes |
+|---|---|---|
+| Attempt 6 (turn-based) | Abandoned in round 2 (reload) | Krune 233 → 218 (Magic Missile). He raised a quickened Wall of Stone between him and the party. Orin's Mass Dimension Door carried only Orin and Maren, so I reloaded. |
+| Attempt 7 (turn-based, hand-commanded, 12 rounds) | Abandoned at Krune **18/233** (reload) | **Damage:** Aldric's smite, then Bryn, Sela, Orin's Cone of Cold and two Fireballs. **His escapes:** at 25% and two foes adjacent, a quickened Dimension Door and a Wish (Frost Giant); then Phase Door, a Phase Door step into the north hall, Globe of Invulnerability, Summon Monster IX (a thanadaemon) and his pearl recall. **Why abandoned:** the party could not reach him in the hall. Orin's last Cone of Cold, cast from A5 at him in the hall, resolved with no damage or saves; not investigated (likely line of effect through the A5 wall: the Globe stops only 4th level and lower). |
+| Attempt 8 (turn-based) | Abandoned in round 2 (reload) | A mis-click spent Aldric's turn, and a misaimed Fireball caught Sela. |
+| Attempt 9 (real time, paused for orders) | **Krune slain** | **Setup:** Stoneskin ×2 and Delay Poison (Communal) ×2 before the fight, so his Cloudkill could not touch the party; Smite Evil on Krune. **Kill:** Aldric's Earth Breaker took him 233 → 208 → 175 → 61 → 21; his Dimension Door and Phase Door left Aldric adjacent; Aldric's next blow (40) killed him in the passage: "KRUNE SLAIN at 134007". **Friendly fire:** Orin's Cone of Cold, ordered at him, resolved after his death and hit Bryn, Maren, Sela and the wall. Sela died and rose after the fight (11 hp, Normal difficulty). |
+| His death | **Native, once** | "his gear set down where he fell (12 items …; spear KWR_KruneDragonToothSpear, rod KWR_KruneRuneCarvedRod)", then "aftermath applied: sarcophagus, gem and foci crumbled; light faded; mist dissipated". **Journal:** Krune Completed, Artifacts Started. **Summons:** all gone with him. |
+| Artifact recovery | **PLAYER** | **Loot (PLAYER):** Aldric opened the treasure where he fell, then "Collect all". **Stash:** Krune's Dragon-Tooth Spear (identified on pickup) and Krune's Rune-Carved Rod, 8 charges left of the 10 he started with. **Save:** `Manual_1024_…P17_ARTIFACTS_TAKEN_LEGIT`. |
+| Post-death restart (new process) | **Proven** | **Krune:** dead and out of play (`in game False`); "after load … actor (dead)". **Others:** Kurshu and the A4 defenders reloaded dead; no summons; the wall's rubble stayed. **Items:** the spear in the stash and the rod's 8 charges kept. |
+| Portal | **PLAYER** | The party gathered in A4, and Yadmila took the Pedestal's "Step through to the lodge"; no artifact warning, since both were carried. **Log:** "Pre-return save verified: Before the portal home"; "Return committed: Krune slain, spear carried True, rod carried True; party [all six]". |
+| Debrief | **PLAYER** | **Speakers:** Valsin and Sheila Heidmarch, then the masked figure takes the spear and the rod ("Items lost: …"). **Log:** "Debrief handover recorded: [Krune's Dragon-Tooth Spear, Krune's Rune-Carved Rod]", "Scenario outcome recorded: Success", "Journal: Report Completed; quest Completed". **Save:** `Manual_1026_…P18_DEBRIEF_COMPLETE_LEGIT`. |
+| Completed-outcome restart (new process) | **Proven** | **Lodge:** "Restored (setup previously recorded; one Sheila present)"; no debrief started and no handover. **Stash:** the spear and rod absent, not duplicated. **Journal:** The Waking Rune completed, every objective ticked, "The expedition is over and the Venture-Captain has your report." |
+| Pre-return checkpoint restart | Proven | `Before the portal home` reloads in the sanctum: Krune dead and out of play, Kurshu and the A4 defenders dead, nothing renewed. **Gap:** the debrief begins as the party arrives, so no save exists between arrival and handover; this save and the completed one bracket the return. |
+
+**Assessment.** The required chain now exists on 0.9.30, within one legitimate adventure (the party built and
+played by real input since `wrfinal-p3`):
+- A4 → Krune → both artifacts → portal → debrief → reload of the completed outcome.
+- Krune was not weakened.
+- The deciding moves were tactical: Delay Poison against his Cloudkill, Stoneskin, Smite Evil, and keeping Aldric
+  adjacent through his relocations.
+
+The win was in real time with pauses; the hand-commanded turn-based attempts (6–8) were abandoned by reload, not lost.
+
+The unexplained empty Cone of Cold (attempt 7) is recorded above, not investigated.
