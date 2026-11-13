@@ -21,6 +21,10 @@ namespace KingmakerWakingRune.Sanctum
         private static Transform s_Root;
         private static SceneryMesh s_Mesh;
         private static SanctumPalette s_Palette;
+
+        public static SanctumPalette Palette => s_Palette;
+
+        public static Transform Root => s_Root;
         private static StatueBuilder s_Statues;
         public const string FlailObjectName = "KWR_FlailScenery";
         private const string BrokenRunePrefix = "KWR_RuneBroken_";

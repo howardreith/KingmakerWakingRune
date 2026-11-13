@@ -32,6 +32,11 @@
     <Compile Include="DepartureRecordTests.cs" />
     <Compile Include="LashmistressRulesTests.cs" />
     <Compile Include="KruneAwakeningTests.cs" />
+    <Compile Include="KruneBookTests.cs" />
+    <Compile Include="KruneTacticsTests.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\Krune\KruneTactics.cs" Link="Linked\KruneTactics.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\Krune\WallRules.cs" Link="Linked\WallRules.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\Krune\KruneBook.cs" Link="Linked\KruneBook.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\WardProfile.cs" Link="Linked\WardProfile.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\KruneProjection.cs" Link="Linked\KruneProjection.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\RuneRules.cs" Link="Linked\RuneRules.cs" />

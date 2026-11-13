@@ -46,7 +46,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 case WardText.DoorId:
                     return doorFeederActive ? ObjectSave.MagicItem : ObjectSave.Never;
                 default:
-                    return ObjectSave.NotAnObject;
+                    // A wall of stone is an instantaneous conjuration: once raised it is ordinary stone.
+                    return fixtureId != null && fixtureId.StartsWith("Wall-", System.StringComparison.Ordinal) ? ObjectSave.Never : ObjectSave.NotAnObject;
             }
         }
 

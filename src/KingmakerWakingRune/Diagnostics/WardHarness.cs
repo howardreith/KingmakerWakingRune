@@ -436,6 +436,15 @@ namespace KingmakerWakingRune.Diagnostics
                     return KingmakerWakingRune.Sanctum.Krune.KruneAwakening.ReleaseForDiagnostics();
                 case "krunedeadline":
                     return KruneDeadline(double.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture));
+                case "krunebook":
+                {
+                    // Read only: his book as it stands (ready slots by level and metamagic), and the one-time setup note.
+                    UnitEntityData k = KingmakerWakingRune.Sanctum.Krune.KruneAwakening.Actor;
+                    var lines = KingmakerWakingRune.Sanctum.Krune.KruneSpellbook.Ready(k)
+                        .GroupBy(s => $"L{s.SpellLevel} {s.Spell.Blueprint.name}{(s.Spell.MetamagicData != null && s.Spell.MetamagicData.NotEmpty ? " [" + s.Spell.MetamagicData.MetamagicMask + "]" : string.Empty)}")
+                        .Select(g => g.Key + (g.Count() > 1 ? " x" + g.Count() : string.Empty));
+                    return $"READ book: {WardRuntime.State?.Krune.CombatInitializedNote}\n  ready: {string.Join("; ", lines.ToArray())}\n  phase {WardRuntime.State?.Krune.DirectorPhase}, combat since {WardRuntime.State?.Krune.CombatStartedAt:0.0}, walls {WardRuntime.State?.Walls.Count}";
+                }
                 case "objectroll":
                     return ControlledRoll.Arm(args[1], int.Parse(args[2]));
                 case "hitgem":

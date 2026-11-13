@@ -375,8 +375,14 @@ namespace KingmakerWakingRune.Sanctum.Krune
             attack.ActorConsiderations = new Kingmaker.Controllers.Brain.Blueprints.Considerations.Consideration[0];
             attack.TargetConsiderations = new Kingmaker.Controllers.Brain.Blueprints.Considerations.Consideration[0];
             s_Register(attack);
+            // The director (WR-FINAL) chooses his spells, items and movement; the native attack is what is left when it has
+            // nothing to cast (out of slots, or a foe at his side and nothing worth a spell).
+            var director = Create<KwrKruneDirectorAction>("KWR_KruneAi_Director");
+            director.BaseScore = 20f;
+            director.ActorConsiderations = new Kingmaker.Controllers.Brain.Blueprints.Considerations.Consideration[0];
+            director.TargetConsiderations = new Kingmaker.Controllers.Brain.Blueprints.Considerations.Consideration[0];
             var brain = Create<BlueprintBrain>("KWR_KruneBrain");
-            brain.Actions = new[] { attack };
+            brain.Actions = new BlueprintAiAction[] { director, attack };
             s_Register(brain);
             return brain;
         }

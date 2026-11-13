@@ -37,7 +37,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
         private static void HandleDamage(RuleDealDamage evt)
         {
             string fixtureId = WardFixtures.IdOf(evt.Target);
-            if (fixtureId == WardText.DoorId || fixtureId == WardText.GemId)
+            if (fixtureId == WardText.DoorId || fixtureId == WardText.GemId || Krune.KruneWalls.IsWall(fixtureId))
             {
                 HandleBreakable(evt, fixtureId);
                 return;
@@ -185,6 +185,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
             // Disintegrate against an object: an unmade save disintegrates it outright; a made save is ordinary damage.
             var context = evt.Reason?.Context;
             bool disintegrated = WardObjects.IsDisintegrate(context) && ObjectRules.Disintegrate(context.SavingThrow?.IsPassed ?? false) == DisintegrateOutcome.Disintegrated;
+            if (Krune.KruneWalls.IsWall(fixtureId))
+            {
+                Krune.KruneWalls.TakeHit(fixtureId, Attacker(evt), total, disintegrated);
+                return;
+            }
             if (fixtureId == WardText.DoorId)
             {
                 var weapon = evt.DamageBundle.Weapon;

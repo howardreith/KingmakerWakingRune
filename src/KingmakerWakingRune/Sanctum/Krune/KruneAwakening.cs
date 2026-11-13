@@ -35,16 +35,13 @@ namespace KingmakerWakingRune.Sanctum.Krune
     /// </summary>
     internal static class KruneAwakening
     {
-        public const string CheckpointText = "Development checkpoint (prototype boundary, not part of the story):\n\nKrune's awakening is implemented. His combat encounter is the next milestone.\n\nThe game stays paused here. You may inspect, and save where the game allows; nothing on either side acts.";
         private const string GroupId = "KWR-A5-Krune";
         private const double RetrySeconds = 5d;
 
         private static UnitEntityData s_Bound;
         private static double s_NextAttempt;
-        private static bool s_CheckpointAnnounced;
         private static bool s_LegacyAsked;
         private static bool s_ProblemReported;
-        private static bool s_TurnBasedHold;
 
         private static SanctumState State => WardRuntime.State;
 
@@ -113,10 +110,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
         {
             s_Bound = null;
             s_NextAttempt = 0d;
-            s_CheckpointAnnounced = false;
             s_LegacyAsked = false;
-            // A load resets the turn-based freeze along with everything else; the checkpoint retains it again if it holds.
-            s_TurnBasedHold = false;
             KruneState krune = state.Krune;
             if (krune.ParleyStarted && !krune.ParleyFinished)
             {
@@ -140,10 +134,36 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
             SyncLinks(state, WardRuntime.Now);
             Note($"after load: stage {krune.Stage}, cause {krune.Cause}, actor {(actor == null ? "none" : actor.UniqueId + (actor.Descriptor.State.IsDead ? " (dead)" : $" hp {actor.Descriptor.HPLeft}/{actor.Descriptor.MaxHP}"))}, revival mask {krune.RevivalMask}, current mask {state.RuneMask}, checkpoint {krune.CheckpointReached}{(krune.DiagnosticRelease ? " (released for diagnostics)" : string.Empty)}, legacy {krune.Legacy}.");
-            if (KruneRules.CheckpointHolds(krune))
+            if (krune.CheckpointReached && !krune.PrototypeRetired)
             {
-                HoldCheckpoint();
+                RetirePrototype(state);
             }
+        }
+
+        /// <summary>
+        /// A save made at the WR-07A development checkpoint: the full encounter replaces the stop, once. Nothing it recorded is
+        /// reset: damage, the feeder's depletion, steps spent, removed buffs, the runes, elapsed time and the stagger all stand,
+        /// the party is not rested, and the entrance and exchange are not replayed. Only the prototype's own hold ends (it was
+        /// never saved: the pause guard and the turn-based freeze lived only in that session). A Krune killed during a labelled
+        /// diagnostic release stays dead and is marked as such; it is not a completed adventure.
+        /// </summary>
+        private static void RetirePrototype(SanctumState state)
+        {
+            KruneState krune = state.Krune;
+            krune.PrototypeRetired = true;
+            if (krune.CombatStartedAt < 0d && krune.Stage == AwakeningStage.CombatReady)
+            {
+                krune.CombatStartedAt = krune.CheckpointAt >= 0d ? krune.CheckpointAt : WardRuntime.Now;
+            }
+            UnitEntityData actor = Actor;
+            bool dead = actor != null && actor.Descriptor.State.IsDead;
+            Note($"WR-07A checkpoint save brought into the full encounter once (diagnostic release {krune.DiagnosticRelease}, Krune {(dead ? "dead" : "alive")}); nothing reset.");
+            if (dead)
+            {
+                return;
+            }
+            const string text = "This save was made at the development checkpoint of an earlier build.\n\nKrune's full encounter is now available: the fight continues from exactly this moment. Nothing has been reset or healed.";
+            EventBus.RaiseEvent(delegate(IDialogMessageBoxUIHandler h) { h.HandleOpen(text, DialogMessageBoxBase.BoxType.Message, button => { }); });
         }
 
         /// <summary>SETUP (labelled test harness only): pause the game the moment the lifecycle reaches this stage, for a save there.</summary>
@@ -213,20 +233,15 @@ namespace KingmakerWakingRune.Sanctum.Krune
                     HandOff(state, now);
                     break;
             }
-            if (krune.Stage == AwakeningStage.CombatReady)
+            if (krune.Stage >= AwakeningStage.Emerged)
             {
-                // In the same tick as the handoff: no slice of simulation runs between his hostility and the hold.
-                if (!krune.CheckpointReached)
-                {
-                    krune.CheckpointReached = true;
-                    krune.CheckpointAt = now;
-                    Note($"COMBAT-READY HANDOFF at {now:0}: {Sheet(Actor)}");
-                    Note("PROTOTYPE CHECKPOINT reached: the whole simulation is held here; the combat encounter is the next milestone.");
-                }
-                if (KruneRules.CheckpointHolds(krune))
-                {
-                    HoldCheckpoint();
-                }
+                KruneCombat.EnsureInitialized(state, Actor);
+            }
+            if (krune.Stage == AwakeningStage.CombatReady && krune.CombatStartedAt < 0d)
+            {
+                // The handoff: he is hostile and the fight is his director's from here. No hold, no pause, no extra turn.
+                krune.CombatStartedAt = now;
+                Note($"COMBAT-READY HANDOFF at {now:0}: the encounter begins. {Sheet(Actor)}");
             }
             HoldStaggerForTurn(state);
             SyncLinks(state, now);
@@ -761,61 +776,10 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
         }
 
-        /// <summary>
-        /// Holds the simulation for the checkpoint. In real time that is the native pause. Turn-based combat has no pause
-        /// (the game refuses one and unpauses every tick), so there the hold is the turn-based controller's own freeze, the
-        /// one its combat-start window uses: no turn advances, game time stands, and the active turn and its pending
-        /// actions are kept as they are. Retained once; a load resets the game's freeze, so it is retained again.
-        /// </summary>
-        public static void EnforceCheckpoint()
-        {
-            if (TurnBased.Controllers.CombatController.IsInTurnBasedCombat())
-            {
-                CountingGuard freeze = Game.Instance.TurnBasedCombatController.WaitingForUI;
-                if (!s_TurnBasedHold || !freeze.Value)
-                {
-                    freeze.Value = true;
-                    s_TurnBasedHold = true;
-                    TurnBased.Controllers.TurnController turn = Game.Instance.TurnBasedCombatController.CurrentTurn;
-                    Note($"checkpoint holds turn-based combat: the turn of {turn?.Unit.CharacterName ?? "nobody"} ({turn?.Status}) in round {Game.Instance.TurnBasedCombatController.RoundNumber} is frozen as it stands.");
-                }
-            }
-            else if (!Game.Instance.IsPaused)
-            {
-                Game.Instance.IsPaused = true;
-            }
-        }
-
-        private static void HoldCheckpoint()
-        {
-            EnforceCheckpoint();
-            if (!s_CheckpointAnnounced)
-            {
-                s_CheckpointAnnounced = true;
-                EventBus.RaiseEvent(delegate(IDialogMessageBoxUIHandler h) { h.HandleOpen(CheckpointText, DialogMessageBoxBase.BoxType.Message, button => { }); });
-            }
-        }
-
-        /// <summary>The labelled test harness only: lets the simulation run past the checkpoint for native diagnostics.</summary>
+        /// <summary>The WR-07A harness release: there is no checkpoint any more, so nothing to release.</summary>
         public static string ReleaseForDiagnostics()
         {
-            KruneState krune = State?.Krune;
-            if (krune == null || !krune.CheckpointReached)
-            {
-                return "no checkpoint to release";
-            }
-            krune.DiagnosticRelease = true;
-            if (s_TurnBasedHold)
-            {
-                CountingGuard freeze = Game.Instance.TurnBasedCombatController.WaitingForUI;
-                if (freeze.Value)
-                {
-                    freeze.Value = false;
-                }
-                s_TurnBasedHold = false;
-            }
-            Note("INJECTED diagnostic release of the prototype checkpoint (harness only; not a finished fight).");
-            return "INJECTED checkpoint released for native diagnostics: the simulation may now run; this is not the Krune encounter.";
+            return "no development checkpoint exists in this build: the encounter runs natively.";
         }
 
         private static void AskLegacy(SanctumState state)
