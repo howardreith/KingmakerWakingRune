@@ -1,6 +1,6 @@
 # Quartermaster catalogue
 
-Stock of the Society Quartermaster in the Magnimar Lodge: 275 lines, 814 items. Generated from `data/quartermaster.csv` against installed game data (2.1.7b).
+Stock of the Society Quartermaster in the Magnimar Lodge: 280 lines, 821 items. Generated from `data/quartermaster.csv` against installed game data (2.1.7b).
 
 **Pricing:** native vendor rules with no price overrides. Buying costs each item's `Cost` (listed below). Selling pays `Cost x BlueprintRoot.Vendors.SellModifier`, so buying then re-selling always loses money. An item sold to the vendor joins its stock. Stock lives in the save (`Player.SharedVendorTables`) and is not refilled by loading or by talking to the Quartermaster.
 
@@ -116,6 +116,16 @@ Stock of the Society Quartermaster in the Magnimar Lodge: 275 lines, 814 items. 
 | Sling Staff +1 | 2 | 2,400 | `643b5b476b7fc1942aa24a50dedc8de4` |
 | Sling Staff +2 | 1 | 8,300 | `1dc78587aa10b0849b863f57615ddce2` |
 | Sling Staff +3 | 1 | 18,500 | `69245594968164347b63b2ddc3c24eef` |
+
+## Cold iron weapons (WR-FINAL supplies audit: Kurshu's DR 10/cold iron and magic had no stocked answer)
+
+| Item | Stock | Price (gp) | Blueprint |
+|---|---:|---:|---|
+| Cold Iron Longsword +1 | 2 | 4,500 | `203d3fbf74304ec4aba2ed1021742e59` |
+| Cold Iron Earth Breaker +1 | 1 | 6,000 | `23855f41005569b43bcdca1c299471b4` |
+| Cold Iron Dagger +1 | 2 | 3,000 | `ebea3139c4649e7459079d424c89e561` |
+| Cold Iron Handaxe +1 | 1 | 5,000 | `76b3cfacefc66234ebe3f14669e9d208` |
+| Cold Iron Dwarven Waraxe +3 | 1 | 20,500 | `4c30b1cd4041d214dbe028e293c7a5ff` |
 
 ## Ranged weapons
 
