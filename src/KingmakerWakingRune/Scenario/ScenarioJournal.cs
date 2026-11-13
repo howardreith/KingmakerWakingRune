@@ -29,13 +29,12 @@ namespace KingmakerWakingRune.Scenario
 
         private static readonly Dictionary<string, string[]> Texts = new Dictionary<string, string[]>
         {
-            [JournalRules.Brief] = new[] { "Hear the Venture-Captain's briefing", "Venture-Captain Sheila Heidmarch has a mission for the Society. Hear her out in her study at the Magnimar lodge." },
-            [JournalRules.Travel] = new[] { "Break the Refuge Token", "Prepare at the lodge (recruits, the Quartermaster, rest), then break the Refuge Token to reach the runelord's sanctum." },
-            [JournalRules.Kurshu] = new[] { "Deal with Kurshu the Undying", "Something undying keeps the frozen chamber where the token set you down." },
-            [JournalRules.Defenders] = new[] { "Overcome the antechamber's defenders", "Vandiana and her allies guard the way to the runelord's tomb." },
-            [JournalRules.Krune] = new[] { "Stop Runelord Krune", "Krune, Runelord of Sloth, must not leave his sanctum alive." },
-            [JournalRules.Artifacts] = new[] { "Recover the dragon-tooth spear and the rune-carved rod", "Carry both of Krune's artifacts home for the Society." },
-            [JournalRules.Report] = new[] { "Report at the lodge", "Return through the antechamber's portal and report to the Venture-Captain." },
+            [JournalRules.Prepare] = new[] { "Prepare and assemble the expedition", "Hear the Venture-Captain, gather a party of six, equip them from the Quartermaster and rest. Breaking the Refuge Token carries the party to the sanctum: there is no coming back by it." },
+            [JournalRules.Defenses] = new[] { "Overcome the sanctum's defenses", "Find a way through the sanctum's wards and guardians to where the runelord sleeps." },
+            [JournalRules.Revival] = new[] { "Confront the revival", "The runelord's revival is under way. Face what wakes." },
+            [JournalRules.Krune] = new[] { "Defeat Runelord Krune", "Krune, Runelord of Sloth, is awake. He must not leave his sanctum alive." },
+            [JournalRules.Artifacts] = new[] { "Recover the two artifacts", "Carry the runelord's dragon-tooth spear and rune-carved rod home for the Society." },
+            [JournalRules.Report] = new[] { "Return and report", "Report to the Venture-Captain at the lodge." },
         };
 
         public static void Build(Action<BlueprintScriptableObject> register)
@@ -150,10 +149,7 @@ namespace KingmakerWakingRune.Scenario
             ConclusionState c = s?.Conclusion;
             return new JournalFacts
             {
-                Briefed = flags.IsUnlocked(ScenarioBlueprints.BriefingCompleteFlag),
                 SanctumEntered = flags.IsUnlocked(ScenarioBlueprints.SanctumEnteredFlag),
-                KurshuDefeated = s != null && (s.Kurshu.Defeated || s.Kurshu.Slain),
-                DefendersEngaged = s != null && s.Lashmistress.Engaged,
                 DefendersDefeated = s != null && s.Lashmistress.AllDefeated,
                 KruneAwake = s != null && s.Krune.Stage >= AwakeningStage.Emerged,
                 KruneSlain = c != null && c.KruneDeadAt >= 0d && !c.DiagnosticDeath,
