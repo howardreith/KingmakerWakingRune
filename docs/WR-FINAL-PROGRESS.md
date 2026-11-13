@@ -32,6 +32,37 @@ section. Results with evidence labels go to the acceptance ledger, not here.
 - Existing behaviour kept: a unit-implemented object can be targeted by spells the game lets target it; no targeting rule
   was widened.
 
+## Checkpoint 2–3 so far (0.9.1–0.9.5, run `wrfinal-p2`)
+- **Book** (`KruneBook` pure, `KruneSpellbook` native): one entry per printed slot; quickened/empowered as native
+  `MetamagicData` custom spells in the raised slot; local spells; held slots (`KWR_KruneHeld_*`, never castable, with a
+  reason). The book is sized to exactly the printed count per level (`KruneSlotsPatch`), no separate school slot (the
+  game's school slot takes only plain conjuration spells from its list; none of his 8th-level entries qualify). Filled
+  once (`KruneState.CombatInitialized`), after `UpdateAllSlotsSize(true)` (0.9.1 placed 45 of 65 without it). Seen:
+  65/65, Mage Armor's slot spent.
+- **Director** (`KruneTactics` pure, `KruneDirector` native, `KwrKruneDirectorAction` in his brain, score 20, then the
+  native melee): ordered option lists for swift and standard; the first option he can really cast, aim and reach
+  (`InRange`: half a metre inside the game's fixed range; Medium = 40 ft) is issued as `KwrDirectedCast` (not replaced by
+  the brain for 6 s before it starts). A cast that did not spend its slot within 4 s is held back 2 rounds. Idle reasons
+  and skipped options are logged. Yields when not Mobs, confused, frightened, cowering or unable to act.
+- **Saved brain:** a saved unit keeps its old action list; `KruneCombat.EnsureBrain` brings it up to the blueprint on every
+  load (0.9.1's director never ran on a saved Krune).
+- **Prototype stop removed:** the handoff starts combat (`CombatStartedAt`); a WR-07A checkpoint save is retired once on
+  load (`PrototypeRetired`, one notice, nothing reset); the pause and turn-based freeze patches are gone.
+- **Local spells built** (`KruneLocalSpells`, `KruneLocalComponents`, `KruneWalls`, `KruneMoves`, `WallRules`): Greater
+  Teleport (unlimited, legal sanctum floor), Phase Door (CL/2 passages, each a 40-ft step through stone), Fog Cloud,
+  Solid Fog (speed −25, −2 melee), Black Tentacles (CMB CL+5 vs native CMD; FoM/CantMove immunity defeats it; native
+  break-free vs DC 10+CMB; 1d6+4 crush), Globe (≤4th-level spells from outside: immune via the SR rule), Spell Turning
+  (1d4+6 levels; single-target spells redirected at the cast rule; partial % rule), Hostile Juxtaposition (link on failed
+  Will; once a round swap on an attack, the attack is lost — bounded), Wall of Stone (up to 8 sections, 60 hp, hardness 8,
+  navmesh cut + fog blocker + stone mesh, one proxy per wall, never saves, disintegrate takes 2 sections, saved in
+  `SanctumState.Walls`, rebuilt on load).
+- **Seen in play (0.9.2–0.9.4, seed 996, parley by PLAYER, PARTY AI):** quickened tentacles, quickened walls (one raised),
+  Foresight, Spell Turning (7 levels), quickened Summon Monster V and IV, Horrid Wilting. The party all had Freedom of
+  Movement: the tentacles correctly held none.
+- **Open in checkpoint 2–3:** artifacts (spear dancing/powers/telekinesis, rod metamagic), Wish via the bond and diamonds,
+  boots of speed, pearl of power, ring of spell turning, acid dart/wand use seen, contingency, runesight, dominion; the
+  relocation phase seen; turn-based fight; performance.
+
 ## Engine inventory for Krune (catalog of 82,017 blueprints)
 - **Native spells:** Foresight; Summon Monster IV–IX (Base + Single variants); Horrid Wilting; Dimension Door
   (`DimensionDoorCasterOnly`); Cloudkill; Dispel Magic (Target/Point) and Greater (Target/Area); Acid Fog; Glitterdust;
