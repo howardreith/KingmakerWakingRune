@@ -38,6 +38,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public bool RodCarriedHome;
         public double HandoverAt = -1d;
         public double DebriefAt = -1d;
+        /// <summary>Party members the dragon-tooth spear refused (its Ego), by unit id, with the time the refusal lasts until.</summary>
+        public System.Collections.Generic.Dictionary<string, double> SpearRefusedUntil = new System.Collections.Generic.Dictionary<string, double>();
         public ScenarioOutcome Outcome = ScenarioOutcome.None;
     }
 

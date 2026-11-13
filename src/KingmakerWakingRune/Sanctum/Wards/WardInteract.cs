@@ -401,11 +401,16 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 text.Append(state.Door.Destroyed ? "\n\nNothing remains of it but rubble in the doorway." : state.Door.Latched ? string.Empty : "\n\nIt is no longer held fast.");
             }
-            if (id == WardText.GemId && state.Gem.Destroyed)
+            bool aftermath = state.Conclusion.AftermathAt >= 0d;
+            if (id == WardText.GemId && (state.Gem.Destroyed || aftermath))
             {
-                text.Append("\n\nThe emerald is shattered.");
+                text.Append(state.Gem.Destroyed ? "\n\nThe emerald is shattered." : "\n\nThe emptied emerald has cracked through and gone dark.");
             }
-            if (id == WardText.SarcophagusId && state.Krune.Stage >= Krune.AwakeningStage.Emerged)
+            if (id == WardText.SarcophagusId && aftermath)
+            {
+                text.Append("\n\nWith its master's death it crumbled: only rubble and slack chains remain.");
+            }
+            else if (id == WardText.SarcophagusId && state.Krune.Stage >= Krune.AwakeningStage.Emerged)
             {
                 text.Append("\n\nIts occupant is gone: the runelord has stepped out of it.");
             }

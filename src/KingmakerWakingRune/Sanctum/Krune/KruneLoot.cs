@@ -105,8 +105,6 @@ namespace KingmakerWakingRune.Sanctum.Krune
     [Harmony12.HarmonyPatch(typeof(ItemEntity), nameof(ItemEntity.OnDidEquipped))]
     internal static class SpearEgoPatch
     {
-        private static readonly System.Collections.Generic.Dictionary<string, double> s_RefusedUntil = new System.Collections.Generic.Dictionary<string, double>();
-
         private static void Postfix(ItemEntity __instance, Kingmaker.UnitLogic.UnitDescriptor wielder)
         {
             if (!KruneLoot.IsSpear(__instance) || wielder?.Unit == null || !wielder.Unit.IsPlayerFaction || wielder.Unit == KruneAwakening.Actor)
@@ -115,7 +113,9 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
             UnitEntityData unit = wielder.Unit;
             double now = Kingmaker.Game.Instance.TimeController.GameTime.TotalSeconds;
-            bool refused = s_RefusedUntil.TryGetValue(unit.UniqueId, out double until) && now < until;
+            // The refusal is kept in the saved conclusion state: a reload does not offer a fresh roll.
+            System.Collections.Generic.Dictionary<string, double> refusals = WardStore.Existing?.Conclusion.SpearRefusedUntil ?? new System.Collections.Generic.Dictionary<string, double>();
+            bool refused = refusals.TryGetValue(unit.UniqueId, out double until) && now < until;
             if (!refused)
             {
                 Kingmaker.RuleSystem.Rules.RuleSavingThrow save = Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.RuleSavingThrow(unit, Kingmaker.EntitySystem.Stats.SavingThrowType.Will, 22));
@@ -125,7 +125,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
                     WardRuntime.Say($"The dragon-tooth spear yields to {unit.CharacterName}, muttering about rash, spontaneous hands.");
                     return;
                 }
-                s_RefusedUntil[unit.UniqueId] = now + Wards.WardProfile.DaySeconds;
+                refusals[unit.UniqueId] = now + Wards.WardProfile.DaySeconds;
             }
             WardRuntime.Say($"The dragon-tooth spear will not serve {unit.CharacterName}: it twists out of the grip.");
             Kingmaker.Items.Slots.ItemSlot slot = __instance.HoldingSlot;

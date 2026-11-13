@@ -87,7 +87,9 @@ namespace KingmakerWakingRune.Scenario
         {
             try
             {
-                if (Quest == null || Game.Instance?.Player == null || !Game.Instance.Player.UnlockableFlags.IsUnlocked(ScenarioBlueprints.SessionFlag))
+                // Never while a save loads: the player and the stored sanctum state may then belong to different games.
+                if (Quest == null || Game.Instance?.Player == null || Kingmaker.EntitySystem.Persistence.LoadingProcess.Instance.IsLoadingInProcess
+                    || !Game.Instance.Player.UnlockableFlags.IsUnlocked(ScenarioBlueprints.SessionFlag))
                 {
                     return;
                 }
