@@ -114,6 +114,7 @@ namespace KingmakerWakingRune.Lodge
             c.Outcome = ConclusionRules.Decide(c);
             Game.Instance.Player.UnlockableFlags.SetFlagValue(ScenarioBlueprints.OutcomeFlag, (int)c.Outcome);
             Log.Info($"Scenario outcome recorded: {c.Outcome}.");
+            KingmakerWakingRune.Scenario.ScenarioJournal.Sync();
             string text;
             switch (c.Outcome)
             {

@@ -54,6 +54,7 @@ namespace KingmakerWakingRune.Lodge
             }
             BriefingService.TryOpen();
             DebriefService.TryOpen();
+            KingmakerWakingRune.Scenario.ScenarioJournal.Tick();
             if (Time.unscaledTime >= m_NextRefresh)
             {
                 m_NextRefresh = Time.unscaledTime + AgentRefreshSeconds;

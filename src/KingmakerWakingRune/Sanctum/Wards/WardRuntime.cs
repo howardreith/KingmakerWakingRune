@@ -212,6 +212,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 return;
             }
+            KingmakerWakingRune.Scenario.ScenarioJournal.Tick();
             double now = Now;
             if (now < s_NextTick)
             {

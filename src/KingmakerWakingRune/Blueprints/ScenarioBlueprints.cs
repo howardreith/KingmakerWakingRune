@@ -128,6 +128,7 @@ namespace KingmakerWakingRune.Blueprints
                 KingmakerWakingRune.Sanctum.Lashmistress.LashmistressBlueprints.Build(root, all, register);
                 KingmakerWakingRune.Sanctum.Krune.KruneBlueprints.Build(root, all, register);
                 KingmakerWakingRune.Sanctum.Krune.KruneSpells.Build(all, register);
+                KingmakerWakingRune.Scenario.ScenarioJournal.Build(register);
                 KingmakerWakingRune.Sanctum.Krune.KruneDialog.Build(register);
                 QuartermasterStock.Attach(LodgeCast.Find("quartermaster").Unit, all, register);
                 LocalizedText.InjectInto(LocalizationManager.CurrentPack);
