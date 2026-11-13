@@ -24,8 +24,21 @@ namespace KingmakerWakingRune.Lodge
     {
         public static ConclusionState Conclusion => WardStore.Existing?.Conclusion;
 
+        /// <summary>The masked figure took the artifacts and teleported away: once the handover is recorded it is gone, on every load.</summary>
+        public static void ApplyDeparture()
+        {
+            ConclusionState c = Conclusion;
+            UnitEntityData masked = c != null && c.HandoverAt >= 0d ? LodgeSession.FindCastMember("masked") : null;
+            if (masked != null && masked.IsInGame)
+            {
+                masked.IsInGame = false;
+                Log.Info("The masked figure has gone with the artifacts.");
+            }
+        }
+
         public static void TryOpen()
         {
+            ApplyDeparture();
             ConclusionState c = Conclusion;
             if (c == null || c.ReturnedAt < 0d || c.DebriefAt >= 0d || IsBusy())
             {
@@ -64,6 +77,7 @@ namespace KingmakerWakingRune.Lodge
                 taken.Add(item.Name);
             }
             Log.Info($"Debrief handover recorded: [{string.Join(", ", taken.ToArray())}].");
+            ApplyDeparture();
         }
 
         /// <summary>Every ItemEntity of the two artifact blueprints the party holds, equipped or carried. Nothing else matches.</summary>

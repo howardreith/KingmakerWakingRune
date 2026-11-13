@@ -90,8 +90,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
         private static void LookThroughPortal()
         {
             SanctumState state = WardRuntime.State;
-            string motif = string.IsNullOrEmpty(state.TokenMotif) ? "your own refuge token's" : state.TokenMotif;
-            string text = $"One shard bears the same mark as your refuge token ({motif}). Held up to the iron mosaic, it fills the frame with a shimmering view: Sheila Heidmarch's study in Magnimar, lamplit and quiet, exactly as you left it.\n\nThe other shards carry marks you do not know. Through them the frame shows only grey distance: places no one in the Society has seen.\n\nThe passage would carry the whole expedition, once, and close behind it.";
+            string mark = string.IsNullOrEmpty(state.TokenMotif) ? string.Empty : $" ({state.TokenMotif})";
+            string text = $"One shard bears the same mark as your refuge token{mark}. Held up to the iron mosaic, it fills the frame with a shimmering view: Sheila Heidmarch's study in Magnimar, lamplit and quiet, exactly as you left it.\n\nThe other shards carry marks you do not know. Through them the frame shows only grey distance: places no one in the Society has seen.\n\nThe passage would carry the whole expedition, once, and close behind it.";
             EventBus.RaiseEvent(delegate(IDialogMessageBoxUIHandler h) { h.HandleOpen(text, DialogMessageBoxBase.BoxType.Message, button => { }); });
         }
 
