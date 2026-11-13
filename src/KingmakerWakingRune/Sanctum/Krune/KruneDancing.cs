@@ -184,10 +184,11 @@ namespace KingmakerWakingRune.Sanctum.Krune
             if (string.IsNullOrEmpty(state.DancingFormId))
             {
                 // Out of combat his brain is not consulted, so nothing would ever pick a dropped spear up: with no fight
-                // on and his hands free he simply takes it up (in combat the director spends a move action on it).
+                // on and his hands free he simply takes it up (in combat the director spends a move action on it). Only by
+                // his own will: while dominated, charmed, confused or frightened it stays where it lies until that ends.
                 UnitEntityData master = KruneAwakening.Actor;
                 if (!string.IsNullOrEmpty(state.DroppedSpearBagId) && master != null && !master.Descriptor.State.IsDead && !master.IsInCombat
-                    && master.Descriptor.State.CanAct && DroppedBeside(master))
+                    && KruneDirector.OwnMaster(master) && DroppedBeside(master))
                 {
                     KruneAwakening.Note("out of combat, he takes up his dropped spear.");
                     TakeUp(master);

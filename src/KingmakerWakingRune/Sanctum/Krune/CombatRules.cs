@@ -292,6 +292,12 @@ namespace KingmakerWakingRune.Sanctum.Krune
         {
             return lockedUntil < 0d || now >= lockedUntil;
         }
+
+        /// <summary>Whether he acts by his own will (whatever controls him otherwise owns his actions, the spear's pickup included).</summary>
+        public static bool OwnMaster(bool canAct, bool confused, bool frightened, bool cowering, bool ownAllegiance)
+        {
+            return canAct && !confused && !frightened && !cowering && ownAllegiance;
+        }
     }
 
     /// <summary>

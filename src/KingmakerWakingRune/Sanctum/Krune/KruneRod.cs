@@ -15,6 +15,7 @@ using Kingmaker.UnitLogic.Abilities.Blueprints;
 using Kingmaker.UnitLogic.ActivatableAbilities;
 using Kingmaker.UnitLogic.Buffs.Blueprints;
 using Kingmaker.UnitLogic.Commands.Base;
+using Kingmaker.Utility;
 using KingmakerWakingRune.Sanctum.Wards;
 
 namespace KingmakerWakingRune.Sanctum.Krune
@@ -23,7 +24,10 @@ namespace KingmakerWakingRune.Sanctum.Krune
     /// Krune's rune-carved rod (page 16; RodRules): a greater metamagic rod of seven feats, up to three applied to one spell as
     /// it is cast, paid from 10 charges renewed every 24 hours (one charge per spell level added). The game's own metamagic is
     /// added while the cast's parameters are calculated (the slot and its level are untouched) and the charges are spent only
-    /// when the spell is actually cast. Empower, Enlarge (the game's Reach), Extend and Maximize are applied; Silent, Still and
+    /// when the spell is actually cast. Charges are promised only within the cast itself: the game takes a cast's parameters
+    /// as it builds the cast rule and resolves that rule at once, so the promise and the payment are one step (a
+    /// concentration check reads what the rod would add, promising nothing; an effect recalculating parameters later
+    /// without the spell's own data gets nothing from the rod). Empower, Enlarge (the game's Reach), Extend and Maximize are applied; Silent, Still and
     /// Widen are not implemented in this draft: listed as unavailable, never applied or charged.
     /// <para>
     /// The charges belong to the rod: they are kept in the saved sanctum state (taken over once from the resource earlier
@@ -57,12 +61,36 @@ namespace KingmakerWakingRune.Sanctum.Krune
             public double At;
         }
 
-        /// <summary>How long a cast's promised charges are held back from other casters: a round.</summary>
+        /// <summary>A safety net only: a promise is made and settled within one cast rule; one left by a failed rule lapses after this.</summary>
         private const double PendingSeconds = 6d;
 
-        // Each caster's metamagic from the rod (Krune's or a party caster's), by unit and spell, between the parameters and
-        // the cast. While it is pending its charges are promised: another caster cannot draw them.
+        // Each caster's metamagic from the rod (Krune's or a party caster's), by unit and spell, between the cast rule's
+        // parameters and its resolution. While it is pending its charges are promised: another caster (a spell cast within
+        // that cast) cannot draw them.
         private static readonly Dictionary<string, Pending> s_Pending = new Dictionary<string, Pending>();
+
+        // The spells whose cast rules are being built now (innermost last): only their parameters promise charges.
+        private static readonly List<AbilityData> s_Casting = new List<AbilityData>();
+
+        /// <summary>A cast rule is being built for this spell: its parameters are the cast's own.</summary>
+        public static void BeginCastRule(AbilityData spell)
+        {
+            s_Casting.Add(spell);
+        }
+
+        public static void EndCastRule(AbilityData spell)
+        {
+            int at = s_Casting.LastIndexOf(spell);
+            if (at >= 0)
+            {
+                s_Casting.RemoveAt(at);
+            }
+        }
+
+        private static bool Casting(AbilityData spell)
+        {
+            return spell != null && s_Casting.Contains(spell);
+        }
 
         public static void Build()
         {
@@ -92,6 +120,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
         {
             s_Order = null;
             s_Pending.Clear();
+            s_Casting.Clear();
         }
 
         /// <summary>Read only, for the harness: the pending order, if any.</summary>
@@ -227,7 +256,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public static void KruneParams(UnitEntityData krune, RuleCalculateAbilityParams evt)
         {
             Order order = s_Order;
-            if (order == null || krune.UniqueId != order.CasterId || !Same(evt.Spell, order.Spell))
+            if (order == null || evt.AbilityData == null || krune.UniqueId != order.CasterId || !Same(evt.Spell, order.Spell))
             {
                 return;
             }
@@ -244,7 +273,11 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 s_Order = null;
                 return;
             }
-            order.Applied = ApplyTo(evt, order.Requested, KeyOf(krune, evt.Spell));
+            List<RodOption> applied = ApplyTo(evt, order.Requested, KeyOf(krune, evt.Spell));
+            if (Casting(evt.AbilityData))
+            {
+                order.Applied = applied;
+            }
         }
 
         public static void KruneCast(UnitEntityData krune, RuleCastSpell evt)
@@ -261,7 +294,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
 
         public static void PartyParams(UnitEntityData caster, RuleCalculateAbilityParams evt)
         {
-            if (evt.Spell == null || evt.Spell.Type != AbilityType.Spell || !Possesses(caster))
+            if (evt.Spell == null || evt.AbilityData == null || evt.Spell.Type != AbilityType.Spell || !Possesses(caster))
             {
                 return;
             }
@@ -271,7 +304,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             {
                 ApplyTo(evt, requested, KeyOf(caster, evt.Spell));
             }
-            else
+            else if (Casting(evt.AbilityData))
             {
                 s_Pending.Remove(KeyOf(caster, evt.Spell));
             }
@@ -292,16 +325,26 @@ namespace KingmakerWakingRune.Sanctum.Krune
 
         /// <summary>
         /// The metamagic one cast may have: what it asks for, legal for the spell, and affordable from the charges not already
-        /// promised to another pending cast. With too few charges the spell is simply cast without it (never unpaid).
+        /// promised to another pending cast. With too few charges the spell is simply cast without it (never unpaid). Only
+        /// the cast rule's own parameters promise the charges; any other calculation (a concentration check) only reads.
         /// </summary>
         private static List<RodOption> ApplyTo(RuleCalculateAbilityParams evt, List<string> requested, string key)
         {
+            bool cast = Casting(evt.AbilityData);
             List<string> already = RodRules.Options.Where(o => o.Supported && evt.HasMetamagic(Parse(o.Native))).Select(o => o.Native).ToList();
             int available = RodRules.Available(Charges(), ReservedByOthers(key));
             List<RodOption> applied = RodRules.Apply(requested, Legal(evt.Spell).ToList(), already, available);
             foreach (RodOption option in applied)
             {
                 evt.AddMetamagic(Parse(option.Native));
+            }
+            if (!cast)
+            {
+                if (applied.Count > 0)
+                {
+                    Log.Info($"Rune-carved rod: {evt.Initiator?.CharacterName}'s {evt.Spell.name} read outside its cast (a concentration check): [{string.Join("+", applied.Select(o => o.Feat).ToArray())}], nothing promised ({available} charges free).");
+                }
+                return applied;
             }
             if (applied.Count > 0)
             {
@@ -405,6 +448,24 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public void OnEventDidTrigger(RuleCastSpell evt)
         {
             RuneRod.PartyCast(Owner.Unit, evt);
+        }
+    }
+
+    /// <summary>
+    /// Every cast rule takes its spell's parameters while it is built (RuleCastSpell's constructor) and is resolved at once;
+    /// marking that moment binds the rod's promise to the cast itself rather than to any other calculation.
+    /// </summary>
+    [HarmonyPatch(typeof(RuleCastSpell), MethodType.Constructor, new Type[] { typeof(AbilityData), typeof(TargetWrapper) })]
+    internal static class RodCastRulePatch
+    {
+        private static void Prefix(AbilityData spell)
+        {
+            RuneRod.BeginCastRule(spell);
+        }
+
+        private static void Postfix(AbilityData spell)
+        {
+            RuneRod.EndCastRule(spell);
         }
     }
 }

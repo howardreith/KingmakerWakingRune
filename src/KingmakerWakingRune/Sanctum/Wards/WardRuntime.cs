@@ -112,6 +112,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
         private static bool s_Subscribed;
         private static double s_NextTick;
 
+        /// <summary>The harness's per-frame timing fixtures (none in play).</summary>
+        internal static Action TestHook;
+
         /// <summary>The existing state only: nothing outside <see cref="OnSanctumLoaded"/> may create scenario state.</summary>
         public static SanctumState State => WardStore.Existing;
 
@@ -214,6 +217,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
             KingmakerWakingRune.Scenario.ScenarioJournal.Tick();
             Sanctum.Krune.RuneRod.SyncWielders();
+            TestHook?.Invoke();
             double now = Now;
             if (now < s_NextTick)
             {

@@ -152,6 +152,12 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(false, DanceRules.CanLoose(30d, 48d), "grasped: not again for 4 rounds");
             Assert.Equal(true, DanceRules.CanLoose(48d, 48d), "after 4 rounds it may dance again");
             Assert.Equal(true, DanceRules.CanLoose(10d, -1d), "never grasped from a dance");
+            Assert.Equal(true, DanceRules.OwnMaster(true, false, false, false, true), "his own master: he may take up his spear");
+            Assert.Equal(false, DanceRules.OwnMaster(true, false, false, false, false), "dominated or charmed (allegiance changed): not by his will");
+            Assert.Equal(false, DanceRules.OwnMaster(true, true, false, false, true), "confused: the confusion owns his actions");
+            Assert.Equal(false, DanceRules.OwnMaster(true, false, true, false, true), "frightened");
+            Assert.Equal(false, DanceRules.OwnMaster(true, false, false, true, true), "cowering");
+            Assert.Equal(false, DanceRules.OwnMaster(false, false, false, false, true), "unable to act");
         }
 
         public static void TestHeSuspectsOnlyWhereHeLastSawAFoe()

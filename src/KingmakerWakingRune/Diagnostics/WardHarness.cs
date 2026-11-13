@@ -266,6 +266,30 @@ namespace KingmakerWakingRune.Diagnostics
                     Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.Damage.RuleDealDamage(unit, unit, new Kingmaker.RuleSystem.Rules.Damage.DamageBundle(hit)));
                     return $"INJECTED {args[2]} lethal damage on {unit.CharacterName}: hp {unit.HPLeft}/{unit.Stats.HitPoints.ModifiedValue}.";
                 }
+                case "armdamage":
+                {
+                    // INJECTED timing fixture: waits until this unit's spell is being cast (its command running, the spell not
+                    // yet released), then in that frame deals lethal damage through the native rule from the unit itself, so
+                    // the game's own concentration check on damage takes place. Fires once.
+                    string missing = Resolve(args[1], out UnitEntityData unit);
+                    if (missing != null)
+                    {
+                        return missing;
+                    }
+                    int amount = int.Parse(args[2]);
+                    KingmakerWakingRune.Sanctum.Wards.WardRuntime.TestHook = () =>
+                    {
+                        if (!(unit.Commands.Standard is UnitUseAbility cast) || !cast.IsRunning || cast.IsActed)
+                        {
+                            return;
+                        }
+                        KingmakerWakingRune.Sanctum.Wards.WardRuntime.TestHook = null;
+                        var hit = new Kingmaker.RuleSystem.Rules.Damage.DirectDamage(new Kingmaker.RuleSystem.DiceFormula(0, Kingmaker.RuleSystem.DiceType.Zero), amount);
+                        Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.Damage.RuleDealDamage(unit, unit, new Kingmaker.RuleSystem.Rules.Damage.DamageBundle(hit)));
+                        Log.Info($"INJECTED timing fixture: {amount} damage on {unit.CharacterName} while casting {cast.Spell.Blueprint.name} (not yet released); hp {unit.HPLeft}.");
+                    };
+                    return $"INJECTED timing fixture armed: {amount} damage on {unit.CharacterName} when a spell of theirs is next being cast.";
+                }
                 case "armcontrol":
                 {
                     // INJECTED timing fixture: waits for the director's own command to be running for this defender, then in the

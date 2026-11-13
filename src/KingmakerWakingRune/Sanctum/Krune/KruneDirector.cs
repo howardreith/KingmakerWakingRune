@@ -296,9 +296,18 @@ namespace KingmakerWakingRune.Sanctum.Krune
         /// <summary>Control effects yield: no director decision while he is not his own master or cannot act.</summary>
         private static bool Free(UnitEntityData krune)
         {
+            return OwnMaster(krune) && krune.IsInCombat;
+        }
+
+        /// <summary>
+        /// He acts by his own will: able to act, not confused, frightened or cowering, and still of his own allegiance
+        /// (domination and charm change it). Whatever controls him otherwise owns his actions, in combat or out.
+        /// </summary>
+        internal static bool OwnMaster(UnitEntityData krune)
+        {
             UnitState s = krune.Descriptor.State;
-            return s.CanAct && !s.HasCondition(UnitCondition.Confusion) && !s.HasCondition(UnitCondition.Frightened) && !s.HasCondition(UnitCondition.Cowering)
-                && krune.Descriptor.Faction == Game.Instance.BlueprintRoot.SystemMechanics.FactionMobs && krune.IsInCombat;
+            return DanceRules.OwnMaster(s.CanAct, s.HasCondition(UnitCondition.Confusion), s.HasCondition(UnitCondition.Frightened), s.HasCondition(UnitCondition.Cowering),
+                krune.Descriptor.Faction == Game.Instance.BlueprintRoot.SystemMechanics.FactionMobs);
         }
 
         /// <summary>
