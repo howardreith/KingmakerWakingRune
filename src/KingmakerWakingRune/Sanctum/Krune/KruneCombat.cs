@@ -45,6 +45,36 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 KruneAwakening.Note($"brain actions brought up to date ({brain.Actions.Length}: {string.Join(", ", brain.Actions.Select(a => a.name).ToArray())}).");
             }
             actor.Brain.RestoreAvailableActions();
+            EnsureFreedom(actor);
+        }
+
+        /// <summary>
+        /// A ring of freedom of movement saved before 0.9.11 carries only the native hold immunity: its freedom of movement is
+        /// added once (the same ring, worn again so the wearer gains it). Nothing else on the ring changes.
+        /// </summary>
+        private static void EnsureFreedom(UnitEntityData actor)
+        {
+            Kingmaker.Items.ItemEntity ring = actor.Inventory.Items.FirstOrDefault(i => i.Blueprint == KruneBlueprints.RingOfFreedom);
+            if (ring == null || KruneBlueprints.RingOfFreedomEnchantment == null || ring.HasEnchantment(KruneBlueprints.RingOfFreedomEnchantment))
+            {
+                return;
+            }
+            ring.AddEnchantment(KruneBlueprints.RingOfFreedomEnchantment, new Kingmaker.UnitLogic.Mechanics.MechanicsContext(actor, actor.Descriptor, KruneBlueprints.RingOfFreedomEnchantment));
+            Kingmaker.Items.Slots.ItemSlot slot = ring.HoldingSlot;
+            if (slot != null)
+            {
+                Kingmaker.Items.Slots.ItemSlot.IgnoreLock.Retain();
+                try
+                {
+                    slot.RemoveItem();
+                    slot.InsertItem(ring);
+                }
+                finally
+                {
+                    Kingmaker.Items.Slots.ItemSlot.IgnoreLock.Release();
+                }
+            }
+            KruneAwakening.Note($"ring of freedom of movement brought up to date: freedom of movement {(actor.Descriptor.Progression.Features.HasFact(KruneBlueprints.FreedomOfMovement) ? "worn" : "NOT worn")}.");
         }
     }
 }

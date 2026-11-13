@@ -78,6 +78,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public static BlueprintItemEquipmentUsable WandOfSummonMonsterIII { get; private set; }
         public static BlueprintItemEquipmentNeck Periapt { get; private set; }
         public static BlueprintItemEquipmentRing RingOfFreedom { get; private set; }
+        public static BlueprintEquipmentEnchantment RingOfFreedomEnchantment { get; private set; }
+        public static BlueprintFeature FreedomOfMovement { get; private set; }
         public static BlueprintAbility DimensionDoorFx { get; private set; }
         public static string Problem { get; private set; }
         public static readonly List<string> Resolved = new List<string>();
@@ -302,7 +304,9 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
             BlueprintComponent[] freedomParts = freedom.ComponentsArray.Select(c => { BlueprintComponent copy = UnityEngine.Object.Instantiate(c); copy.name = "KWR_KruneFreedom_" + c.GetType().Name; return copy; }).ToArray();
             var freedomFeature = Feature("KWR_KruneFreedomOfMovement", "Freedom of Movement", "Moves and acts normally despite magic that impedes movement.", freedomParts);
-            RingOfFreedom = Equipment(Get<BlueprintItemEquipmentRing>(RingDonor), "KWR_KruneRingOfFreedomOfMovement", "Ring of Freedom of Movement", "This ring lets its wearer move and act normally, as freedom of movement, at all times.", Enchantment("KWR_KruneRingOfFreedomEnchantment", freedomFeature));
+            FreedomOfMovement = freedomFeature;
+            RingOfFreedomEnchantment = Enchantment("KWR_KruneRingOfFreedomEnchantment", freedomFeature);
+            RingOfFreedom = Equipment(Get<BlueprintItemEquipmentRing>(RingDonor), "KWR_KruneRingOfFreedomOfMovement", "Ring of Freedom of Movement", "This ring lets its wearer move and act normally, as freedom of movement, at all times.", RingOfFreedomEnchantment);
             Resolved.Add("freedom of movement from " + freedom.name);
         }
 

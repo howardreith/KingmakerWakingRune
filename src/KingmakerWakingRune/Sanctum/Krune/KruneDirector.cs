@@ -121,6 +121,14 @@ namespace KingmakerWakingRune.Sanctum.Krune
         /// <summary>Uses that come before his prepared list: wish's summons while he recovers; the ring when foes cast and his own spell turning is gone.</summary>
         private static KrunePlan GearFirst(UnitEntityData krune, List<UnitEntityData> foes, KruneView view)
         {
+            if (view.HasPhaseDoor && KruneTactics.Overwhelmed(view))
+            {
+                KrunePlan step = PassagePlan(krune, foes);
+                if (step != null)
+                {
+                    return step;
+                }
+            }
             if (view.Phase == KrunePhase.Recover)
             {
                 KrunePlan wish = WishPlan(krune, foes, KruneGear.WishSummon, "wish: a summoned army while he recovers");
@@ -166,6 +174,15 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 }
             }
             return FactPlan(krune, KruneGear.SpearSlow, nearest, "the spear's slow") ?? FactPlan(krune, KruneGear.SpearRay, nearest, "the spear's ray of enfeeblement");
+        }
+
+        /// <summary>Through an open phase door passage (a move action): up to 40 ft through stone to the floor farthest from the foes.</summary>
+        private static KrunePlan PassagePlan(UnitEntityData krune, List<UnitEntityData> foes)
+        {
+            Kingmaker.UnitLogic.Abilities.Ability fact = krune.Descriptor.Abilities.GetFact(KruneLocalSpells.PhaseDoorStep) as Kingmaker.UnitLogic.Abilities.Ability;
+            AbilityData data = fact?.Data;
+            TargetWrapper target = data != null && data.IsAvailableForCast ? Aim(krune, foes, data, KruneAim.Retreat) : null;
+            return target != null && data.CanTarget(target) && InRange(krune, data, target) ? new KrunePlan { Ability = data, Target = target, Reason = "overwhelmed: through his phase door to another part of the sanctum", Key = data.Blueprint.name } : null;
         }
 
         private static KrunePlan Telekinesis(UnitEntityData krune, List<UnitEntityData> foes)
@@ -231,6 +248,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 HasStoneskin = HasBuff(krune, "StoneskinBuff"),
                 HasTrueSeeing = HasBuff(krune, "TrueSeeingBuff"),
                 HasShield = HasBuff(krune, "MageShieldBuff"),
+                HasPhaseDoor = KruneLocalSpells.PhaseDoorPassages != null && krune.Buffs.HasFact(KruneLocalSpells.PhaseDoorPassages),
                 HasSpellTurning = KruneLocalSpells.SpellTurning != null && krune.Buffs.HasFact(KruneLocalSpells.SpellTurning),
                 HasGlobe = KruneLocalSpells.InsideGlobe != null && krune.Buffs.HasFact(KruneLocalSpells.InsideGlobe),
                 WallStanding = WardRuntime.State.Walls.Any(w => w.Caster == krune.UniqueId && WallRules.Standing(w)),

@@ -94,7 +94,11 @@ namespace KingmakerWakingRune.Tests
             v.AdjacentFoes = 2;
             Assert.Equal(true, KruneTactics.Overwhelmed(v), "low and pressed");
             Assert.Equal("Phase Door", KruneTactics.Standard(v).Spell, "phase door first");
-            Assert.Equal(KruneAim.Retreat, KruneTactics.Standard(v).Aim, "to a point far from the foes");
+            Assert.Equal(KruneAim.Self, KruneTactics.Standard(v).Aim, "the passages first; the director then steps through them");
+            v.HasPhaseDoor = true;
+            Assert.Equal(true, KruneTactics.Standard(v).Spell != "Phase Door", "an open phase door is not cast again");
+            Assert.Equal(true, KruneTactics.CanRelocate(v), "an open passage is a way out");
+            v.HasPhaseDoor = false;
             Assert.Equal(KrunePhase.Recover, KruneTactics.NextPhase(v), "withdrawn");
             v.Phase = KrunePhase.Recover;
             v.HitPointFraction = 1d;

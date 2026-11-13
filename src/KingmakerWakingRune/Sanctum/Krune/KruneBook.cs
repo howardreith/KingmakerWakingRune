@@ -64,7 +64,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             { "Grease", N("Grease") },
             { "Waves of Fatigue", N("WavesOfFatigue") },
             { "Fear", N("Fear") },
-            { "Stoneskin", N("Stoneskin") },
+            { "Stoneskin", L("KWR_KruneStoneskin", "the game's own stoneskin; its party-only target limit removed so he can cast it on himself") },
             { "Protection from Energy", N("ProtectionFromEnergy") },
             { "Sleet Storm", N("SleetStorm") },
             { "Stinking Cloud", N("StinkingCloud") },

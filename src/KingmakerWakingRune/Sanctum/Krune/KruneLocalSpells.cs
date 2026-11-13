@@ -58,11 +58,21 @@ namespace KingmakerWakingRune.Sanctum.Krune
             var built = new Dictionary<string, BlueprintAbility>();
             BlueprintBuff buffDonor = KruneBlueprints.OpeningStagger;
 
+            // Stoneskin: the game's own spell, which only a party member may receive; the same spell, cast on himself.
+            BlueprintAbility stoneskin = UnityEngine.Object.Instantiate(native["Stoneskin"]);
+            stoneskin.name = "KWR_KruneStoneskin";
+            stoneskin.AssetGuid = ScenarioIds.Derive("krune." + stoneskin.name);
+            stoneskin.ComponentsArray = stoneskin.ComponentsArray.Where(c => !(c is Kingmaker.UnitLogic.Abilities.Components.TargetCheckers.AbilityTargetIsPartyMember)).ToArray();
+            register(stoneskin);
+            built["KWR_KruneStoneskin"] = stoneskin;
+
             // Teleportation within the sanctum: the game's own dimension door logic and effects, to a legal sanctum point.
             BlueprintAbility door = native["DimensionDoorCasterOnly"];
             built["KWR_KruneGreaterTeleport"] = Teleport(door, "KWR_KruneGreaterTeleport", "Greater Teleport", "Krune teleports himself to any place in his sanctum he chooses. In this scenario he never leaves the sanctum: he fights to the death (page 17).", 0f, SpellSchool.Conjuration);
             PhaseDoorStep = Teleport(door, "KWR_KrunePhaseDoorStep", "Phase Door (passage)", "Krune steps through his ethereal passage, up to 40 feet through solid stone, to the other side.", 40f, SpellSchool.Conjuration);
             PhaseDoorStep.Type = AbilityType.SpellLike;
+            // Passing through the passage is moving, not casting.
+            PhaseDoorStep.ActionType = Kingmaker.UnitLogic.Commands.Base.UnitCommand.CommandType.Move;
             var passages = Component<KwrPhaseDoorPassages>("KWR_KrunePhaseDoorPassagesLogic");
             PhaseDoorPassages = Buff(buffDonor, "KWR_KrunePhaseDoorPassages", "Phase Door", "An ethereal passage only Krune can use: one passage per two caster levels, until used up.", false, true, passages);
             built["KWR_KrunePhaseDoor"] = SelfSpell(native["MageShield"], "KWR_KrunePhaseDoor", "Phase Door", "Krune creates an ethereal passage through stone that only he can use, one passage per two caster levels (CL 17: 8). He may step through it at once.", SpellSchool.Conjuration,

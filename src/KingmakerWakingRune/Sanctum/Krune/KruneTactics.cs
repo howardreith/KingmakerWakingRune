@@ -58,6 +58,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public bool HasGlobe;
         public bool HasTrueSeeing;
         public bool HasShield;
+        /// <summary>His phase door's passages are open (the passage itself is taken by the director before any spell).</summary>
+        public bool HasPhaseDoor;
         public bool WallStanding;
         public bool TentaclesActive;
         public bool CloudActive;
@@ -110,7 +112,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
 
         public static bool CanRelocate(KruneView v)
         {
-            return Has(v, "Phase Door") || Has(v, "Quickened Dimension Door") || Has(v, "Dimension Door") || Has(v, "Greater Teleport");
+            return v.HasPhaseDoor || Has(v, "Phase Door") || Has(v, "Quickened Dimension Door") || Has(v, "Dimension Door") || Has(v, "Greater Teleport");
         }
 
         /// <summary>The swift action: a quickened spell, if one fits the moment.</summary>
@@ -178,9 +180,9 @@ namespace KingmakerWakingRune.Sanctum.Krune
 
         private static KruneChoice Relocate(KruneView v)
         {
-            if (Has(v, "Phase Door"))
+            if (!v.HasPhaseDoor && Has(v, "Phase Door"))
             {
-                return C("Phase Door", string.Empty, KruneAim.Retreat, "overwhelmed: through the wall to another part of the sanctum");
+                return C("Phase Door", string.Empty, KruneAim.Self, "overwhelmed: an ethereal passage through the stone, to step through at once");
             }
             if (Has(v, "Greater Teleport"))
             {
