@@ -347,6 +347,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
     public sealed class KwrApplySelfBuff : ContextAction
     {
         public BlueprintBuff Buff;
+        /// <summary>Spell turning, resolved when used (the ring is built before the local spells).</summary>
+        public bool SpellTurning;
         public double SecondsPerLevel;
 
         public override string GetCaption()
@@ -362,7 +364,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 return;
             }
             TimeSpan? duration = SecondsPerLevel > 0d ? TimeSpan.FromSeconds(Math.Max(1, Context.Params.CasterLevel) * SecondsPerLevel) : (TimeSpan?)null;
-            Kingmaker.UnitLogic.Buffs.Buff buff = caster.Descriptor.AddBuff(Buff, Context, duration);
+            Kingmaker.UnitLogic.Buffs.Buff buff = caster.Descriptor.AddBuff(Buff ?? (SpellTurning ? KruneLocalSpells.SpellTurning : null), Context, duration);
             if (buff != null)
             {
                 buff.IsFromSpell = true;

@@ -81,6 +81,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             KruneBlueprints.ItemName(Boots, "Boots of Speed", "As a free action, the wearer is hasted for as long as the boots are active: 10 rounds a day, not necessarily consecutive.");
             KruneBlueprints.Register(Boots);
 
+            Log.Info("Krune gear: boots built.");
             // Pearl of power (8th level): once a day, recall one 8th-level spell already cast.
             BlueprintAbility recall = KruneBlueprints.Create<BlueprintAbility>("KWR_KrunePearlRecall");
             KruneBlueprints.Name(recall, "Pearl of Power (8th)", "Once a day, the wielder recalls one 8th-level spell he had prepared and cast: that slot is ready again.");
@@ -109,6 +110,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             KruneBlueprints.ItemName(Pearl, "Pearl of Power (8th)", "Once a day, the wielder recalls one 8th-level spell he had prepared and already cast.");
             KruneBlueprints.Register(Pearl);
 
+            Log.Info("Krune gear: pearl built.");
             // Ring of spell turning: three times a day, spell turning on the wearer (its own charges, not his slot).
             BlueprintAbility turn = KruneBlueprints.Create<BlueprintAbility>("KWR_KruneRingSpellTurning");
             KruneBlueprints.Name(turn, "Ring of Spell Turning", "Three times a day on command, the wearer turns spells as the spell spell turning (1d4+6 spell levels).");
@@ -118,7 +120,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             turn.CanTargetSelf = true;
             turn.LocalizedDuration = new Kingmaker.Localization.LocalizedString();
             turn.LocalizedSavingThrow = new Kingmaker.Localization.LocalizedString();
-            turn.ComponentsArray = new BlueprintComponent[] { Run(Act<KwrApplySelfBuff>(a => { a.Buff = KruneLocalSpells.SpellTurning; a.SecondsPerLevel = 600d; })), Params(0, 13, 7) };
+            turn.ComponentsArray = new BlueprintComponent[] { Run(Act<KwrApplySelfBuff>(a => { a.SpellTurning = true; a.SecondsPerLevel = 600d; })), Params(0, 13, 7) };
             KruneBlueprints.Register(turn);
             RingOfSpellTurning = UnityEngine.Object.Instantiate(KruneBlueprints.RingOfFreedom);
             RingOfSpellTurning.name = "KWR_KruneRingOfSpellTurning";
@@ -131,6 +133,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             KruneBlueprints.ItemName(RingOfSpellTurning, "Ring of Spell Turning", "Three times a day on command, the wearer turns spells as spell turning.");
             KruneBlueprints.Register(RingOfSpellTurning);
 
+            Log.Info("Krune gear: ring built.");
             // Wish through the arcane bond: the bond's single daily casting, and 25,000 gp of diamonds consumed each time.
             Bond = KruneBlueprints.Resource("KWR_KruneArcaneBond", 1);
             WishSummon = WishOf(Native("SummonMonsterVIIISingle"), "KWR_KruneWishSummon", "Wish (Summon Monster VIII)", "Krune's wish duplicates summon monster VIII.");
@@ -147,9 +150,10 @@ namespace KingmakerWakingRune.Sanctum.Krune
             KruneBlueprints.Register(Wish);
             foreach (BlueprintAbility v in variants.Variants)
             {
-                AccessTools.Field(typeof(BlueprintAbility), "m_Parent").SetValue(v, Wish);
+                v.Parent = Wish;
             }
 
+            Log.Info("Krune gear: wish built.");
             // The spear's own lesser powers (3/day each) and its dedicated telekinesis; it serves only Krune (page 15).
             SpearRay = SpearPower(Native("RayOfEnfeeblement"), "KWR_KruneSpearRay", "Dragon-Tooth Spear: Ray of Enfeeblement", "The spear's lesser power, three times a day.", 3, 1);
             SpearSlow = SpearPower(Native("Slow"), "KWR_KruneSpearSlow", "Dragon-Tooth Spear: Slow", "The spear's lesser power, three times a day.", 3, 3);
@@ -165,6 +169,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             SpearTelekinesis.ComponentsArray = new BlueprintComponent[] { Run(Act<KwrTelekineticTrip>(a => { })), KruneBlueprints.Component<KwrSpearPossessed>("KWR_KruneSpearHeldTk") };
             KruneBlueprints.Register(SpearTelekinesis);
 
+            Log.Info("Krune gear: spear powers built.");
             Powers = KruneBlueprints.Feature("KWR_KruneArtifactPowers", "Runelord's Artifacts", "Wish through his bonded spear, and the spear's own powers.",
                 KruneBlueprints.GrantResource(Bond), AddFacts(Wish, SpearRay, SpearSlow, SpearTelekinesis, KruneDancing.Loose), KruneBlueprints.GrantResource(s_SpearRays), KruneBlueprints.GrantResource(s_SpearSlows),
                 KruneBlueprints.Component<KwrKruneRod>("KWR_KruneRodLogic"));
