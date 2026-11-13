@@ -374,7 +374,9 @@ namespace KingmakerWakingRune.Sanctum.Krune
         /// <summary>His brain: the director first (spells, items, movement), then his spear when it has nothing to cast.</summary>
         private static BlueprintBrain InterimBrain()
         {
-            var attack = Create<KwrKruneMeleeAction>("KWR_KruneAi_Spear");
+            // The name (and so the id) of the earlier native melee action: saved brains refer to it, and a save that refers to
+            // a missing blueprint does not load.
+            var attack = Create<KwrKruneMeleeAction>("KWR_KruneAi_Melee");
             attack.BaseScore = 1f;
             attack.ActorConsiderations = new Kingmaker.Controllers.Brain.Blueprints.Considerations.Consideration[0];
             attack.TargetConsiderations = new Kingmaker.Controllers.Brain.Blueprints.Considerations.Consideration[0];
