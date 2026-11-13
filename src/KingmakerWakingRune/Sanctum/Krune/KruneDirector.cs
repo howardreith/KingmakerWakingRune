@@ -328,6 +328,12 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return new KrunePlan { Ability = ability, Target = target, Reason = choice.Reason, Swift = swift, Key = choice.Key };
         }
 
+        /// <summary>A phase door passage (through stone) or a greater teleport (anywhere he knows): no line of sight needed.</summary>
+        public static bool ThroughStone(AbilityData ability)
+        {
+            return ability.Blueprint == KruneLocalSpells.PhaseDoorStep || ability.Blueprint.name == "KWR_KruneGreaterTeleport";
+        }
+
         /// <summary>He casts from where he stands: a target beyond the spell's range (this game's fixed ranges) is not chosen.</summary>
         private static bool InRange(UnitEntityData krune, AbilityData ability, TargetWrapper target)
         {
@@ -342,6 +348,10 @@ namespace KingmakerWakingRune.Sanctum.Krune
             if (distance > range - 0.5f)
             {
                 return false;
+            }
+            if (ThroughStone(ability))
+            {
+                return true;
             }
             Vector3 to = target.IsUnit ? target.Unit.Position : target.Point;
             return Kingmaker.Visual.FogOfWar.LineOfSightGeometry.Instance == null || !Kingmaker.Visual.FogOfWar.LineOfSightGeometry.Instance.HasObstacle(krune.EyePosition, to);
@@ -418,8 +428,10 @@ namespace KingmakerWakingRune.Sanctum.Krune
                     Vector3 front = krune.Position + (nearest.Position - krune.Position).normalized * 2f;
                     return new TargetWrapper(Kingmaker.View.ObstacleAnalyzer.GetNearestNode(front).clampedPosition);
                 case KruneAim.Retreat:
-                    float max = ability.Blueprint == KruneLocalSpells.PhaseDoorStep ? 40f.Feet().Meters : 0f;
-                    Vector3? away = KruneMoves.Retreat(krune, foes, max);
+                    // Within the spell's own reach (a phase door passage: 40 ft) and, except through stone, in his sight.
+                    float span = ability.Blueprint.GetRange().Meters;
+                    float max = ability.Blueprint == KruneLocalSpells.PhaseDoorStep ? 40f.Feet().Meters : span > 0f && span < 500f ? span - 0.5f : 0f;
+                    Vector3? away = KruneMoves.Retreat(krune, foes, max, !ThroughStone(ability));
                     return away.HasValue ? new TargetWrapper(away.Value) : null;
                 default:
                     return null;
@@ -589,6 +601,11 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public KwrDirectedCast(AbilityData spell, TargetWrapper target)
             : base(spell, target)
         {
+            // A phase door passage goes through stone: the only cast that needs no line of sight to its point.
+            if (KruneDirector.ThroughStone(spell))
+            {
+                NeedLoS = false;
+            }
         }
 
         public override bool AiCanInterrupt

@@ -53,9 +53,9 @@ namespace KingmakerWakingRune.Sanctum.Krune
 
         /// <summary>
         /// The legal floor point farthest from every foe (and from where he stands), from a fixed grid over the sanctum, within
-        /// a maximum distance from him (0: anywhere in the sanctum). Deterministic; null when nowhere is legal.
+        /// a maximum distance from him (0: anywhere in the sanctum) and, when asked, in his line of sight. Deterministic; null when nowhere is legal.
         /// </summary>
-        public static Vector3? Retreat(UnitEntityData krune, IList<UnitEntityData> foes, float maxMeters)
+        public static Vector3? Retreat(UnitEntityData krune, IList<UnitEntityData> foes, float maxMeters, bool needSight = false)
         {
             Vector3? best = null;
             float bestScore = float.MinValue;
@@ -70,6 +70,10 @@ namespace KingmakerWakingRune.Sanctum.Krune
                     Vector3 p = World(x, y);
                     float fromHim = Vector3.Distance(p, krune.Position);
                     if (maxMeters > 0f && fromHim > maxMeters)
+                    {
+                        continue;
+                    }
+                    if (needSight && Kingmaker.Visual.FogOfWar.LineOfSightGeometry.Instance != null && Kingmaker.Visual.FogOfWar.LineOfSightGeometry.Instance.HasObstacle(krune.EyePosition, p))
                     {
                         continue;
                     }

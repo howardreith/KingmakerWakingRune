@@ -91,12 +91,19 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return v.HitPointFraction < OverwhelmedHitPoints && v.AdjacentFoes > 0 || v.AdjacentFoes >= 3;
         }
 
-        /// <summary>The phase after this decision: withdraw when overwhelmed, return once recovered or found.</summary>
+        /// <summary>
+        /// The phase after this decision: withdraw when overwhelmed and able to (and stay withdrawing while still pressed, so
+        /// the phase never flickers with foes at his side); once clear, return when recovered, found again, or well guarded.
+        /// </summary>
         public static KrunePhase NextPhase(KruneView v)
         {
+            if (Overwhelmed(v) && CanRelocate(v))
+            {
+                return KrunePhase.Recover;
+            }
             if (v.Phase == KrunePhase.Fight)
             {
-                return Overwhelmed(v) && CanRelocate(v) ? KrunePhase.Recover : KrunePhase.Fight;
+                return KrunePhase.Fight;
             }
             return v.HitPointFraction >= RecoveredHitPoints || v.AdjacentFoes > 0 || v.SummonsAlive >= 3 ? KrunePhase.Fight : KrunePhase.Recover;
         }
@@ -146,7 +153,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
             if (v.AdjacentFoes > 0 && Has(v, "Quickened Grease"))
             {
-                options.Add(C("Grease", "Quickened", KruneAim.NearestFoe, "trip the foe at his side"));
+                options.Add(C("Grease", "Quickened", KruneAim.FoeCluster, "trip the foes at his side without slicking his own footing"));
             }
             return options;
         }

@@ -97,6 +97,10 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(KruneAim.Retreat, KruneTactics.Standard(v).Aim, "to a point far from the foes");
             Assert.Equal(KrunePhase.Recover, KruneTactics.NextPhase(v), "withdrawn");
             v.Phase = KrunePhase.Recover;
+            v.HitPointFraction = 1d;
+            v.AdjacentFoes = 3;
+            Assert.Equal(KrunePhase.Recover, KruneTactics.NextPhase(v), "still pressed at full health: he keeps withdrawing rather than flickering back");
+            v.HitPointFraction = 0.3d;
             v.AdjacentFoes = 0;
             v.HasForesight = v.HasSpellTurning = v.HasStoneskin = true;
             KruneChoice recover = KruneTactics.Standard(v);

@@ -293,12 +293,16 @@ namespace KingmakerWakingRune.Sanctum.Krune
 
             var poisonFeature = Feature("KWR_KrunePeriaptPoisonImmunity", "Proof against Poison", "Immune to poison.", ImmuneBuffs(SpellDescriptor.Poison, "KWR_KrunePeriaptNoPoisonBuffs"), ImmuneSpells(SpellDescriptor.Poison, "KWR_KrunePeriaptNoPoisonSpells"));
             Periapt = Equipment(Get<BlueprintItemEquipmentNeck>(AmuletDonor), "KWR_KrunePeriaptOfProofAgainstPoison", "Periapt of Proof against Poison", "This black-stone periapt grants its wearer immunity to poison.", Enchantment("KWR_KrunePeriaptEnchantment", poisonFeature));
-            BlueprintEquipmentEnchantment freedom = s_All.OfType<BlueprintEquipmentEnchantment>().FirstOrDefault(e => e.name == "PermanentFreedomHoldImmun");
+            // The native permanent freedom of movement (its condition, maneuver and descriptor immunities), worn through the ring:
+            // the native ring enchantment only stops holds and paralysis, which would leave him to his own black tentacles.
+            BlueprintBuff freedom = s_All.OfType<BlueprintBuff>().FirstOrDefault(b => b.name == "FreedomOfMovementBuffPermanent");
             if (freedom == null)
             {
-                throw new InvalidOperationException("native enchantment PermanentFreedomHoldImmun not found");
+                throw new InvalidOperationException("native buff FreedomOfMovementBuffPermanent not found");
             }
-            RingOfFreedom = Equipment(Get<BlueprintItemEquipmentRing>(RingDonor), "KWR_KruneRingOfFreedomOfMovement", "Ring of Freedom of Movement", "This ring lets its wearer move and act normally, as freedom of movement, at all times.", freedom);
+            BlueprintComponent[] freedomParts = freedom.ComponentsArray.Select(c => { BlueprintComponent copy = UnityEngine.Object.Instantiate(c); copy.name = "KWR_KruneFreedom_" + c.GetType().Name; return copy; }).ToArray();
+            var freedomFeature = Feature("KWR_KruneFreedomOfMovement", "Freedom of Movement", "Moves and acts normally despite magic that impedes movement.", freedomParts);
+            RingOfFreedom = Equipment(Get<BlueprintItemEquipmentRing>(RingDonor), "KWR_KruneRingOfFreedomOfMovement", "Ring of Freedom of Movement", "This ring lets its wearer move and act normally, as freedom of movement, at all times.", Enchantment("KWR_KruneRingOfFreedomEnchantment", freedomFeature));
             Resolved.Add("freedom of movement from " + freedom.name);
         }
 

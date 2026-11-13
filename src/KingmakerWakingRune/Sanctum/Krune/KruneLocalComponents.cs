@@ -127,12 +127,21 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return Math.Max(1, context.Params.CasterLevel) + 5;
         }
 
+        // One grapple per creature per round: entering and the round's start can fall on the same tick when the tentacles appear.
+        private static readonly System.Collections.Generic.Dictionary<string, double> s_LastTry = new System.Collections.Generic.Dictionary<string, double>();
+
         private static void Grapple(MechanicsContext context, AreaEffectEntityData area, UnitEntityData unit)
         {
             if (unit.Descriptor.State.IsDead || Wards.WardFixtures.IdOf(unit) != null || unit.Buffs.HasFact(KruneLocalSpells.TentaclesGrappled))
             {
                 return;
             }
+            string key = area.UniqueId + "/" + unit.UniqueId;
+            if (s_LastTry.TryGetValue(key, out double last) && Wards.WardRuntime.Now - last < 3d)
+            {
+                return;
+            }
+            s_LastTry[key] = Wards.WardRuntime.Now;
             if (unit.Descriptor.State.HasConditionImmunity(UnitCondition.CantMove))
             {
                 KruneAwakening.Note($"black tentacles cannot hold {unit.CharacterName} (freedom of movement).");
