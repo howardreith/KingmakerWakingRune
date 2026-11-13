@@ -138,6 +138,12 @@ namespace KingmakerWakingRune.Blueprints
                     library.BlueprintsByAssetId[bp.AssetGuid] = bp;
                     all.Add(bp);
                 }
+                List<string> unregistered = BlueprintSelfCheck.Run(library.BlueprintsByAssetId, pending);
+                foreach (string problem in unregistered)
+                {
+                    Log.Error("Blueprint self-check: " + problem + " (a save referring to it would not load).", null);
+                }
+                Log.Info($"Blueprint self-check: {pending.Count} mod blueprints walked, {unregistered.Count} unregistered references.");
 
                 StoryDlcData = new DlcRoot.DlcData
                 {

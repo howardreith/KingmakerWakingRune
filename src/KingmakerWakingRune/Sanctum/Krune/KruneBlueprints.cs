@@ -387,6 +387,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
             director.BaseScore = 20f;
             director.ActorConsiderations = new Kingmaker.Controllers.Brain.Blueprints.Considerations.Consideration[0];
             director.TargetConsiderations = new Kingmaker.Controllers.Brain.Blueprints.Considerations.Consideration[0];
+            // Registered: a saved brain names its actions by id (unregistered, every save made after he woke could not load).
+            s_Register(director);
             var brain = Create<BlueprintBrain>("KWR_KruneBrain");
             brain.Actions = new BlueprintAiAction[] { director, attack };
             s_Register(brain);

@@ -179,18 +179,22 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return applied;
         }
 
+        /// <summary>His most potent offensive spells (page 17): the rod's damage is kept for spells of this level and up.</summary>
+        public const int PotentSpellLevel = 5;
+
         /// <summary>
-        /// Krune's choice: a damaging spell is maximized and empowered while the charges allow (Maximize first: it costs
-        /// more and does more); a summons or a lasting protection is extended only while five charges stay in hand for the
-        /// next damaging spell. Reach is never asked for: his director only chooses targets already in range.
+        /// Krune's choice: one of his most potent damaging spells (5th level and up: cloudkill, acid fog, horrid wilting, his
+        /// wish) is maximized and empowered while the charges allow (Maximize first: it costs more and does more); a lesser
+        /// damaging spell gets nothing; a summons is extended only while five charges stay in hand for the next potent
+        /// spell. Reach is never asked for: his director only chooses targets already in range.
         /// </summary>
-        public static List<string> KruneRequest(bool damaging, bool lasting, int charges)
+        public static List<string> KruneRequest(bool damaging, bool lasting, int charges, int spellLevel)
         {
-            if (damaging)
+            if (damaging && spellLevel >= PotentSpellLevel)
             {
                 return new List<string> { "Maximize", "Empower" };
             }
-            if (lasting && charges >= 6)
+            if (!damaging && lasting && charges >= 6)
             {
                 return new List<string> { "Extend" };
             }

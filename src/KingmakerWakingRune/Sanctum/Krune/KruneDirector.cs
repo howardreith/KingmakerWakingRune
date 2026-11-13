@@ -706,7 +706,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             bool summons = plan.Aim == KruneAim.SummonPoint;
             bool damaging = !summons && (plan.Aim == KruneAim.FoeCluster || plan.Aim == KruneAim.NearestFoe || plan.Aim == KruneAim.FoeCaster)
                 && (spell.AvailableMetamagic & (Kingmaker.UnitLogic.Abilities.Metamagic.Maximize | Kingmaker.UnitLogic.Abilities.Metamagic.Empower)) != 0;
-            return RodRules.KruneRequest(damaging, summons, RuneRod.Charges());
+            return RodRules.KruneRequest(damaging, summons, RuneRod.Charges(), plan.Ability.SpellLevel);
         }
     }
 

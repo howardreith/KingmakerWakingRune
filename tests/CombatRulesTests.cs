@@ -82,10 +82,12 @@ namespace KingmakerWakingRune.Tests
 
         public static void TestKruneAsksTheRodForDamageAndExtendsSummonsSparingly()
         {
-            Assert.Equal("Maximize,Empower", string.Join(",", RodRules.KruneRequest(true, false, 10).ToArray()), "a damaging spell");
-            Assert.Equal("Extend", string.Join(",", RodRules.KruneRequest(false, true, 6).ToArray()), "a summons while five charges stay in hand");
-            Assert.Equal(0, RodRules.KruneRequest(false, true, 5).Count, "not at the cost of the next damaging spell");
-            Assert.Equal(0, RodRules.KruneRequest(false, false, 10).Count, "nothing for anything else");
+            Assert.Equal("Maximize,Empower", string.Join(",", RodRules.KruneRequest(true, false, 10, 8).ToArray()), "horrid wilting");
+            Assert.Equal("Maximize,Empower", string.Join(",", RodRules.KruneRequest(true, false, 10, 5).ToArray()), "cloudkill");
+            Assert.Equal(0, RodRules.KruneRequest(true, false, 10, 2).Count, "acid arrow is not worth the rod");
+            Assert.Equal("Extend", string.Join(",", RodRules.KruneRequest(false, true, 6, 5).ToArray()), "a summons while five charges stay in hand");
+            Assert.Equal(0, RodRules.KruneRequest(false, true, 5, 9).Count, "not at the cost of the next potent spell");
+            Assert.Equal(0, RodRules.KruneRequest(false, false, 10, 9).Count, "nothing for anything else");
             Assert.Equal(true, RodRules.Renews(0d, 86400d, 86400d), "renewed after 24 hours");
             Assert.Equal(false, RodRules.Renews(0d, 86399d, 86400d), "not before");
         }
