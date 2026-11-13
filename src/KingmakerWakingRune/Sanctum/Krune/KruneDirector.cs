@@ -102,6 +102,12 @@ namespace KingmakerWakingRune.Sanctum.Krune
         private static readonly string[] OwnBuffs = { "ForesightBuff", "StoneskinBuff", "TrueSeeingBuff", "MageShieldBuff" };
         private static readonly Dictionary<string, BlueprintBuff> s_Buffs = new Dictionary<string, BlueprintBuff>();
 
+        /// <summary>Read only, for the harness: the session's transient decisions as they stand.</summary>
+        public static string DebugState()
+        {
+            return $"issued={s_IssuedKey ?? "none"}@{s_IssuedAt:0.0} heldBack=[{string.Join(", ", s_Suppressed.Select(p => p.Key + " until " + p.Value.ToString("0.0")).ToArray())}] cachedFor={(s_CachedFor.Length > 0 ? s_CachedFor : "none")}@{s_CachedAt:0.0}";
+        }
+
         public static bool Live(UnitEntityData krune)
         {
             KruneState state = WardRuntime.State?.Krune;

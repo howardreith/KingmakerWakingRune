@@ -816,7 +816,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
             s_LegacyAsked = true;
             KruneState krune = state.Krune;
-            string text = $"An older build of this mod recorded Krune's awakening as due ({state.Ritual.Reason}, {Math.Max(0d, WardRuntime.Now - state.Ritual.AwakeningAt) / 60d:0} minutes ago) but could not create him.\n\nInitialize the awakening from this save's recorded cause, time and current runes? The game will stop at the development checkpoint that follows his opening.\n\nChoose OK to initialize it, or Cancel to keep this as a legacy exploration save with no Krune added (asked once).";
+            string text = $"An older build of this mod recorded Krune's awakening as due ({state.Ritual.Reason}, {Math.Max(0d, WardRuntime.Now - state.Ritual.AwakeningAt) / 60d:0} minutes ago) but could not create him.\n\nInitialize the awakening from this save's recorded cause, time and current runes? After his opening he fights to the death.\n\nChoose OK to initialize it, or Cancel to keep this as a legacy exploration save with no Krune added (asked once).";
             Game.Instance.IsPaused = true;
             EventBus.RaiseEvent(delegate(IDialogMessageBoxUIHandler h)
             {

@@ -557,7 +557,7 @@ namespace KingmakerWakingRune.Diagnostics
                 case "combat":
                     return CombatRead();
                 case "area":
-                    return SpawnArea(args[1], float.Parse(args[2]), float.Parse(args[3]), double.Parse(args[4], System.Globalization.CultureInfo.InvariantCulture), args.Length > 5 ? args[5] : "krune");
+                    return SpawnArea(args[1], float.Parse(args[2]), float.Parse(args[3]), double.Parse(args[4], System.Globalization.CultureInfo.InvariantCulture), args.Length > 5 ? args[5] : "krune", args.Length > 6 ? int.Parse(args[6]) : 0);
                 case "place":
                 {
                     string missing = Resolve(args[1], out UnitEntityData placed);
@@ -1460,6 +1460,7 @@ namespace KingmakerWakingRune.Diagnostics
             KingmakerWakingRune.Sanctum.Krune.KruneState k = WardRuntime.State?.Krune;
             if (k != null)
             {
+                sb.AppendLine("director: " + KingmakerWakingRune.Sanctum.Krune.KruneDirector.DebugState() + " rod: " + KingmakerWakingRune.Sanctum.Krune.RuneRod.DebugState());
                 sb.AppendLine($"krune: stage={k.Stage} dancingForm={k.DancingFormId} until={k.DancingUntil:0.0} lockedUntil={k.DanceLockedUntil:0.0} droppedBag={k.DroppedSpearBagId} rodCharges={k.RodCharges} rodRenewedAt={k.RodRenewedAt:0} now={WardRuntime.Now:0.0} hand={krune?.Body.PrimaryHand.MaybeItem?.Blueprint.name} keepAwake={!KingmakerWakingRune.Sanctum.Krune.KruneAwakening.HarnessNoKeepAwake}");
             }
             TurnBased.Controllers.TurnController turn = Game.Instance.TurnBasedCombatController?.CurrentTurn;
@@ -1475,7 +1476,7 @@ namespace KingmakerWakingRune.Diagnostics
         /// context (Krune's by default, or a party member's: "party:3"). Its rules run natively from then on. For the focused
         /// spell checks only.
         /// </summary>
-        private static string SpawnArea(string name, float x, float y, double seconds, string casterKey)
+        private static string SpawnArea(string name, float x, float y, double seconds, string casterKey, int casterLevel)
         {
             Kingmaker.UnitLogic.Abilities.Blueprints.BlueprintAbilityAreaEffect area = ResourcesLibrary.GetBlueprints<Kingmaker.UnitLogic.Abilities.Blueprints.BlueprintAbilityAreaEffect>().FirstOrDefault(a => a.name == name);
             string missing = Resolve(casterKey, out UnitEntityData caster);
@@ -1485,6 +1486,10 @@ namespace KingmakerWakingRune.Diagnostics
             }
             var context = new Kingmaker.UnitLogic.Mechanics.MechanicsContext(caster, caster.Descriptor, area);
             context.Recalculate();
+            if (casterLevel > 0 && context.Params != null)
+            {
+                context.Params.CasterLevel = casterLevel;
+            }
             var point = new Vector3(SanctumPlan.ToWorldX(x), SanctumPlan.HeightAt(x, y) ?? 0f, SanctumPlan.ToWorldZ(y));
             Kingmaker.EntitySystem.Entities.AreaEffectEntityData spawned = Kingmaker.Controllers.AreaEffectsController.Spawn(context, area, point, TimeSpan.FromSeconds(seconds));
             return $"INJECTED area {name} by {caster.CharacterName} at ({x},{y}) for {seconds} s (caster level {context.Params?.CasterLevel}): id {spawned?.UniqueId}.";

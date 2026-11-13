@@ -84,6 +84,13 @@ namespace KingmakerWakingRune.Sanctum.Krune
             s_PartyApplied.Clear();
         }
 
+        /// <summary>Read only, for the harness: the pending order, if any.</summary>
+        public static string DebugState()
+        {
+            Order o = s_Order;
+            return o == null ? "no order" : $"order {o.Spell.name} [{string.Join("+", o.Requested.ToArray())}] at {o.At:0.0} applied [{string.Join("+", o.Applied.Select(a => a.Feat).ToArray())}]";
+        }
+
         public static bool Possesses(UnitEntityData unit)
         {
             if (unit == null)

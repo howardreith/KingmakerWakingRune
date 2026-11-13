@@ -541,7 +541,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
     {
         private static void Prefix(RuleAttackRoll __instance)
         {
-            if (KruneLocalSpells.SolidFogArea == null || __instance.Weapon == null || __instance.AutoMiss || KwrSolidFogLogic.Delivery(__instance.Weapon.Blueprint) != AttackDelivery.RangedWeapon)
+            AttackDelivery delivery = __instance.Weapon == null ? AttackDelivery.Melee : KwrSolidFogLogic.Delivery(__instance.Weapon.Blueprint);
+            if (KruneLocalSpells.SolidFogArea == null || __instance.AutoMiss || delivery == AttackDelivery.Melee)
             {
                 return;
             }
@@ -556,11 +557,16 @@ namespace KingmakerWakingRune.Sanctum.Krune
             {
                 return;
             }
+            bool attackerIn = KwrSolidFogLogic.In(a), targetIn = KwrSolidFogLogic.In(t);
             bool crosses = fogs.Any(f => SolidFogRules.SegmentNear(a.Position.x, a.Position.z, t.Position.x, t.Position.z, f.Position.x, f.Position.z, f.Blueprint.Size.Meters));
-            if (SolidFogRules.RangedAttackFails(AttackDelivery.RangedWeapon, KwrSolidFogLogic.In(a), KwrSolidFogLogic.In(t), crosses))
+            if (SolidFogRules.RangedAttackFails(delivery, attackerIn, targetIn, crosses))
             {
                 __instance.AutoMiss = true;
                 KruneAwakening.Note($"solid fog: {a.CharacterName}'s ranged weapon attack at {t.CharacterName} is lost in the vapors.");
+            }
+            else
+            {
+                KruneAwakening.Note($"solid fog: {a.CharacterName}'s {(delivery == AttackDelivery.RangedTouch ? "ray or ranged touch" : "ranged weapon")} attack at {t.CharacterName} ({(attackerIn || targetIn || crosses ? "through the fog" : "clear of the fog")}) resolves normally.");
             }
         }
     }
