@@ -282,3 +282,43 @@ Rows above that this round changes are restated here. Everything else carries fo
 | Emerald proxy's fixture Fortitude (+95) | Open for the owner | 0.8.12 | Disintegrate is always partial against it. |
 | Saves: version 4 upgrade, version 5 due (adopt and keep), at ActorReady, at the checkpoint, after death | Proven | 0.8.2–0.8.7 | The ActorReady reload found the calibration defect (0.8.4 → 0.8.5). |
 | Stock isolation | Proven | 0.8.6, 0.8.7 | |
+
+## WR-FINAL draft, 0.9.0–0.9.18, runs `wrfinal-p1`, `wrfinal-p2`, `wrfinal-p3`
+
+Classification of rows still open at the end of this section: **blocker** (fix before "complete"), **boundary** (an
+integration boundary still to test), **adaptation** (accepted, documented), **residual** (optional or noncritical).
+
+| Item | Status | Evidence | Notes |
+|---|---|---|---|
+| Emerald: authored CL 17 object save, both outcomes | Proven (SETUP controlled d20) | 0.9.0 | d20 1: disintegrated, awakening once; d20 20: 10 damage, 0 after hardness. "Emerald proxy Fortitude +95" closed. |
+| A2 door: object save only while its feeder is armed | Proven (SETUP) | 0.9.0 | Armed +10; unarmed never saves. |
+| Stock creatures keep native saves | Proven | 0.9.0 | A wolf, negative control. |
+| Development checkpoint removed; checkpoint saves migrate | Proven | 0.9.1; 0.9.11 (LEGALBREAK, 998) | One notice, nothing reset, the full encounter. |
+| His book: 65 of 65 printed slots, metamagic in raised slots | Proven (READ) | 0.9.1 | Held entries are never castable. |
+| Real casting in real time | Proven (PARTY AI and PLAYER orders) | 0.9.2–0.9.18 | Foresight, summons IV/V/VI(empowered)/IX, Cloudkill (empowered), Spell Turning (rebounds logged), Dispel and Greater Dispel, Web, Glitterdust, Solid Fog, Blindness, Acid Arrow, Shield, Globe, Hostile Juxtaposition (linked), Wall of Stone, quickened Dimension Door. |
+| Standard spells in close quarters | Proven | 0.9.14 | Failed on 0.9.12 (the native attack queued itself); fixed 0.9.13. |
+| Turn-based: quickened plus standard in one turn; summon turns; rounds advance; mode changes both ways | Proven (PLAYER rook, attacks, end turns) | 0.9.17 | Opening stagger in turn-based: WR-07A evidence carried. |
+| Line of sight for point spells | Fixed and proven | 0.9.10 | Quickened tentacles and walls were ordered and never started. |
+| Tentacles: freedom of movement; one grapple a round | Fixed | 0.9.11 | He was held by his own tentacles (ring enchantment only stopped holds). Re-run not yet seen with tentacles cast. **boundary** |
+| Stoneskin on himself | Fixed and proven | 0.9.12 fix; 0.9.17 cast | Native spell admits party members only. |
+| Phase Door passages | Fixed and proven | 0.9.12 fix; 0.9.17 probe | Cast on himself, then a passage step through stone ("a passage used, 7 left"). |
+| Boots of speed, Wish (bond + diamonds), pearl, ring, rod Empower, telekinetic trip | Proven | 0.9.9–0.9.18 | Wish: 5 diamonds consumed, 10 left; pearl recalled an 8th-level slot; ring turned spells. |
+| Dancing spear | Proven (start) | 0.9.17 probe | His hand empty while it fights; its return was not reached before the fight ended. **boundary** (return) |
+| Bond limit (second Wish refused), rod depletion | Pure/code only | | **boundary** |
+| Spear Ego check when wielded; refusal kept in the save | Code; refusal persistence 0.9.17 | | Not seen in play on 0.9.17. **boundary** |
+| Death and aftermath, one loot bag, body consumed | Proven (INJECTED kill) | 0.9.6 (9 items), 0.9.17 (12 items) | |
+| Out-of-sight death | Observed | 0.9.17 | Below zero far from the party, he died when the party approached (engine). |
+| Portal home: success with both artifacts | Proven (INJECTED kill; PLAYER loot, pedestal, confirm) | 0.9.6 | Handover, Success, no replay on reload. |
+| Portal home: withdrawal (Krune alive) | Proven (PLAYER) | 0.9.16 | Warning, verified save, withdrawn debrief, outcome Withdrawn, quest failed; quicksave reload: no replay. |
+| Portal home: artifacts left behind | Proven (INJECTED kill; PLAYER) | 0.9.17 | Warning names both, partial debrief, outcome KruneSlainArtifactsMissing, quest complete with the artifacts objective failed. |
+| Party defeat | Proven (native) | 0.9.11, 0.9.12 | Game over screen; Load Last Save loaded the profile's newest save. |
+| Journal | Proven | 0.9.16, 0.9.17 | Caught up on load; withdrawal and partial outcomes; native journal screenshots. |
+| Second new game in one session | Proven (PLAYER) | 0.9.16 | Fresh setup, new game id, journal fresh. |
+| Stock campaign after the scenario | Proven (PLAYER) | 0.9.16 | No sanctum part, no journal, prologue normal. |
+| Save with a renamed blueprint | Defect found and fixed | 0.9.13 → 0.9.14 | Every awakened-Krune save failed to load; names now kept. |
+| Balance probe: same buffed party, mask 127 vs 0 | Proven (SETUP mask; HARNESS-COMMANDED buffs and casts from their own books; PLAYER attack orders; PARTY AI) | 0.9.17 | Seed 998. Mask 127 (233 hp, AC 27): slain in about 15 s of game time. Mask 0 (293 hp, AC 35): the party fell, Krune at 142. Unbuffed parties lost at both masks. |
+| Legal victory over Krune | Not achieved | | Requires the legitimate journey with real rune sabotage. **blocker** for "complete". |
+| Complete legitimate playthrough | Not run | | **blocker** for "complete". |
+| Contingency, runesight, dominion | Adaptation | | No trigger or eligible target in this game. |
+| Mist resistance only for his summons | Carried (WR-07A) | | Not re-tested with his real summons. **boundary** |
+| Control effects through save/reload | Carried (WR-07A Domination) | | Not re-tested with the director. **boundary** |

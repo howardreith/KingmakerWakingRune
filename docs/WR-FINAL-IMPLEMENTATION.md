@@ -44,11 +44,12 @@ slot is spent (cast before hibernation). The revival's caster-level loss (24 hou
 
 | Spell | Status | Notes |
 |---|---|---|
-| Foresight, Summon Monster IV–VII and IX, Horrid Wilting, Dimension Door, Cloudkill, Dispel Magic, Greater Dispel Magic, Acid Fog, Glitterdust, True Seeing, Grease, Waves of Fatigue, Fear, Stoneskin, Protection from Energy, Sleet Storm, Stinking Cloud, Acid Arrow, Blindness/Deafness (as Blindness), Web, Obscuring Mist, Shield, True Strike, Acid Splash | Native | the game's own spells and ranges (Medium is 40 ft in this game) |
+| Foresight, Summon Monster IV–VII and IX, Horrid Wilting, Dimension Door, Cloudkill, Dispel Magic, Greater Dispel Magic, Acid Fog, Glitterdust, True Seeing, Grease, Waves of Fatigue, Fear, Protection from Energy, Sleet Storm, Stinking Cloud, Acid Arrow, Blindness/Deafness (as Blindness), Web, Obscuring Mist, Shield, True Strike, Acid Splash | Native | the game's own spells and ranges (Medium is 40 ft in this game) |
+| Stoneskin | Native (copy) | the game's own spell and buff; the copy drops only the native "party members only" target limit so he can cast it on himself |
 | Wall of Stone | Local | a straight wall of up to eight 5-ft sections across the chosen point, 10 ft high; blocks movement and sight; cannot form on a creature; breakable |
 | Black Tentacles | Local | 20-ft spread; grapple each round and on entry at CMB = CL + 5 against native CMD; 1d6+4 to the held; break free natively against DC 10 + CMB; freedom of movement defeats it |
 | Greater Teleport | Adapted | only to legal floor within his sanctum: he fights to the death and never leaves |
-| Phase Door | Adapted | CL/2 passages for him alone, each a step of up to 40 ft through stone to legal floor |
+| Phase Door | Adapted | cast on himself: CL/2 passages for him alone; each passage is a move action, a step of up to 40 ft through stone to legal floor (no line of sight needed) |
 | Globe of Invulnerability | Local | an immobile 10-ft globe: spells of 4th level or lower cast from outside cannot affect those inside; existing effects are not suppressed (adapted) |
 | Spell Turning | Local | 1d4+6 levels; single-target spells turned on their caster at the cast; the core partial-turning chance |
 | Hostile Juxtaposition | Adapted | the link on a failed Will save; once a round an attack on him lets the linked foe be swapped in (Will negates); the attack is lost rather than redirected |
@@ -79,26 +80,31 @@ required.
 | Contingency (dispel magic on a teleport-impeding effect) | no trigger in this game | the installed game has no effect that impedes teleportation (no dimensional anchor or lock), so it can never fire; recorded unspent |
 | Runesight | no eligible target | only Thassilonian runes are sensed; the party carries none in this adaptation |
 | Runelord's Dominion | no eligible target | it alters only real Thassilonian rune benefits; the party's palm impression and branded hand are A2 credentials with no benefit to invert, so his director never uses it |
-| Freedom of movement, poison immunity | Native | worn items |
+| Freedom of movement, poison immunity | Native | worn items; his ring carries the game's permanent freedom of movement (the native ring enchantment alone only stops holds), so his own tentacles cannot hold him |
 | Arcane sight, darkvision, see invisibility | as WR-07A | darkvision counts in Vandiana's darkness |
 | Summoner's charm, Augment Summoning | Native (feat); charm per the game's conjuration school | |
 
 ## 6. Tactics
 His director chooses only; every action is a native command (attack rolls, saves, spell resistance, slots, action economy
 and effects stay native). Each decision is taken when the native brain gives him one: in real time when he is free to
-act, in turn-based play on his own turn.
+act, in turn-based play on his own turn. His spear is offered to the brain only once his standard action is ready, so the
+director is asked first each round (seen: a standard spell every round in close quarters, and quickened plus standard
+casting in one turn-based turn).
 - **Swift:** quickened Dimension Door when overwhelmed; quickened Wall of Stone between him and closing foes; quickened
   Glitterdust on an unseen foe; quickened Black Tentacles on a cluster he can hold; quickened summons; quickened Dispel
-  Magic on a buffed foe; quickened Grease at his side; else the spear's telekinesis at a foe at his side.
-- **Standard:** relocation when overwhelmed (Phase Door, Greater Teleport, Dimension Door to the legal floor farthest from
-  the foes); then protection (Foresight, Spell Turning, True Seeing, Stoneskin, Globe, Shield); summons; Wall of Stone;
+  Magic on a buffed foe; quickened Grease on foes beside him, never over his own footing; else the spear's telekinesis at
+  a foe at his side who can be knocked down.
+- **Standard:** relocation when overwhelmed (stepping through an open phase door passage; Phase Door; Greater Teleport;
+  Dimension Door to the legal floor farthest from the foes, within the spell's reach and, except through stone, in his
+  sight); then protection (Foresight, Spell Turning, True Seeing, Stoneskin, Globe, Shield); summons; Wall of Stone;
   Horrid Wilting on 3+; a cloud he is immune to (Cloudkill, Acid Fog, Stinking Cloud) in close quarters; Black Tentacles;
   Hostile Juxtaposition; dispels; control spells; single-target spells; then Wish, the pearl, the dancing spear, the
   spear's powers, acid dart, his wand; else his spear.
 - **Recover:** withdrawn, he protects himself and summons an army (Wish's summons first) until he is back over 60% or a
-  foe reaches him, then returns.
-- **Never:** a target out of range from where he stands; a spell he has not got; a second try of a cast that did not go
-  off for two rounds; anything while dominated, confused, frightened or unable to act.
+  foe reaches him, then returns. While still pressed and able to get away, he stays withdrawing.
+- **Never:** a target out of range or out of his line of sight from where he stands (the cast command needs both); a
+  fallen foe; an area over foes already inside his own area of the same spell; a spell he has not got; a second try of a
+  cast that did not go off for two rounds; anything while dominated, confused, frightened or unable to act.
 
 ## 7. Death and the changed sanctum (page 15 adapted)
 Once dead (any lethal cause): the sarcophagus, the empty soul gem and the remaining foci crumble; the revival's light
@@ -112,3 +118,31 @@ with a view of the lodge; the other shards are described as unknown destinations
 or leaving an artifact. Refused in combat. A verified save first, then the native area load; a failed save or load
 changes nothing and names the save to recover from. The lodge does not replay its setup, briefing, grants, stock or
 token; the debrief opens once; the outcome is recorded once (and in a native flag).
+
+## 9. Journal
+One native quest, "The Waking Rune", with six objectives: prepare and assemble the expedition; overcome the sanctum's
+defenses; confront the revival; defeat Runelord Krune; recover the two artifacts; return and report. Each is derived from
+recorded state only (the sanctum-entered flag, the A4 defenders' defeat, his awakening stage, the conclusion record), never
+from a dialogue visit, and only ever moves forward, so older saves catch up on load. Victory completes the quest; an
+artifact left behind fails only that objective; a withdrawal fails the runelord's objectives and the quest. No objective
+names a hidden room or a rune's solution. Waking Rune sessions only, and never while a save is loading.
+
+## 10. Compatibility
+- **Saved blueprints keep their names and ids.** A renamed brain action broke every awakened-Krune save in 0.9.13 (fixed
+  in 0.9.14); replacements keep the old name.
+- **WR-07A checkpoint saves** enter the full encounter once, with one notice and nothing reset; a diagnostic death stays a
+  test save (outcome "Diagnostic legacy").
+- **Older Krune saves:** his brain is brought up to date on load; a ring of freedom of movement saved before 0.9.11 gains
+  its freedom of movement on load. A save made after his book was filled keeps the native Stoneskin he cannot cast on
+  himself (nothing else in his book changes).
+- **New games and the stock campaign** are untouched by scenario state (seen: a second Waking Rune game in the same
+  session started fresh; a Main Story game after it showed no scenario state, journal or patches).
+
+## 11. Known limitations of this draft
+- The rod's other metamagic options are neither used by him nor offered to a party wielder.
+- Contingency, Runesight and Dominion have no trigger or eligible target in this game (section 5).
+- Planar Binding, Mage's Faithful Hound, Explosive Runes, Fly, Detect Thoughts, Erase, Unseen Servant, Arcane Mark, Mage
+  Hand and Read Magic are held (section 3).
+- The engine does not process a unit's death while it is far from every party member; a Krune brought below zero out of
+  sight dies when the party comes near (his fast healing runs meanwhile).
+- Borrowed model and cropped portrait; journal title "Linzi's Journal" is the game's own.

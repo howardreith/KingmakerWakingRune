@@ -1,6 +1,43 @@
 # Status: The Waking Rune
 
-**Milestone:** WR-07A, Krune's awakening. The candidate is ready for owner review. It ends at a labelled development checkpoint before Krune's combat encounter, which is the next milestone.
+**Milestone:** WR-FINAL draft, the complete adventure for end-to-end playtesting. Work in progress on
+`feature/wr-final-draft` (from `main` at `c110f8b`). **Not yet a playtest candidate:** the legitimate full journey and a
+legal victory over Krune have not been run (see "Open blockers").
+
+## WR-FINAL: 0.9.18 (in progress)
+- **Latest build:** 0.9.18, commit `d004b8e`; zip `artifacts\KingmakerWakingRune-0.9.18.zip`
+  (`7e01ebb4e9be5b7abe096f7849f9028071d3a39eb4d4537d5c009afdd98a5b48`). 231 unit tests pass.
+- **Implemented:**
+  - authored object saves (emerald CL 17 +10; the A2 door only while its feeder is armed; walls never);
+  - the development checkpoint removed (checkpoint saves enter the full encounter once);
+  - Krune's real book (65 printed slots), local spells, gear and artifact powers, and a director choosing native commands;
+  - death, aftermath, one persistent loot bag, the portal home (success, withdrawal, artifacts missing), the lodge
+    debrief and a recorded outcome;
+  - a native journal driven by recorded state.
+- **Proven in play (run `wrfinal-p3`):** his casting in real time and turn-based; standard spells in close quarters;
+  relocation (quickened Dimension Door, Phase Door passage); Wish with diamonds; pearl, ring, rod Empower, telekinesis,
+  the dancing spear; the withdrawal and artifacts-missing endings with their journal states; native defeat and Load Last
+  Save; a completion reload without replay; a second new game; the stock campaign untouched.
+- **Balance probe (SETUP mask, HARNESS-COMMANDED buffs; not a qualification):** the same buffed party slew him in about
+  15 s at mask 127 and was wiped at mask 0. Unbuffed parties lost at both.
+- **Documents:** `docs/WR-FINAL-IMPLEMENTATION.md` (implementation and adaptations), `docs/WR-FINAL-PROGRESS.md`,
+  `docs/WR-FINAL-PLAYER-GUIDE.md`, `docs/WR-FINAL-TESTER-CHECKLIST.md`, the WR-FINAL section of `docs/WR-04-LEDGER.md`.
+- **Installed:** 0.9.17 (the run's transaction `wrfinal-p3` is open; owner state is backed up by the harness).
+
+## Open blockers
+- **The complete legitimate playthrough** (fresh party, real leveling and shopping, rune sabotage, no harness
+  shortcuts) has not been run.
+- **A legal victory over Krune** has not been achieved; the probe says it needs a prepared party and substantial rune
+  sabotage.
+
+## Open boundaries
+Bond limit and rod depletion in play; the dancing spear's return; the Ego check in play; tentacles against his own
+freedom of movement in play; mist resistance and control effects through save/reload with the director.
+
+The sections below are earlier milestones, kept for history.
+
+
+# WR-07A (history)
 
 ## WR-07A: candidate 0.8.13 (after the review closeout)
 - **Candidate:**
@@ -42,15 +79,6 @@
     - 998: the legal break at the checkpoint;
     - 999: Mage Armor dispelled.
 
-## Next exact action
-Owner review of draft PR #7 (WR-07A). If it is accepted, the next milestone is Krune's combat encounter (WR-07B):
-- his spells and slots;
-- the artifacts' powers;
-- the summons' mist resistance;
-- his tactics;
-- the removal of the checkpoint.
-
-The sections below are earlier milestones, kept for history.
 
 
 # WR-06 (history)
