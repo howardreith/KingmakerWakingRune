@@ -32,8 +32,11 @@ Do the battle once in real time and once in turn-based if you can.
 - [ ] **Leave an artifact behind:** after his death, go home without the spear or the rod. Expect a warning, then the
       partial debrief.
 - [ ] **Defeat:** if the main character falls, expect the game's own game-over screen; Load Last Save restores.
-- [ ] **Take the spear in hand:** a party member who equips it rolls Will DC 22 against its Ego; on a failure it is
-      refused for a day.
+- [ ] **Take the spear in hand:** a party member who equips it rolls Will DC 22 against its Ego each time; from the
+      second try it strikes first (1d8+9); on a success it then tries to wrench itself free every round.
+- [ ] **Use the rod:** with the rod carried, a caster's abilities panel has four rod toggles; a toggled spell shows the
+      metamagic and the log names the charges spent.
+- [ ] **Save and load during the Krune fight** (if the game allows a save), including while his spear dances.
 - [ ] **Second new game** in the same session, and a **stock campaign** after: neither shows scenario content.
 
 ## Bug report template

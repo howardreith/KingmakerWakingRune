@@ -1,50 +1,49 @@
 # Status: The Waking Rune
 
-**Milestone:** WR-FINAL draft, the complete adventure for end-to-end playtesting, on `feature/wr-final-draft` (from
-`main` at `c110f8b`). **Implemented end to end, but not qualified:** the legitimate full journey stopped at Kurshu (A1),
-so no legal victory over Krune exists yet. This is a draft for owner review, not a qualified playtest candidate.
+**Milestone:** WR-FINAL draft on `feature/wr-final-draft` (from `main` at `c110f8b`), PR #8 (draft). The major
+progression paths exist and the review's combat and artifact defects are repaired (0.9.20–0.9.25). **Not qualified:**
+the legitimate journey now reaches A4 (Kurshu slain by hand, three rune foci sabotaged legally), but no legal victory
+over Krune exists yet. A draft for owner review, not a qualified playtest candidate.
 
-## WR-FINAL: 0.9.19 (draft for review)
-- **Build:** 0.9.19, commit `35c54e1`; zip `artifacts\KingmakerWakingRune-0.9.19.zip`
-  (`a4feed246d68042156e510f042b01f0bd0edec4af81078711678b61148abcbbd`); DLL
-  `377d7ec5bc3b4498a544ce6f325583aa58182d4564e5246c33c14f430950bc7b`. 231 unit tests pass.
-- **Implemented:**
-  - authored object saves (emerald CL 17 +10; the A2 door only while its feeder is armed; walls never);
-  - the development checkpoint removed (checkpoint saves enter the full encounter once);
-  - Krune's real book (65 printed slots), local spells, gear and artifact powers, and a director choosing native commands;
-  - death, aftermath, one persistent loot bag, the portal home (success, withdrawal, artifacts missing), the lodge
-    debrief and a recorded outcome;
-  - a native journal driven by recorded state;
-  - cold iron weapons in the Quartermaster's stock (supplies audit).
-- **Proven in play (run `wrfinal-p3`):**
-  - Krune: casting in real time and turn-based; standard spells in close quarters; relocation (quickened Dimension Door,
-    Phase Door passage); Wish with diamonds; pearl, ring, rod Empower, telekinesis, the dancing spear;
-  - endings: withdrawal and artifacts-missing, with their journal states; native defeat and Load Last Save; a completion
-    reload without replay;
-  - compatibility: a second new game; the stock campaign untouched;
-  - legitimate party building (PLAYER): new game, briefing, five recruits, native level-ups to 11, shopping, spell
-    preparation, departure flow, arrival.
-- **Balance probe (SETUP mask, HARNESS-COMMANDED buffs; not a qualification):** the same buffed party slew Krune in
-  about 15 s at mask 127 and was wiped at mask 0.
-- **Documents:**
-  - `docs/WR-FINAL-IMPLEMENTATION.md`, `docs/WR-FINAL-PROGRESS.md`;
-  - `docs/WR-FINAL-PLAYER-GUIDE.md`, `docs/WR-FINAL-TESTER-CHECKLIST.md`, `docs/WR-FINAL-INSTALL.md`;
-  - the WR-FINAL sections of `docs/WR-04-LEDGER.md` (the cumulative ledger).
-- **Installed:** 0.9.19 (transaction `wrfinal-p3` ended; 0.8.13 backed up). Seeds:
-  `runtime-evidence\wrfinal-p3\seeds`.
+## WR-FINAL: 0.9.25 (review pass)
+- **Build:** 0.9.25, commit `227c3d8`; zip `artifacts\KingmakerWakingRune-0.9.25.zip`
+  (`e750c929e78fc4843ea8d263758110c6d2666e16c96e234111ef9e643d052a56`); DLL
+  `abc76875e1074b403dee5d5947464a8b88a4c6df76be4641d0d5cb57afa839d1`. 241 unit tests pass.
+- **Repaired after the PR #8 review** (each tested in play; details and evidence in the ledger, "WR-FINAL review pass"):
+  - solid fog: half speed, no 5-foot step, melee-only penalties, ranged weapons fail, rays pass;
+  - black tentacles: one roll per round, +5 to keep a hold, a failed check releases, damage only on success, freedom of
+    movement rechecked;
+  - transient combat state cleared on every load; the rod's order bound to one command and re-checked;
+  - the director uses only foes Krune detects; an unseen foe only at its last seen place;
+  - the dancing spear in his space (follows him, no attacks of opportunity, untargetable, his BAB only), grasped at the
+    end with a 4-round lock, dropped if he cannot act and taken up, falls with him;
+  - the rod's Empower, Enlarge (Reach), Extend and Maximize, up to three per spell, for Krune and for a party caster;
+    Silent, Still and Widen listed as having no mechanic in this game;
+  - the spear's Ego on every attempt, a 1d8+9 strike from the second, and its telekinetic disarm;
+  - Krune kept awake for the encounter: a lethal hit off-screen kills him at once (before, he healed back up).
+- **Found in this pass and fixed:**
+  - his director brain action was never registered, so **every save made after he woke could not load** (0.9.0–0.9.21);
+    fixed in 0.9.22 with a start-up blueprint self-check;
+  - stoneskin's diamond dust was not stocked (0.9.25).
+- **Corrected claims:** the earlier "DR absorbed every hit" (a +3 weapon did get through) and "won, but no acid" (that
+  was a defeat with the deadline started).
+- **Installed:** 0.9.25 (transaction `wrfinal-p4` ended; 0.9.19 backed up in `runtime-backups\wrfinal-p4\mod-existing`).
+  Seeds: `runtime-evidence\wrfinal-p4\seeds`.
 
 ## Open blockers
-- **The complete legitimate playthrough** stopped at A1. Kurshu won four of five attempts against the legitimate party
-  driven by real-time party AI with click orders. The one win had cold iron but no acid to finish her; the later attempts
-  had acid, two with Freedom of Movement. Her Power-Surged Hold Person (DC 20) and Cone of Cold decided each loss. Next
-  step: a hand-played, turn-based attempt from seed `Manual_1003` (or the owner's own play).
-- **A legal victory over Krune** follows from the above; the probe shows rune sabotage matters a great deal.
+- **The complete legitimate playthrough** now reaches A4: from seed `Manual_1013` (the A4 door open, mask 50, all six
+  alive) the A4 fight, Krune, the artifacts, the return and the debrief remain to be played by hand.
+- **A legal victory over Krune** follows from the above.
 
 ## Open boundaries
-Bond limit and rod depletion in play; the dancing spear's return; the Ego check in play; tentacles against his own
-freedom of movement in play; mist resistance and control effects through save/reload with the director.
+Rod depletion to a refused cast in play; the director taking up a dropped spear on its own (0.9.23, code only); Krune's
+choice of rod damage feats on 5th-level-and-up spells (0.9.22, unit-tested).
 
 The sections below are earlier milestones, kept for history.
+
+## WR-FINAL: 0.9.19 (history)
+- 0.9.19, commit `35c54e1`, zip `a4feed24…`: the first draft for review (implementation, endings, journal, cold iron).
+  Superseded by 0.9.25 above.
 
 # WR-07A (history)
 

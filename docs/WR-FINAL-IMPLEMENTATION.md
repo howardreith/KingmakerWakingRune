@@ -47,13 +47,13 @@ slot is spent (cast before hibernation). The revival's caster-level loss (24 hou
 | Foresight, Summon Monster IV–VII and IX, Horrid Wilting, Dimension Door, Cloudkill, Dispel Magic, Greater Dispel Magic, Acid Fog, Glitterdust, True Seeing, Grease, Waves of Fatigue, Fear, Protection from Energy, Sleet Storm, Stinking Cloud, Acid Arrow, Blindness/Deafness (as Blindness), Web, Obscuring Mist, Shield, True Strike, Acid Splash | Native | the game's own spells and ranges (Medium is 40 ft in this game) |
 | Stoneskin | Native (copy) | the game's own spell and buff; the copy drops only the native "party members only" target limit so he can cast it on himself |
 | Wall of Stone | Local | a straight wall of up to eight 5-ft sections across the chosen point, 10 ft high; blocks movement and sight; cannot form on a creature; breakable |
-| Black Tentacles | Local | 20-ft spread; grapple each round and on entry at CMB = CL + 5 against native CMD; 1d6+4 to the held; break free natively against DC 10 + CMB; freedom of movement defeats it |
+| Black Tentacles | Local (0.9.20) | 20-ft spread; **one grapple check per round for the whole area** (CMB = CL + 5, +5 against a creature already held) against each creature's native CMD; a creature entering meets that round's check; a success grapples or keeps the hold and deals 1d6+4; **a failed check against a held creature releases it, with no damage**; each creature is resolved once per round's check (the cast's round never crushes twice); freedom of movement is checked every time, so a creature that gains it is let go; break free natively against DC 10 + CMB |
 | Greater Teleport | Adapted | only to legal floor within his sanctum: he fights to the death and never leaves |
 | Phase Door | Adapted | cast on himself: CL/2 passages for him alone; each passage is a move action, a step of up to 40 ft through stone to legal floor (no line of sight needed) |
 | Globe of Invulnerability | Local | an immobile 10-ft globe: spells of 4th level or lower cast from outside cannot affect those inside; existing effects are not suppressed (adapted) |
 | Spell Turning | Local | 1d4+6 levels; single-target spells turned on their caster at the cast; the core partial-turning chance |
 | Hostile Juxtaposition | Adapted | the link on a failed Will save; once a round an attack on him lets the linked foe be swapped in (Will negates); the attack is lost rather than redirected |
-| Solid Fog, Fog Cloud | Local | the game's mist area at a point; solid fog also slows (speed 5 ft, −2 melee) |
+| Solid Fog, Fog Cloud | Local | the game's mist area at a point (concealment as fog cloud). **Solid fog (0.9.20):** half of each creature's own speed (the game's difficult-terrain multiplier, so a hasted speed is halved too); no 5-foot step in turn-based play; −2 on melee attack and melee damage only; ordinary ranged weapon attacks made from, into or through it fail; rays and other ranged touch attacks resolve normally; freedom of movement moves and attacks normally |
 | Planar Binding, Mage's Faithful Hound, Explosive Runes, Fly, Detect Thoughts, Erase, Unseen Servant, Arcane Mark, Mage Hand, Read Magic | Held | no use in this fight or no mechanic in this game (stated per slot) |
 | Wish | Adapted | known, cast through the bonded spear: the bond's one daily casting **and** 25,000 gp of diamonds consumed each time; duplicates summon monster VIII or horrid wilting (DC as 9th level); never a refill or an instant victory |
 
@@ -65,8 +65,8 @@ slot is spent (cast before hibernation). The revival's caster-level loss (24 hou
 | Ring of spell turning | Local item | three times a day, spell turning (its own charges) |
 | Wands of acid arrow (CL 9, 23) and summon monster III (12) | Native items | printed remaining charges |
 | Acid dart, dimensional steps | Native | the conjuration school's own uses (13 and 17 of 30 ft) |
-| Dragon-tooth spear | Adapted artifact | +3 longspear; Control's competence; dances (the same spear fights in a floating form for 4 rounds with his BAB, then returns; his hand is empty meanwhile); ray of enfeeblement and slow 3/day each; a telekinetic trip (CMB 20) using his swift action; only Krune commands its powers; a party member who takes it in hand faces its Ego (Will DC 22) |
-| Rune-carved rod | Adapted artifact | Krune's director applies Empower (2 of 10 charges) to his damaging spells as the game's rods do; its other options are not used by him nor offered to a party wielder |
+| Dragon-tooth spear | Artifact (0.9.20) | +3 longspear; Control's competence on **his own** attack rolls with it. **Dancing:** loosed as a standard action, the same spear fights for 4 rounds with his base attack bonus (+8, so its iterative attack) and its own +3 only (his competence is not the weapon's); it shares his space and is kept at his side every tick, walking or teleporting; it reaches 10 ft, makes no attacks of opportunity and is an attended object (no target of its own); as the 4 rounds end he grasps it (a free action) and it cannot dance again for 4 rounds; if he cannot act then, it drops in his space and he takes it up with a move action; if he dies it falls with his gear; his hand is empty meanwhile (no Wish or spear powers). Ray of enfeeblement and slow 3/day each; a telekinetic trip (CMB 20) using his swift action; only Krune commands its powers. **Ego:** a party member who takes it in hand makes a DC 22 Will save each time or is compelled to set it down; from the second attempt on (the count is saved) it first strikes them for 1d8+9; one who masters it must keep it against its telekinetic disarm (CMB 20 against their CMD) every round |
+| Rune-carved rod | Artifact (0.9.20) | seven printed feats, up to three on one spell, one charge per spell level added, 10 charges renewed every 24 hours and kept with the rod (Krune's old resource taken over once). **Applied:** Empower, Enlarge (as the game's Reach: the next range band), Extend, Maximize, each only where the spell accepts it (its native metamagic list). **Listed, no effect in this game:** Silent and Still (no verbal or somatic components exist), Widen (no area widening). Krune spends Maximize + Empower on his 5th-level-and-up damaging spells and Extend on summons while 5 charges stay in hand. His order is bound to one command, re-checked (rod in hand, charges) when the spell's parameters are taken, and ends with that command, after 12 s, on a load or at his death. A party caster has a toggle per applied feat while the party carries the rod |
 | Belt, periapt, ring of freedom of movement, diamonds | Native | as before; diamonds a finite reserve, spent by Wish |
 
 Both artifacts are recovered after his death from one ground bag with the rest of his gear (the same items, nothing
@@ -103,10 +103,28 @@ casting in one turn-based turn).
 - **Recover:** withdrawn, he protects himself and summons an army (Wish's summons first) until he is back over 60% or a
   foe reaches him, then returns. While still pressed and able to get away, he stays withdrawing.
 - **Never:** a target out of range or out of his line of sight from where he stands (the cast command needs both); a
-  fallen foe; an area over foes already inside his own area of the same spell; a spell he has not got; a second try of a
-  cast that did not go off for two rounds; anything while dominated, confused, frightened or unable to act.
+  fallen foe; **a foe he does not detect now** by the game's own perception (his group's memory: sight, his see
+  invisibility, blindsense); an area over foes already inside his own area of the same spell; a spell he has not got; a
+  second try of a cast that did not go off for two rounds; anything while dominated, confused, frightened or unable to
+  act.
+- **Unseen foes (0.9.20):** a foe that vanishes from his perception is remembered only where he last saw it, for 12 s.
+  That place, within 30 ft and in his line of sight, is the reason and the aim for a search spell (Glitterdust, True
+  Seeing); he never learns where the foe is now.
+- **Session state (0.9.20):** the director's cached plan (bound to one Krune), hold-backs, issued cast, sight memory, the
+  tentacles' round rolls and a pending rod order are cleared whenever an area unloads or loads; an order dated after the
+  clock (a load the reset missed) is void. Everything that must persist is in the saved state.
 
 ## 7. Death and the changed sanctum (page 15 adapted)
+**His death is processed wherever he is (0.9.20).** The game lets a unit sleep when it is in the fog of war, out of
+combat and idle; a sleeping unit's life state, round ticks (fast healing) and brain are not processed. From his
+emergence Krune is kept awake (the game's own `Sleepless` flag, saved with him), so the native life controller decides
+his death wherever he is: damage at or above his hit points kills him (he has no dying condition and no regeneration).
+Measured on seed 998 (INJECTED 300 damage at 293 hp, out of combat, placed behind the A3 core): kept awake, he died in
+the same tick; with the keep-awake suspended (a labelled control), he stayed "Conscious" at −7 and his fast healing
+brought him back to 2 hp within 15 s, so a lethal hit was undone. While he is in combat the game does not let him
+sleep anyway (control at A1's north end: in combat, not sleeping, keep-awake suspended); with it on, a party member's
+Acid Fog finished him there, out of the party's view, in the tick his hit points ran out.
+
 Once dead (any lethal cause): the sarcophagus, the empty soul gem and the remaining foci crumble; the revival's light
 fades; the mist dissipates and exposes no one again; his body is consumed after 4 seconds, his gear first set down as
 one native loot bag. No collapse or countdown; other enemies, summons and spells follow their own rules. Each step is
@@ -130,6 +148,10 @@ names a hidden room or a rune's solution. Waking Rune sessions only, and never w
 ## 10. Compatibility
 - **Saved blueprints keep their names and ids.** A renamed brain action broke every awakened-Krune save in 0.9.13 (fixed
   in 0.9.14); replacements keep the old name.
+- **Every blueprint a save can refer to is registered.** His director brain action was never registered (0.9.0–0.9.21),
+  so any save made after he woke referred to a missing blueprint and could not load ("Failed to load blueprint by
+  guid"). Fixed in 0.9.22, with a start-up self-check that walks every mod blueprint for references to unregistered ones
+  (0.9.23: 806 walked, 0 found; it also caught his portrait).
 - **WR-07A checkpoint saves** enter the full encounter once, with one notice and nothing reset; a diagnostic death stays a
   test save (outcome "Diagnostic legacy").
 - **Older Krune saves:** his brain is brought up to date on load; a ring of freedom of movement saved before 0.9.11 gains
@@ -139,11 +161,10 @@ names a hidden room or a rune's solution. Waking Rune sessions only, and never w
   session started fresh; a Main Story game after it showed no scenario state, journal or patches).
 
 ## 11. Known limitations of this draft
-- The rod's other metamagic options are neither used by him nor offered to a party wielder.
+- The rod's Silent, Still and Widen have no mechanic in this game (listed, not applied).
 - Contingency, Runesight and Dominion have no trigger or eligible target in this game (section 5).
 - Planar Binding, Mage's Faithful Hound, Explosive Runes, Fly, Detect Thoughts, Erase, Unseen Servant, Arcane Mark, Mage
   Hand and Read Magic are held (section 3).
-- The engine does not process a unit's death while it is far from every party member; a Krune brought below zero out of
-  sight dies when the party comes near (his fast healing runs meanwhile).
 - Borrowed model and cropped portrait; journal title "Linzi's Journal" is the game's own.
-- The Quartermaster had no cold iron; native cold iron weapons were added in 0.9.19 (the supplies audit).
+- Supplies audit: cold iron +1 weapons added in 0.9.19 (the +3 weapons, which the game treats as cold iron, were
+  already stocked; see the ledger on Kurshu's damage reduction); diamond dust for stoneskin added in 0.9.25.

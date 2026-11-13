@@ -35,7 +35,9 @@ Freedom of movement, dispels, see invisibility and a way to deal with summons ar
 - **Defeat:** if your hero falls, the game ends; load a save.
 
 The outcome is recorded in your save. The artifacts cannot be dropped. A character who takes the spear in hand must
-resist its will.
+resist its will each time (and it does not take kindly to a second try); one who masters it still has to keep hold of
+it. While the party carries the rod, each spellcaster gains toggles for its Empower, Enlarge, Extend and Maximize Spell
+(up to three on one spell, from its 10 daily charges).
 
 ## Saves and the mod
 Saves from this adventure need the mod. Removing the mod does not affect your other campaigns.
@@ -53,11 +55,13 @@ party quickly.
 - **Turn-based mode** works throughout (the rook button by the hourglass).
 
 ## Preparation hints (no spoilers beyond the first room)
-Bring cold iron for something that shrugs off ordinary steel, acid for something that will not stay down, and a plan
-for being held in place. The Quartermaster stocks all three.
+Bring cold iron (or +3 weapons) for something that shrugs off ordinary steel, acid for something that will not stay
+down, and a plan for being held in place. The Quartermaster stocks all of these, and diamond dust for stoneskin (each
+casting uses a good deal of it). Sabotaging the runes takes varied tools: holds and entanglement, fire or acid, dispels,
+negative energy or death magic, and a skilled hand with magic devices or traps.
 
 ## Known limitations of this playtest draft
-- Krune's rune-carved rod offers him Empower; its other options are not available to him or to you.
+- The rod's Silent, Still and Widen Spell have no effect in this game (it has no verbal or somatic components and no
+  way to widen an area).
 - Some of Krune's printed spells and abilities have no use in this game (they are listed in his spellbook as held).
 - Placeholder model and portrait for Krune; the journal's title is the game's own ("Linzi's Journal").
-- A death far from the party is processed by the game when the party comes near.

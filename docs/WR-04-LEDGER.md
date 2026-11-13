@@ -317,11 +317,11 @@ integration boundary still to test), **adaptation** (accepted, documented), **re
 | Stock campaign after the scenario | Proven (PLAYER) | 0.9.16 | No sanctum part, no journal, prologue normal. |
 | Save with a renamed blueprint | Defect found and fixed | 0.9.13 → 0.9.14 | Every awakened-Krune save failed to load; names now kept. |
 | Balance probe: same buffed party, mask 127 vs 0 | Proven (SETUP mask; HARNESS-COMMANDED buffs and casts from their own books; PLAYER attack orders; PARTY AI) | 0.9.17 | Seed 998. Mask 127 (233 hp, AC 27): slain in about 15 s of game time. Mask 0 (293 hp, AC 35): the party fell, Krune at 142. Unbuffed parties lost at both masks. |
-| Legal victory over Krune | Not achieved | | Requires the legitimate journey with real rune sabotage. **blocker** for "complete". |
+| Legal victory over Krune | Not achieved | | Requires the legitimate journey with real rune sabotage; see the second attempt below (reached A4 at mask 50). **blocker** for "complete". |
 | Complete legitimate playthrough | Not run | | **blocker** for "complete". |
 | Contingency, runesight, dominion | Adaptation | | No trigger or eligible target in this game. |
-| Mist resistance only for his summons | Carried (WR-07A) | | Not re-tested with his real summons. **boundary** |
-| Control effects through save/reload | Carried (WR-07A Domination) | | Not re-tested with the director. **boundary** |
+| Mist resistance only for his summons | Proven in 0.9.24 | | See the review pass below. |
+| Control effects through save/reload | Proven in 0.9.24 | | See the review pass below. |
 
 ### WR-FINAL legitimate journey attempt, 0.9.18–0.9.19, run `wrfinal-p3`
 
@@ -339,3 +339,60 @@ All PLAYER input (mouse and keyboard), PARTY AI in combat; READ diagnostics only
 | Departure, verified save, arrival, journal | Proven (PLAYER) | 0.9.18, 0.9.19 | "Before the Sanctum of Sloth" saves verified; journal moved to "Overcome the sanctum's defenses". |
 | Kurshu (A1) with the legitimate party | **Not passed** | 0.9.18–0.9.19 | Five attempts: no cold iron (lost: DR absorbed every hit); cold iron (won: Kurshu defeated, unconscious under regeneration, but no acid was carried, so she could not be finished); then with acid flasks three losses, two with Freedom of Movement on four members. Her Power-Surged Hold Person (DC 20) and Cone of Cold carried each loss. |
 | Complete legitimate playthrough | **Blocked at A1** | | See STATUS: a party driven by real-time PARTY AI plus click orders does not reliably beat Kurshu at this profile; a hand-played tactical attempt is the next step. |
+
+**Corrections to the attempt table above (review of PR #8):**
+- "No cold iron (lost: DR absorbed every hit)" was wrong. The 0.9.18 log shows Bryn's **+3** longsword hit through the
+  damage reduction (15 of 15); only Maren's +2 scimitar was absorbed (10 − 10 = 0). The game treats +3 weapons as cold
+  iron (as WR-05 recorded), so the +3 weapons already stocked were an answer; the 0.9.19 cold iron +1 weapons add a
+  cheaper one. Every 0.9.19 cold iron weapon carries both an enhancement bonus and cold iron (magic and cold iron).
+- "Won, but no acid" was a **defeat**: "DEFEATED at 101206 (unconscious, regenerating); deadline started True, due at
+  106606". The 90-minute deadline started as printed; she could not be killed without acid, but A2 was open to them.
+
+## WR-FINAL review pass, 0.9.20–0.9.25, run `wrfinal-p4`
+
+Builds: `1984511` (0.9.20), `0af1be8` (0.9.21), `34032cd` (0.9.22), `5a7fcec` (0.9.23), `5759e23` (0.9.24), `227c3d8`
+(0.9.25). Labels as before. INJECTED areas are Krune's own local spell areas spawned at a point with a chosen caster's
+context, for focused rule checks only. Logs: `runtime-evidence\wrfinal-p4\umm-log-launch1…7`.
+
+| Item | Status | Evidence | Notes |
+|---|---|---|---|
+| Solid fog: half of each creature's own speed | Proven (INJECTED area; SETUP positions; INJECTED Haste and Freedom of Movement as controls) | 0.9.20 launch 1 | Marra 30 ft: 3.05 → 1.52 m/s in the fog; the bear 40 ft: 4.06 → 2.03; the **hasted** bear 70 ft → 3.56 (half of 7.11); Ilsa with freedom of movement 3.05 inside (control); Marra 3.05 once given freedom of movement. |
+| Solid fog: melee −2 attack and damage; ranged weapons fail; rays pass | Proven (HARNESS-COMMANDED attacks; SETUP spawned foes) | 0.9.20–0.9.23, launches 1 and 4 | Bear, hound and axiomite melee in the fog: −2 / −2 logged on each swing. Ilsa's crossbow from inside and Kael's crossbow from outside through the fog: "lost in the vapors" every shot. Ray of Enfeeblement (Ilsa, Kael) through the fog: "resolves normally". |
+| Solid fog: no 5-foot step in turn-based play | Proven (SETUP turn-based; READ turn) | 0.9.20 launch 1 | Axiomite and bear in the fog: `restrictFiveFootStep=True hasFiveFootStep=False`; Ilsa and Marra (freedom of movement) and Kael (outside): step available. |
+| Black tentacles: one roll per round, +5 to keep, failure releases, damage only on success | Proven (INJECTED area at CL 17; SETUP spawned axiomites) | 0.9.23 launch 4 | One "round's grapple check" per round for the area; "d20 8 + 22 vs CMD 27: Grappled", next round "d20 7 + 22 + 5 vs CMD 27: Maintained"; at CL 1: "13 + 6 + 5 vs CMD 26: Released" (no crush). |
+| Black tentacles: freedom of movement rechecked on the held | Proven (INJECTED Freedom of Movement on a held axiomite) | 0.9.23 launch 4 | "Axiomite slips free of the tentacles (freedom of movement)", then "freedom of movement: Immune" at the next check. |
+| Black tentacles: one resolution per creature per round | Proven | 0.9.23 launch 4 | A single area resolved each creature once per round. Two overlapping test areas each resolved it (as two castings would). A creature that broke free mid-round met the same round's check again on re-entry (a new grapple, by rule). |
+| Session state cleared on load in the same process | Proven (SETUP saves and loads) | 0.9.21 launch 2 | Before: `issued=Blindness/Deafness@131198.9 cachedFor=b7dd…`, rod at 2 charges. After loading the earlier seed: `issued=none cachedFor=none rod: no order`, `rodCharges=-1` (the seed's own); "session state cleared (area unloading)" and "(area loaded)". |
+| Rod order bound to one command | Proven in play | 0.9.21 launch 2 | One order per command ("rod: order SummonMonsterVSingle [Extend]"), spent on that cast only. Cancellation on command end, 12 s, load or death: code and unit tests. |
+| Director ignores undetected foes | Proven (INJECTED removal of his see invisibility; INJECTED Greater Invisibility on Tessa) | 0.9.21 launch 2 | `kruneSees=False` for the invisible Tessa; with the party out of his sight: "director idle: no foe he can see within 40 m". |
+| Dancing spear: his space, follows a relocation, untargetable | Proven (HARNESS-COMMANDED loose; SETUP positions as the relocation) | 0.9.21–0.9.22 | The form 0.4 m from him after each SETUP move, before and after a reload; `untargetable=True`. |
+| Dancing spear: grasped at the end, 4-round lock | Proven | 0.9.21 | "he grasps the dragon-tooth spear as its dance ends (a free action); it cannot dance again until 131159"; Loose then "available False". |
+| Dancing spear: reload while dancing | **Defect found and fixed**, then Proven | 0.9.21 → 0.9.22 | The mid-dance save did not load: "Failed to load blueprint by guid 71bfb7d3…", which is `KWR_KruneAi_Director`, never registered since 0.9.0 (so every save made after he woke). Registered in 0.9.22, with a start-up self-check. The same kind of save then loaded, the dance continued and ended in his hand at its saved time. |
+| Dancing spear: dropped when he cannot act, then taken up | Proven (INJECTED stun at the dance's end; HARNESS-COMMANDED take-up) | 0.9.22 launch 3 | "its dance over, the dragon-tooth spear drops in his space: he could not grasp it"; take-up as a move action. **Finding:** his director looked for foes first and idled with the spear on the floor; 0.9.23 takes it up first (code; not re-seen in play). |
+| Dancing spear: his death while it dances | Proven (INJECTED lethal damage) | 0.9.22 launch 3 | "the dancing spear falls with its master"; his one loot bag lists it. |
+| Spear Ego: every attempt, a strike from the second, telekinetic disarm | Proven (INJECTED loot transfer; HARNESS-COMMANDED equip) | 0.9.23 launch 4 | Dorn: attempt 1, Will 23 vs 22, mastered; then "d20 18 + 20 vs CMD 26: disarmed"; attempt 2, struck for 14, Will 16, set down; attempt 3, struck for 10, Will 13, set down. The messages appear in the game log. |
+| Rod: Krune's metamagic and charges | Proven in play | 0.9.21 launches 2 and 5 | Extend on his summons (1 charge each); Maximize + Empower on Acid Arrow (5). 0.9.22 keeps the damage feats for 5th-level-and-up spells (unit-tested; not re-seen). Charges taken over from his resource (10) and kept with the rod. |
+| Rod: a party wielder | Proven (PLAYER toggle; HARNESS-COMMANDED cast from Kael's own book) | 0.9.23 launch 4 | Kael's abilities panel showed four rod toggles; Extend on by click; Haste: "the rune-carved rod adds Extend to Kael Ashen's Haste: 1 charges spent, 9 left". |
+| Rod depletion | Partly proven | 0.9.21 | 10 → 2 in one fight; a cast refused for lack of charges is unit-tested, not seen in play. **boundary** |
+| Wish once a day | Proven (HARNESS-COMMANDED use of his own ability) | 0.9.24 launch 5 | "5 diamonds (25,000 gp) consumed; 10 left", bond 1 → 0; both variants then "available False". |
+| Mist +4 only for his summons | Proven | 0.9.24 launch 5 | "Summoned Soul Eater is Krune's summons: +4 resistance (Will 7 -> 11, the larger resistance bonus only)". |
+| A control effect through save and reload | Proven (INJECTED Confusion; SETUP save and load) | 0.9.24 launch 5 | After the load: the buff present, "director idle: not free"; once it ended the director resumed ("phase Fight -> Recover", quickened Dimension Door, Wish summons). |
+| Lethal damage off-screen | Proven, with a control | 0.9.23 launch 4 | Kept awake: dead in the same tick. Keep-awake suspended: "Conscious" at −7, healed to 2 by fast healing (the suspected defect was real). Implementation doc, section 7. |
+
+### WR-FINAL legitimate journey, second attempt, 0.9.24–0.9.25, run `wrfinal-p4`
+
+From `Manual_1006` (the same legitimate party, built and equipped by PLAYER input in `wrfinal-p3`). Every party action
+below is PLAYER input (portraits, spellbook, belt, inventory, dialogue, the turn-based end-turn button); READ for state
+and the camera (`look`) only; SETUP only for the named seed saves. No harness move, cast, attack or dialogue.
+
+| Item | Status | Notes |
+|---|---|---|
+| Supplies | Proven (PLAYER) | The new diamond dust (0.9.25; reconciled into the existing lodge natively: "saved 0, live 40") bought, 13 for 650 gp; Bryn moved to the stocked Longsword +3. |
+| Preparation | Proven (PLAYER) | Freedom of Movement scrolls on Sela, Orin and the bear (the rest had it); communal Stoneskin; Resist Cold and Fire (communal); True Seeing and Heroism on Bryn; Barkskin ×3; Mage Armor and False Life on Orin. Turn-based mode on (rook button). |
+| Kurshu (A1), turn-based, hand-commanded | **Won, permanently** | Haste; Good Hope; Yadmila's Greater Dispel removed her Displacement (Maren's failed); Aldric's cold iron +1 earth breaker crit for 100 and Bryn's +3 longsword wore her down through two Cure Serious Wounds; "DEFEATED at 101855 (unconscious, regenerating); deadline started True, due at 107255"; Sela's acid flask (spell resistance overcome): "slain at 101866; regeneration ended". **No damage to the party.** Five rounds. |
+| A2 by the printed credential | Proven (PLAYER) | Impression of Support-N1's palm; "A2 latch released by Yadmila with the Sihedron impression". The stair's alarm rang (alert 3). |
+| Rune sabotage | **3 of 7 by legal play** (mask 50) | Alacrity (A3b): Maren's Entangle held 10 rounds. Armor (A3e): Orin's second Fireball (46 fire − 8 = 38 ≥ 35). Control (A3f): Sela's Use Magic Device 39 vs 35 (after 33 and 29). Defense (A3c) held: Aldric's hits top out below 43 and two dispels failed (17 and 20 vs 25); one curse brand on Aldric. Life ×3: no negative energy, poison or death spell prepared. |
+| A4 door opened; defenders preparing | Reached | The defenders buffed natively (Blur, Bull's Strength, Cat's Grace, invisibility). |
+| A4 fight, Krune, artifacts, return, debrief | **Not run in this pass** | Stopped at the A4 door for this session's budget (each turn costs many PLAYER clicks). Seeds: `Manual_1011` (Kurshu slain), `Manual_1012` (mask 50), `Manual_1013` (A4 door open). |
+
+**Player planning note:** stoneskin takes more dust than the 13 bought covered for a second set; not a mod defect.
