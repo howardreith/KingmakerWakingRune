@@ -239,7 +239,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 return true;
             }
             float distance = target.IsUnit ? krune.DistanceTo(target.Unit) - target.Unit.Corpulence : Vector3.Distance(krune.Position, target.Point);
-            return distance <= range + krune.Corpulence + 0.3f;
+            // Inside the approach distance with a margin, so the cast starts where he stands and never walks him into a blocked path.
+            return distance <= range - 0.5f;
         }
 
         private static readonly Dictionary<string, double> s_Suppressed = new Dictionary<string, double>();
@@ -340,7 +341,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             int bestCount = 0;
             foreach (Vector3 c in candidates)
             {
-                if (maxRange > 0f && Vector3.Distance(c, krune.Position) > maxRange + krune.Corpulence)
+                if (maxRange > 0f && Vector3.Distance(c, krune.Position) > maxRange - 0.5f)
                 {
                     continue;
                 }
