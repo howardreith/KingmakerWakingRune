@@ -541,9 +541,14 @@ namespace KingmakerWakingRune.Diagnostics
                 case "cantarget":
                     return CanTarget(Member(args[1]), args[2], args[3]);
                 case "screen":
-                    return ScreenPoint(args[1]);
+                    return args.Length > 2 ? GridScreen(float.Parse(args[1]), float.Parse(args[2])) : ScreenPoint(args[1]);
                 case "look":
                     // The camera only, as a player's own scrolling would: no unit, rule or state changes.
+                    if (args.Length > 2)
+                    {
+                        Game.Instance.UI.GetCameraRig().ScrollToImmediately(GridWorld(float.Parse(args[1]), float.Parse(args[2])));
+                        return $"CAMERA moved to grid ({args[1]},{args[2]}).";
+                    }
                     Resolve(args[1], out UnitEntityData seen);
                     if (seen == null)
                     {
@@ -1255,6 +1260,18 @@ namespace KingmakerWakingRune.Diagnostics
         }
 
         /// <summary>Read only: where a fixture, body or party member stands in game-window pixels, for aiming real clicks.</summary>
+        private static Vector3 GridWorld(float x, float y)
+        {
+            return new Vector3(SanctumPlan.ToWorldX(x), SanctumPlan.HeightAt(x, y) ?? 0f, SanctumPlan.ToWorldZ(y));
+        }
+
+        /// <summary>READ: where a sanctum grid point is on the screen (to aim a player's click), and whether it is in view.</summary>
+        private static string GridScreen(float x, float y)
+        {
+            Vector3 p = Camera.main.WorldToScreenPoint(GridWorld(x, y));
+            return $"READ screen grid ({x},{y}): x={p.x:0} y={Screen.height - p.y:0} onScreen={p.z > 0 && p.x >= 0 && p.x <= Screen.width && p.y >= 0 && p.y <= Screen.height} ({Screen.width}x{Screen.height}).";
+        }
+
         private static string ScreenPoint(string target)
         {
             string missing = Resolve(target, out UnitEntityData unit);
