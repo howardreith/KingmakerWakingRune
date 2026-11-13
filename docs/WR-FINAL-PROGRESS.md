@@ -63,6 +63,32 @@ section. Results with evidence labels go to the acceptance ledger, not here.
   boots of speed, pearl of power, ring of spell turning, acid dart/wand use seen, contingency, runesight, dominion; the
   relocation phase seen; turn-based fight; performance.
 
+## Checkpoints 4–5 so far (0.9.6–0.9.7, run `wrfinal-p2`)
+- **Conclusion** (`ConclusionRules` pure, `SanctumState.Conclusion`, on the main character's part, so it travels to the
+  lodge): death, aftermath, loot, return and debrief are separate, once-only events; the outcome (Success,
+  KruneSlainArtifactsMissing, Withdrawn, DiagnosticLegacy) is decided only at the debrief. Native flag `KWR_ScenarioOutcome`.
+- **Aftermath** (`KruneAftermath`): the sarcophagus (now its own object, `SanctumDressing.Sarcophagus`) is replaced by
+  rubble; the empty gem shows broken without setting `Gem.Destroyed`; foci show broken, lights off, plate proxies out of
+  the game; the A5 glow and flash off; the mist stops exposing (`WardHazards.MistGone`) and its particles stay off
+  (`SanctumMist.Dissipated`, reset per load). Body consumed 4 s after death. Re-applied on every load.
+- **Loot** (`KruneLoot`): before the body goes, every lootable item he holds moves (same instances) into one native
+  `DroppedLootBag` in the area's main state. Artifacts identified by their unique blueprints (items have no saved id).
+  The artifacts cannot be dropped (`ArtifactDropPatch`).
+- **Portal** (`PortalTransit`, the RefugeTransferFlow host): the pedestal offers "look through the matching shard" and
+  "step through to the lodge (one way)" with no roll; warnings from `ConclusionRules.ReturnWarning`; refused in combat;
+  verified save "Before the portal home"; `LoadArea(EnterPoint)`; return committed on lodge load.
+- **Lodge** (`DebriefService`, `LodgeDialogs.Debrief*`): opens once when returned; success / partial / withdrawn
+  exchanges; handover of exactly the artifacts (inventory and every character's slots) recorded before removal; the
+  masked figure leaves (out of the game on every load); epilogue box. Token reuse is already refused once the sanctum
+  was entered (`SanctumPolicy.CheckTravel`).
+- **Seen (0.9.6, seed 996, INJECTED kill to reach the end quickly):** slain once; 9 items in the bag; rubble, no mist,
+  glow gone; PLAYER: loot collected, pedestal, view, confirm; save verified; lodge restored (no setup replay); return
+  committed (spear and rod carried, all six); success debrief; handover of both; outcome Success; a lodge save reloaded:
+  no debrief replay.
+- **Next:** gear and artifacts (boots of speed, pearl of power, ring of spell turning, Wish via the bonded spear and
+  diamonds, the spear's dancing, lesser powers and telekinesis, the rod's metamagic and the wield/Ego check), then the
+  withdrawal and defeat paths, the journal, supplies, compatibility, a legal victory, and the full legitimate journey.
+
 ## Engine inventory for Krune (catalog of 82,017 blueprints)
 - **Native spells:** Foresight; Summon Monster IV–IX (Base + Single variants); Horrid Wilting; Dimension Door
   (`DimensionDoorCasterOnly`); Cloudkill; Dispel Magic (Target/Point) and Greater (Target/Area); Acid Fog; Glitterdust;
