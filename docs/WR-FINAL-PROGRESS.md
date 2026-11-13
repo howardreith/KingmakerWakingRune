@@ -89,6 +89,33 @@ section. Results with evidence labels go to the acceptance ledger, not here.
   diamonds, the spear's dancing, lesser powers and telekinesis, the rod's metamagic and the wield/Ego check), then the
   withdrawal and defeat paths, the journal, supplies, compatibility, a legal victory, and the full legitimate journey.
 
+## Gear and live-fight fixes (0.9.8–0.9.14, run `wrfinal-p3`)
+- **Gear (0.9.8–0.9.9):** boots of speed, pearl of power, ring of spell turning, Wish through the bond plus diamonds,
+  the spear's ray, slow, telekinetic trip and dance, the rod's Empower. 0.9.8 failed safe (Krune not built: a variant's
+  parent set through a missing field); 0.9.9 fixed it.
+- **Seen in real fights (no injected damage; PLAYER moves and attack orders, PARTY AI otherwise):** boots on; Foresight;
+  quickened summons IV/V; summon IX; empowered summon VI and Cloudkill (the rod); spell turning (rebounds logged);
+  quickened Dispel Magic and Greater Dispel; Web; Blindness; a raised wall broken by the party natively; quickened
+  Dimension Door away when pressed; Wish's summons with 5 diamonds consumed; the globe; telekinetic trips.
+- **Found and fixed:**
+  - 0.9.10: quickened tentacles and walls were ordered and never started: the cast command also needs line of sight
+    (`UnitCommand.IsUnitEnoughClose`), so points are chosen in his sight;
+  - 0.9.11: his phase flickered every tick with three foes at his side at full health; his own tentacles held him (the
+    native ring enchantment only stops holds: the ring now carries the native permanent freedom of movement); two
+    grapple rolls when the tentacles appeared; quickened grease aimed at the foe beside him (it took his own footing);
+    relocation points beyond the spell's reach or out of sight;
+  - 0.9.12: native Stoneskin admits only party members (a copy without that limit); Phase Door aimed at a point though
+    it is cast on himself (now cast on himself, then the director steps through its passages, a move action);
+  - 0.9.13: in close quarters the native attack queued itself and took every round, so only swift spells were cast
+    (his spear is now offered only when his standard action is ready, after the director);
+  - 0.9.14: 0.9.13 renamed that brain action, and every save with an awakened Krune failed to load. The name and id
+    are kept now.
+- **Defeat path (seen twice on seed 996, once on LEGALBREAK):** the main character falls to his spear criticals, and
+  the game's own game-over screen offers Load Last Save; it reloaded the profile's newest save natively.
+- **Old checkpoint save (LEGALBREAK, WR-07A):** loads into the full encounter once ("nothing reset"), with no checkpoint.
+- **Balance note:** seed 996's party did no damage to him in two minutes (AC 36–38 under Foresight and Mage Armor);
+  LEGALBREAK's party brought him to 24% once and to 68% once before falling.
+
 ## Engine inventory for Krune (catalog of 82,017 blueprints)
 - **Native spells:** Foresight; Summon Monster IV–IX (Base + Single variants); Horrid Wilting; Dimension Door
   (`DimensionDoorCasterOnly`); Cloudkill; Dispel Magic (Target/Point) and Greater (Target/Area); Acid Fog; Glitterdust;
