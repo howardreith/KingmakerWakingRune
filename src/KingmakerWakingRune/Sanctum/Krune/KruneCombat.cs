@@ -18,7 +18,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             {
                 return;
             }
-            string book = KruneSpellbook.Fill(actor);
+            string book = KruneSpellbook.Fill(actor) + " Gear: " + KruneGear.Equip(actor) + ".";
             EnsureBrain(actor);
             krune.CombatInitialized = true;
             krune.CombatInitializedNote = book;

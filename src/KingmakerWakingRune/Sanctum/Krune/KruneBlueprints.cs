@@ -144,6 +144,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
             DimensionalSteps = Named<BlueprintAbilityResource>("ConjurationDimensionalStepsResource");
             RodCharges = Resource("KWR_KruneRodCharges", RodChargesPerDay);
             BuildItems();
+            KruneDancing.Build(root, s_All);
+            KruneGear.Build(s_All);
 
             var immunePoison = Component<BuffDescriptorImmunity>("KWR_KruneNoPoison");
             immunePoison.Descriptor = SpellDescriptor.Poison;
@@ -300,7 +302,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             Resolved.Add("freedom of movement from " + freedom.name);
         }
 
-        private static T Equipment<T>(T donor, string name, string display, string description, BlueprintEquipmentEnchantment enchantment) where T : BlueprintItemEquipmentSimple
+        internal static T Equipment<T>(T donor, string name, string display, string description, BlueprintEquipmentEnchantment enchantment) where T : BlueprintItemEquipmentSimple
         {
             T item = UnityEngine.Object.Instantiate(donor);
             item.name = name;
@@ -319,7 +321,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             AccessTools.Field(typeof(BlueprintItem), "m_CachedEnchantments").SetValue(item, null);
         }
 
-        private static BlueprintEquipmentEnchantment Enchantment(string name, BlueprintFeature feature)
+        internal static BlueprintEquipmentEnchantment Enchantment(string name, BlueprintFeature feature)
         {
             var enchantment = Create<BlueprintEquipmentEnchantment>(name);
             var add = Component<AddUnitFeatureEquipment>(name + "Logic");
@@ -349,7 +351,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return immune;
         }
 
-        private static void ItemName(BlueprintItem item, string display, string description)
+        internal static void ItemName(BlueprintItem item, string display, string description)
         {
             string key = "kwr.krune.item." + item.name;
             LocalizedText.Define(key, display);
@@ -387,7 +389,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return brain;
         }
 
-        private static BlueprintAbilityResource Resource(string name, int perDay)
+        internal static BlueprintAbilityResource Resource(string name, int perDay)
         {
             var resource = Create<BlueprintAbilityResource>(name);
             var field = AccessTools.Field(typeof(BlueprintAbilityResource), "m_MaxAmount");
@@ -403,7 +405,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return resource;
         }
 
-        private static AddAbilityResources GrantResource(BlueprintAbilityResource resource)
+        internal static AddAbilityResources GrantResource(BlueprintAbilityResource resource)
         {
             var grant = Component<AddAbilityResources>("KWR_KruneGrant_" + resource.name);
             grant.Resource = resource;
@@ -426,7 +428,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             };
         }
 
-        private static BlueprintFeature Feature(string name, string display, string description, params BlueprintComponent[] components)
+        internal static BlueprintFeature Feature(string name, string display, string description, params BlueprintComponent[] components)
         {
             var feature = Create<BlueprintFeature>(name);
             Name(feature, display, description);
@@ -438,7 +440,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
         }
 
         /// <summary>Flags as the game reads them: IsFromSpell 1 (what native dispel requires), HiddenInUi 2.</summary>
-        private static BlueprintBuff Buff(BlueprintBuff donor, string name, string title, string description, bool hidden, bool fromSpell, params BlueprintComponent[] components)
+        internal static BlueprintBuff Buff(BlueprintBuff donor, string name, string title, string description, bool hidden, bool fromSpell, params BlueprintComponent[] components)
         {
             var buff = UnityEngine.Object.Instantiate(donor);
             buff.name = name;
@@ -452,7 +454,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return buff;
         }
 
-        private static void Name(BlueprintUnitFact fact, string display, string description)
+        internal static void Name(BlueprintUnitFact fact, string display, string description)
         {
             string key = "kwr.krune." + fact.name;
             LocalizedText.Define(key, display);
@@ -477,24 +479,29 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return add;
         }
 
-        private static T Get<T>(string guid) where T : BlueprintScriptableObject
+        internal static T Get<T>(string guid) where T : BlueprintScriptableObject
         {
             return s_All.OfType<T>().FirstOrDefault(b => b.AssetGuid == guid) ?? throw new InvalidOperationException($"native {typeof(T).Name} {guid} not found");
         }
 
-        private static T Named<T>(string name) where T : BlueprintScriptableObject
+        internal static T Named<T>(string name) where T : BlueprintScriptableObject
         {
             return s_All.OfType<T>().FirstOrDefault(b => b.name == name) ?? throw new InvalidOperationException($"native {typeof(T).Name} {name} not found");
         }
 
-        private static T Optional<T>(string name) where T : BlueprintScriptableObject
+        internal static T Optional<T>(string name) where T : BlueprintScriptableObject
         {
             T found = s_All.OfType<T>().FirstOrDefault(b => b.name == name);
             (found != null ? Resolved : Missing).Add(name);
             return found;
         }
 
-        private static T Create<T>(string name) where T : BlueprintScriptableObject
+        internal static void Register(BlueprintScriptableObject blueprint)
+        {
+            s_Register(blueprint);
+        }
+
+        internal static T Create<T>(string name) where T : BlueprintScriptableObject
         {
             var blueprint = ScriptableObject.CreateInstance<T>();
             blueprint.name = name;
@@ -502,7 +509,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return blueprint;
         }
 
-        private static T Component<T>(string name) where T : BlueprintComponent
+        internal static T Component<T>(string name) where T : BlueprintComponent
         {
             var component = ScriptableObject.CreateInstance<T>();
             component.name = name;

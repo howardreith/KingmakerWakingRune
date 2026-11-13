@@ -91,9 +91,10 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 state.DirectorPhase = next;
                 view.Phase = next;
             }
+            Boots(krune);
             if (!krune.CombatState.HasCooldownForCommand(UnitCommand.CommandType.Swift))
             {
-                KrunePlan swift = First(krune, foes, KruneTactics.SwiftOptions(view), true);
+                KrunePlan swift = First(krune, foes, KruneTactics.SwiftOptions(view), true) ?? Telekinesis(krune, foes);
                 if (swift != null)
                 {
                     return swift;
@@ -103,7 +104,104 @@ namespace KingmakerWakingRune.Sanctum.Krune
             {
                 return null;
             }
-            return First(krune, foes, KruneTactics.StandardOptions(view), false) ?? Fallback(krune, foes) ?? Idle("nothing to cast: the native attack");
+            return GearFirst(krune, foes, view) ?? First(krune, foes, KruneTactics.StandardOptions(view), false) ?? GearLast(krune, foes, view) ?? Fallback(krune, foes) ?? Idle("nothing to cast: the native attack");
+        }
+
+        /// <summary>Boots of speed: switched on (a free action) once he is fighting, while they have rounds left that day.</summary>
+        private static void Boots(UnitEntityData krune)
+        {
+            Kingmaker.UnitLogic.ActivatableAbilities.ActivatableAbility boots = krune.Descriptor.ActivatableAbilities.Enumerable.FirstOrDefault(a => a.Blueprint == KruneGear.BootsToggle);
+            if (boots != null && !boots.IsOn && boots.IsAvailable)
+            {
+                boots.IsOn = true;
+                KruneAwakening.Note($"director: boots of speed on ({KruneGear.Item(krune, KruneGear.Boots)?.Charges} rounds left today).");
+            }
+        }
+
+        /// <summary>Uses that come before his prepared list: wish's summons while he recovers; the ring when foes cast and his own spell turning is gone.</summary>
+        private static KrunePlan GearFirst(UnitEntityData krune, List<UnitEntityData> foes, KruneView view)
+        {
+            if (view.Phase == KrunePhase.Recover)
+            {
+                KrunePlan wish = WishPlan(krune, foes, KruneGear.WishSummon, "wish: a summoned army while he recovers");
+                if (wish != null)
+                {
+                    return wish;
+                }
+            }
+            if (view.FoeCasters > 0 && !view.HasSpellTurning && !view.Ready.ContainsKey("Spell Turning"))
+            {
+                KrunePlan ring = ItemPlan(krune, KruneGear.RingOfSpellTurning, krune, "ring of spell turning: foes cast at him");
+                if (ring != null)
+                {
+                    return ring;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>Uses once his prepared list has nothing that fits: the pearl, wish's wilting, the spear's powers.</summary>
+        private static KrunePlan GearLast(UnitEntityData krune, List<UnitEntityData> foes, KruneView view)
+        {
+            KrunePlan pearl = ItemPlan(krune, KruneGear.Pearl, krune, "pearl of power: recall a spent 8th-level spell");
+            if (pearl != null)
+            {
+                return pearl;
+            }
+            if (view.BestCluster >= 3)
+            {
+                KrunePlan wilting = WishPlan(krune, foes, KruneGear.WishWilting, "wish: horrid wilting on a cluster");
+                if (wilting != null)
+                {
+                    return wilting;
+                }
+            }
+            UnitEntityData nearest = foes.OrderBy(f => f.DistanceTo(krune)).First();
+            if (view.FoesWithin30 > 0 && KruneDancing.FormOf(WardRuntime.State.Krune) == null)
+            {
+                KrunePlan dance = FactPlan(krune, KruneDancing.Loose, krune, "his spear dances against the foes closing in");
+                if (dance != null)
+                {
+                    return dance;
+                }
+            }
+            return FactPlan(krune, KruneGear.SpearSlow, nearest, "the spear's slow") ?? FactPlan(krune, KruneGear.SpearRay, nearest, "the spear's ray of enfeeblement");
+        }
+
+        private static KrunePlan Telekinesis(UnitEntityData krune, List<UnitEntityData> foes)
+        {
+            UnitEntityData adjacent = foes.Where(f => f.DistanceTo(krune) <= krune.Corpulence + f.Corpulence + 1.7f).OrderBy(f => f.DistanceTo(krune)).FirstOrDefault();
+            return adjacent == null ? null : FactPlan(krune, KruneGear.SpearTelekinesis, adjacent, "the spear's telekinesis trips the foe at his side", true);
+        }
+
+        private static KrunePlan WishPlan(UnitEntityData krune, List<UnitEntityData> foes, BlueprintAbility variant, string reason)
+        {
+            Kingmaker.UnitLogic.Abilities.Ability wish = krune.Descriptor.Abilities.GetFact(KruneGear.Wish) as Kingmaker.UnitLogic.Abilities.Ability;
+            if (wish == null)
+            {
+                return null;
+            }
+            var data = new AbilityData(wish.Data, variant);
+            if (!data.IsAvailableForCast)
+            {
+                return null;
+            }
+            TargetWrapper target = variant == KruneGear.WishSummon ? Aim(krune, foes, data, KruneAim.SummonPoint) : Aim(krune, foes, data, KruneAim.FoeCluster);
+            return target != null && data.CanTarget(target) && InRange(krune, data, target) ? new KrunePlan { Ability = data, Target = target, Reason = reason, Key = variant.name } : null;
+        }
+
+        private static KrunePlan ItemPlan(UnitEntityData krune, Kingmaker.Blueprints.Items.BlueprintItem blueprint, TargetWrapper target, string reason)
+        {
+            Kingmaker.Items.ItemEntity item = KruneGear.Item(krune, blueprint);
+            AbilityData data = item?.Ability?.Data;
+            return data != null && item.Charges > 0 && data.IsAvailableForCast && data.CanTarget(target) ? new KrunePlan { Ability = data, Target = target, Reason = reason, Key = blueprint.name } : null;
+        }
+
+        private static KrunePlan FactPlan(UnitEntityData krune, BlueprintAbility blueprint, UnitEntityData target, string reason, bool swift = false)
+        {
+            Kingmaker.UnitLogic.Abilities.Ability fact = krune.Descriptor.Abilities.GetFact(blueprint) as Kingmaker.UnitLogic.Abilities.Ability;
+            AbilityData data = fact?.Data;
+            return data != null && data.IsAvailableForCast && data.CanTarget(target) && InRange(krune, data, target) ? new KrunePlan { Ability = data, Target = target, Reason = reason, Swift = swift, Key = blueprint.name } : null;
         }
 
         /// <summary>Control effects yield: no director decision while he is not his own master or cannot act.</summary>
@@ -438,7 +536,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 s_IssuedReady = s_LastView != null && s_LastView.Ready.TryGetValue(plan.Key, out int ready) ? ready : 0;
             }
             s_Cached = null;
-            KruneAwakening.Note($"director: {plan.Ability.Blueprint.name}{(plan.Ability.MetamagicData != null && plan.Ability.MetamagicData.NotEmpty ? " (" + plan.Ability.MetamagicData.MetamagicMask + ")" : string.Empty)} at {(plan.Target.IsUnit ? plan.Target.Unit.CharacterName : plan.Target.Point.ToString())}{(plan.Swift ? " (swift)" : string.Empty)}: {plan.Reason}.");
+            bool rod = (plan.Ability.Blueprint.name == "HorridWilting" || plan.Ability.Blueprint.name == "Cloudkill" || plan.Ability.Blueprint.name == "AcidFog") && plan.Ability.Spellbook != null && KwrKruneRod.Offer(krune, plan.Ability);
+            KruneAwakening.Note($"director: {plan.Ability.Blueprint.name}{(plan.Ability.MetamagicData != null && plan.Ability.MetamagicData.NotEmpty ? " (" + plan.Ability.MetamagicData.MetamagicMask + ")" : string.Empty)} at {(plan.Target.IsUnit ? plan.Target.Unit.CharacterName : plan.Target.Point.ToString())}{(plan.Swift ? " (swift)" : string.Empty)}{(rod ? " with the rod's Empower" : string.Empty)}: {plan.Reason}.");
             return new KwrDirectedCast(plan.Ability, plan.Target);
         }
     }

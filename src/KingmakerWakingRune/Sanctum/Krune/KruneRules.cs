@@ -127,6 +127,9 @@ namespace KingmakerWakingRune.Sanctum.Krune
         /// <summary>His book, director brain and combat gear were set up once (WR-FINAL); never refilled.</summary>
         public bool CombatInitialized;
         public string CombatInitializedNote = string.Empty;
+        /// <summary>The dancing spear's form while it dances, and when the dance ends (WR-FINAL).</summary>
+        public string DancingFormId = string.Empty;
+        public double DancingUntil = -1d;
     }
 
     /// <summary>Krune's linked and revival-dependent values at one instant. Before the native difficulty preset.</summary>
