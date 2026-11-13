@@ -371,16 +371,10 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
         }
 
-        /// <summary>
-        /// The interim brain: a native melee attack only. His tactics are the combat increment's; this keeps a released
-        /// diagnostic run native rather than inert, and is never what a player meets (the checkpoint holds before it).
-        /// </summary>
+        /// <summary>His brain: the director first (spells, items, movement), then his spear when it has nothing to cast.</summary>
         private static BlueprintBrain InterimBrain()
         {
-            Type type = AccessTools.TypeByName("Kingmaker.Controllers.Brain.Blueprints.BlueprintAiAttack");
-            var attack = (BlueprintAiAction)ScriptableObject.CreateInstance(type);
-            attack.name = "KWR_KruneAi_Melee";
-            attack.AssetGuid = ScenarioIds.Derive("krune." + attack.name);
+            var attack = Create<KwrKruneMeleeAction>("KWR_KruneAi_Spear");
             attack.BaseScore = 1f;
             attack.ActorConsiderations = new Kingmaker.Controllers.Brain.Blueprints.Considerations.Consideration[0];
             attack.TargetConsiderations = new Kingmaker.Controllers.Brain.Blueprints.Considerations.Consideration[0];

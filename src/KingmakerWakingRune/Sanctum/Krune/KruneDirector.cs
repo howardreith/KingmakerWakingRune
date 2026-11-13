@@ -187,7 +187,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
 
         private static KrunePlan Telekinesis(UnitEntityData krune, List<UnitEntityData> foes)
         {
-            UnitEntityData adjacent = foes.Where(f => f.DistanceTo(krune) <= krune.Corpulence + f.Corpulence + 1.7f).OrderBy(f => f.DistanceTo(krune)).FirstOrDefault();
+            UnitEntityData adjacent = foes.Where(f => f.DistanceTo(krune) <= krune.Corpulence + f.Corpulence + 1.7f && f.CanBeKnockedOff()).OrderBy(f => f.DistanceTo(krune)).FirstOrDefault();
             return adjacent == null ? null : FactPlan(krune, KruneGear.SpearTelekinesis, adjacent, "the spear's telekinesis trips the foe at his side", true);
         }
 
@@ -603,6 +603,40 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public override float GetRange(DecisionContext context)
         {
             return 0f;
+        }
+
+        public override float GetRadius(DecisionContext context)
+        {
+            return 0f;
+        }
+    }
+
+    /// <summary>
+    /// His spear (the native attack command), offered only once his standard action is ready. The native attack action queues
+    /// its next attack while the action is still spent and starts it the moment the action returns, before the director is
+    /// asked again: in close quarters he then only ever fought with the spear. Offered only when ready, the director (which
+    /// scores higher) is asked first each round, and the spear is what is left when it has nothing to cast.
+    /// </summary>
+    public sealed class KwrKruneMeleeAction : BlueprintAiAction
+    {
+        public override bool IsAvailable(DecisionContext context)
+        {
+            return !context.Unit.CombatState.HasCooldownForCommand(UnitCommand.CommandType.Standard);
+        }
+
+        public override UnitCommand CreateCommand(DecisionContext context, UnitEntityData target)
+        {
+            return UnitAttack.CreateAttackCommand(context.Unit, target);
+        }
+
+        public override Kingmaker.Controllers.Brain.Blueprints.TargetType GetTargetType(DecisionContext context)
+        {
+            return Kingmaker.Controllers.Brain.Blueprints.TargetType.Enemy;
+        }
+
+        public override float GetRange(DecisionContext context)
+        {
+            return context.Unit.Body.PrimaryHand.MaybeWeapon?.AttackRange.Meters ?? 1.5f;
         }
 
         public override float GetRadius(DecisionContext context)

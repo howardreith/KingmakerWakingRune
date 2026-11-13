@@ -415,8 +415,9 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
             int d20 = Rulebook.Trigger(new RuleRollD20(caster)).Result;
             int cmd = Rulebook.Trigger(new RuleCalculateCMD(caster, target, CombatManeuver.Trip)).Result;
-            bool tripped = d20 != 1 && (d20 == 20 || d20 + 20 >= cmd) && target.CanBeKnockedOff();
-            KruneAwakening.Note($"the spear's telekinesis trips at {target.CharacterName}: d20 {d20} + 20 vs CMD {cmd}: {(tripped ? "prone" : "no")}.");
+            bool hit = d20 != 1 && (d20 == 20 || d20 + 20 >= cmd);
+            bool tripped = hit && target.CanBeKnockedOff();
+            KruneAwakening.Note($"the spear's telekinesis trips at {target.CharacterName}: d20 {d20} + 20 vs CMD {cmd}: {(tripped ? "prone" : hit ? "no (already down, or cannot be knocked down)" : "no")}.");
             if (tripped)
             {
                 target.Descriptor.State.Prone.ShouldBeActive = true;
