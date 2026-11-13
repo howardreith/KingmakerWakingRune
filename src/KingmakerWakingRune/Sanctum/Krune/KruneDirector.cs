@@ -337,8 +337,14 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 return true;
             }
             float distance = target.IsUnit ? krune.DistanceTo(target.Unit) - target.Unit.Corpulence : Vector3.Distance(krune.Position, target.Point);
-            // Inside the approach distance with a margin, so the cast starts where he stands and never walks him into a blocked path.
-            return distance <= range - 0.5f;
+            // Inside the approach distance with a margin, and in his line of sight (the cast command needs both), so it starts
+            // where he stands and never walks him around a wall to find its target.
+            if (distance > range - 0.5f)
+            {
+                return false;
+            }
+            Vector3 to = target.IsUnit ? target.Unit.Position : target.Point;
+            return Kingmaker.Visual.FogOfWar.LineOfSightGeometry.Instance == null || !Kingmaker.Visual.FogOfWar.LineOfSightGeometry.Instance.HasObstacle(krune.EyePosition, to);
         }
 
         private static readonly Dictionary<string, double> s_Suppressed = new Dictionary<string, double>();
@@ -440,6 +446,10 @@ namespace KingmakerWakingRune.Sanctum.Krune
             foreach (Vector3 c in candidates)
             {
                 if (maxRange > 0f && Vector3.Distance(c, krune.Position) > maxRange - 0.5f)
+                {
+                    continue;
+                }
+                if (maxRange > 0f && Kingmaker.Visual.FogOfWar.LineOfSightGeometry.Instance != null && Kingmaker.Visual.FogOfWar.LineOfSightGeometry.Instance.HasObstacle(krune.EyePosition, c))
                 {
                     continue;
                 }
