@@ -43,8 +43,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
         {
             Buff buff = WardFixtures.Krune?.Buffs.GetBuff(WardBlueprints.FeederTempHp);
             KwrFeederTempHp logic = buff?.SelectComponents<KwrFeederTempHp>().FirstOrDefault();
-            if (logic == null)
+            if (logic == null || !buff.Active)
             {
+                // A buff not yet active (its owner out of the game) has shown nothing and so has spent nothing.
                 return;
             }
             // An older build's buff: whatever the saved grants show beyond what is left was spent.
@@ -54,15 +55,16 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 int before = FeederRules.ExposedTemporaryHP(state.Door.Feeder, now);
                 FeederRules.Consume(state.Door.Feeder, spent, now);
-                Log.Info($"Krune receiver: {spent} feeder temporary HP spent; {before} -> {FeederRules.ExposedTemporaryHP(state.Door.Feeder, now)}.");
+                Log.Info($"Krune ({(Sanctum.Krune.KruneAwakening.Authoritative ? "woken" : "receiver")}): {spent} feeder temporary HP spent; {before} -> {FeederRules.ExposedTemporaryHP(state.Door.Feeder, now)}.");
             }
         }
 
         public static void Refresh(SanctumState state, double now)
         {
             UnitEntityData krune = WardFixtures.Krune;
-            if (krune == null)
+            if (krune == null || krune.Descriptor.State.IsDead || !krune.IsInGame)
             {
+                // A dead Krune is fed nothing; his death stands. One not yet stepped out of the coffin is fed when he does.
                 return;
             }
             Sync(state, now);
@@ -86,7 +88,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 PendingTemporaryHP = amount;
                 krune.Descriptor.AddBuff(WardBlueprints.FeederTempHp, krune, TimeSpan.FromSeconds(strongest.ExpiresAt - now));
             }
-            Log.Info($"Krune receiver: {amount} temporary HP (was {shown}).");
+            Log.Info($"Krune ({(Sanctum.Krune.KruneAwakening.Authoritative ? "woken" : "receiver")}): {amount} temporary HP (was {shown}).");
         }
     }
 
@@ -106,6 +108,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
         private static readonly Encounter.KurshuTurns s_KurshuTurns = new Encounter.KurshuTurns();
         private static readonly Lashmistress.LashmistressObserver s_A4Observer = new Lashmistress.LashmistressObserver();
         private static readonly Lashmistress.NonlethalHealing s_NonlethalHealing = new Lashmistress.NonlethalHealing();
+        private static readonly Krune.KruneObserver s_KruneObserver = new Krune.KruneObserver();
         private static bool s_Subscribed;
         private static double s_NextTick;
 
@@ -127,6 +130,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 EventBus.Subscribe(s_A4Observer);
                 // Acts only on a creature with nonlethal damage, which only her whip deals: inert everywhere else.
                 EventBus.Subscribe(s_NonlethalHealing);
+                // Acts only in the moments after Krune emerges, and only on what he can see.
+                EventBus.Subscribe(s_KruneObserver);
                 s_Subscribed = true;
             }
             SanctumState state = SanctumScope.IsSanctumLoaded ? WardStore.Create() : null;
@@ -159,6 +164,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             EnsureWardMarkers(state);
             WardRitual.EnsureBaseline(state);
             ApplyRuneVisuals(state);
+            ApplyEmeraldVisual(state);
             GrantWake();
             if (initializedNow && state.MigratedLegacy)
             {
@@ -185,6 +191,14 @@ namespace KingmakerWakingRune.Sanctum.Wards
             catch (Exception ex)
             {
                 Log.Error("A4 encounter could not be re-bound after load.", ex);
+            }
+            try
+            {
+                Krune.KruneAwakening.AfterLoad(state);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Krune's awakening could not be re-bound after load.", ex);
             }
             s_NextTick = 0d;
             Log.Info($"Wards ready: mask={state.RuneMask} clock={Now:0} focusWindows={state.Foci.Values.Sum(f => f.Windows.Count)}.");
@@ -243,6 +257,14 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 Log.Error("A4 encounter tick failed.", ex);
             }
             WardRitual.Tick(state, now);
+            try
+            {
+                Krune.KruneAwakening.Tick(state, now);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Krune's awakening tick failed.", ex);
+            }
             WardTraps.Tick();
             UpdateWardVisibility(state, now);
             RestoreSuppressedFeeder(state, now);
@@ -265,6 +287,31 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 if (SanctumDressing.RuneLights.TryGetValue(focus.Id, out Light light) && light != null)
                 {
                     light.enabled = !disabled;
+                }
+            }
+        }
+
+        /// <summary>The rune visuals as the saved foci say, for a labelled test setup that changed them.</summary>
+        public static void RefreshRuneVisuals(SanctumState state)
+        {
+            ApplyRuneVisuals(state);
+        }
+
+        /// <summary>The emerald as the save holds it: whole, or broken once destroyed. Every load and the destruction show the same.</summary>
+        public static void ApplyEmeraldVisual(SanctumState state)
+        {
+            foreach (GameObject part in SanctumDressing.EmeraldIntact)
+            {
+                if (part != null)
+                {
+                    part.SetActive(!state.Gem.Destroyed);
+                }
+            }
+            foreach (GameObject part in SanctumDressing.EmeraldBroken)
+            {
+                if (part != null)
+                {
+                    part.SetActive(state.Gem.Destroyed);
                 }
             }
         }
@@ -451,6 +498,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 Say($"The {focus.Kind} rune ({focus.Id}) gutters and goes dark.");
                 Log.Info($"RUNE {focus.Id} DISABLED by {outcome.Route}: {what}; {outcome.Detail}; mask now {state.RuneMask}.");
                 WardKrune.Refresh(state, Now);
+                // A woken Krune's still-linked benefits follow the rune at once; his revival snapshot does not.
+                Krune.KruneAwakening.SyncLinks(state, Now);
                 return;
             }
             if (outcome.FailedActors.Count > 0 || outcome.Detail.Length > 0)

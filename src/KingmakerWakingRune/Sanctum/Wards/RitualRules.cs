@@ -121,9 +121,18 @@ namespace KingmakerWakingRune.Sanctum.Wards
             return true;
         }
 
-        /// <summary>The emerald's destruction: awakening is due at once, whatever the clocks say.</summary>
+        /// <summary>
+        /// The emerald's destruction: awakening is due at once, with the opening stagger, unless the soul has already left
+        /// it. Once awakening is due the emerald is no longer a switch: no new cause, no stagger. At the same simulation
+        /// boundary a deadline already reached (its time at or before now) came first, so the deadline is the cause.
+        /// Returns true only when the emerald itself released him.
+        /// </summary>
         public static bool RequestImmediateAwakening(RitualState state, double now)
         {
+            if (state.AwakeningDue || Tick(state, now))
+            {
+                return false;
+            }
             state.AwakeningOpeningStagger = true;
             return Due(state, AwakeningReason.EmeraldDestroyed, now);
         }

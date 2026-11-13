@@ -246,3 +246,39 @@ Rows above that this round changes are restated here. Everything else carries fo
 | Whip: another wielder, knock-out, persistence, recovery | Proven (INJECTED setup: HP, Barkskin, halts) | 0.7.22 | Hostile NPCs cannot be knocked out in this game; the whip stops one short. |
 | Victory against the repaired encounter | Proven (PARTY AI; PLAYER door and pause; SETUP placement; harness-commanded pre-buffs and opening spells) | 0.7.22 | One of six fell. Deadline passed natively afterwards. |
 | Input labels | Corrected | | PLAYER now means real mouse or keyboard input only; harness dispatches are HARNESS-COMMANDED. |
+
+## WR-07A, Krune's awakening, 0.8.0–0.8.7, runs `wr07a-traverse` and `wr07a-b1`
+
+| Item | Status | Evidence | Notes |
+|---|---|---|---|
+| Ordinary route A1 → A2 → A3 → east door → A4 | Proven (PLAYER) | 0.7.22 | The legitimate A2 opening (palm impression). The WR-06 "could not reach the east corridor" was the latched A2. |
+| Awakening from A4's stored countdown, defenders alive | Proven (PARTY AI fight; PLAYER entry) | 0.8.1 | No reroll. The five who entered died, so he woke unobserved. |
+| Awakening from Kurshu's deadline, party outside A5 | Proven (SETUP accelerated deadline; native trigger) | 0.8.3–0.8.7 | |
+| Emerald early release, stagger in real time and turn-based | Proven (INJECTED defender deaths and breaking blow; PLAYER dialogue attack) | 0.8.5, 0.8.6 | The turn-based stagger outlived its six seconds only from 0.8.6. A late emerald is unit-tested. |
+| One real actor, receiver retired, identity resolver | Proven | 0.8.1–0.8.7 | Found by identity in the whole pool (0.8.2). |
+| Sheet against the source, masks 0 / 85 / 127 | Proven (SETUP masks) | 0.8.1–0.8.7 | HP 293 / 253 / 233, CL 17 / 15 / 14, class level 17. |
+| Revival snapshot against the live rune links | Proven (harness-commanded Entangle from Marra's book) | 0.8.6 | Alacrity dark after waking: AC −2, initiative −2, damage kept, CL unchanged. |
+| Feeder ledger handed over, spent, restarted | Proven (PLAYER feeder trigger; INJECTED damage and a False Life control) | 0.8.6 | 54 → 34 handed over with the original hour; never restored. |
+| Placement: occupied point, party by the coffin, offscreen | Proven (SETUP positions) | 0.8.2, 0.8.7 | |
+| Parley by real input; hostile on every path | Proven (PLAYER) | 0.8.2, 0.8.7 | |
+| Battle-bark opening; hostility before the exchange | Proven in the closeout (below) | 0.8.10, 0.8.12 | |
+| Development checkpoint: global pause, save and reload, release | Proven in real time, and in turn-based play from 0.8.11 | 0.8.1–0.8.12 | |
+| Mage Armor removed stays removed; runes not dispellable | Proven (native dispel in the closeout) | 0.8.6, 0.8.12 | |
+
+### WR-07A review closeout, 0.8.8–0.8.13, run `wr07a-c1`
+
+| Item | Status | Evidence | Notes |
+|---|---|---|---|
+| Emergence point checked again as he steps out | Proven (SETUP occupant; save and reload) | 0.8.8 | He stepped out one square east; the step was spent once from where he landed. |
+| Darkvision in Vandiana's darkness, one shared check | Proven (READ, the game's concealment rule; INJECTED darkness, Blur, removal) | 0.8.8 | None with it, partial without; Blur unaffected. |
+| Battle bark during a live real-time A4 fight | Proven (PARTY AI fight; SETUP deadline) | 0.8.10, 0.8.12 | Same tick as the emergence from 0.8.12; both sides held. |
+| Checkpoint during turn-based combat | Proven (SETUP tbm; INJECTED emerald hit) | 0.8.11, 0.8.12 | The turn-based controller's own freeze: the turn order kept, no free turn. 0.8.10 and 0.8.11 found the two defects. |
+| Opening stagger on his first turn, not renewed by a reload | Proven | 0.8.12 | Combat-save fixture 997. |
+| Committed cast before the exchange; hover and cancel | Proven (HARNESS-COMMANDED cast; PLAYER hover and cancel) | 0.8.10 | |
+| Emerald broken by legal play | Proven (PLAYER preparation and casts; SETUP native rest; INJECTED defender deaths) | 0.8.12 | Two Blade Barriers and an empowered Fireball. Printed numbers unchanged. |
+| Broken model by eye; no re-awakening | Proven (PLAYER click; INJECTED hit; reload) | 0.8.12 | |
+| Native Dispel Magic on Mage Armor, across a restart | Proven (HARNESS-COMMANDED dispel; INJECTED release and Domination to allow a save) | 0.8.12 | His Freedom of Movement defeated the INJECTED paralysis; he took Blade Barrier damage and killed Brena. |
+| Force and untyped magic against stone | Fixed and proven | 0.8.13 | Disintegrate counted half before. |
+| Emerald proxy's fixture Fortitude (+95) | Open for the owner | 0.8.12 | Disintegrate is always partial against it. |
+| Saves: version 4 upgrade, version 5 due (adopt and keep), at ActorReady, at the checkpoint, after death | Proven | 0.8.2–0.8.7 | The ActorReady reload found the calibration defect (0.8.4 → 0.8.5). |
+| Stock isolation | Proven | 0.8.6, 0.8.7 | |

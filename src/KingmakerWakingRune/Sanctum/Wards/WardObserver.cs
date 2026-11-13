@@ -233,16 +233,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         private static int ObjectShare(BaseDamage damage, int amount)
         {
-            if (damage is EnergyDamage energy)
-            {
-                // Life energy does not harm stone at all.
-                if (energy.EnergyType == DamageEnergyType.NegativeEnergy || energy.EnergyType == DamageEnergyType.PositiveEnergy)
-                {
-                    return 0;
-                }
-                return amount / 2;
-            }
-            return amount;
+            // The game files force and untyped magic damage as an energy type too; only the five energies are halved.
+            return damage is EnergyDamage energy ? DoorRules.EnergyShare(energy.EnergyType.ToString(), amount) : amount;
         }
 
         private static bool HasAdamantine(PhysicalDamage physical)

@@ -106,6 +106,29 @@ namespace KingmakerWakingRune.Sanctum.Wards
             return bypassHardness ? Math.Max(0, amount) : Math.Max(0, amount - hardness);
         }
 
+        /// <summary>
+        /// An energy component's share against stone, before hardness: the five energies are halved (core object rule) and
+        /// life energy does not harm stone at all. The game's other energy kinds are not energy under that rule: force and
+        /// untyped magic (Magic Missile, Disintegrate) and divine, holy or unholy power apply in full.
+        /// </summary>
+        public static int EnergyShare(string energyType, int amount)
+        {
+            switch (energyType)
+            {
+                case "Fire":
+                case "Cold":
+                case "Sonic":
+                case "Electricity":
+                case "Acid":
+                    return amount / 2;
+                case "NegativeEnergy":
+                case "PositiveEnergy":
+                    return 0;
+                default:
+                    return amount;
+            }
+        }
+
         /// <summary>Restrained feedback for a hit, from what it did and what is left.</summary>
         public static string Describe(int dealt, int left, int full)
         {

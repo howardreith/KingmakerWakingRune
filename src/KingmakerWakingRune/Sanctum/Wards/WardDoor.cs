@@ -338,6 +338,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 }
                 proxy.IsInGame = false;
             }
+            WardRuntime.ApplyEmeraldVisual(state);
             WardRitual.Destroyed(state);
         }
     }

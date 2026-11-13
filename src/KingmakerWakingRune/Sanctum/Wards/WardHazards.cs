@@ -364,7 +364,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 MistRules.EndRoundOutside(record, now);
                 return;
             }
-            bool immune = unit == WardFixtures.Krune;
+            bool immune = unit == WardFixtures.Krune || Krune.KruneAwakening.IsKrune(unit);
             bool sleeping = unit.Buffs.GetBuff(WardBlueprints.MistSleep) != null;
             if (record.Asleep && !sleeping)
             {
@@ -382,11 +382,12 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 record.Exposed = true;
                 return;
             }
-            RuleSavingThrow save = MistSave(unit, state);
+            // Krune is immune: nothing is rolled for him, so no save shows in the log.
+            RuleSavingThrow save = immune ? null : MistSave(unit, state);
             bool sleepImmune = unit.Descriptor.State.HasConditionImmunity(UnitCondition.Sleeping);
-            MistExposure result = MistRules.EndRoundInside(record, immune, save.IsPassed, sleepImmune);
+            MistExposure result = MistRules.EndRoundInside(record, immune, save == null || save.IsPassed, sleepImmune);
             record.Exposed = true;
-            if (result != MistExposure.NoEffect)
+            if (result != MistExposure.NoEffect && save != null)
             {
                 Log.Info($"Mist: {unit.CharacterName} Will {save.RollResult} (d20 {save.D20}) vs {WardProfile.MistSaveDC}: {result}; streak {record.ConsecutiveFailures}.");
             }
@@ -481,6 +482,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 return;
             }
+            Krune.KruneAwakening.OnTurnEnded(unit, completed);
             MistRecord record = state.MistOf(unit.UniqueId);
             double lastTick = record.NextDueAt - WardProfile.RoundSeconds;
             if (s_TurnStartedAt.TryGetValue(unit.UniqueId, out double started) && record.NextDueAt >= 0d && lastTick >= started)

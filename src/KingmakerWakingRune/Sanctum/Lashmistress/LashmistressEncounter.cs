@@ -361,7 +361,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
             if (state.Ritual.AwakeningDue && !a4.AwakeningNoted)
             {
                 a4.AwakeningNoted = true;
-                Note($"awakening due ({state.Ritual.Reason}, stagger {state.Ritual.AwakeningOpeningStagger}) with {Living().Count()} defender(s) still standing; the A4 fight continues. Krune's own encounter is the next milestone and is not implemented here.");
+                Note($"awakening due ({state.Ritual.Reason}, stagger {state.Ritual.AwakeningOpeningStagger}) with {Living().Count()} defender(s) still standing; the A4 fight continues; Krune's awakening (WR-07A) takes it from here.");
             }
         }
 
@@ -1266,7 +1266,7 @@ namespace KingmakerWakingRune.Sanctum.Lashmistress
                     EnemiesWithin30Feet = enemies.Count(e => e.DistanceTo(unit) <= 30f * SanctumPlan.MetersPerFoot),
                     Displaced = unit.Buffs.Enumerable.Any(b => b.Blueprint.name.StartsWith("Displacement", StringComparison.Ordinal)),
                     InOwnDarkness = unit.Buffs.GetBuff(LashmistressBlueprints.DarknessAura) != null,
-                    AlliesSeeInDarkness = allies.Any(a => a.Descriptor.HasFact(LashmistressBlueprints.DarkvisionSense)),
+                    AlliesSeeInDarkness = allies.Any(KwrDarkvisionSense.Present),
                     SummonedAlready = Game.Instance.State.Units.Any(u => u.Get<UnitPartSummonedMonster>()?.Summoner == unit && !u.Descriptor.State.IsDead),
                     DivineFavorActive = unit.Buffs.Enumerable.Any(b => b.Blueprint.name.StartsWith("DivineFavor", StringComparison.Ordinal)),
                     Blurred = unit.Buffs.Enumerable.Any(b => b.Blueprint.name == "BlurBuff"),

@@ -38,7 +38,7 @@ namespace KingmakerWakingRune.Patches
                 AttackerBlindsightReaches = BlindsightReaches(mine, initiator, target),
                 TargetCannotBenefit = theirs != null && theirs.Disable,
                 AttackerIgnoresPartial = mine != null && mine.IgnorePartial,
-                AttackerDarkvisionWithin60 = (initiator.Descriptor.HasFact(Sanctum.Lashmistress.LashmistressBlueprints.DarkvisionSense) || initiator.Buffs.GetBuff(Sanctum.Lashmistress.LashmistressBlueprints.DarkvisionBuff) != null)
+                AttackerDarkvisionWithin60 = Sanctum.Lashmistress.KwrDarkvisionSense.Present(initiator)
                     && initiator.DistanceTo(target) <= 60f * Sanctum.SanctumPlan.MetersPerFoot,
                 AttackerTrueSeeing = initiator.Descriptor.State.HasCondition(UnitCondition.TrueSeeing),
             };
@@ -226,9 +226,34 @@ namespace KingmakerWakingRune.Patches
     [HarmonyPatch(typeof(TimeController), "Tick")]
     internal static class TimeControllerTickPatch
     {
+        /// <summary>
+        /// A frame that runs while Krune's prototype checkpoint holds (after a load, or in turn-based combat, which refuses
+        /// the pause) holds the simulation again at once: the native pause, or the turn-based freeze.
+        /// </summary>
+        private static void Prefix()
+        {
+            if (Sanctum.Krune.KruneAwakening.CheckpointHolds)
+            {
+                Sanctum.Krune.KruneAwakening.EnforceCheckpoint();
+            }
+        }
+
         private static void Postfix()
         {
             WardRuntime.Tick();
+        }
+    }
+
+    /// <summary>
+    /// The WR-07A prototype checkpoint pauses the whole simulation, both sides alike: while it holds, nothing unpauses the
+    /// game. Inspection, menus and saving (where the game allows) still work. Outside a checkpoint save this does nothing.
+    /// </summary>
+    [HarmonyPatch(typeof(Kingmaker.Game), "set_IsPaused")]
+    internal static class KruneCheckpointPausePatch
+    {
+        private static bool Prefix(bool value)
+        {
+            return value || !Sanctum.Krune.KruneAwakening.CheckpointHolds;
         }
     }
 
