@@ -315,11 +315,16 @@ namespace KingmakerWakingRune.Sanctum.Wards
                     part.SetActive(state.Gem.Destroyed);
                 }
             }
-            // The same proxy (same saved identity) names what is left; its break and attack choices are already gone.
+            // The same proxy (same saved identity) names what is left, and leaves the game: the broken socket is scenery, with
+            // nothing to break, attack or catch in an area effect, and it stays out on every load.
             UnitEntityData proxy = WardFixtures.Gem;
             if (proxy != null)
             {
                 proxy.Descriptor.CustomName = state.Gem.Destroyed ? WardText.ShatteredEmeraldName : string.Empty;
+                if (proxy.IsInGame == state.Gem.Destroyed)
+                {
+                    proxy.IsInGame = !state.Gem.Destroyed;
+                }
             }
         }
 

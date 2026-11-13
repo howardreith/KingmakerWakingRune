@@ -33,6 +33,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
             {
                 book.ForgetMemorized(slot);
             }
+            // The slot lists were sized before Krune's printed counts applied: size them to those counts first.
+            book.UpdateAllSlotsSize(true);
             var failed = new List<string>();
             int placed = 0;
             foreach (BookEntry entry in KruneBook.Plan())

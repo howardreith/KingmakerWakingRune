@@ -65,15 +65,19 @@ namespace KingmakerWakingRune.Sanctum.Krune
 
         private static KrunePlan Decide(UnitEntityData krune)
         {
-            if (!Live(krune) || !Free(krune))
+            if (!Live(krune))
             {
-                return null;
+                return Idle("not live");
+            }
+            if (!Free(krune))
+            {
+                return Idle($"not free (can act {krune.Descriptor.State.CanAct}, in combat {krune.IsInCombat}, faction {krune.Descriptor.Faction?.name})");
             }
             KruneState state = WardRuntime.State.Krune;
             List<UnitEntityData> foes = Foes(krune);
             if (foes.Count == 0)
             {
-                return null;
+                return Idle("no foe within 40 m");
             }
             KruneView view = View(krune, foes, state);
             KrunePhase next = KruneTactics.NextPhase(view);
@@ -269,6 +273,25 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 }
             }
             return bestCount;
+        }
+
+        private static string s_LastIdle = string.Empty;
+        private static double s_LastIdleAt = -100d;
+
+        /// <summary>Why there is no plan, logged when it changes (at most once every 6 s of game time).</summary>
+        private static KrunePlan Idle(string why)
+        {
+            double now = WardRuntime.Now;
+            if (why != s_LastIdle || now - s_LastIdleAt > 30d)
+            {
+                if (now - s_LastIdleAt > 6d || why != s_LastIdle)
+                {
+                    KruneAwakening.Note("director idle: " + why + ".");
+                }
+                s_LastIdle = why;
+                s_LastIdleAt = now;
+            }
+            return null;
         }
 
         public static List<UnitEntityData> Summons(UnitEntityData krune)

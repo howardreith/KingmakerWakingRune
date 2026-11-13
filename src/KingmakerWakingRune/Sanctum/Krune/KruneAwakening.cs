@@ -134,6 +134,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
             SyncLinks(state, WardRuntime.Now);
             Note($"after load: stage {krune.Stage}, cause {krune.Cause}, actor {(actor == null ? "none" : actor.UniqueId + (actor.Descriptor.State.IsDead ? " (dead)" : $" hp {actor.Descriptor.HPLeft}/{actor.Descriptor.MaxHP}"))}, revival mask {krune.RevivalMask}, current mask {state.RuneMask}, checkpoint {krune.CheckpointReached}{(krune.DiagnosticRelease ? " (released for diagnostics)" : string.Empty)}, legacy {krune.Legacy}.");
+            KruneCombat.EnsureBrain(actor);
             if (krune.CheckpointReached && !krune.PrototypeRetired)
             {
                 RetirePrototype(state);
