@@ -28,6 +28,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public TargetWrapper Target;
         public string Reason;
         public bool Swift;
+        public string Key;
     }
 
     /// <summary>
@@ -40,6 +41,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
     internal static class KruneDirector
     {
         private static KrunePlan s_Cached;
+        private static KruneView s_LastView;
         private static double s_CachedAt = -1d;
 
         private static readonly string[] OwnBuffs = { "ForesightBuff", "StoneskinBuff", "TrueSeeingBuff", "MageShieldBuff" };
@@ -80,6 +82,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 return Idle("no foe within 40 m");
             }
             KruneView view = View(krune, foes, state);
+            CheckLastCast(view);
+            s_LastView = view;
             KrunePhase next = KruneTactics.NextPhase(view);
             if (next != state.DirectorPhase)
             {
@@ -137,7 +141,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 FoeHasStrongBuffs = foes.Any(f => f.Buffs.Enumerable.Count(b => b.IsFromSpell) >= 3),
                 RoundsInCombat = state.CombatStartedAt < 0d ? 0 : (int)((WardRuntime.Now - state.CombatStartedAt) / 6d),
                 Phase = state.DirectorPhase,
-                BestCluster = BestPoint(krune, foes, 20f.Feet().Meters, false, out _),
+                BestCluster = BestPoint(krune, foes, 20f.Feet().Meters, false, out _, 40f.Feet().Meters),
             };
             foreach (SpellSlot slot in KruneSpellbook.Ready(krune))
             {
@@ -169,6 +173,11 @@ namespace KingmakerWakingRune.Sanctum.Krune
             var skipped = new List<string>();
             foreach (KruneChoice choice in options)
             {
+                if (s_Suppressed.TryGetValue(choice.Key, out double until) && WardRuntime.Now < until)
+                {
+                    skipped.Add(choice.Key + " (held back after a cast that did not go off)");
+                    continue;
+                }
                 KrunePlan plan = Resolve(krune, foes, choice, swift, out string why);
                 if (plan != null)
                 {
@@ -213,7 +222,45 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 why = "target refused";
                 return null;
             }
-            return new KrunePlan { Ability = ability, Target = target, Reason = choice.Reason, Swift = swift };
+            if (!InRange(krune, ability, target))
+            {
+                why = "out of range";
+                return null;
+            }
+            return new KrunePlan { Ability = ability, Target = target, Reason = choice.Reason, Swift = swift, Key = choice.Key };
+        }
+
+        /// <summary>He casts from where he stands: a target beyond the spell's range (this game's fixed ranges) is not chosen.</summary>
+        private static bool InRange(UnitEntityData krune, AbilityData ability, TargetWrapper target)
+        {
+            float range = ability.Blueprint.GetRange().Meters;
+            if (range <= 0f || range > 500f)
+            {
+                return true;
+            }
+            float distance = target.IsUnit ? krune.DistanceTo(target.Unit) - target.Unit.Corpulence : Vector3.Distance(krune.Position, target.Point);
+            return distance <= range + krune.Corpulence + 0.3f;
+        }
+
+        private static readonly Dictionary<string, double> s_Suppressed = new Dictionary<string, double>();
+        private static string s_IssuedKey;
+        private static double s_IssuedAt = -100d;
+        private static int s_IssuedReady;
+
+        /// <summary>A cast ordered more than a few seconds ago whose slot is still there did not go off: hold it back two rounds.</summary>
+        private static void CheckLastCast(KruneView view)
+        {
+            if (s_IssuedKey == null || WardRuntime.Now - s_IssuedAt < 4d)
+            {
+                return;
+            }
+            int ready = view.Ready.TryGetValue(s_IssuedKey, out int n) ? n : 0;
+            if (ready >= s_IssuedReady && ready > 0)
+            {
+                s_Suppressed[s_IssuedKey] = WardRuntime.Now + 12d;
+                KruneAwakening.Note($"director: {s_IssuedKey} was ordered but did not go off; held back for two rounds.");
+            }
+            s_IssuedKey = null;
         }
 
         private static AbilityData WithVariant(AbilityData spell, string printed)
@@ -248,7 +295,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
                     bool poisonCloud = (ability.Blueprint.GetComponent<SpellDescriptorComponent>()?.Descriptor.Value & SpellDescriptor.Poison) != 0;
                     // Tentacles cannot hold a creature that cannot be held in place (freedom of movement): those do not count.
                     List<UnitEntityData> pool = ability.Blueprint.name == "KWR_KruneBlackTentacles" ? foes.Where(f => !f.Descriptor.State.HasConditionImmunity(UnitCondition.CantMove)).ToList() : foes;
-                    int caught = BestPoint(krune, pool, radius, poisonCloud, out Vector3 at);
+                    float reach = ability.Blueprint.GetRange().Meters;
+                    int caught = BestPoint(krune, pool, radius, poisonCloud, out Vector3 at, reach > 0f && reach < 500f ? reach : 0f);
                     return caught > 0 ? new TargetWrapper(at) : null;
                 case KruneAim.Barrier:
                     List<UnitEntityData> closing = foes.Where(f => f.DistanceTo(krune) <= 9.2f).ToList();
@@ -277,7 +325,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
         /// The point that catches the most foes in a radius without catching him or his summons (a poison cloud he is immune
         /// to may include him). Candidate centres are the foes themselves and the midpoints of pairs.
         /// </summary>
-        private static int BestPoint(UnitEntityData krune, List<UnitEntityData> foes, float radius, bool selfImmune, out Vector3 best)
+        private static int BestPoint(UnitEntityData krune, List<UnitEntityData> foes, float radius, bool selfImmune, out Vector3 best, float maxRange = 0f)
         {
             List<UnitEntityData> allies = Summons(krune);
             var candidates = foes.Select(f => f.Position).ToList();
@@ -292,6 +340,10 @@ namespace KingmakerWakingRune.Sanctum.Krune
             int bestCount = 0;
             foreach (Vector3 c in candidates)
             {
+                if (maxRange > 0f && Vector3.Distance(c, krune.Position) > maxRange + krune.Corpulence)
+                {
+                    continue;
+                }
                 if (!selfImmune && Vector3.Distance(c, krune.Position) <= radius + krune.Corpulence)
                 {
                     continue;
@@ -377,6 +429,12 @@ namespace KingmakerWakingRune.Sanctum.Krune
             if (plan == null)
             {
                 return null;
+            }
+            if (plan.Key != null)
+            {
+                s_IssuedKey = plan.Key;
+                s_IssuedAt = WardRuntime.Now;
+                s_IssuedReady = s_LastView != null && s_LastView.Ready.TryGetValue(plan.Key, out int ready) ? ready : 0;
             }
             s_Cached = null;
             KruneAwakening.Note($"director: {plan.Ability.Blueprint.name}{(plan.Ability.MetamagicData != null && plan.Ability.MetamagicData.NotEmpty ? " (" + plan.Ability.MetamagicData.MetamagicMask + ")" : string.Empty)} at {(plan.Target.IsUnit ? plan.Target.Unit.CharacterName : plan.Target.Point.ToString())}{(plan.Swift ? " (swift)" : string.Empty)}: {plan.Reason}.");
