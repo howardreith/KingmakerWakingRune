@@ -43,6 +43,16 @@ namespace KingmakerWakingRune.Sanctum.Krune
     /// </summary>
     internal static class KruneDancing
     {
+        // The dropped spear whose withheld pickup was last noted (one note per drop).
+        private static string s_WithheldFor;
+
+        private static string Control(UnitEntityData krune)
+        {
+            UnitState s = krune.Descriptor.State;
+            return $"can act {s.CanAct}, confused {s.HasCondition(UnitCondition.Confusion)}, frightened {s.HasCondition(UnitCondition.Frightened)}, "
+                + $"cowering {s.HasCondition(UnitCondition.Cowering)}, faction {krune.Descriptor.Faction?.name}";
+        }
+
         public const double DanceSeconds = DanceRules.DanceSeconds;
         public static BlueprintUnit Form { get; private set; }
         public static BlueprintAbility Loose { get; private set; }
@@ -188,17 +198,25 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 // his own will: while dominated, charmed, confused or frightened it stays where it lies until that ends.
                 UnitEntityData master = KruneAwakening.Actor;
                 if (!string.IsNullOrEmpty(state.DroppedSpearBagId) && master != null && !master.Descriptor.State.IsDead && !master.IsInCombat
-                    && KruneDirector.OwnMaster(master) && DroppedBeside(master))
+                    && DroppedBeside(master))
                 {
-                    KruneAwakening.Note("out of combat, he takes up his dropped spear.");
-                    TakeUp(master);
+                    if (KruneDirector.OwnMaster(master))
+                    {
+                        KruneAwakening.Note("out of combat, he takes up his dropped spear.");
+                        TakeUp(master);
+                    }
+                    else if (s_WithheldFor != state.DroppedSpearBagId)
+                    {
+                        s_WithheldFor = state.DroppedSpearBagId;
+                        KruneAwakening.Note($"out of combat, his spear lies at his feet, but he is not his own master ({Control(master)}): it stays there.");
+                    }
                 }
                 return;
             }
             UnitEntityData form = FormOf(state);
             UnitEntityData krune = KruneAwakening.Actor;
             bool dead = krune == null || krune.Descriptor.State.IsDead;
-            DanceEnd end = form == null || form.Descriptor.State.IsDead ? (dead ? DanceEnd.FallsWithHim : DanceEnd.Grasped) : DanceRules.End(now, state.DancingUntil, dead, krune.Descriptor.State.CanAct);
+            DanceEnd end = form == null || form.Descriptor.State.IsDead ? (dead ? DanceEnd.FallsWithHim : DanceEnd.Grasped) : DanceRules.End(now, state.DancingUntil, dead, KruneDirector.OwnMaster(krune));
             if (end == DanceEnd.Continue)
             {
                 Attend(form);

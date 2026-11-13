@@ -275,7 +275,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public const double DanceSeconds = 24d;
         public const double ReuseSeconds = 24d;
 
-        public static DanceEnd End(double now, double until, bool masterDead, bool masterCanAct)
+        public static DanceEnd End(double now, double until, bool masterDead, bool masterOwnWill)
         {
             if (masterDead)
             {
@@ -285,7 +285,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             {
                 return DanceEnd.Continue;
             }
-            return masterCanAct ? DanceEnd.Grasped : DanceEnd.Dropped;
+            return masterOwnWill ? DanceEnd.Grasped : DanceEnd.Dropped;
         }
 
         public static bool CanLoose(double now, double lockedUntil)

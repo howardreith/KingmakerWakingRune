@@ -147,7 +147,7 @@ namespace KingmakerWakingRune.Tests
         {
             Assert.Equal(DanceEnd.Continue, DanceRules.End(10d, 24d, false, true), "within its 4 rounds");
             Assert.Equal(DanceEnd.Grasped, DanceRules.End(24d, 24d, false, true), "he grasps it as it ends");
-            Assert.Equal(DanceEnd.Dropped, DanceRules.End(24d, 24d, false, false), "unable to act: it drops in his space");
+            Assert.Equal(DanceEnd.Dropped, DanceRules.End(24d, 24d, false, false), "unable to act or not his own master: it drops in his space");
             Assert.Equal(DanceEnd.FallsWithHim, DanceRules.End(10d, 24d, true, false), "his death ends it at once");
             Assert.Equal(false, DanceRules.CanLoose(30d, 48d), "grasped: not again for 4 rounds");
             Assert.Equal(true, DanceRules.CanLoose(48d, 48d), "after 4 rounds it may dance again");
