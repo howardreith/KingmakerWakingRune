@@ -584,6 +584,23 @@ namespace KingmakerWakingRune.Diagnostics
                     }
                     return $"HARNESS-COMMANDED Krune uses {args[1]} on {on.CharacterName}: available {fact.Data.IsAvailableForCast}, can target {fact.Data.CanTarget(on)}{(can ? ", ordered" : ", not ordered")}.";
                 }
+                case "takeloot":
+                {
+                    // INJECTED (focused checks only): everything in Krune's loot bag moved to the party's inventory, in place of
+                    // walking a member to it and taking it (the PLAYER way, shown in earlier runs).
+                    string id = WardRuntime.State?.Conclusion.LootContainerId;
+                    var bag = Game.Instance.State.MapObjects.All.FirstOrDefault(m => m.UniqueId == id)?.View as Kingmaker.View.MapObjects.DroppedLoot;
+                    if (bag == null || bag.Loot == null)
+                    {
+                        return $"no loot bag {id}";
+                    }
+                    var items = bag.Loot.Items.ToList();
+                    foreach (Kingmaker.Items.ItemEntity item in items)
+                    {
+                        bag.Loot.Transfer(item, Game.Instance.Player.Inventory);
+                    }
+                    return $"INJECTED loot taken: {items.Count} items from Krune's bag into the party inventory.";
+                }
                 case "kruneawake":
                     // SETUP control for the off-screen death comparison only: the encounter's keep-awake can be suspended.
                     KingmakerWakingRune.Sanctum.Krune.KruneAwakening.HarnessNoKeepAwake = args[1] == "off";

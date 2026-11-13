@@ -138,6 +138,15 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 return Idle($"not free (can act {krune.Descriptor.State.CanAct}, in combat {krune.IsInCombat}, faction {krune.Descriptor.Faction?.name})");
             }
             KruneState state = WardRuntime.State.Krune;
+            // His spear lying at his feet comes first, foes in sight or not (a move action).
+            if (!krune.CombatState.HasCooldownForCommand(UnitCommand.CommandType.Move) && KruneDancing.DroppedBeside(krune))
+            {
+                KrunePlan take = FactPlan(krune, KruneDancing.Grasp, krune, "take up his spear, dropped at his feet when its dance ended");
+                if (take != null)
+                {
+                    return take;
+                }
+            }
             List<UnitEntityData> foes = Foes(krune);
             if (foes.Count == 0)
             {
@@ -154,14 +163,6 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 view.Phase = next;
             }
             Boots(krune);
-            if (!krune.CombatState.HasCooldownForCommand(UnitCommand.CommandType.Move) && KruneDancing.DroppedBeside(krune))
-            {
-                KrunePlan take = FactPlan(krune, KruneDancing.Grasp, krune, "take up his spear, dropped at his feet when its dance ended");
-                if (take != null)
-                {
-                    return take;
-                }
-            }
             if (!krune.CombatState.HasCooldownForCommand(UnitCommand.CommandType.Swift))
             {
                 KrunePlan swift = First(krune, foes, KruneTactics.SwiftOptions(view), true) ?? Telekinesis(krune, foes);

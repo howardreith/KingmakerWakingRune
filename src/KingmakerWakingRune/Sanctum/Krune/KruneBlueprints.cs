@@ -192,7 +192,13 @@ namespace KingmakerWakingRune.Sanctum.Krune
             BlueprintUnit donor = Get<BlueprintUnit>(Donor);
             const string name = "KWR_RunelordKrune";
             LocalizedText.Define("kwr.unit." + name, "Runelord Krune");
-            BlueprintUnit unit = LodgeCast.CloneUnit(donor, root, name, ScenarioIds.Derive("unit." + name), "kwr.unit." + name, PortraitAssets.Create("RunelordKrune"));
+            // Registered like every other portrait: a unit refers to it by id.
+            BlueprintPortrait krunePortrait = PortraitAssets.Create("RunelordKrune");
+            if (krunePortrait != null)
+            {
+                s_Register(krunePortrait);
+            }
+            BlueprintUnit unit = LodgeCast.CloneUnit(donor, root, name, ScenarioIds.Derive("unit." + name), "kwr.unit." + name, krunePortrait);
             var portraitField = AccessTools.Field(typeof(BlueprintUnit), "m_Portrait");
             if (portraitField.GetValue(unit) == portraitField.GetValue(donor))
             {
