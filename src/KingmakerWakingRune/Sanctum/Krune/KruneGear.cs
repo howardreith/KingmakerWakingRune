@@ -52,6 +52,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public static BlueprintAbility SpearSlow { get; private set; }
         public static BlueprintAbility SpearTelekinesis { get; private set; }
         public static BlueprintFeature Powers { get; private set; }
+        public static BlueprintBuff SpearResists { get; private set; }
 
         public static void Build(List<BlueprintScriptableObject> all)
         {
@@ -170,9 +171,12 @@ namespace KingmakerWakingRune.Sanctum.Krune
             KruneBlueprints.Register(SpearTelekinesis);
 
             Log.Info("Krune gear: spear powers built.");
+            SpearResists = KruneBlueprints.Buff(KruneBlueprints.OpeningStagger, "KWR_KruneSpearResists", "The Spear Pulls Free", "This character mastered the dragon-tooth spear's Ego, but it will not stay: each round its telekinesis tries to disarm itself (CMB 20 against this character's CMD).", false, false,
+                KruneBlueprints.Component<KwrSpearResistsWielder>("KWR_KruneSpearResistsLogic"));
             Powers = KruneBlueprints.Feature("KWR_KruneArtifactPowers", "Runelord's Artifacts", "Wish through his bonded spear, and the spear's own powers.",
                 KruneBlueprints.GrantResource(Bond), AddFacts(Wish, SpearRay, SpearSlow, SpearTelekinesis, KruneDancing.Loose), KruneBlueprints.GrantResource(s_SpearRays), KruneBlueprints.GrantResource(s_SpearSlows),
                 KruneBlueprints.Component<KwrKruneRod>("KWR_KruneRodLogic"));
+            RuneRod.Build();
         }
 
         private static BlueprintAbilityResource s_SpearRays;
@@ -423,67 +427,6 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 target.Descriptor.State.Prone.ShouldBeActive = true;
                 Kingmaker.PubSubSystem.EventBus.RaiseEvent(delegate(Kingmaker.PubSubSystem.IKnockOffHandler h) { h.HandleKnockOff(caster, target); });
             }
-        }
-    }
-}
-
-namespace KingmakerWakingRune.Sanctum.Krune
-{
-    /// <summary>
-    /// Krune's rune-carved rod (page 16): a greater metamagic rod whose charges pay for the level each metamagic adds. Here
-    /// his director applies Empower (2 charges) to a damaging spell it chooses, as the game's own rods do: the metamagic is
-    /// added while the cast's parameters are calculated (the prepared slot and its level are untouched), and the charges are
-    /// spent only when that spell is actually cast. Never on a spell already empowered, never without the rod in his
-    /// possession or its charges. The rod's other options (Enlarge, Extend, Maximize, Silent, Still, Widen) are not used by
-    /// him and not offered to a party wielder in this draft: the rod is carried home as the Society's artifact.
-    /// </summary>
-    public sealed class KwrKruneRod : Kingmaker.Blueprints.OwnedGameLogicComponent<UnitDescriptor>,
-        Kingmaker.PubSubSystem.IInitiatorRulebookHandler<Kingmaker.RuleSystem.Rules.Abilities.RuleCalculateAbilityParams>,
-        Kingmaker.PubSubSystem.IInitiatorRulebookHandler<Kingmaker.RuleSystem.Rules.Abilities.RuleCastSpell>
-    {
-        public const int EmpowerCost = 2;
-        private static BlueprintAbility s_Pending;
-
-        /// <summary>The director marks the next cast of this spell for the rod's Empower, if he has the rod and the charges.</summary>
-        public static bool Offer(UnitEntityData krune, AbilityData spell)
-        {
-            if (spell.MetamagicData != null && spell.MetamagicData.Has(Metamagic.Empower))
-            {
-                return false;
-            }
-            if (!krune.Inventory.Items.Any(KruneLoot.IsRod) || krune.Descriptor.Resources.GetResourceAmount(KruneBlueprints.RodCharges) < EmpowerCost)
-            {
-                return false;
-            }
-            s_Pending = spell.Blueprint;
-            return true;
-        }
-
-        public void OnEventAboutToTrigger(Kingmaker.RuleSystem.Rules.Abilities.RuleCalculateAbilityParams evt)
-        {
-            if (s_Pending != null && evt.Spell == s_Pending && evt.Spellbook != null)
-            {
-                evt.AddMetamagic(Metamagic.Empower);
-            }
-        }
-
-        public void OnEventDidTrigger(Kingmaker.RuleSystem.Rules.Abilities.RuleCalculateAbilityParams evt)
-        {
-        }
-
-        public void OnEventAboutToTrigger(Kingmaker.RuleSystem.Rules.Abilities.RuleCastSpell evt)
-        {
-        }
-
-        public void OnEventDidTrigger(Kingmaker.RuleSystem.Rules.Abilities.RuleCastSpell evt)
-        {
-            if (s_Pending == null || evt.Spell.Blueprint != s_Pending)
-            {
-                return;
-            }
-            s_Pending = null;
-            Owner.Resources.Spend(KruneBlueprints.RodCharges, EmpowerCost);
-            KruneAwakening.Note($"the rune-carved rod empowers {evt.Spell.Blueprint.name}: {EmpowerCost} charges spent, {Owner.Resources.GetResourceAmount(KruneBlueprints.RodCharges)} left.");
         }
     }
 }

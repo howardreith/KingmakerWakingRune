@@ -1,5 +1,6 @@
-using System.Linq;
+﻿using System.Linq;
 using Kingmaker;
+using Kingmaker.UnitLogic;
 using Kingmaker.Blueprints.Root;
 using Kingmaker.EntitySystem.Entities;
 using Kingmaker.Items;
@@ -97,38 +98,53 @@ namespace KingmakerWakingRune.Sanctum.Krune
 namespace KingmakerWakingRune.Sanctum.Krune
 {
     /// <summary>
-    /// Wielding the dragon-tooth spear is not carrying it (page 15: Ego 22, it serves Lissala and harangues other wielders).
-    /// Carrying it home needs no check. A party member who takes it in hand faces its Ego: a Will save against DC 22. On a
-    /// failure the spear will not serve: it leaves the hand for the shared inventory, and that character may not take it up
-    /// again for a day. On a success it can be wielded as a +3 longspear, haranguing its bearer; its powers serve Krune alone.
+    /// Wielding the dragon-tooth spear is not carrying it (page 14; SpearEgoRules). Carrying it home needs no check. A party
+    /// member who takes it in hand faces its Ego each time: a Will save against DC 22, or it compels them to put it down
+    /// (it leaves the hand for the shared inventory). From the second attempt on (the count is kept in the save, so a reload
+    /// gives no fresh first try) it first strikes them for 1d8+9. A wielder who masters it must still keep it: each round it
+    /// tries to disarm itself with its telekinesis (CMB 20 against their CMD). Its powers serve Krune alone.
     /// </summary>
     [Harmony12.HarmonyPatch(typeof(ItemEntity), nameof(ItemEntity.OnDidEquipped))]
     internal static class SpearEgoPatch
     {
         private static void Postfix(ItemEntity __instance, Kingmaker.UnitLogic.UnitDescriptor wielder)
         {
-            if (!KruneLoot.IsSpear(__instance) || wielder?.Unit == null || !wielder.Unit.IsPlayerFaction || wielder.Unit == KruneAwakening.Actor)
+            if (!KruneLoot.IsSpear(__instance) || wielder?.Unit == null || !wielder.Unit.IsPlayerFaction || wielder.Unit == KruneAwakening.Actor || !(__instance.HoldingSlot is Kingmaker.Items.Slots.HandSlot))
             {
                 return;
             }
             UnitEntityData unit = wielder.Unit;
-            double now = Kingmaker.Game.Instance.TimeController.GameTime.TotalSeconds;
-            // The refusal is kept in the saved conclusion state: a reload does not offer a fresh roll.
-            System.Collections.Generic.Dictionary<string, double> refusals = WardStore.Existing?.Conclusion.SpearRefusedUntil ?? new System.Collections.Generic.Dictionary<string, double>();
-            bool refused = refusals.TryGetValue(unit.UniqueId, out double until) && now < until;
-            if (!refused)
+            ConclusionState conclusion = WardStore.Existing?.Conclusion;
+            System.Collections.Generic.Dictionary<string, int> attempts = conclusion?.SpearWieldAttempts ?? new System.Collections.Generic.Dictionary<string, int>();
+            attempts.TryGetValue(unit.UniqueId, out int prior);
+            attempts[unit.UniqueId] = prior + 1;
+            if (SpearEgoRules.StrikesFirst(prior))
             {
-                Kingmaker.RuleSystem.Rules.RuleSavingThrow save = Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.RuleSavingThrow(unit, Kingmaker.EntitySystem.Stats.SavingThrowType.Will, 22));
-                Log.Info($"Dragon-tooth spear: {unit.CharacterName} takes it in hand: Will {save.RollResult} vs DC 22 ({(save.IsPassed ? "mastered" : "refused")}).");
-                if (save.IsPassed)
-                {
-                    WardRuntime.Say($"The dragon-tooth spear yields to {unit.CharacterName}, muttering about rash, spontaneous hands.");
-                    return;
-                }
-                refusals[unit.UniqueId] = now + Wards.WardProfile.DaySeconds;
+                int strike = Kingmaker.RuleSystem.RulebookEvent.Dice.D(new Kingmaker.RuleSystem.DiceFormula(1, Kingmaker.RuleSystem.DiceType.D8)) + SpearEgoRules.StrikeBonus;
+                var damage = new Kingmaker.RuleSystem.Rules.Damage.PhysicalDamage(new Kingmaker.RuleSystem.DiceFormula(0, Kingmaker.RuleSystem.DiceType.Zero), Kingmaker.Enums.Damage.PhysicalDamageForm.Piercing);
+                damage.AddBonus(strike);
+                Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.Damage.RuleDealDamage(unit, unit, new Kingmaker.RuleSystem.Rules.Damage.DamageBundle(damage)));
+                WardRuntime.Say($"The dragon-tooth spear strikes {unit.CharacterName} for the insolence of trying again.");
+                Log.Info($"Dragon-tooth spear: attempt {prior + 1} by {unit.CharacterName}: it strikes for {strike} (1d8+9) before its Ego.");
             }
-            WardRuntime.Say($"The dragon-tooth spear will not serve {unit.CharacterName}: it twists out of the grip.");
-            Kingmaker.Items.Slots.ItemSlot slot = __instance.HoldingSlot;
+            Kingmaker.RuleSystem.Rules.RuleSavingThrow save = Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.RuleSavingThrow(unit, Kingmaker.EntitySystem.Stats.SavingThrowType.Will, SpearEgoRules.WillDC));
+            Log.Info($"Dragon-tooth spear: {unit.CharacterName} takes it in hand (attempt {prior + 1}): Will {save.RollResult} vs DC {SpearEgoRules.WillDC} ({(save.IsPassed ? "mastered" : "compelled to put it down")}).");
+            if (save.IsPassed)
+            {
+                WardRuntime.Say($"The dragon-tooth spear yields to {unit.CharacterName}, muttering about rash, spontaneous hands, and pulls against the grip.");
+                if (KruneGear.SpearResists != null && !unit.Buffs.HasFact(KruneGear.SpearResists))
+                {
+                    unit.Descriptor.AddBuff(KruneGear.SpearResists, unit, null);
+                }
+                return;
+            }
+            WardRuntime.Say($"The dragon-tooth spear will not serve {unit.CharacterName}: its will compels them to set it down.");
+            PutDown(__instance);
+        }
+
+        public static void PutDown(ItemEntity spear)
+        {
+            Kingmaker.Items.Slots.ItemSlot slot = spear.HoldingSlot;
             Kingmaker.Items.Slots.ItemSlot.IgnoreLock.Retain();
             try
             {
@@ -138,6 +154,32 @@ namespace KingmakerWakingRune.Sanctum.Krune
             {
                 Kingmaker.Items.Slots.ItemSlot.IgnoreLock.Release();
             }
+        }
+    }
+
+    /// <summary>On a wielder who mastered the spear's Ego: each round its telekinesis tries to disarm it (SpearEgoRules).</summary>
+    public sealed class KwrSpearResistsWielder : Kingmaker.UnitLogic.Buffs.Components.BuffLogic, Kingmaker.Controllers.Units.ITickEachRound
+    {
+        public void OnNewRound()
+        {
+            UnitEntityData unit = Owner.Unit;
+            ItemEntity spear = unit.Body.HandsEquipmentSets.SelectMany(s => new[] { s.PrimaryHand.MaybeItem, s.SecondaryHand.MaybeItem }).FirstOrDefault(KruneLoot.IsSpear);
+            if (spear == null)
+            {
+                Buff.Remove();
+                return;
+            }
+            int d20 = Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.RuleRollD20(unit)).Result;
+            int cmd = Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.RuleCalculateCMD(unit, unit, Kingmaker.RuleSystem.Rules.CombatManeuver.Disarm)).Result;
+            bool disarmed = SpearEgoRules.DisarmSucceeds(d20, cmd);
+            Log.Info($"Dragon-tooth spear: its telekinesis tries to disarm {unit.CharacterName}: d20 {d20} + {SpearEgoRules.TelekinesisCmb} vs CMD {cmd}: {(disarmed ? "disarmed" : "held")}.");
+            if (!disarmed)
+            {
+                return;
+            }
+            WardRuntime.Say($"The dragon-tooth spear twists itself out of {unit.CharacterName}'s grip.");
+            SpearEgoPatch.PutDown(spear);
+            Buff.Remove();
         }
     }
 }

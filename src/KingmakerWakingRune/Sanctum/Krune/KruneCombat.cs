@@ -1,5 +1,6 @@
 using System.Linq;
 using Kingmaker.EntitySystem.Entities;
+using Kingmaker.UnitLogic;
 using KingmakerWakingRune.Sanctum.Wards;
 
 namespace KingmakerWakingRune.Sanctum.Krune
@@ -46,6 +47,11 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
             actor.Brain.RestoreAvailableActions();
             EnsureFreedom(actor);
+            // Taking up the spear after a dance it could not end in his hand (WR-FINAL 0.9.20): once, for any Krune.
+            if (KruneDancing.Grasp != null && actor.Descriptor.Abilities.GetFact(KruneDancing.Grasp) == null)
+            {
+                actor.Descriptor.AddFact(KruneDancing.Grasp);
+            }
         }
 
         /// <summary>

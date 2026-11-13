@@ -245,9 +245,32 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 Note($"COMBAT-READY HANDOFF at {now:0}: the encounter begins. {Sheet(Actor)}");
             }
             HoldStaggerForTurn(state);
+            KeepAwake(state);
             KruneDancing.Tick(state, now);
             KruneAftermath.Tick(state, now);
             SyncLinks(state, now);
+        }
+
+        /// <summary>
+        /// The game lets a unit "sleep" when it is in the fog of war, out of combat and idle: its life state, its round ticks
+        /// (fast healing) and its brain are not processed until it wakes. Krune relocating out of sight is part of his tactics,
+        /// so from his emergence he is kept awake (the game's own Sleepless flag, saved with him): damage that kills him under
+        /// the game's rules (damage at or above his hit points; he has no dying condition and no regeneration) kills him where
+        /// he stands, near the party or not, and his recovery spells are cast there. Nothing decides his death but the native
+        /// life controller.
+        /// </summary>
+        /// <summary>SETUP control for the labelled off-screen death comparison only (harness "kruneawake off").</summary>
+        public static bool HarnessNoKeepAwake;
+
+        private static void KeepAwake(SanctumState state)
+        {
+            UnitEntityData actor = Actor;
+            if (HarnessNoKeepAwake || state.Krune.Stage < AwakeningStage.Emerged || actor == null || actor.Descriptor.State.IsDead || actor.Sleepless)
+            {
+                return;
+            }
+            actor.Sleepless = true;
+            Note("kept awake for the encounter (native Sleepless): his life state, fast healing and brain are processed wherever he is.");
         }
 
         private static void OnCommitted(SanctumState state, double now)

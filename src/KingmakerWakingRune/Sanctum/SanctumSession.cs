@@ -34,6 +34,7 @@ namespace KingmakerWakingRune.Sanctum
 
         public void OnAreaBeginUnloading()
         {
+            Krune.KruneSession.Reset("area unloading");
             if (SanctumScope.IsSanctumLoaded)
             {
                 SanctumLighting.Restore();
@@ -43,6 +44,7 @@ namespace KingmakerWakingRune.Sanctum
 
         public void OnAreaDidLoad()
         {
+            Krune.KruneSession.Reset("area loaded");
             if (!SanctumScope.IsSanctumLoaded)
             {
                 return;

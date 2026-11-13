@@ -130,6 +130,13 @@ namespace KingmakerWakingRune.Sanctum.Krune
         /// <summary>The dancing spear's form while it dances, and when the dance ends (WR-FINAL).</summary>
         public string DancingFormId = string.Empty;
         public double DancingUntil = -1d;
+        /// <summary>After he grasps the dancing spear it cannot dance again until then.</summary>
+        public double DanceLockedUntil = -1d;
+        /// <summary>The loot bag the spear dropped into when its dance ended while he could not grasp it (empty: none).</summary>
+        public string DroppedSpearBagId = string.Empty;
+        /// <summary>The rune-carved rod's charges (-1: not yet taken over from Krune's old resource) and their last renewal.</summary>
+        public int RodCharges = -1;
+        public double RodRenewedAt = -1d;
     }
 
     /// <summary>Krune's linked and revival-dependent values at one instant. Before the native difficulty preset.</summary>

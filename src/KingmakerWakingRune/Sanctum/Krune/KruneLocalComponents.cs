@@ -91,15 +91,42 @@ namespace KingmakerWakingRune.Sanctum.Krune
     }
 
     /// <summary>
-    /// Black tentacles: every creature in the area, at its first entry and each round, is the target of a grapple check
-    /// (d20 + caster level + 5, the tentacles' own CMB) against its native CMD; a held creature is crushed for 1d6+4 each
-    /// round. Freedom of movement (immunity to being held in place) makes the grapple fail. Spell resistance does not apply.
+    /// Black tentacles (TentacleRules): one grapple check for the whole area each round (d20 + caster level + 5, +5 against a
+    /// creature already held) against each creature's native CMD; a creature entering meets that round's check. A success
+    /// grapples or keeps the hold and crushes for 1d6+4; a failed check against a held creature breaks the hold. Freedom of
+    /// movement (immunity to being held in place) is checked every time, so a creature that gains it is let go. Each
+    /// creature is resolved once per round's check, so the cast's own round never crushes twice. Spell resistance does not
+    /// apply. The round's roll is held for the session only and is cleared on every load (KruneSession).
     /// </summary>
     public sealed class KwrTentacleArea : AbilityAreaEffectLogic
     {
+        private sealed class RoundRoll
+        {
+            public int Id;
+            public int D20;
+            public double At;
+        }
+
+        private static readonly System.Collections.Generic.Dictionary<string, RoundRoll> s_Rolls = new System.Collections.Generic.Dictionary<string, RoundRoll>();
+        // The roll each creature was last resolved under, by area/creature.
+        private static readonly System.Collections.Generic.Dictionary<string, int> s_Resolved = new System.Collections.Generic.Dictionary<string, int>();
+        private static int s_NextId = 1;
+
+        public static void ResetSession()
+        {
+            s_Rolls.Clear();
+            s_Resolved.Clear();
+        }
+
         protected override void OnUnitEnter(MechanicsContext context, AreaEffectEntityData areaEffect, UnitEntityData unit)
         {
-            Grapple(context, areaEffect, unit);
+            double now = Wards.WardRuntime.Now;
+            s_Rolls.TryGetValue(areaEffect.UniqueId, out RoundRoll roll);
+            if (roll == null || TentacleRules.EntryNeedsRoll(roll.At, now))
+            {
+                roll = Roll(context, areaEffect, now);
+            }
+            Resolve(context, areaEffect, unit, roll);
         }
 
         protected override void OnUnitExit(MechanicsContext context, AreaEffectEntityData areaEffect, UnitEntityData unit)
@@ -109,56 +136,71 @@ namespace KingmakerWakingRune.Sanctum.Krune
 
         protected override void OnRound(MechanicsContext context, AreaEffectEntityData areaEffect)
         {
+            double now = Wards.WardRuntime.Now;
+            s_Rolls.TryGetValue(areaEffect.UniqueId, out RoundRoll roll);
+            if (roll == null || TentacleRules.NewRoundRoll(roll.At, now))
+            {
+                roll = Roll(context, areaEffect, now);
+            }
             foreach (UnitEntityData unit in areaEffect.UnitsInside.Where(u => u.IsInGame).ToList())
             {
-                if (unit.Descriptor.Get<KwrConjuredMagicPart>()?.HeldByArea == areaEffect.UniqueId && unit.Buffs.HasFact(KruneLocalSpells.TentaclesGrappled))
-                {
-                    Crush(context, unit);
-                }
-                else
-                {
-                    Grapple(context, areaEffect, unit);
-                }
+                Resolve(context, areaEffect, unit, roll);
             }
         }
 
         public static int Cmb(MechanicsContext context)
         {
-            return Math.Max(1, context.Params.CasterLevel) + 5;
+            return TentacleRules.Cmb(context.Params.CasterLevel);
         }
 
-        // One grapple per creature per round: entering and the round's start can fall on the same tick when the tentacles appear.
-        private static readonly System.Collections.Generic.Dictionary<string, double> s_LastTry = new System.Collections.Generic.Dictionary<string, double>();
-
-        private static void Grapple(MechanicsContext context, AreaEffectEntityData area, UnitEntityData unit)
+        private static RoundRoll Roll(MechanicsContext context, AreaEffectEntityData area, double now)
         {
-            if (unit.Descriptor.State.IsDead || Wards.WardFixtures.IdOf(unit) != null || unit.Buffs.HasFact(KruneLocalSpells.TentaclesGrappled))
+            UnitEntityData caster = context.MaybeCaster;
+            int d20 = caster != null ? (int)Rulebook.Trigger(new RuleRollD20(caster)).Result : (int)RulebookEvent.Dice.D(new DiceFormula(1, DiceType.D20));
+            var roll = new RoundRoll { Id = s_NextId++, D20 = d20, At = now };
+            s_Rolls[area.UniqueId] = roll;
+            KruneAwakening.Note($"black tentacles: the round's grapple check is d20 {d20} + {Cmb(context)} (+{TentacleRules.HeldBonus} against the held).");
+            return roll;
+        }
+
+        private static void Resolve(MechanicsContext context, AreaEffectEntityData area, UnitEntityData unit, RoundRoll roll)
+        {
+            if (unit.Descriptor.State.IsDead || Wards.WardFixtures.IdOf(unit) != null)
             {
                 return;
             }
             string key = area.UniqueId + "/" + unit.UniqueId;
-            if (s_LastTry.TryGetValue(key, out double last) && Wards.WardRuntime.Now - last < 3d)
+            if (s_Resolved.TryGetValue(key, out int last) && last == roll.Id)
             {
                 return;
             }
-            s_LastTry[key] = Wards.WardRuntime.Now;
-            if (unit.Descriptor.State.HasConditionImmunity(UnitCondition.CantMove))
+            s_Resolved[key] = roll.Id;
+            bool held = unit.Descriptor.Get<KwrConjuredMagicPart>()?.HeldByArea == area.UniqueId && unit.Buffs.HasFact(KruneLocalSpells.TentaclesGrappled);
+            if (!held && unit.Buffs.HasFact(KruneLocalSpells.TentaclesGrappled))
             {
-                KruneAwakening.Note($"black tentacles cannot hold {unit.CharacterName} (freedom of movement).");
+                // Held by another casting of the tentacles: that one resolves it.
                 return;
             }
+            bool free = unit.Descriptor.State.HasConditionImmunity(UnitCondition.CantMove);
             UnitEntityData caster = context.MaybeCaster ?? unit;
-            int d20 = Rulebook.Trigger(new RuleRollD20(caster)).Result;
-            int cmd = Rulebook.Trigger(new RuleCalculateCMD(caster, unit, CombatManeuver.Grapple)).Result;
-            bool held = d20 != 1 && (d20 == 20 || d20 + Cmb(context) >= cmd);
-            KruneAwakening.Note($"black tentacles grapple {unit.CharacterName}: d20 {d20} + {Cmb(context)} vs CMD {cmd}: {(held ? "held" : "missed")}.");
-            if (!held)
+            int cmd = free ? 0 : Rulebook.Trigger(new RuleCalculateCMD(caster, unit, CombatManeuver.Grapple)).Result;
+            TentacleResult result = TentacleRules.Resolve(roll.D20, Cmb(context), cmd, held, free);
+            KruneAwakening.Note($"black tentacles on {unit.CharacterName}: {(free ? "freedom of movement" : $"d20 {roll.D20} + {Cmb(context)}{(held ? " + " + TentacleRules.HeldBonus : string.Empty)} vs CMD {cmd}")}: {result}.");
+            switch (result)
             {
-                return;
+                case TentacleResult.Grappled:
+                    unit.Descriptor.Ensure<KwrConjuredMagicPart>().HeldByArea = area.UniqueId;
+                    unit.Descriptor.AddBuff(KruneLocalSpells.TentaclesGrappled, context, null);
+                    Crush(context, unit);
+                    break;
+                case TentacleResult.Maintained:
+                    Crush(context, unit);
+                    break;
+                case TentacleResult.Released:
+                case TentacleResult.Immune:
+                    Release(unit, area.UniqueId);
+                    break;
             }
-            unit.Descriptor.Ensure<KwrConjuredMagicPart>().HeldByArea = area.UniqueId;
-            unit.Descriptor.AddBuff(KruneLocalSpells.TentaclesGrappled, context, null);
-            Crush(context, unit);
         }
 
         private static void Crush(MechanicsContext context, UnitEntityData unit)
@@ -191,6 +233,13 @@ namespace KingmakerWakingRune.Sanctum.Krune
             AreaEffectEntityData area = Game.Instance.State.AreaEffects.FirstOrDefault(a => a.UniqueId == part?.HeldByArea);
             if (area == null)
             {
+                Buff.Remove();
+                return;
+            }
+            if (unit.Descriptor.State.HasConditionImmunity(UnitCondition.CantMove))
+            {
+                KruneAwakening.Note($"{unit.CharacterName} slips free of the tentacles (freedom of movement).");
+                part.HeldByArea = string.Empty;
                 Buff.Remove();
                 return;
             }
@@ -393,6 +442,126 @@ namespace KingmakerWakingRune.Sanctum.Krune
             bearer.View?.StopMoving();
             linked.View?.StopMoving();
             __instance.AutoMiss = true;
+        }
+    }
+
+    /// <summary>
+    /// Solid fog on a creature standing in it (SolidFogRules): -2 on melee attack and melee damage rolls. Its half speed
+    /// (SolidFogSpeedPatch, the same multiplier the game applies for difficult terrain), the lost 5-foot step
+    /// (SolidFogStepPatch) and the failed ranged weapon attacks (SolidFogRangedPatch) are read from the same buff. Freedom of
+    /// movement (immunity to being held in place) lets it move and attack normally: checked at each use, never cached.
+    /// </summary>
+    public sealed class KwrSolidFogLogic : BuffLogic, IInitiatorRulebookHandler<RuleAttackRoll>, IInitiatorRulebookHandler<RuleCalculateWeaponStats>
+    {
+        public static bool In(UnitEntityData unit)
+        {
+            return unit != null && KruneLocalSpells.SolidFogSlow != null && unit.Buffs.HasFact(KruneLocalSpells.SolidFogSlow);
+        }
+
+        public static bool Free(UnitEntityData unit)
+        {
+            return unit.Descriptor.State.HasConditionImmunity(UnitCondition.CantMove);
+        }
+
+        public static bool Hindered(UnitEntityData unit)
+        {
+            return In(unit) && !Free(unit);
+        }
+
+        internal static AttackDelivery Delivery(Kingmaker.Blueprints.Items.Weapons.BlueprintItemWeapon weapon)
+        {
+            if (weapon == null || weapon.IsMelee)
+            {
+                return AttackDelivery.Melee;
+            }
+            return weapon.AttackType == AttackType.Ranged ? AttackDelivery.RangedWeapon : AttackDelivery.RangedTouch;
+        }
+
+        public void OnEventAboutToTrigger(RuleAttackRoll evt)
+        {
+            int modifier = evt.Weapon == null ? 0 : SolidFogRules.MeleeModifier(Delivery(evt.Weapon.Blueprint), Free(Owner.Unit));
+            if (modifier != 0)
+            {
+                evt.AddTemporaryModifier(evt.Initiator.Stats.AdditionalAttackBonus.AddModifier(modifier, this, Kingmaker.Enums.ModifierDescriptor.UntypedStackable));
+                KruneAwakening.Note($"solid fog: {evt.Initiator.CharacterName}'s melee attack {modifier} (and {modifier} damage).");
+            }
+        }
+
+        public void OnEventDidTrigger(RuleAttackRoll evt)
+        {
+        }
+
+        public void OnEventAboutToTrigger(RuleCalculateWeaponStats evt)
+        {
+            int modifier = evt.Weapon == null ? 0 : SolidFogRules.MeleeModifier(Delivery(evt.Weapon.Blueprint), Free(Owner.Unit));
+            if (modifier != 0)
+            {
+                evt.AddBonusDamage(modifier);
+            }
+        }
+
+        public void OnEventDidTrigger(RuleCalculateWeaponStats evt)
+        {
+        }
+    }
+
+    /// <summary>Solid fog halves the speed of a creature in it (multiplying, as the game's own difficult terrain does).</summary>
+    [HarmonyPatch(typeof(UnitEntityData), "CalculateSpeedModifier")]
+    internal static class SolidFogSpeedPatch
+    {
+        private static void Postfix(UnitEntityData __instance, ref float __result)
+        {
+            if (KwrSolidFogLogic.Hindered(__instance))
+            {
+                __result *= (float)SolidFogRules.SpeedMultiplier;
+            }
+        }
+    }
+
+    /// <summary>No 5-foot step in solid fog (turn-based play).</summary>
+    [HarmonyPatch(typeof(TurnBased.Controllers.TurnController), nameof(TurnBased.Controllers.TurnController.ShouldRestrictFiveFootStep))]
+    internal static class SolidFogStepPatch
+    {
+        private static void Postfix(TurnBased.Controllers.TurnController __instance, ref bool __result)
+        {
+            if (!__result && KwrSolidFogLogic.Hindered(__instance.Unit))
+            {
+                __result = true;
+            }
+        }
+    }
+
+    /// <summary>
+    /// The fog's vapors prevent effective ranged weapon attacks: an ordinary ranged weapon attack (bow, crossbow, sling,
+    /// thrown weapon) made from inside the fog, at a creature inside it, or along a line through it, misses. Rays and other
+    /// ranged touch attacks are unaffected (the game delivers thrown splash weapons as ranged touch attacks too).
+    /// </summary>
+    [HarmonyPatch(typeof(RuleAttackRoll), nameof(RuleAttackRoll.OnTrigger))]
+    internal static class SolidFogRangedPatch
+    {
+        private static void Prefix(RuleAttackRoll __instance)
+        {
+            if (KruneLocalSpells.SolidFogArea == null || __instance.Weapon == null || __instance.AutoMiss || KwrSolidFogLogic.Delivery(__instance.Weapon.Blueprint) != AttackDelivery.RangedWeapon)
+            {
+                return;
+            }
+            UnitEntityData a = __instance.Initiator;
+            UnitEntityData t = __instance.Target;
+            if (a == null || t == null)
+            {
+                return;
+            }
+            var fogs = Game.Instance.State.AreaEffects.Where(f => f.Blueprint == KruneLocalSpells.SolidFogArea).ToList();
+            if (fogs.Count == 0)
+            {
+                return;
+            }
+            bool crosses = fogs.Any(f => SolidFogRules.SegmentNear(a.Position.x, a.Position.z, t.Position.x, t.Position.z, f.Position.x, f.Position.z, f.Blueprint.Size.Meters));
+            if (SolidFogRules.RangedAttackFails(AttackDelivery.RangedWeapon, KwrSolidFogLogic.In(a), KwrSolidFogLogic.In(t), crosses))
+            {
+                __instance.AutoMiss = true;
+                KruneAwakening.Note($"solid fog: {a.CharacterName}'s ranged weapon attack at {t.CharacterName} is lost in the vapors.");
+            }
         }
     }
 

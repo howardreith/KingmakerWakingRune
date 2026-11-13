@@ -40,6 +40,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public double DebriefAt = -1d;
         /// <summary>Party members the dragon-tooth spear refused (its Ego), by unit id, with the time the refusal lasts until.</summary>
         public System.Collections.Generic.Dictionary<string, double> SpearRefusedUntil = new System.Collections.Generic.Dictionary<string, double>();
+        /// <summary>How many times each party member has taken the spear in hand (its Ego strikes from the second time on).</summary>
+        public System.Collections.Generic.Dictionary<string, int> SpearWieldAttempts = new System.Collections.Generic.Dictionary<string, int>();
         public ScenarioOutcome Outcome = ScenarioOutcome.None;
     }
 

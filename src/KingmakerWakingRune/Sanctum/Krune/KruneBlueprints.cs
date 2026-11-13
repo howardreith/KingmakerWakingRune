@@ -239,7 +239,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             Spear = UnityEngine.Object.Instantiate(Get<BlueprintItemWeapon>(LongspearPlus3));
             Spear.name = "KWR_KruneDragonToothSpear";
             Spear.AssetGuid = ScenarioIds.Derive("krune." + Spear.name);
-            ItemName(Spear, "Krune's Dragon-Tooth Spear", "One of the Alara'quin, the seven icons Emperor Xin crafted for the runelords: a +3 longspear of dragon tooth, and Krune's arcane bond (major artifact). Its dancing, ego, telekinesis and other powers are not part of this build.");
+            ItemName(Spear, "Krune's Dragon-Tooth Spear", "One of the Alara'quin, the seven icons Emperor Xin crafted for the runelords: a +3 dancing longspear of dragon tooth, and Krune's arcane bond (major artifact). Ego 22: it serves only the Runelord of Sloth; another who takes it in hand must master it (Will DC 22), is struck for it from the second try on, and must then keep it against its telekinesis.");
             s_Register(Spear);
 
             // Carried, not usable: a plain item with the metamagic rod's icon. Its metamagic belongs to the combat increment;
@@ -249,7 +249,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             rod.name = "KWR_KruneRuneCarvedRod";
             rod.AssetGuid = ScenarioIds.Derive("krune." + rod.name);
             AccessTools.Field(typeof(BlueprintItem), "m_Icon").SetValue(rod, rodDonor.Icon);
-            ItemName(rod, "Krune's Rune-Carved Rod", "A two-foot shaft of weathered dark grey stone crawling with runes (minor artifact): a greater metamagic rod of seven feats, up to three on one spell, with 10 charges renewed every 24 hours. Its powers are not part of this build.");
+            ItemName(rod, "Krune's Rune-Carved Rod", "A two-foot shaft of weathered dark grey stone crawling with runes (minor artifact): a greater metamagic rod of seven feats, up to three on one spell, with 10 charges renewed every 24 hours. Empower, Enlarge, Extend and Maximize work in this world; Silent, Still and Widen have no effect here.");
             s_Register(rod);
             Rod = rod;
 

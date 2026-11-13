@@ -43,6 +43,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public static BlueprintBuff TentaclesGrappled { get; private set; }
         public static BlueprintBuff InsideGlobe { get; private set; }
         public static BlueprintBuff SolidFogSlow { get; private set; }
+        public static BlueprintAbilityAreaEffect SolidFogArea { get; private set; }
         public static BlueprintBuff SpellTurning { get; private set; }
         public static BlueprintBuff Juxtaposition { get; private set; }
         public static BlueprintBuff PhaseDoorPassages { get; private set; }
@@ -81,16 +82,17 @@ namespace KingmakerWakingRune.Sanctum.Krune
             // Fog cloud and solid fog: the game's obscuring mist area, at a point, with fog cloud's duration; solid fog also slows.
             BlueprintAbilityAreaEffect mist = AreaOf(native["ObscuringMist"]);
             built["KWR_KruneFogCloud"] = AreaSpell(native["ObscuringMist"], "KWR_KruneFogCloud", "Fog Cloud", "A bank of fog billows out from a point within medium range, 20-foot radius: it obscures all sight beyond 5 feet (concealment, total beyond 5 feet). 10 minutes per level.", mist, 600d, SpellSchool.Conjuration, SpellDescriptor.None);
-            SolidFogSlow = Buff(buffDonor, "KWR_KruneSolidFogSlow", "Solid Fog", "Thick fog: speed reduced to 5 feet, -2 on melee attack and damage rolls.", false, true,
-                Stat(StatType.Speed, -25), Stat(StatType.AdditionalAttackBonus, -2), Stat(StatType.AdditionalDamage, -2));
+            SolidFogSlow = Buff(buffDonor, "KWR_KruneSolidFogSlow", "Solid Fog", "Thick fog: half speed and no 5-foot step; -2 on melee attack and melee damage rolls; ordinary ranged weapon attacks made from, into or through the fog fail (rays are unaffected). Freedom of movement: moves and attacks normally.", false, true,
+                Component<KwrSolidFogLogic>("KWR_KruneSolidFogLogic"));
             BlueprintAbilityAreaEffect solid = CloneArea(mist, "KWR_KruneSolidFogArea", extra: AreaBuff(SolidFogSlow));
-            built["KWR_KruneSolidFog"] = AreaSpell(native["ObscuringMist"], "KWR_KruneSolidFog", "Solid Fog", "Thick fog at a point within medium range, 20-foot radius: it obscures sight as fog cloud, and a creature in it moves at 5 feet and takes -2 on melee attack and damage rolls. 1 minute per level.", solid, 60d, SpellSchool.Conjuration, SpellDescriptor.None);
+            SolidFogArea = solid;
+            built["KWR_KruneSolidFog"] = AreaSpell(native["ObscuringMist"], "KWR_KruneSolidFog", "Solid Fog", "Thick fog at a point within medium range, 20-foot radius: it obscures sight as fog cloud. A creature in it moves at half speed, cannot take a 5-foot step, and takes -2 on melee attack and melee damage rolls; ordinary ranged weapon attacks made from, into or through it fail (magic rays are unaffected). Freedom of movement lets a creature move and attack normally in it. 1 minute per level.", solid, 60d, SpellSchool.Conjuration, SpellDescriptor.None);
 
             // Black tentacles: a 20-foot spread of tentacles that grapple (CMB = CL + 5) each round and crush the grappled.
-            TentaclesGrappled = Buff(buffDonor, "KWR_KruneTentaclesGrappled", "Grappled by black tentacles", "Grappled: the creature cannot move and is entangled (-2 attack, -4 Dexterity), and takes 1d6+4 bludgeoning each round it stays held. It may try to break free each round (CMB, Athletics or Mobility against the tentacles' CMD).", false, true,
+            TentaclesGrappled = Buff(buffDonor, "KWR_KruneTentaclesGrappled", "Grappled by black tentacles", "Grappled: the creature cannot move and is entangled (-2 attack, -4 Dexterity). Each round the tentacles make one grapple check (+5 against those they hold): on a success it takes 1d6+4 bludgeoning; on a failure it is let go. It may try to break free each round (CMB, Athletics or Mobility against the tentacles' CMD). Freedom of movement frees it.", false, true,
                 Condition(UnitCondition.CantMove), Condition(UnitCondition.Entangled), Component<KwrTentacleHold>("KWR_KruneTentacleHoldLogic"));
             BlueprintAbilityAreaEffect tentacles = CloneArea(AreaOf(native["Web"]), "KWR_KruneBlackTentaclesArea", replace: true, extra: new BlueprintComponent[] { Component<KwrTentacleArea>("KWR_KruneTentacleAreaLogic") });
-            built["KWR_KruneBlackTentacles"] = AreaSpell(native["Web"], "KWR_KruneBlackTentacles", "Black Tentacles", "Rubbery black tentacles fill a 20-foot spread within medium range for 1 round per level. Each round, at the start, they try to grapple every creature in the area (CMB = caster level + 5) and crush any they hold for 1d6+4. Spell resistance does not apply.", tentacles, 6d, SpellSchool.Conjuration, SpellDescriptor.None);
+            built["KWR_KruneBlackTentacles"] = AreaSpell(native["Web"], "KWR_KruneBlackTentacles", "Black Tentacles", "Rubbery black tentacles fill a 20-foot spread within medium range for 1 round per level. Each round, at the start, one grapple check (CMB = caster level + 5; +5 against creatures already held) is applied to every creature in the area, and to any that enter that round: a success grapples and crushes for 1d6+4; a failure lets a held creature go. Freedom of movement cannot be held. Spell resistance does not apply.", tentacles, 6d, SpellSchool.Conjuration, SpellDescriptor.None);
 
             // Globe of invulnerability: an immobile 10-foot globe where spells of 4th level or lower cast from outside fail.
             InsideGlobe = Buff(buffDonor, "KWR_KruneInsideGlobe", "Within a globe of invulnerability", "Spells of 4th level or lower cast from outside the globe cannot affect this creature.", false, true);

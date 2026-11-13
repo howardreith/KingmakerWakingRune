@@ -29,6 +29,42 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public string Reason;
         public bool Swift;
         public string Key;
+        public KruneAim Aim;
+    }
+
+    /// <summary>
+    /// What Krune last saw of each foe (SightRules): its place and the moment, while it was visible to him by the game's own
+    /// detection. A foe he can no longer see is suspected at that place for a short while; he never learns where it is now.
+    /// Session only: cleared on every load (KruneSession).
+    /// </summary>
+    internal static class KruneSight
+    {
+        private static readonly Dictionary<string, KeyValuePair<Vector3, double>> s_Seen = new Dictionary<string, KeyValuePair<Vector3, double>>();
+
+        public static void ResetSession()
+        {
+            s_Seen.Clear();
+        }
+
+        public static void Saw(UnitEntityData foe, double now)
+        {
+            s_Seen[foe.UniqueId] = new KeyValuePair<Vector3, double>(foe.Position, now);
+        }
+
+        /// <summary>Foes he remembers but cannot see now, at the place he last saw them, most recent first.</summary>
+        public static List<KeyValuePair<UnitEntityData, Vector3>> Suspected(UnitEntityData krune, double now)
+        {
+            var result = new List<KeyValuePair<UnitEntityData, Vector3>>();
+            foreach (UnitEntityData u in Game.Instance.State.Units.Where(u => u.IsInGame && u.Descriptor.State.IsConscious && krune.IsEnemy(u)))
+            {
+                if (!s_Seen.TryGetValue(u.UniqueId, out KeyValuePair<Vector3, double> seen) || !krune.Memory.Contains(u) || !SightRules.Suspected(seen.Value, now, krune.Memory.ContainsVisible(u)))
+                {
+                    continue;
+                }
+                result.Add(new KeyValuePair<UnitEntityData, Vector3>(u, seen.Key));
+            }
+            return result.OrderByDescending(p => s_Seen[p.Key.UniqueId].Value).ToList();
+        }
     }
 
     /// <summary>
@@ -41,8 +77,27 @@ namespace KingmakerWakingRune.Sanctum.Krune
     internal static class KruneDirector
     {
         private static KrunePlan s_Cached;
+        private static string s_CachedFor = string.Empty;
         private static KruneView s_LastView;
         private static double s_CachedAt = -1d;
+
+        /// <summary>
+        /// Every transient decision belongs to one session of one Krune: cleared when a save loads (or the sanctum unloads),
+        /// so a hold-back, an issued cast or a cached plan from another moment never carries over.
+        /// </summary>
+        public static void ResetSession()
+        {
+            s_Cached = null;
+            s_CachedFor = string.Empty;
+            s_LastView = null;
+            s_CachedAt = -1d;
+            s_Suppressed.Clear();
+            s_IssuedKey = null;
+            s_IssuedAt = -100d;
+            s_IssuedReady = 0;
+            s_LastIdle = string.Empty;
+            s_LastIdleAt = -100d;
+        }
 
         private static readonly string[] OwnBuffs = { "ForesightBuff", "StoneskinBuff", "TrueSeeingBuff", "MageShieldBuff" };
         private static readonly Dictionary<string, BlueprintBuff> s_Buffs = new Dictionary<string, BlueprintBuff>();
@@ -56,11 +111,12 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public static KrunePlan Plan(UnitEntityData krune)
         {
             double now = Game.Instance.TimeController.GameTime.TotalSeconds;
-            if (s_Cached != null && Math.Abs(now - s_CachedAt) < 0.05d)
+            if (s_Cached != null && s_CachedFor == krune?.UniqueId && Math.Abs(now - s_CachedAt) < 0.05d)
             {
                 return s_Cached;
             }
             s_Cached = Decide(krune);
+            s_CachedFor = krune?.UniqueId ?? string.Empty;
             s_CachedAt = now;
             return s_Cached;
         }
@@ -79,7 +135,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             List<UnitEntityData> foes = Foes(krune);
             if (foes.Count == 0)
             {
-                return Idle("no foe within 40 m");
+                return Idle("no foe he can see within 40 m");
             }
             KruneView view = View(krune, foes, state);
             CheckLastCast(view);
@@ -92,6 +148,14 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 view.Phase = next;
             }
             Boots(krune);
+            if (!krune.CombatState.HasCooldownForCommand(UnitCommand.CommandType.Move) && KruneDancing.DroppedBeside(krune))
+            {
+                KrunePlan take = FactPlan(krune, KruneDancing.Grasp, krune, "take up his spear, dropped at his feet when its dance ended");
+                if (take != null)
+                {
+                    return take;
+                }
+            }
             if (!krune.CombatState.HasCooldownForCommand(UnitCommand.CommandType.Swift))
             {
                 KrunePlan swift = First(krune, foes, KruneTactics.SwiftOptions(view), true) ?? Telekinesis(krune, foes);
@@ -203,8 +267,9 @@ namespace KingmakerWakingRune.Sanctum.Krune
             {
                 return null;
             }
-            TargetWrapper target = variant == KruneGear.WishSummon ? Aim(krune, foes, data, KruneAim.SummonPoint) : Aim(krune, foes, data, KruneAim.FoeCluster);
-            return target != null && data.CanTarget(target) && InRange(krune, data, target) ? new KrunePlan { Ability = data, Target = target, Reason = reason, Key = variant.name } : null;
+            KruneAim aim = variant == KruneGear.WishSummon ? KruneAim.SummonPoint : KruneAim.FoeCluster;
+            TargetWrapper target = Aim(krune, foes, data, aim);
+            return target != null && data.CanTarget(target) && InRange(krune, data, target) ? new KrunePlan { Ability = data, Target = target, Reason = reason, Key = variant.name, Aim = aim } : null;
         }
 
         private static KrunePlan ItemPlan(UnitEntityData krune, Kingmaker.Blueprints.Items.BlueprintItem blueprint, TargetWrapper target, string reason)
@@ -229,10 +294,20 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 && krune.Descriptor.Faction == Game.Instance.BlueprintRoot.SystemMechanics.FactionMobs && krune.IsInCombat;
         }
 
-        /// <summary>Conscious foes within 40 m: a fallen foe is no target for his spells, his clusters or his trips.</summary>
+        /// <summary>
+        /// Conscious foes within 40 m that he detects now by the game's own perception (his group's memory: sight, his see
+        /// invisibility, blindsense): a fallen foe is no target for his spells, his clusters or his trips, and a foe he cannot
+        /// detect is not one either (KruneSight keeps only where he last saw it).
+        /// </summary>
         private static List<UnitEntityData> Foes(UnitEntityData krune)
         {
-            return Game.Instance.State.Units.Where(u => u.IsInGame && u.Descriptor.State.IsConscious && WardFixtures.IdOf(u) == null && krune.IsEnemy(u) && u.DistanceTo(krune) < 40f).ToList();
+            double now = WardRuntime.Now;
+            List<UnitEntityData> foes = Game.Instance.State.Units.Where(u => u.IsInGame && u.Descriptor.State.IsConscious && WardFixtures.IdOf(u) == null && krune.IsEnemy(u) && u.DistanceTo(krune) < 40f && krune.Memory.ContainsVisible(u)).ToList();
+            foreach (UnitEntityData foe in foes)
+            {
+                KruneSight.Saw(foe, now);
+            }
+            return foes;
         }
 
         private static KruneView View(UnitEntityData krune, List<UnitEntityData> foes, KruneState state)
@@ -243,7 +318,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 AdjacentFoes = foes.Count(f => f.DistanceTo(krune) <= krune.Corpulence + f.Corpulence + 1.7f),
                 FoesWithin30 = foes.Count(f => f.DistanceTo(krune) <= 9.2f),
                 FoeCasters = foes.Count(f => f.Descriptor.Spellbooks.Any(b => b.CasterLevel > 0)),
-                UnseenFoeSuspected = !krune.Buffs.HasFact(KruneBlueprints.PermanentSeeInvisibility) && foes.Any(f => f.Descriptor.State.HasCondition(UnitCondition.Invisible) && f.DistanceTo(krune) <= 9.2f),
+                UnseenFoeSuspected = SuspectedPoint(krune).HasValue,
                 SummonsAlive = Summons(krune).Count,
                 HasForesight = HasBuff(krune, "ForesightBuff"),
                 HasStoneskin = HasBuff(krune, "StoneskinBuff"),
@@ -290,7 +365,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             var skipped = new List<string>();
             foreach (KruneChoice choice in options)
             {
-                if (s_Suppressed.TryGetValue(choice.Key, out double until) && WardRuntime.Now < until)
+                if (s_Suppressed.TryGetValue(choice.Key, out double until) && WardRuntime.Now < until && until - WardRuntime.Now <= SuppressSeconds)
                 {
                     skipped.Add(choice.Key + " (held back after a cast that did not go off)");
                     continue;
@@ -344,7 +419,28 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 why = "out of range";
                 return null;
             }
-            return new KrunePlan { Ability = ability, Target = target, Reason = choice.Reason, Swift = swift, Key = choice.Key };
+            return new KrunePlan { Ability = ability, Target = target, Reason = choice.Reason, Swift = swift, Key = choice.Key, Aim = choice.Aim };
+        }
+
+        /// <summary>
+        /// The place a foe vanished from his sight, within 30 ft, when that place itself is in his line of sight (he sees the
+        /// foe is gone, not merely behind a wall): the reason for a search spell, aimed there.
+        /// </summary>
+        private static Vector3? SuspectedPoint(UnitEntityData krune)
+        {
+            foreach (KeyValuePair<UnitEntityData, Vector3> s in KruneSight.Suspected(krune, WardRuntime.Now))
+            {
+                if (Vector3.Distance(s.Value, krune.Position) > 9.2f)
+                {
+                    continue;
+                }
+                if (Kingmaker.Visual.FogOfWar.LineOfSightGeometry.Instance != null && Kingmaker.Visual.FogOfWar.LineOfSightGeometry.Instance.HasObstacle(krune.EyePosition, s.Value))
+                {
+                    continue;
+                }
+                return s.Value;
+            }
+            return null;
         }
 
         /// <summary>A phase door passage (through stone) or a greater teleport (anywhere he knows): no line of sight needed.</summary>
@@ -376,6 +472,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return Kingmaker.Visual.FogOfWar.LineOfSightGeometry.Instance == null || !Kingmaker.Visual.FogOfWar.LineOfSightGeometry.Instance.HasObstacle(krune.EyePosition, to);
         }
 
+        private const double SuppressSeconds = 12d;
         private static readonly Dictionary<string, double> s_Suppressed = new Dictionary<string, double>();
         private static string s_IssuedKey;
         private static double s_IssuedAt = -100d;
@@ -384,6 +481,11 @@ namespace KingmakerWakingRune.Sanctum.Krune
         /// <summary>A cast ordered more than a few seconds ago whose slot is still there did not go off: hold it back two rounds.</summary>
         private static void CheckLastCast(KruneView view)
         {
+            if (s_IssuedKey != null && WardRuntime.Now < s_IssuedAt)
+            {
+                // Time ran backwards (a load the session reset missed): the order is from another moment.
+                s_IssuedKey = null;
+            }
             if (s_IssuedKey == null || WardRuntime.Now - s_IssuedAt < 4d)
             {
                 return;
@@ -391,7 +493,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             int ready = view.Ready.TryGetValue(s_IssuedKey, out int n) ? n : 0;
             if (ready >= s_IssuedReady && ready > 0)
             {
-                s_Suppressed[s_IssuedKey] = WardRuntime.Now + 12d;
+                s_Suppressed[s_IssuedKey] = WardRuntime.Now + SuppressSeconds;
                 KruneAwakening.Note($"director: {s_IssuedKey} was ordered but did not go off; held back for two rounds.");
             }
             s_IssuedKey = null;
@@ -422,8 +524,9 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 case KruneAim.FoeCaster:
                     return foes.OrderByDescending(f => f.Buffs.Enumerable.Count(b => b.IsFromSpell) + f.Descriptor.Spellbooks.Count()).ThenBy(f => f.DistanceTo(krune)).First();
                 case KruneAim.UnseenFoe:
-                    UnitEntityData unseen = foes.FirstOrDefault(f => f.Descriptor.State.HasCondition(UnitCondition.Invisible));
-                    return unseen != null ? new TargetWrapper(unseen.Position) : null;
+                    // Where he last saw a foe that has vanished from his sight: never where it is now.
+                    Vector3? suspected = SuspectedPoint(krune);
+                    return suspected.HasValue ? new TargetWrapper(suspected.Value) : null;
                 case KruneAim.FoeCluster:
                     float radius = Math.Max(ability.Blueprint.AoERadius.Meters, 10f.Feet().Meters);
                     bool poisonCloud = (ability.Blueprint.GetComponent<SpellDescriptorComponent>()?.Descriptor.Value & SpellDescriptor.Poison) != 0;
@@ -581,9 +684,23 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 s_IssuedReady = s_LastView != null && s_LastView.Ready.TryGetValue(plan.Key, out int ready) ? ready : 0;
             }
             s_Cached = null;
-            bool rod = (plan.Ability.Blueprint.name == "HorridWilting" || plan.Ability.Blueprint.name == "Cloudkill" || plan.Ability.Blueprint.name == "AcidFog") && plan.Ability.Spellbook != null && KwrKruneRod.Offer(krune, plan.Ability);
-            KruneAwakening.Note($"director: {plan.Ability.Blueprint.name}{(plan.Ability.MetamagicData != null && plan.Ability.MetamagicData.NotEmpty ? " (" + plan.Ability.MetamagicData.MetamagicMask + ")" : string.Empty)} at {(plan.Target.IsUnit ? plan.Target.Unit.CharacterName : plan.Target.Point.ToString())}{(plan.Swift ? " (swift)" : string.Empty)}{(rod ? " with the rod's Empower" : string.Empty)}: {plan.Reason}.");
-            return new KwrDirectedCast(plan.Ability, plan.Target);
+            var command = new KwrDirectedCast(plan.Ability, plan.Target);
+            string rod = RuneRod.Offer(krune, plan.Ability, RodRequest(plan), command);
+            KruneAwakening.Note($"director: {plan.Ability.Blueprint.name}{(plan.Ability.MetamagicData != null && plan.Ability.MetamagicData.NotEmpty ? " (" + plan.Ability.MetamagicData.MetamagicMask + ")" : string.Empty)} at {(plan.Target.IsUnit ? plan.Target.Unit.CharacterName : plan.Target.Point.ToString())}{(plan.Swift ? " (swift)" : string.Empty)}{(rod != null ? " with the rod's " + rod : string.Empty)}: {plan.Reason}.");
+            return command;
+        }
+
+        /// <summary>
+        /// The rod's metamagic he asks for (RodRules.KruneRequest): a spell against foes that accepts Maximize or Empower is
+        /// damaging; a summons is lasting (Extend doubles how long it fights for him).
+        /// </summary>
+        private static List<string> RodRequest(KrunePlan plan)
+        {
+            BlueprintAbility spell = plan.Ability.Blueprint;
+            bool summons = plan.Aim == KruneAim.SummonPoint;
+            bool damaging = !summons && (plan.Aim == KruneAim.FoeCluster || plan.Aim == KruneAim.NearestFoe || plan.Aim == KruneAim.FoeCaster)
+                && (spell.AvailableMetamagic & (Kingmaker.UnitLogic.Abilities.Metamagic.Maximize | Kingmaker.UnitLogic.Abilities.Metamagic.Empower)) != 0;
+            return RodRules.KruneRequest(damaging, summons, RuneRod.Charges());
         }
     }
 
@@ -675,6 +792,13 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 }
                 return base.AiCanInterrupt;
             }
+        }
+
+        /// <summary>Cast, interrupted or replaced: a rod order made for this command ends with it.</summary>
+        protected override void OnEnded(bool raiseEvent = true)
+        {
+            base.OnEnded(raiseEvent);
+            RuneRod.CommandEnded(this);
         }
     }
 }
