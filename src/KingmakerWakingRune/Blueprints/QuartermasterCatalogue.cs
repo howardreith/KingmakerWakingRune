@@ -111,6 +111,7 @@ namespace KingmakerWakingRune.Blueprints
             new CatalogueEntry("ebea3139c4649e7459079d424c89e561", 2), // Cold Iron Dagger +1
             new CatalogueEntry("76b3cfacefc66234ebe3f14669e9d208", 1), // Cold Iron Handaxe +1
             new CatalogueEntry("4c30b1cd4041d214dbe028e293c7a5ff", 1), // Cold Iron Dwarven Waraxe +3
+            new CatalogueEntry("92752bbbf04dfa1439af186f48aee0e9", 40), // Diamond Dust
             new CatalogueEntry("fd732e6688007e449964d8c5f2fc659d", 2), // Longbow +1
             new CatalogueEntry("335efd45aba89a245adf68a8da1fd3ca", 2), // Longbow +2
             new CatalogueEntry("426c900c0787c844c85bb4ac8cba6d27", 1), // Longbow +3

@@ -102,12 +102,14 @@ StandardGnomeHookedHammerPlus3,1
 SlingStaffPlus1,2
 SlingStaffPlus2,1
 SlingStaffPlus3,1
-# Cold iron weapons (WR-FINAL supplies audit: Kurshu's DR 10/cold iron and magic had no stocked answer)
+# Cold iron weapons (WR-FINAL supplies audit: cheaper cold iron and magic for Kurshu's DR 10/cold iron and magic; +3 weapons, which the game treats as cold iron, were already stocked)
 ColdIronLongswordPlus1,2
 ColdIronEarthBreakerPlus1,1
 ColdIronDaggerPlus1,2
 ColdIronHandaxePlus1,1
 ColdIronDwarvenWaraxePlus3,1
+# Material components (WR-FINAL supplies audit: stoneskin and communal stoneskin need diamond dust)
+DiamondDust,40
 # Ranged weapons
 LongbowPlus1,2
 LongbowPlus2,2
