@@ -89,7 +89,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
             if (!krune.CombatState.HasCooldownForCommand(UnitCommand.CommandType.Swift))
             {
-                KrunePlan swift = Resolve(krune, foes, KruneTactics.Swift(view), true);
+                KrunePlan swift = First(krune, foes, KruneTactics.SwiftOptions(view), true);
                 if (swift != null)
                 {
                     return swift;
@@ -99,7 +99,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             {
                 return null;
             }
-            return Resolve(krune, foes, KruneTactics.Standard(view), false) ?? Fallback(krune, foes);
+            return First(krune, foes, KruneTactics.StandardOptions(view), false) ?? Fallback(krune, foes) ?? Idle("nothing to cast: the native attack");
         }
 
         /// <summary>Control effects yield: no director decision while he is not his own master or cannot act.</summary>
@@ -163,21 +163,54 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return spell.MetamagicData.Has(Kingmaker.UnitLogic.Abilities.Metamagic.Quicken) ? "Quickened" : spell.MetamagicData.Has(Kingmaker.UnitLogic.Abilities.Metamagic.Empower) ? "Empowered" : string.Empty;
         }
 
-        private static KrunePlan Resolve(UnitEntityData krune, List<UnitEntityData> foes, KruneChoice choice, bool swift)
+        /// <summary>The first option he can really cast and aim; the skipped ones are noted with why.</summary>
+        private static KrunePlan First(UnitEntityData krune, List<UnitEntityData> foes, List<KruneChoice> options, bool swift)
         {
+            var skipped = new List<string>();
+            foreach (KruneChoice choice in options)
+            {
+                KrunePlan plan = Resolve(krune, foes, choice, swift, out string why);
+                if (plan != null)
+                {
+                    if (skipped.Count > 0)
+                    {
+                        KruneAwakening.Note("director skipped: " + string.Join("; ", skipped.ToArray()) + ".");
+                    }
+                    return plan;
+                }
+                skipped.Add(choice.Key + " (" + why + ")");
+            }
+            if (skipped.Count > 0)
+            {
+                Idle((swift ? "swift" : "standard") + " options not castable: " + string.Join("; ", skipped.ToArray()));
+            }
+            return null;
+        }
+
+        private static KrunePlan Resolve(UnitEntityData krune, List<UnitEntityData> foes, KruneChoice choice, bool swift, out string why)
+        {
+            why = string.Empty;
             if (choice == null)
             {
+                why = "none";
                 return null;
             }
             SpellSlot slot = KruneSpellbook.Ready(krune).FirstOrDefault(s => SpellName(s.Spell) == choice.Spell && Metamagic(s.Spell) == choice.Metamagic);
             if (slot == null)
             {
+                why = "no slot";
                 return null;
             }
             AbilityData ability = WithVariant(slot.Spell, choice.Spell);
             TargetWrapper target = Aim(krune, foes, ability, choice.Aim);
-            if (target == null || !ability.CanTarget(target))
+            if (target == null)
             {
+                why = "no worthwhile target";
+                return null;
+            }
+            if (!ability.CanTarget(target))
+            {
+                why = "target refused";
                 return null;
             }
             return new KrunePlan { Ability = ability, Target = target, Reason = choice.Reason, Swift = swift };
@@ -213,7 +246,9 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 case KruneAim.FoeCluster:
                     float radius = Math.Max(ability.Blueprint.AoERadius.Meters, 10f.Feet().Meters);
                     bool poisonCloud = (ability.Blueprint.GetComponent<SpellDescriptorComponent>()?.Descriptor.Value & SpellDescriptor.Poison) != 0;
-                    int caught = BestPoint(krune, foes, radius, poisonCloud, out Vector3 at);
+                    // Tentacles cannot hold a creature that cannot be held in place (freedom of movement): those do not count.
+                    List<UnitEntityData> pool = ability.Blueprint.name == "KWR_KruneBlackTentacles" ? foes.Where(f => !f.Descriptor.State.HasConditionImmunity(UnitCondition.CantMove)).ToList() : foes;
+                    int caught = BestPoint(krune, pool, radius, poisonCloud, out Vector3 at);
                     return caught > 0 ? new TargetWrapper(at) : null;
                 case KruneAim.Barrier:
                     List<UnitEntityData> closing = foes.Where(f => f.DistanceTo(krune) <= 9.2f).ToList();

@@ -109,6 +109,12 @@ namespace KingmakerWakingRune.Sanctum.Krune
         /// <summary>The swift action: a quickened spell, if one fits the moment.</summary>
         public static KruneChoice Swift(KruneView v)
         {
+            return SwiftOptions(v).FirstOrDefault();
+        }
+
+        /// <summary>Every quickened option that fits, best first; the native layer takes the first it can really aim.</summary>
+        public static List<KruneChoice> SwiftOptions(KruneView v)
+        {
             var options = new List<KruneChoice>();
             if (Overwhelmed(v) && Has(v, "Quickened Dimension Door"))
             {
@@ -142,28 +148,25 @@ namespace KingmakerWakingRune.Sanctum.Krune
             {
                 options.Add(C("Grease", "Quickened", KruneAim.NearestFoe, "trip the foe at his side"));
             }
-            return options.FirstOrDefault();
+            return options;
         }
 
         /// <summary>The standard action (or full round, for an unquickened summons).</summary>
         public static KruneChoice Standard(KruneView v)
         {
-            if (v.Phase == KrunePhase.Recover || Overwhelmed(v))
+            return StandardOptions(v).FirstOrDefault();
+        }
+
+        /// <summary>Every standard-action option that fits, best first; the native layer takes the first it can really aim.</summary>
+        public static List<KruneChoice> StandardOptions(KruneView v)
+        {
+            var options = new List<KruneChoice>();
+            if (Overwhelmed(v))
             {
-                KruneChoice away = Relocate(v);
-                if (Overwhelmed(v) && away != null)
-                {
-                    return away;
-                }
+                options.AddRange(new[] { Relocate(v) }.Where(c => c != null));
             }
-            foreach (KruneChoice choice in Defenses(v).Concat(Summons(v)).Concat(Offense(v)))
-            {
-                if (choice != null)
-                {
-                    return choice;
-                }
-            }
-            return null;
+            options.AddRange(Defenses(v).Concat(Summons(v)).Concat(Offense(v)).Where(c => c != null));
+            return options;
         }
 
         private static KruneChoice Relocate(KruneView v)

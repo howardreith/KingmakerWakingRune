@@ -129,7 +129,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
 
         private static void Grapple(MechanicsContext context, AreaEffectEntityData area, UnitEntityData unit)
         {
-            if (unit.Descriptor.State.IsDead || unit.Buffs.HasFact(KruneLocalSpells.TentaclesGrappled))
+            if (unit.Descriptor.State.IsDead || Wards.WardFixtures.IdOf(unit) != null || unit.Buffs.HasFact(KruneLocalSpells.TentaclesGrappled))
             {
                 return;
             }
