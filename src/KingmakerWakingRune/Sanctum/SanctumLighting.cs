@@ -44,6 +44,10 @@ namespace KingmakerWakingRune.Sanctum
 
     internal static class SanctumLighting
     {
+        /// <summary>The sickly green-purple light from A5 and the coffin's flashes: the revival's light, which fades when Krune dies.</summary>
+        public static Light Glow;
+        public static Light Flash;
+
         private static LightProbes s_SavedProbes;
         private static bool s_ProbesReplaced;
 
@@ -101,8 +105,9 @@ namespace KingmakerWakingRune.Sanctum
 
             // The faint tan light through the A4 dome, and the sickly green-purple from A5, as the source describes them.
             Point(root, 18.4f, 9.6f, 6.5f, new Color(0.86f, 0.72f, 0.50f), 1.7f, 13f);
-            Point(root, 9f, 11.5f, 6.5f, new Color(0.58f, 0.46f, 0.72f), 1.15f, 13f);
+            Glow = Point(root, 9f, 11.5f, 6.5f, new Color(0.58f, 0.46f, 0.72f), 1.15f, 13f);
             Light flash = Point(root, 8.9f, 9.5f, 2.6f, new Color(0.62f, 0.86f, 0.46f), 0.7f, 8f);
+            Flash = flash;
             flash.gameObject.AddComponent<SanctumFlash>();
         }
 

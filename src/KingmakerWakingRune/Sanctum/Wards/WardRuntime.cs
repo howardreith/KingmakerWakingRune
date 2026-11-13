@@ -166,6 +166,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             ApplyRuneVisuals(state);
             ApplyEmeraldVisual(state);
             Krune.KruneWalls.Rebuild(state);
+            Krune.KruneAftermath.Apply(state);
             GrantWake();
             if (initializedNow && state.MigratedLegacy)
             {

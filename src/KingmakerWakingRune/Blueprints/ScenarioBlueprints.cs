@@ -37,6 +37,8 @@ namespace KingmakerWakingRune.Blueprints
         public static BlueprintUnlockableFlag BriefingCompleteFlag { get; private set; }
         public static BlueprintUnlockableFlag TokenGrantedFlag { get; private set; }
         public static BlueprintUnlockableFlag SanctumEnteredFlag { get; private set; }
+        /// <summary>The expedition's recorded outcome (WR-FINAL): 0 none, then ScenarioOutcome's values.</summary>
+        public static BlueprintUnlockableFlag OutcomeFlag { get; private set; }
         public static BlueprintArea Sanctum { get; private set; }
         public static BlueprintAreaEnterPoint SanctumEnter { get; private set; }
         public static BlueprintItemEquipmentUsable Token { get; private set; }
@@ -109,6 +111,7 @@ namespace KingmakerWakingRune.Blueprints
                 }
                 TokenGrantedFlag = Flag("KWR_RefugeTokenGranted");
                 SanctumEnteredFlag = Flag("KWR_SanctumEntered");
+                OutcomeFlag = Flag("KWR_ScenarioOutcome");
                 register(TokenGrantedFlag);
                 register(SanctumEnteredFlag);
                 Sanctum = CreateSanctumArea(sanctumDonor);

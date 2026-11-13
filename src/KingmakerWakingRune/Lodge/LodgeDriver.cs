@@ -53,6 +53,7 @@ namespace KingmakerWakingRune.Lodge
                 return;
             }
             BriefingService.TryOpen();
+            DebriefService.TryOpen();
             if (Time.unscaledTime >= m_NextRefresh)
             {
                 m_NextRefresh = Time.unscaledTime + AgentRefreshSeconds;

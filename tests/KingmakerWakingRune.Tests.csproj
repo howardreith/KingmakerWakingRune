@@ -34,6 +34,8 @@
     <Compile Include="KruneAwakeningTests.cs" />
     <Compile Include="KruneBookTests.cs" />
     <Compile Include="KruneTacticsTests.cs" />
+    <Compile Include="ConclusionTests.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\Krune\ConclusionRules.cs" Link="Linked\ConclusionRules.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\Krune\KruneTactics.cs" Link="Linked\KruneTactics.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\Krune\WallRules.cs" Link="Linked\WallRules.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\Krune\KruneBook.cs" Link="Linked\KruneBook.cs" />

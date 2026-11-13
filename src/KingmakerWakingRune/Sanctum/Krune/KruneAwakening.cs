@@ -245,6 +245,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 Note($"COMBAT-READY HANDOFF at {now:0}: the encounter begins. {Sheet(Actor)}");
             }
             HoldStaggerForTurn(state);
+            KruneAftermath.Tick(state, now);
             SyncLinks(state, now);
         }
 
