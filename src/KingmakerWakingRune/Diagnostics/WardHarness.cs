@@ -22,6 +22,39 @@ namespace KingmakerWakingRune.Diagnostics
     /// install. A command can position, grant or advance; every effect it provokes still resolves through native rules.
     /// </summary>
     /// <summary>
+    /// SETUP controlled roll: the next native d20 rolled by one fixture (its saving throw) comes up as given. The rule
+    /// itself, the bonus, the DC and every consequence stay native. Fires once, then disarms.
+    /// </summary>
+    [Harmony12.HarmonyPatch(typeof(Kingmaker.RuleSystem.Rules.RuleRollD20), "Roll")]
+    internal static class ControlledRoll
+    {
+        private static string s_FixtureId;
+        private static int s_Value;
+
+        public static string Arm(string fixtureId, int value)
+        {
+            if (WardFixtures.Find(fixtureId) == null || value < 1 || value > 20)
+            {
+                return $"no fixture {fixtureId} or no d20 value {value}";
+            }
+            s_FixtureId = fixtureId;
+            s_Value = value;
+            return $"SETUP controlled roll armed: the next d20 rolled by {fixtureId} will be {value}.";
+        }
+
+        private static void Prefix(Kingmaker.RuleSystem.Rules.RuleRollD20 __instance)
+        {
+            if (s_FixtureId == null || WardFixtures.IdOf(__instance.Initiator) != s_FixtureId)
+            {
+                return;
+            }
+            Harmony12.Traverse.Create(__instance).Field("m_PreRolledResult").SetValue((int?)s_Value);
+            Log.Info($"SETUP controlled roll used: {s_FixtureId} d20 = {s_Value}.");
+            s_FixtureId = null;
+        }
+    }
+
+    /// <summary>
     /// INJECTED ordering fixture: armed on one member, it waits for the native rule by which restoration heals that member's
     /// Intelligence, and in the same rule call delivers her slam's drain for a fixed amount through the production drain path,
     /// so no periodic recovery check can run in between. Fires once, then disarms.
@@ -403,6 +436,8 @@ namespace KingmakerWakingRune.Diagnostics
                     return KingmakerWakingRune.Sanctum.Krune.KruneAwakening.ReleaseForDiagnostics();
                 case "krunedeadline":
                     return KruneDeadline(double.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture));
+                case "objectroll":
+                    return ControlledRoll.Arm(args[1], int.Parse(args[2]));
                 case "hitgem":
                 {
                     // INJECTED: one physical hit of a fixed amount from a party member on the emerald, through the native damage

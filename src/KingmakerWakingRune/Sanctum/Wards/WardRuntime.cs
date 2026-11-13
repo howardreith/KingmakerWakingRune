@@ -314,6 +314,12 @@ namespace KingmakerWakingRune.Sanctum.Wards
                     part.SetActive(state.Gem.Destroyed);
                 }
             }
+            // The same proxy (same saved identity) names what is left; its break and attack choices are already gone.
+            UnitEntityData proxy = WardFixtures.Gem;
+            if (proxy != null)
+            {
+                proxy.Descriptor.CustomName = state.Gem.Destroyed ? WardText.ShatteredEmeraldName : string.Empty;
+            }
         }
 
         /// <summary>A real door transition: one sound, and the east door is what Vandiana hears.</summary>

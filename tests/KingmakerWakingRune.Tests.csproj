@@ -46,6 +46,7 @@
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\Krune\KruneManifest.cs" Link="Linked\KruneManifest.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\WardGeometry.cs" Link="Linked\WardGeometry.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\CredentialRules.cs" Link="Linked\CredentialRules.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\ObjectRules.cs" Link="Linked\ObjectRules.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\RuneVulnerability.cs" Link="Linked\RuneVulnerability.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\Wards\WardText.cs" Link="Linked\WardText.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\SanctumPolicy.cs" Link="Linked\SanctumPolicy.cs" />

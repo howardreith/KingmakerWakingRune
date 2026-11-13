@@ -521,6 +521,24 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(10, DoorRules.EnergyShare("Divine", 10), "divine power is not energy under the object rule");
         }
 
+        public static void TestBreakableObjectsSaveByAuthoredPolicyNotProxyStatistics()
+        {
+            Assert.Equal(10, ObjectRules.MagicItemSaveBonus(17), "2 + half of CL 17");
+            Assert.Equal(ObjectSave.MagicItem, ObjectRules.SaveOf(WardText.GemId, false), "the active receptacle is magical");
+            Assert.Equal(10, ObjectRules.SaveBonus(WardText.GemId), "emerald save +10");
+            Assert.Equal(ObjectSave.MagicItem, ObjectRules.SaveOf(WardText.DoorId, true), "the leaf carries the armed feeder");
+            Assert.Equal(10, ObjectRules.SaveBonus(WardText.DoorId), "at the feeder's stored CL 17");
+            Assert.Equal(ObjectSave.Never, ObjectRules.SaveOf(WardText.DoorId, false), "plain stone never saves");
+            Assert.Equal(ObjectSave.NotAnObject, ObjectRules.SaveOf("A3b", true), "rune plates keep their own rule");
+            Assert.Equal(ObjectSave.NotAnObject, ObjectRules.SaveOf(WardText.SarcophagusId, true), "props are not breakable objects");
+        }
+
+        public static void TestDisintegrateDestroysAnObjectThatDoesNotSave()
+        {
+            Assert.Equal(DisintegrateOutcome.Disintegrated, ObjectRules.Disintegrate(false), "failed or no save");
+            Assert.Equal(DisintegrateOutcome.ReducedDamage, ObjectRules.Disintegrate(true), "saved: 5d6 through hardness");
+        }
+
         public static void TestDoorFeedbackIsRestrained()
         {
             Assert.Equal("The blow leaves no more than a scratch.", DoorRules.Describe(0, 75, 75), "ineffective");

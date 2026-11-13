@@ -44,6 +44,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public const string MistId = "Mist";
         public const string FlailId = "A3d-Flail";
 
+        /// <summary>The emerald's proxy keeps its saved identity once broken; only the name it shows changes.</summary>
+        public const string ShatteredEmeraldName = "Shattered emerald";
+
         private static readonly Dictionary<string, string> BearerLines = new Dictionary<string, string>
         {
             { "Support-N1", "A man in travel-worn leathers, arms locked overhead, his head bowed under the weight." },

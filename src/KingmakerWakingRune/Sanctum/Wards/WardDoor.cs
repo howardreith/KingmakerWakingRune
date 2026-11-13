@@ -230,6 +230,17 @@ namespace KingmakerWakingRune.Sanctum.Wards
             WardRuntime.Say(DoorRules.Describe(dealt, door.HitPoints, WardProfile.DoorHitPoints));
         }
 
+        /// <summary>Disintegrate that the leaf did not save against: the whole leaf is within the ray's 10-foot cube.</summary>
+        public static void Disintegrate(UnitEntityData by)
+        {
+            if (WardRuntime.State.Door.Destroyed)
+            {
+                return;
+            }
+            Log.Info($"A2 leaf disintegrated by {by?.CharacterName}: no save made.");
+            Destroy("disintegrated");
+        }
+
         private static void Destroy(string how)
         {
             DoorWardState door = WardRuntime.State.Door;
@@ -324,6 +335,18 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
         }
 
+        /// <summary>Disintegrate that the emerald did not save against: the gem is gone at once, hit points regardless.</summary>
+        public static void Disintegrate(UnitEntityData by)
+        {
+            if (WardRuntime.State.Gem.Destroyed)
+            {
+                return;
+            }
+            WardRuntime.State.Gem.HitPoints = 0;
+            Log.Info($"Emerald disintegrated by {by?.CharacterName}: no save made.");
+            Destroy();
+        }
+
         private static void Destroy()
         {
             SanctumState state = WardRuntime.State;
@@ -336,8 +359,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 {
                     unit.Commands.InterruptAll();
                 }
-                proxy.IsInGame = false;
             }
+            // The remnant stays where it was, under its new name, for inspection only (WardRuntime.ApplyEmeraldVisual).
             WardRuntime.ApplyEmeraldVisual(state);
             WardRitual.Destroyed(state);
         }
