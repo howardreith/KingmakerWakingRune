@@ -566,23 +566,39 @@ namespace KingmakerWakingRune.Diagnostics
                 case "kruneuse":
                 {
                     // HARNESS-COMMANDED: Krune uses one of his own ability facts (a native command; its own checks and costs).
+                    // "Parent:Variant" picks one variant (his Wish).
                     UnitEntityData krune = WardFixtures.Krune;
-                    Kingmaker.UnitLogic.Abilities.Ability fact = krune?.Descriptor.Abilities.Enumerable.FirstOrDefault(a => a.Blueprint.name == args[1]);
+                    string[] parts = args[1].Split(':');
+                    Kingmaker.UnitLogic.Abilities.Ability fact = krune?.Descriptor.Abilities.Enumerable.FirstOrDefault(a => a.Blueprint.name == parts[0]);
                     if (fact == null)
                     {
-                        return $"Krune has no ability {args[1]}";
+                        return $"Krune has no ability {parts[0]}";
                     }
-                    UnitEntityData on = krune;
+                    AbilityData data = fact.Data;
+                    if (parts.Length > 1)
+                    {
+                        BlueprintAbility variant = fact.Blueprint.GetComponent<Kingmaker.UnitLogic.Abilities.Components.AbilityVariants>()?.Variants.FirstOrDefault(v => v.name == parts[1]);
+                        if (variant == null)
+                        {
+                            return $"{parts[0]} has no variant {parts[1]}";
+                        }
+                        data = new AbilityData(fact.Data, variant);
+                    }
+                    TargetWrapper on = krune;
                     if (args.Length > 2 && Resolve(args[2], out UnitEntityData other) == null)
                     {
                         on = other;
                     }
-                    bool can = fact.Data.IsAvailableForCast && fact.Data.CanTarget(on);
+                    else if (args.Length > 3)
+                    {
+                        on = new TargetWrapper(new Vector3(SanctumPlan.ToWorldX(float.Parse(args[2])), SanctumPlan.HeightAt(float.Parse(args[2]), float.Parse(args[3])) ?? 0f, SanctumPlan.ToWorldZ(float.Parse(args[3]))));
+                    }
+                    bool can = data.IsAvailableForCast && data.CanTarget(on);
                     if (can)
                     {
-                        krune.Commands.Run(new UnitUseAbility(fact.Data, on));
+                        krune.Commands.Run(new UnitUseAbility(data, on));
                     }
-                    return $"HARNESS-COMMANDED Krune uses {args[1]} on {on.CharacterName}: available {fact.Data.IsAvailableForCast}, can target {fact.Data.CanTarget(on)}{(can ? ", ordered" : ", not ordered")}.";
+                    return $"HARNESS-COMMANDED Krune uses {args[1]} on {(on.IsUnit ? on.Unit.CharacterName : on.Point.ToString())}: available {data.IsAvailableForCast}, can target {data.CanTarget(on)}{(can ? ", ordered" : ", not ordered")}; bond uses left {krune.Descriptor.Resources.GetResourceAmount(KingmakerWakingRune.Sanctum.Krune.KruneGear.Bond)}.";
                 }
                 case "takeloot":
                 {

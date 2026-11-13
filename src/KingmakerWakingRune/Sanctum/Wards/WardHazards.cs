@@ -423,7 +423,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
             ModifiableValue.Modifier bonus = null;
             if (IsKruneSummon(unit, state))
             {
+                int before = unit.Stats.SaveWill.ModifiedValue;
                 bonus = unit.Stats.SaveWill.AddModifier(WardProfile.MistKruneSummonResistance, null, ModifierDescriptor.Resistance);
+                Log.Info($"Mist: {unit.CharacterName} is Krune's summons: +{WardProfile.MistKruneSummonResistance} resistance (Will {before} -> {unit.Stats.SaveWill.ModifiedValue}, the larger resistance bonus only).");
             }
             try
             {
