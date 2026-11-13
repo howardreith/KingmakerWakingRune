@@ -3,6 +3,10 @@
 A Pathfinder Society adventure (#4–26) for a party of six at level 11, played as its own campaign in Pathfinder:
 Kingmaker. Spoiler-light: it says how to start, what the lodge offers, and how the adventure can end, not how to win.
 
+## Installing
+Pathfinder: Kingmaker 2.1.7 with Unity Mod Manager. Extract the zip into `<Kingmaker>\Mods\` (or install it through the
+UMM installer) and enable it; Ctrl+F10 in game shows the version. No other mods are needed.
+
 ## Starting
 Main Menu → **New Game** → **The Waking Rune** → difficulty → create your hero (or take a pregen). You begin in the
 Magnimar lodge.
@@ -10,7 +14,8 @@ Magnimar lodge.
 ## The lodge
 - **Venture-Captain Sheila Heidmarch** briefs you. Listen to the end: the briefing sets your mission.
 - **The Society Coordinator** recruits adventurers for free; build a party of six. Everyone can reach level 11 here.
-- **The Quartermaster** sells equipment from a shared purse of 450,000 gp, and hands over the mission's supplies once.
+- **The Quartermaster** sells equipment from a shared purse of 450,000 gp (stock is not refilled), and offers a night's
+  rest.
 - Rest before you leave.
 - When ready, **break the Refuge Token** (use it from the belt or inventory). There is no way back by the token.
 
@@ -34,3 +39,25 @@ resist its will.
 
 ## Saves and the mod
 Saves from this adventure need the mod. Removing the mod does not affect your other campaigns.
+
+## Profile and difficulty
+The adventure is tuned to Subtier 10–11 for six characters with the extra challenge on. Your chosen difficulty preset
+applies on top as in any campaign. Auto level-up "All possible" with the premade recruit builds works well for building a
+party quickly.
+
+## Controls worth knowing
+- **The token, the pedestal and other special objects** use the game's own interactions: right-click an item in the
+  inventory for Use; click an object in the world to examine or use it.
+- **Leaving for the sanctum** first rests the party once in the lodge (spells chosen in the spellbook become ready),
+  then lets you make final preparations; use the token again to go.
+- **Turn-based mode** works throughout (the rook button by the hourglass).
+
+## Preparation hints (no spoilers beyond the first room)
+Bring cold iron for something that shrugs off ordinary steel, acid for something that will not stay down, and a plan
+for being held in place. The Quartermaster stocks all three.
+
+## Known limitations of this playtest draft
+- Krune's rune-carved rod offers him Empower; its other options are not available to him or to you.
+- Some of Krune's printed spells and abilities have no use in this game (they are listed in his spellbook as held).
+- Placeholder model and portrait for Krune; the journal's title is the game's own ("Linzi's Journal").
+- A death far from the party is processed by the game when the party comes near.

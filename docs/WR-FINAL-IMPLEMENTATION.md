@@ -146,3 +146,4 @@ names a hidden room or a rune's solution. Waking Rune sessions only, and never w
 - The engine does not process a unit's death while it is far from every party member; a Krune brought below zero out of
   sight dies when the party comes near (his fast healing runs meanwhile).
 - Borrowed model and cropped portrait; journal title "Linzi's Journal" is the game's own.
+- The Quartermaster had no cold iron; native cold iron weapons were added in 0.9.19 (the supplies audit).

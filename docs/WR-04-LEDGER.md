@@ -322,3 +322,20 @@ integration boundary still to test), **adaptation** (accepted, documented), **re
 | Contingency, runesight, dominion | Adaptation | | No trigger or eligible target in this game. |
 | Mist resistance only for his summons | Carried (WR-07A) | | Not re-tested with his real summons. **boundary** |
 | Control effects through save/reload | Carried (WR-07A Domination) | | Not re-tested with the director. **boundary** |
+
+### WR-FINAL legitimate journey attempt, 0.9.18–0.9.19, run `wrfinal-p3`
+
+All PLAYER input (mouse and keyboard), PARTY AI in combat; READ diagnostics only, and the camera moved by the harness
+(`look`) to find units on screen. Seeds in `runtime-evidence\wrfinal-p3\seeds`.
+
+| Item | Status | Evidence | Notes |
+|---|---|---|---|
+| New Game, difficulty, pregen protagonist | Proven (PLAYER) | 0.9.18 | Custom difficulty (Normal defaults, auto level-up "All possible"); Yadmila (cleric). |
+| Briefing, questions, journal start | Proven (PLAYER) | 0.9.18 | "Prepare and assemble" started; briefing recorded once. |
+| Five recruits at the Coordinator, native premade builds, level 1 → 11 in the native level-up UI | Proven (PLAYER) | 0.9.18 | Fighter, paladin, druid (with bear), bard, wizard; the protagonist leveled the same way. |
+| Shopping with the shared 450,000 gp | Proven (PLAYER) | 0.9.18–0.9.19 | Rings, belts, headbands, cloaks, amulets, +3 armor and weapons, potions and scrolls; 1,560 gp left. |
+| Supplies audit | Proven | 0.9.19 | Two +3 daggers and six Stone to Flesh scrolls in stock; acid flasks, healing, restoration and freedom of movement stocked. **Gap found and fixed:** no cold iron for Kurshu's DR 10/cold iron and magic; native cold iron weapons added (existing lodges reconciled natively: seen in a 0.9.18 lodge save). |
+| Spell preparation in the spellbook; departure warnings | Proven (PLAYER) | 0.9.18 | The departure rest named a paladin's empty slots; filled, then rested and departed. |
+| Departure, verified save, arrival, journal | Proven (PLAYER) | 0.9.18, 0.9.19 | "Before the Sanctum of Sloth" saves verified; journal moved to "Overcome the sanctum's defenses". |
+| Kurshu (A1) with the legitimate party | **Not passed** | 0.9.18–0.9.19 | Five attempts: no cold iron (lost: DR absorbed every hit); cold iron (won: Kurshu defeated, unconscious under regeneration, but no acid was carried, so she could not be finished); then with acid flasks three losses, two with Freedom of Movement on four members. Her Power-Surged Hold Person (DC 20) and Cone of Cold carried each loss. |
+| Complete legitimate playthrough | **Blocked at A1** | | See STATUS: a party driven by real-time PARTY AI plus click orders does not reliably beat Kurshu at this profile; a hand-played tactical attempt is the next step. |

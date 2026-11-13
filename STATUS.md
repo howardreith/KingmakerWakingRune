@@ -1,41 +1,50 @@
 # Status: The Waking Rune
 
-**Milestone:** WR-FINAL draft, the complete adventure for end-to-end playtesting. Work in progress on
-`feature/wr-final-draft` (from `main` at `c110f8b`). **Not yet a playtest candidate:** the legitimate full journey and a
-legal victory over Krune have not been run (see "Open blockers").
+**Milestone:** WR-FINAL draft, the complete adventure for end-to-end playtesting, on `feature/wr-final-draft` (from
+`main` at `c110f8b`). **Implemented end to end, but not qualified:** the legitimate full journey stopped at Kurshu (A1),
+so no legal victory over Krune exists yet. This is a draft for owner review, not a qualified playtest candidate.
 
-## WR-FINAL: 0.9.18 (in progress)
-- **Latest build:** 0.9.18, commit `d004b8e`; zip `artifacts\KingmakerWakingRune-0.9.18.zip`
-  (`7e01ebb4e9be5b7abe096f7849f9028071d3a39eb4d4537d5c009afdd98a5b48`). 231 unit tests pass.
+## WR-FINAL: 0.9.19 (draft for review)
+- **Build:** 0.9.19, commit `35c54e1`; zip `artifacts\KingmakerWakingRune-0.9.19.zip`
+  (`a4feed246d68042156e510f042b01f0bd0edec4af81078711678b61148abcbbd`); DLL
+  `377d7ec5bc3b4498a544ce6f325583aa58182d4564e5246c33c14f430950bc7b`. 231 unit tests pass.
 - **Implemented:**
   - authored object saves (emerald CL 17 +10; the A2 door only while its feeder is armed; walls never);
   - the development checkpoint removed (checkpoint saves enter the full encounter once);
   - Krune's real book (65 printed slots), local spells, gear and artifact powers, and a director choosing native commands;
   - death, aftermath, one persistent loot bag, the portal home (success, withdrawal, artifacts missing), the lodge
     debrief and a recorded outcome;
-  - a native journal driven by recorded state.
-- **Proven in play (run `wrfinal-p3`):** his casting in real time and turn-based; standard spells in close quarters;
-  relocation (quickened Dimension Door, Phase Door passage); Wish with diamonds; pearl, ring, rod Empower, telekinesis,
-  the dancing spear; the withdrawal and artifacts-missing endings with their journal states; native defeat and Load Last
-  Save; a completion reload without replay; a second new game; the stock campaign untouched.
-- **Balance probe (SETUP mask, HARNESS-COMMANDED buffs; not a qualification):** the same buffed party slew him in about
-  15 s at mask 127 and was wiped at mask 0. Unbuffed parties lost at both.
-- **Documents:** `docs/WR-FINAL-IMPLEMENTATION.md` (implementation and adaptations), `docs/WR-FINAL-PROGRESS.md`,
-  `docs/WR-FINAL-PLAYER-GUIDE.md`, `docs/WR-FINAL-TESTER-CHECKLIST.md`, the WR-FINAL section of `docs/WR-04-LEDGER.md`.
-- **Installed:** 0.9.17 (the run's transaction `wrfinal-p3` is open; owner state is backed up by the harness).
+  - a native journal driven by recorded state;
+  - cold iron weapons in the Quartermaster's stock (supplies audit).
+- **Proven in play (run `wrfinal-p3`):**
+  - Krune: casting in real time and turn-based; standard spells in close quarters; relocation (quickened Dimension Door,
+    Phase Door passage); Wish with diamonds; pearl, ring, rod Empower, telekinesis, the dancing spear;
+  - endings: withdrawal and artifacts-missing, with their journal states; native defeat and Load Last Save; a completion
+    reload without replay;
+  - compatibility: a second new game; the stock campaign untouched;
+  - legitimate party building (PLAYER): new game, briefing, five recruits, native level-ups to 11, shopping, spell
+    preparation, departure flow, arrival.
+- **Balance probe (SETUP mask, HARNESS-COMMANDED buffs; not a qualification):** the same buffed party slew Krune in
+  about 15 s at mask 127 and was wiped at mask 0.
+- **Documents:**
+  - `docs/WR-FINAL-IMPLEMENTATION.md`, `docs/WR-FINAL-PROGRESS.md`;
+  - `docs/WR-FINAL-PLAYER-GUIDE.md`, `docs/WR-FINAL-TESTER-CHECKLIST.md`, `docs/WR-FINAL-INSTALL.md`;
+  - the WR-FINAL sections of `docs/WR-04-LEDGER.md` (the cumulative ledger).
+- **Installed:** 0.9.19 (transaction `wrfinal-p3` ended; 0.8.13 backed up). Seeds:
+  `runtime-evidence\wrfinal-p3\seeds`.
 
 ## Open blockers
-- **The complete legitimate playthrough** (fresh party, real leveling and shopping, rune sabotage, no harness
-  shortcuts) has not been run.
-- **A legal victory over Krune** has not been achieved; the probe says it needs a prepared party and substantial rune
-  sabotage.
+- **The complete legitimate playthrough** stopped at A1. Kurshu won four of five attempts against the legitimate party
+  driven by real-time party AI with click orders. The one win had cold iron but no acid to finish her; the later attempts
+  had acid, two with Freedom of Movement. Her Power-Surged Hold Person (DC 20) and Cone of Cold decided each loss. Next
+  step: a hand-played, turn-based attempt from seed `Manual_1003` (or the owner's own play).
+- **A legal victory over Krune** follows from the above; the probe shows rune sabotage matters a great deal.
 
 ## Open boundaries
 Bond limit and rod depletion in play; the dancing spear's return; the Ego check in play; tentacles against his own
 freedom of movement in play; mist resistance and control effects through save/reload with the director.
 
 The sections below are earlier milestones, kept for history.
-
 
 # WR-07A (history)
 
