@@ -373,7 +373,7 @@ context, for focused rule checks only. Logs: `runtime-evidence\wrfinal-p4\umm-lo
 | Spear Ego: every attempt, a strike from the second, telekinetic disarm | Proven (INJECTED loot transfer; HARNESS-COMMANDED equip) | 0.9.23 launch 4 | Dorn: attempt 1, Will 23 vs 22, mastered; then "d20 18 + 20 vs CMD 26: disarmed"; attempt 2, struck for 14, Will 16, set down; attempt 3, struck for 10, Will 13, set down. The messages appear in the game log. |
 | Rod: Krune's metamagic and charges | Proven in play | 0.9.21 launches 2 and 5 | Extend on his summons (1 charge each); Maximize + Empower on Acid Arrow (5). 0.9.22 keeps the damage feats for 5th-level-and-up spells (unit-tested; not re-seen). Charges taken over from his resource (10) and kept with the rod. |
 | Rod: a party wielder | Proven (PLAYER toggle; HARNESS-COMMANDED cast from Kael's own book) | 0.9.23 launch 4 | Kael's abilities panel showed four rod toggles; Extend on by click; Haste: "the rune-carved rod adds Extend to Kael Ashen's Haste: 1 charges spent, 9 left". |
-| Rod depletion | Partly proven | 0.9.21 | 10 → 2 in one fight; a cast refused for lack of charges is unit-tested, not seen in play. **boundary** |
+| Rod depletion | Proven in 0.9.26 | | See the second review pass below (insufficient charges: no metamagic, the spell still cast). |
 | Wish once a day | Proven (HARNESS-COMMANDED use of his own ability) | 0.9.24 launch 5 | "5 diamonds (25,000 gp) consumed; 10 left", bond 1 → 0; both variants then "available False". |
 | Mist +4 only for his summons | Proven | 0.9.24 launch 5 | "Summoned Soul Eater is Krune's summons: +4 resistance (Will 7 -> 11, the larger resistance bonus only)". |
 | A control effect through save and reload | Proven (INJECTED Confusion; SETUP save and load) | 0.9.24 launch 5 | After the load: the buff present, "director idle: not free"; once it ended the director resumed ("phase Fight -> Recover", quickened Dimension Door, Wish summons). |
@@ -396,3 +396,46 @@ and the camera (`look`) only; SETUP only for the named seed saves. No harness mo
 | A4 fight, Krune, artifacts, return, debrief | **Not run in this pass** | Stopped at the A4 door for this session's budget (each turn costs many PLAYER clicks). Seeds: `Manual_1011` (Kurshu slain), `Manual_1012` (mask 50), `Manual_1013` (A4 door open). |
 
 **Player planning note:** stoneskin takes more dust than the 13 bought covered for a second set; not a mod defect.
+
+**Supersession (second review of PR #8).** Saves made after Krune woke could not load on 0.9.0–0.9.21 (his director
+action was unregistered). Any earlier claim that rested on saving and reloading an *awakened* 0.9.x Krune before 0.9.22
+is superseded by the 0.9.22+ reloads in the table above and below (mid-dance, control effect, rod balance). Earlier
+evidence about pre-awakening saves, ordinary combat and unchanged rules stands. The combat-save fixture
+(`combatsave`, INJECTED) remains a separately labelled fixture.
+
+## WR-FINAL second review pass, 0.9.26–0.9.28, run `wrfinal-p5`
+
+Builds: `0793c73` (0.9.26, rod renewal and shared charges), `6ca1d0c` (0.9.27, out-of-combat spear pickup), `253ee17`
+(0.9.28, harness READ/camera for grid points only). Logs: `runtime-evidence\wrfinal-p5\umm-log-launch1…4b`.
+
+| Item | Status | Evidence | Notes |
+|---|---|---|---|
+| Rod renewal while full (the reviewer's sequence) | **Defect fixed (0.9.26)**, Proven | launch 1 | Seed 998, rod taken from Krune (INJECTED kill and loot). First read: `stored 10 renewedAt 131185`. INJECTED +25 h, unread: unchanged. Ilsa's Maximize (PLAYER toggle; HARNESS-COMMANDED cast from her book): "renewal due (10 -> 10); next renewal at 303985", then "3 charges spent, 7 left"; further READs and a cast without metamagic: still 7 (no refund). |
+| Rod balance across save and load | Proven (SETUP save/load) | launch 1 | Saved at 1 charge; after the load `stored 1 renewedAt 217585`; a read: still 1. |
+| Depleted rod renewed on schedule | Proven (INJECTED +25 h) | launch 1 | "renewal due (1 -> 10)", then Maximize spent 3: 7 left. |
+| Two casters sharing the last charges; insufficient charges | Proven (PLAYER toggles on Ilsa and Brena; HARNESS-COMMANDED casts) | launch 1 | 4 left, both cast at once: Ilsa's Maximize applied (1 left), Brena's "[Maximize] not applied (1 charges free)" and her spell cast normally. At 0: "not applied (0 charges free)" each time; never a negative or unpaid balance. |
+| Spear dropped, taken up by his director in combat | Proven (HARNESS-COMMANDED loose; INJECTED stun at the dance's end) | launch 1 (0.9.26) | "director: KWR_KruneGraspDancingSpear … take up his spear", then "he takes up the dragon-tooth spear from the floor (a move action)". **Finding:** out of combat his brain is never consulted, so it lay there until a fight began; 0.9.27 takes it up out of combat too: "out of combat, he takes up his dropped spear" (launch 2). |
+| Rod damage feats kept for 5th level and up | Seen in play | launch 4 | "Cloudkill (Empower) … with the rod's Maximize"; Acid Arrow and lesser spells got none. |
+
+### WR-FINAL legitimate journey, third attempt, 0.9.28, run `wrfinal-p5`
+
+Every party action PLAYER (portraits, spellbook, belt, inventory, dialogue, turn-based buttons); PARTY AI in real-time
+fights; READ for state and the camera; SETUP only for named seed saves and loads.
+
+| Step | Result | Notes |
+|---|---|---|
+| A4 from `Manual_1013` (mask 50) | **Won** (PARTY AI + PLAYER orders) | All four defenders slain; Aldric and Maren died and rose after the fight at 11 hp (Normal difficulty rule); four Heal scrolls (PLAYER) restored everyone. |
+| Krune at mask 50 | **Lost twice** | Attempt 1: Krune to 13/293, then Phase Door into A1 and recovered with three Runes of Life (fast healing 3) while summons and Cloudkill killed the party. Attempt 2: to 89/293, the same pattern. |
+| Return to the lodge save `Manual_1010` | Legal (an earlier legitimate save) | Rest in the sanctum is refused ("You cannot rest here"), so preparation changed at the lodge. |
+| New preparation | PLAYER | Yadmila: Slay Living ×2, Harm, Delay Poison (communal) ×2 in place of Righteous Might, Mass Cure, Blade Barrier and two level-3 slots; the departure flow noticed the change and rested again (PLAYER). Diamond dust 17 more (850 gp). |
+| Kurshu, turn-based, hand-commanded | **Won, permanently** | Displacement dispelled by Maren; Bryn and Aldric; Sela's acid flask: "slain at 131085". |
+| Rune sabotage | **4 of 7** (mask 75) | All three Life runes (Slay Living ×2: DeathSpell; Harm: 110 negative energy) and Alacrity (Entangle, 10 rounds). Armor held (Fireballs 38 and 33 in separate rounds; 35 after hardness needed in one round). Control held (Use Magic Device 26, 32, 28). Sela and Orin each took a curse brand. |
+| A4 (replay) | **Won without a death** | Opened the A4 door (PLAYER); Haste; all four defenders slain. |
+| Krune at mask 75 (233 hp, no fast healing) | **Lost three times** from `Manual_1022` (pre-fight save) | Attempt 3: to **12/233** within two rounds; he relocated (quickened Dimension Door, Phase Door ×4), summoned Wish's army, Summon Monster IX, VII and VI, and the party fell to the summons while chasing; he stayed at 12 (no fast healing). Attempts 4 and 5: to 149 and 146. |
+| Artifacts, return, debrief, completed-outcome reload | **Not reached** | |
+
+**Assessment.** These are real-time fights driven by party AI with my re-issued attack orders; the AI chases a
+relocating Krune into his summons. Attempt 3 shows the encounter is winnable at mask 75: a finisher at range in the
+round he fell to 12 (Cone of Cold is 5th level, so his Globe and Spell Turning do not stop it) or holding the party
+together against the summons would likely have ended it. The next step is the same fight from `Manual_1022`, hand
+commanded in turn-based mode, which this session did not finish. Nothing here suggests lowering Krune.

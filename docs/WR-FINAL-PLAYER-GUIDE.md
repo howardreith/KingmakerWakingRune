@@ -61,7 +61,7 @@ casting uses a good deal of it). Sabotaging the runes takes varied tools: holds 
 negative energy or death magic, and a skilled hand with magic devices or traps.
 
 ## Known limitations of this playtest draft
-- The rod's Silent, Still and Widen Spell have no effect in this game (it has no verbal or somatic components and no
-  way to widen an area).
+- The rod's Silent, Still and Widen Spell are not implemented in this draft; its Enlarge works as Reach Spell (the
+  next range band).
 - Some of Krune's printed spells and abilities have no use in this game (they are listed in his spellbook as held).
 - Placeholder model and portrait for Krune; the journal's title is the game's own ("Linzi's Journal").

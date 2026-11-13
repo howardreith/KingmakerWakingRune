@@ -1,45 +1,41 @@
 # Status: The Waking Rune
 
-**Milestone:** WR-FINAL draft on `feature/wr-final-draft` (from `main` at `c110f8b`), PR #8 (draft). The major
-progression paths exist and the review's combat and artifact defects are repaired (0.9.20–0.9.25). **Not qualified:**
-the legitimate journey now reaches A4 (Kurshu slain by hand, three rune foci sabotaged legally), but no legal victory
-over Krune exists yet. A draft for owner review, not a qualified playtest candidate.
+**Milestone:** WR-FINAL draft on `feature/wr-final-draft` (from `main` at `c110f8b`), PR #8 (draft). The combat
+repairs of the first review are closed by the second review; its rod-renewal defect is fixed (0.9.26). **Not
+qualified:** the legitimate journey reaches Krune at mask 75 (Kurshu and the A4 defenders slain by legal play, four
+rune foci sabotaged), but no legal victory over Krune exists yet (closest: Krune at 12/233).
 
-## WR-FINAL: 0.9.25 (review pass)
-- **Build:** 0.9.25, commit `227c3d8`; zip `artifacts\KingmakerWakingRune-0.9.25.zip`
-  (`e750c929e78fc4843ea8d263758110c6d2666e16c96e234111ef9e643d052a56`); DLL
-  `abc76875e1074b403dee5d5947464a8b88a4c6df76be4641d0d5cb57afa839d1`. 241 unit tests pass.
-- **Repaired after the PR #8 review** (each tested in play; details and evidence in the ledger, "WR-FINAL review pass"):
-  - solid fog: half speed, no 5-foot step, melee-only penalties, ranged weapons fail, rays pass;
-  - black tentacles: one roll per round, +5 to keep a hold, a failed check releases, damage only on success, freedom of
-    movement rechecked;
-  - transient combat state cleared on every load; the rod's order bound to one command and re-checked;
-  - the director uses only foes Krune detects; an unseen foe only at its last seen place;
-  - the dancing spear in his space (follows him, no attacks of opportunity, untargetable, his BAB only), grasped at the
-    end with a 4-round lock, dropped if he cannot act and taken up, falls with him;
-  - the rod's Empower, Enlarge (Reach), Extend and Maximize, up to three per spell, for Krune and for a party caster;
-    Silent, Still and Widen listed as having no mechanic in this game;
-  - the spear's Ego on every attempt, a 1d8+9 strike from the second, and its telekinetic disarm;
-  - Krune kept awake for the encounter: a lethal hit off-screen kills him at once (before, he healed back up).
-- **Found in this pass and fixed:**
-  - his director brain action was never registered, so **every save made after he woke could not load** (0.9.0–0.9.21);
-    fixed in 0.9.22 with a start-up blueprint self-check;
-  - stoneskin's diamond dust was not stocked (0.9.25).
-- **Corrected claims:** the earlier "DR absorbed every hit" (a +3 weapon did get through) and "won, but no acid" (that
-  was a defeat with the deadline started).
-- **Installed:** 0.9.25 (transaction `wrfinal-p4` ended; 0.9.19 backed up in `runtime-backups\wrfinal-p4\mod-existing`).
-  Seeds: `runtime-evidence\wrfinal-p4\seeds`.
+## WR-FINAL: 0.9.28 (second review pass)
+- **Build:** 0.9.28, commit `253ee17`; zip `artifacts\KingmakerWakingRune-0.9.28.zip`
+  (`f5c472ec8dca365cfd95fc1bddac130082ef5e8b8bd13176d9d0d896339654ff`); DLL
+  `8460faeede0ca675e472e4fb48a8ea97479813942058170d1562e104cae5d4d8`. 243 unit tests pass. 0.9.28 differs from 0.9.27
+  only by READ/camera harness commands.
+- **Since the second review** (ledger, "WR-FINAL second review pass"):
+  - the rod renews on a fixed schedule: a renewal due while full is taken, so a spend is never refunded (reproduced
+    the reviewer's sequence natively: 10 → 7 and kept); balance survives save and load; a depleted rod renews;
+  - a cast's charges are promised for a round: two casters cannot both draw the last charges; with too few, no
+    metamagic and the spell casts normally;
+  - Enlarge labelled an adaptation (Reach); Silent, Still and Widen "not implemented in this draft";
+  - his director takes up a dropped spear in combat (seen), and out of combat at once (0.9.27, seen).
+- **Superseded:** any claim resting on reloading an awakened Krune before 0.9.22 (see the ledger).
+- **Installed:** 0.9.28 (transaction `wrfinal-p5` ended; owner saves, Steam mirror and registry restored; 0.9.25 backed
+  up in `runtime-backups\wrfinal-p5\mod-existing`). Seeds: `runtime-evidence\wrfinal-p5\seeds`.
 
 ## Open blockers
-- **The complete legitimate playthrough** now reaches A4: from seed `Manual_1013` (the A4 door open, mask 50, all six
-  alive) the A4 fight, Krune, the artifacts, the return and the debrief remain to be played by hand.
-- **A legal victory over Krune** follows from the above.
+- **A legal victory over Krune**, then the artifacts, the return, the debrief and a reload of the completed outcome.
+  Resume from `Manual_1022_KWR_AUTOMATION_P15_BEFORE_KRUNE_REPLAY` (all six alive and buffed, mask 75, Krune awake at
+  233). Five real-time attempts with party AI lost (closest 12/233); the next attempt should be hand-commanded in
+  turn-based mode, with a ranged finisher (Cone of Cold) and the party kept together against his summons.
 
 ## Open boundaries
-Rod depletion to a refused cast in play; the director taking up a dropped spear on its own (0.9.23, code only); Krune's
-choice of rod damage feats on 5th-level-and-up spells (0.9.22, unit-tested).
+None beyond the blockers. The current-build reloads still to capture during the ending: post-death loot, the returned
+lodge and the completed debrief.
 
 The sections below are earlier milestones, kept for history.
+
+## WR-FINAL: 0.9.25 (history)
+- 0.9.25, commit `227c3d8`: the first review's repairs (fog, tentacles, session state, perception, dancing spear, rod,
+  Ego, death anywhere, the blueprint self-check, diamond dust). Superseded by 0.9.28 above.
 
 ## WR-FINAL: 0.9.19 (history)
 - 0.9.19, commit `35c54e1`, zip `a4feed24…`: the first draft for review (implementation, endings, journal, cold iron).
