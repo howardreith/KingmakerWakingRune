@@ -2,39 +2,45 @@
 
 **Milestone:** WR-07A, Krune's awakening. The candidate is ready for owner review. It ends at a labelled development checkpoint before Krune's combat encounter, which is the next milestone.
 
-## WR-07A: candidate 0.8.7
+## WR-07A: candidate 0.8.13 (after the review closeout)
 - **Candidate:**
-  - commit `39cee28` on `feature/wr-07a-awakening` (from `main` at `56b9e40`);
-  - DLL `b24a9de70ad553e3cd84d39ac77c70312aac8b6e546cbd8f4b3c7664da8260b7`;
-  - zip `artifacts\KingmakerWakingRune-0.8.7.zip`, `477a113f1adca40f495599e3ba4c51e1a83269ed183a4e8beafa847b55cfdb61`;
-  - 212 unit tests pass (198 before, with the 128 rune-mask expectations, plus 14 new).
-- **Installed:** 0.8.7. **Backed up:** 0.7.22, at `runtime-backups\wr07a-b1\mod-existing`. Transaction `wr07a-b1` restored and verified.
+  - commit `2666721` on `feature/wr-07a-awakening` (from `main` at `56b9e40`);
+  - DLL `7ac4908810dc4861979c333445a14ae145f99fb58004f0ca903501bca4b648e4`;
+  - zip `artifacts\KingmakerWakingRune-0.8.13.zip`, `09af622a729923637fd6ad237da1656454b02ae4e82707ce8d1bd949bcce868c`;
+  - 214 unit tests pass (198 before, with the 128 rune-mask expectations, plus 16 new).
+- **Installed:** 0.8.13. **Backed up:** 0.8.7 at `runtime-backups\wr07a-c1\mod-existing`, and 0.7.22 at `runtime-backups\wr07a-b1\mod-existing`. Transaction `wr07a-c1` restored and verified.
 - **The ordinary route:** A1 → A2 (palm impression) → A3 → east door → A4, by real input. The WR-06 teleport was needed only because A2 was latched in seed 976.
 - **What it does:**
-  - **One real Krune:** a native conjurer 17, his printed sheet exact before the preset. His identity is committed in the save; the hidden receiver is retired and its feeder ledger is handed over.
-  - **His entrance:** emergence by the game's own dimensional steps onto clear A5 floor.
-  - **His opening:** a parley in the native dialogue, a battle bark, or an unobserved waking. He is hostile on every path.
-  - **The checkpoint:** a labelled development checkpoint that pauses everything.
+  - **One real Krune:** a native conjurer 17. His sheet matches the printed block before the preset, except the documented adjudications: initiative 8 against the printed +4, and CMD 35 against 37. His identity is committed in the save; the hidden receiver is retired and its feeder ledger is handed over.
+  - **His entrance:** emergence by the game's own dimensional steps onto clear A5 floor. The point is checked again as he steps out.
+  - **His opening:** a parley in the native dialogue, a battle bark, or an unobserved waking, decided in the same tick he steps out. He is hostile on every path. Committed battle preparation before the exchange ends it.
+  - **The checkpoint:** a labelled development checkpoint that holds everything: the native pause in real time, the turn-based controller's own freeze in turn-based combat.
   - **The runes:** the revival's caster-level loss comes from the commit's mask for 24 hours; the rune links stay live.
-  - **Early release:** the emerald releases him with a one-round stagger that works in both combat modes.
+  - **Darkness:** his permanent darkvision counts in Vandiana's darkness through one shared check, and is lost if dispelled.
+  - **Early release:** the emerald releases him with a one-round stagger that works in both combat modes. The party can break it legally with spells.
   - **Older saves:** one-time choice.
-- **Results:** `docs/ACCEPTANCE-WR-07A.md` (A–L and the rest). The design and contract are in `docs/WR-07A-AWAKENING.md`, the progress notes in `docs/WR-07A-PROGRESS.md`, and the ledger section in `docs/WR-04-LEDGER.md`.
+- **Review closeout (PR #7 at `337455f`):** all items done; see "Review closeout" in `docs/ACCEPTANCE-WR-07A.md`. Also fixed: force and untyped magic damage (Disintegrate) were halved against the door and the emerald (0.8.13).
+- **Results:** `docs/ACCEPTANCE-WR-07A.md` (A–L, then C1–C7). The design and contract are in `docs/WR-07A-AWAKENING.md`, the progress notes in `docs/WR-07A-PROGRESS.md`, and the ledger section in `docs/WR-04-LEDGER.md`.
 - **Not shown in play:**
-  - a battle-bark opening during a live A4 fight;
-  - hostility from a cast before the dialogue;
-  - a native dispel landing on his Mage Armor;
   - a late emerald hit;
-  - the checkpoint arriving in turn-based play;
-  - the broken emerald checked by eye.
+  - a PLAYER-issued cast before the exchange (the positive case was harness-commanded);
+  - the revival study's success text on 0.8.13.
+- **Open for the owner:** the emerald proxy's fixture Fortitude (+95, so Disintegrate is always partial against it), and the emerald's name after it breaks.
 - **New harness commands:**
-  - **READ:** `krune`, `krunesheet`, `krunecl`, `manifest`;
+  - **READ:** `krune`, `krunesheet`, `krunecl`, `manifest`, `concealment`;
   - **SETUP:** `krunedeadline`, `krunepause`;
   - **INJECTED:** `setmask`, `hitgem`, `krunerelease`; target `krune`.
-- **New seeds** (in `runtime-evidence\wr07a-b1\saves`):
-  - 986–988, 991 and 993: checkpoints and a dead Krune;
-  - 989–990: saved at ActorReady;
-  - 992: the feeder spent;
-  - 994: a kept legacy save.
+- **New seeds:**
+  - in `runtime-evidence\wr07a-b1\saves`:
+    - 986–988, 991 and 993: checkpoints and a dead Krune;
+    - 989–990: saved at ActorReady;
+    - 992: the feeder spent;
+    - 994: a kept legacy save;
+  - in `runtime-evidence\wr07a-c1\saves` (quarantined at End):
+    - 995: occupied emergence point;
+    - 996–997: turn-based holds;
+    - 998: the legal break at the checkpoint;
+    - 999: Mage Armor dispelled.
 
 ## Next exact action
 Owner review of draft PR #7 (WR-07A). If it is accepted, the next milestone is Krune's combat encounter (WR-07B):

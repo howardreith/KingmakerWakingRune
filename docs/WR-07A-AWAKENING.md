@@ -33,6 +33,7 @@ The existing `RitualState` decides when: `AwakeningDue`, `Reason`, `AwakeningAt`
 - **The emerald** (`RitualRules.RequestImmediateAwakening`) releases him early, with the opening stagger, only while nothing is due yet.
   - **Late emerald:** once awakening is due, breaking or hitting the emerald changes nothing (no new cause, no stagger). Before this build, the stagger flag was set before that question was asked.
   - **Same boundary:** a deadline reached at or before the moment the emerald breaks came first. The deadline is the cause and there is no stagger.
+  - **Breaking it in play:** the printed hardness 20, 40 hit points and break DC 40 are unchanged. Hardness applies once per resolved hit. Precision and critical damage do not apply, and the five energies are halved. This party's weapons cannot beat hardness 20, but its spells can. Seen: Brena's two Blade Barriers and Kael's empowered Fireball, all cast from the action bar, broke it inside the confrontation clock.
 
 ### Lifecycle (saved as `SanctumState.Krune`, state version 6)
 | Stage | Means | Recorded |
@@ -68,6 +69,7 @@ The existing `RitualState` decides when: `AwakeningDue`, `Reason`, `AwakeningAt`
 - **Candidates:** a deterministic list starting 1.55 squares east of the coffin (facing the altar), then rings outward.
 - **Footprint:** every candidate's whole footprint must be walkable A5 floor, outside the coffin's shadow, near a navmesh node, and clear of every creature in the game by their radii.
 - **An occupied preferred point** moves him elsewhere. He is never placed on anyone.
+- **Checked again as he steps out** (0.8.8): the point chosen when the actor was made is confirmed at the moment of emergence. If someone has since moved onto it, the same policy picks another point. If nowhere is clear, he waits in the coffin with a diagnostic and is retried; nothing is spent. The dimensional step is computed from where he actually lands, and spent once. Seen: Tessa on the chosen point across a save and reload; he stepped out one square east.
 - Nobody is moved for him.
 
 ## The actor: source to runtime
@@ -91,18 +93,19 @@ The printed totals already contain his belt, his inherent bonuses and his runic 
 | Caster level | 17 | wizard 17; the revival loss below | 17 | — | 17 (the native ability-parameter rule) |
 | Spear | +18/+13, 1d8+9 | BAB 8 + Str 4 + enhancement 3 + Control's competence 3 (spear only) | as printed | +2 attack | not attacked with in a checked state |
 
-**Where the printed numbers disagree** (each shown, not hidden):
+**Not an exact match.** The observed sheet equals the printed block except where the block disagrees with itself. Those lines are adjudicated here and shown, not hidden:
 - **HP:** 17d6+231 lists 231 fixed points. Con 85 + Toughness 17 + Life 120 = 222, so 9 points are unattributed. Treatment: the total is calibrated to the printed 173 without Life, so the 9 are kept inside the calibration and no bonus is invented.
-- **Initiative:** the block prints +4, but Alacrity's +4 insight is "already factored into his stats". Treatment: the components are used (Dex 4 + insight 4 = 8), because the accepted rune projection halves that insight to 2. A printed +4 that excluded it could not be halved.
-- **CMD:** printed 37; the native value from its components is 35. Not adjusted.
+- **Initiative: 8, not the printed +4.** The block prints +4, but Alacrity's +4 insight is "already factored into his stats". Treatment: the components are used (Dex 4 + insight 4 = 8), because the accepted rune projection halves that insight to 2. A printed +4 that excluded it could not be halved.
+- **CMD: 35, not the printed 37.** The native value from its components is 35. Not adjusted.
 - **Bonus spells:** this game gives a non-party caster bonus spells from the casting score's base value (Int 22), not the printed 31 (as WR-06 found for Vandiana). His slots are the combat increment's.
 
 **Natively present:**
 - Feats: Augment Summoning, Combat Casting, Empower Spell, Great Fortitude, Greater Spell Focus (conjuration), Iron Will, Lightning Reflexes, Quicken Spell, Simple Weapon Proficiency, Spell Focus (conjuration), Toughness.
 - Not in this game: Scribe Scroll (the name looked up), Eschew Materials, Inscribe Rune.
 - Immune to poison: a periapt of proof against poison, worn (an item enchantment giving the immunity).
-- Freedom of movement: a ring of freedom of movement carrying the game's own `PermanentFreedomHoldImmun` enchantment.
+- Freedom of movement: a ring of freedom of movement carrying the game's own `PermanentFreedomHoldImmun` enchantment. Seen: a native Paralyzed condition did not stop him.
 - Permanent darkvision and see invisibility: spell effects at CL 17, dispellable; they do not return.
+  - **Darkvision in Vandiana's darkness** (0.8.8): the darkness rule asks one shared question, whether the attacker has an active fact carrying the darkvision marker, within 60 feet. That covers the A4 defenders' darkvision and Krune's permanent darkvision alike. Removing or dispelling the effect ends it. There is no unconditional immunity, and See Invisibility is not darkvision. True Seeing is not involved. Seen through the game's own concealment rule: Krune against Vandiana in her darkness, none; with his darkvision removed, partial; an unrelated Blur still gave partial concealment while he had darkvision.
 - Mage Armor: the game's own buff at CL 17, cast before hibernation and sustained by the sanctum. It is applied once at emergence with its remaining duration (17 hours from the awakening), is dispellable, and does not return on reload.
 - No free Foresight, True Seeing, Stoneskin or Spell Turning.
 - Dimensional steps: the game's own conjuration-school resource, 17 uses of up to 30 feet (the printed 510 feet). The opening's step out of the coffin spends one use, once.
@@ -134,7 +137,7 @@ The printed totals already contain his belt, his inherent bonuses and his runic 
 - **The live links:** they follow the current mask. A rune darkened after he wakes updates his HP, fast healing, AC, initiative, saves and spear bonus at once. Seen: Alacrity dark after waking, AC 35 → 33 and initiative 8 → 6, caster level still 17.
 - **Damage is kept (native damage-preservation policy).** The game keeps damage taken, not hit points left. A lower maximum leaves the same damage and fewer hit points, and nothing is healed. A maximum at or below his damage is fatal, as any loss of maximum hit points is.
 - **No repeats:** the same mask again changes nothing. A reload re-applies nothing.
-- **Dispel:** the runes, fast healing and calibration are not spells, and native dispel (which requires the game's "from a spell" flag) cannot touch them. Mage Armor, darkvision and see invisibility are spells and can be dispelled.
+- **Dispel:** the runes, fast healing and calibration are not spells, and native dispel (which requires the game's "from a spell" flag) cannot touch them. Mage Armor, darkvision and see invisibility are spells and can be dispelled. The game's targeted dispel tries his spell effects from the highest caster level down and stops at the first it beats. Seen: Kael's Dispel Magic removed see invisibility, then a second removed Mage Armor (AC 35 → 31). After a full restart Mage Armor stayed gone and the runes were intact.
 
 ## Entrance
 1. **The soul's return:** a flare at the emerald if it is still whole (none if it was broken), and the coffin's flashes surge for a few seconds. Visual only.
@@ -143,9 +146,10 @@ The printed totals already contain his belt, his inherent bonuses and his runic 
 4. **Camera:** it is never moved. If the party sees him, the battle log says so; if not, a notification says only "Somewhere deep in the sanctum, a vast presence stirs." Nothing is revealed.
 5. **Early release:** the emerald is already shown broken: a dark socket and green shards replace the gem, in every load. He appears standing, with one round of staggering:
    - **Real time:** the game's own Staggered condition for one round of game time. No game time passes while paused, in dialogue, at the checkpoint or loading, and it is never re-applied (seen: 5.2 s left before and after a save and reload).
-   - **Turn-based play:** each turn spends game time, so a round of game time could run out before his first turn. The stagger is kept until his first completed turn ends, then removed. Seen in play.
+   - **Turn-based play:** each turn spends game time, so a round of game time could run out before his first turn. The stagger is kept until his first completed turn ends, then removed. Seen in play, including during a live turn-based A4 fight. A reload after that turn does not renew it.
 6. **Action sequencing:**
    - The opening (soul return, the step, the exchange) happens outside initiative.
+   - **The opening is decided in the same tick he steps out** (0.8.12). Before that build, turn-based combat gave the still-neutral Krune a turn between his emergence and his opening, which also spent his opening stagger.
    - When he turns hostile he joins the combat natively and rolls his own initiative. He gets no extra turn and does not act out of order.
    - The checkpoint holds before any of his turns.
    - The combat increment should treat the opening's step as spent (recorded in the state).
@@ -164,9 +168,11 @@ The module gives his behaviour, not a script. The wording is this adaptation's o
   - **A4 fight under way:** a brief bark, and he turns hostile at once. No modal dialogue, and the A4 combat is not reset.
   - **No fight, and he perceives someone of the party side** (in A4/A5 and in his line of sight): the native dialogue. It pauses both sides alike.
   - **Nobody perceived:** he wakes alone and turns hostile ("he woke with nobody in sight").
-- **Hostility before the exchange:** an actual attack roll or a spell actually cast by someone he perceives, before the dialogue opens. A cancelled cursor, a hover or the inventory produce no rule and never count.
+- **Hostility before the exchange:** an actual attack roll or a spell actually cast by someone he perceives, before the dialogue opens.
+  - **Committed battle preparation** (0.8.8–0.8.10) counts too: when the exchange would open, he looks at what each perceiver is doing. A spell order already issued and not finished, whether running, queued, or given while paused and not yet begun, ends the exchange before it starts ("Kael Ashen was casting Haste as the exchange would begin").
+  - A cancelled cursor, a hover or the inventory issue no order and never count. Seen: an armed cursor hovered over him and cancelled left the parley to open.
 - **Credentials:** a palm impression or branded hand is only an A2 credential. It makes no one a Lissalan.
-- **The revival study** (page 14): one native Arcana check by the best-placed party member in A4/A5 at the commit, once, recorded in the existing knowledge ledger, descriptive only. It never gates anything. Seen: 36 vs 27.
+- **The revival study** (page 14): one native Arcana check by the best-placed party member in A4/A5 at the commit, once, recorded in the existing knowledge ledger, descriptive only. It never gates anything. Seen: 36 vs 27. A success reads: "His soul was held apart from his preserved body. The ritual has reunited them."
 - **No replays:** a load never replays the dialogue, a beat, the study or the opening effects. An exchange interrupted by a load (the game cannot save in dialogue) is resolved as ended, never replayed.
 
 ## The development checkpoint
@@ -174,7 +180,8 @@ At the combat-ready handoff, in the same tick, the whole simulation is paused an
 
 > Development checkpoint (prototype boundary, not part of the story): Krune's awakening is implemented. His combat encounter is the next milestone.
 
-- **Nothing unpauses the game while it holds.** A Harmony guard refuses an unpause, and a frame that runs after a load is paused at once. The native pause is a game mode that stops every controller, the turn-based one included. The checkpoint arriving in the middle of turn-based play has not been tested.
+- **Nothing unpauses the game while it holds.** In real time it is the native pause: a Harmony guard refuses an unpause, and a frame that runs after a load is paused at once.
+- **Turn-based combat** refuses the pause mode and unpauses every tick (0.8.10 found the checkpoint recorded while turns ran on). From 0.8.11 the checkpoint holds turn-based combat with the turn-based controller's own freeze, the one its combat-start window uses. No turn advances, game time stands, and the active turn is kept as it is. Seen: held between turns ("the turn of nobody"); after the labelled release the order resumed unchanged. It does not depend on who won initiative.
 - **No free turns:** neither A4 nor Krune can take a turn while the other side is frozen.
 - **Still available:** inspection and menus. Saving works where the game allows it (out of combat); a test in combat uses the labelled combat-save fixture.
 - **What it is not:** no victory, XP or loot, and the scenario is not completed. He has no invulnerability: he is a real unit that a released run can and did kill.

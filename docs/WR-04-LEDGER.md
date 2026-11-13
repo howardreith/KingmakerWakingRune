@@ -261,8 +261,24 @@ Rows above that this round changes are restated here. Everything else carries fo
 | Feeder ledger handed over, spent, restarted | Proven (PLAYER feeder trigger; INJECTED damage and a False Life control) | 0.8.6 | 54 → 34 handed over with the original hour; never restored. |
 | Placement: occupied point, party by the coffin, offscreen | Proven (SETUP positions) | 0.8.2, 0.8.7 | |
 | Parley by real input; hostile on every path | Proven (PLAYER) | 0.8.2, 0.8.7 | |
-| Battle-bark opening; hostility before the exchange | Not run natively | | Code only. |
-| Development checkpoint: global pause, save and reload, release | Proven in real time | 0.8.1–0.8.7 | Turn-based arrival not run. |
-| Mage Armor removed stays removed; runes not dispellable | Partial (INJECTED removal) | 0.8.6 | A native dispel landing on him was not seen. |
+| Battle-bark opening; hostility before the exchange | Proven in the closeout (below) | 0.8.10, 0.8.12 | |
+| Development checkpoint: global pause, save and reload, release | Proven in real time, and in turn-based play from 0.8.11 | 0.8.1–0.8.12 | |
+| Mage Armor removed stays removed; runes not dispellable | Proven (native dispel in the closeout) | 0.8.6, 0.8.12 | |
+
+### WR-07A review closeout, 0.8.8–0.8.13, run `wr07a-c1`
+
+| Item | Status | Evidence | Notes |
+|---|---|---|---|
+| Emergence point checked again as he steps out | Proven (SETUP occupant; save and reload) | 0.8.8 | He stepped out one square east; the step was spent once from where he landed. |
+| Darkvision in Vandiana's darkness, one shared check | Proven (READ, the game's concealment rule; INJECTED darkness, Blur, removal) | 0.8.8 | None with it, partial without; Blur unaffected. |
+| Battle bark during a live real-time A4 fight | Proven (PARTY AI fight; SETUP deadline) | 0.8.10, 0.8.12 | Same tick as the emergence from 0.8.12; both sides held. |
+| Checkpoint during turn-based combat | Proven (SETUP tbm; INJECTED emerald hit) | 0.8.11, 0.8.12 | The turn-based controller's own freeze: the turn order kept, no free turn. 0.8.10 and 0.8.11 found the two defects. |
+| Opening stagger on his first turn, not renewed by a reload | Proven | 0.8.12 | Combat-save fixture 997. |
+| Committed cast before the exchange; hover and cancel | Proven (HARNESS-COMMANDED cast; PLAYER hover and cancel) | 0.8.10 | |
+| Emerald broken by legal play | Proven (PLAYER preparation and casts; SETUP native rest; INJECTED defender deaths) | 0.8.12 | Two Blade Barriers and an empowered Fireball. Printed numbers unchanged. |
+| Broken model by eye; no re-awakening | Proven (PLAYER click; INJECTED hit; reload) | 0.8.12 | |
+| Native Dispel Magic on Mage Armor, across a restart | Proven (HARNESS-COMMANDED dispel; INJECTED release and Domination to allow a save) | 0.8.12 | His Freedom of Movement defeated the INJECTED paralysis; he took Blade Barrier damage and killed Brena. |
+| Force and untyped magic against stone | Fixed and proven | 0.8.13 | Disintegrate counted half before. |
+| Emerald proxy's fixture Fortitude (+95) | Open for the owner | 0.8.12 | Disintegrate is always partial against it. |
 | Saves: version 4 upgrade, version 5 due (adopt and keep), at ActorReady, at the checkpoint, after death | Proven | 0.8.2–0.8.7 | The ActorReady reload found the calibration defect (0.8.4 → 0.8.5). |
 | Stock isolation | Proven | 0.8.6, 0.8.7 | |
