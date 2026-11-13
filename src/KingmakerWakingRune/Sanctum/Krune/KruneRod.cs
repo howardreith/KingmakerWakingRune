@@ -24,7 +24,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
     /// it is cast, paid from 10 charges renewed every 24 hours (one charge per spell level added). The game's own metamagic is
     /// added while the cast's parameters are calculated (the slot and its level are untouched) and the charges are spent only
     /// when the spell is actually cast. Empower, Enlarge (the game's Reach), Extend and Maximize are applied; Silent, Still and
-    /// Widen have no mechanic in this game and are listed only.
+    /// Widen are not implemented in this draft: listed as unavailable, never applied or charged.
     /// <para>
     /// The charges belong to the rod: they are kept in the saved sanctum state (taken over once from the resource earlier
     /// builds gave Krune), so a party that recovers it has what he left. Krune's director orders metamagic for one cast at a
@@ -51,8 +51,18 @@ namespace KingmakerWakingRune.Sanctum.Krune
         }
 
         private static Order s_Order;
-        // A party caster's metamagic from the rod, by unit and spell, between the parameters and the cast.
-        private static readonly Dictionary<string, List<RodOption>> s_PartyApplied = new Dictionary<string, List<RodOption>>();
+        private sealed class Pending
+        {
+            public List<RodOption> Applied;
+            public double At;
+        }
+
+        /// <summary>How long a cast's promised charges are held back from other casters: a round.</summary>
+        private const double PendingSeconds = 6d;
+
+        // Each caster's metamagic from the rod (Krune's or a party caster's), by unit and spell, between the parameters and
+        // the cast. While it is pending its charges are promised: another caster cannot draw them.
+        private static readonly Dictionary<string, Pending> s_Pending = new Dictionary<string, Pending>();
 
         public static void Build()
         {
@@ -74,21 +84,24 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
             var add = KruneBlueprints.Component<Kingmaker.UnitLogic.FactLogic.AddFacts>("KWR_RuneRodWielderFacts");
             add.Facts = feats.ToArray();
-            Wielder = KruneBlueprints.Feature("KWR_RuneRodWielder", "Krune's Rune-Carved Rod", "The party carries Krune's rune-carved rod: Empower, Enlarge, Extend and Maximize Spell, up to three on one spell, from its 10 daily charges. (Silent, Still and Widen Spell have no effect in this world.)",
+            Wielder = KruneBlueprints.Feature("KWR_RuneRodWielder", "Krune's Rune-Carved Rod", "The party carries Krune's rune-carved rod: Empower, Enlarge (adapted: as Reach Spell, the next range band), Extend and Maximize Spell, up to three on one spell, from its 10 daily charges. Silent, Still and Widen Spell are not implemented in this draft (never applied or charged).",
                 add, KruneBlueprints.Component<KwrRodWielder>("KWR_RuneRodWielderLogic"));
         }
 
         public static void ResetSession()
         {
             s_Order = null;
-            s_PartyApplied.Clear();
+            s_Pending.Clear();
         }
 
         /// <summary>Read only, for the harness: the pending order, if any.</summary>
         public static string DebugState()
         {
             Order o = s_Order;
-            return o == null ? "no order" : $"order {o.Spell.name} [{string.Join("+", o.Requested.ToArray())}] at {o.At:0.0} applied [{string.Join("+", o.Applied.Select(a => a.Feat).ToArray())}]";
+            KruneState k = WardStore.Existing?.Krune;
+            string pending = string.Join(", ", s_Pending.Select(p => p.Key.Substring(0, 8) + ":" + string.Join("+", p.Value.Applied.Select(a => a.Feat).ToArray()) + "@" + p.Value.At.ToString("0.0")).ToArray());
+            return (o == null ? "no order" : $"order {o.Spell.name} [{string.Join("+", o.Requested.ToArray())}] at {o.At:0.0} applied [{string.Join("+", o.Applied.Select(a => a.Feat).ToArray())}]")
+                + $"; pending [{pending}]; stored {k?.RodCharges} renewedAt {k?.RodRenewedAt:0}";
         }
 
         public static bool Possesses(UnitEntityData unit)
@@ -104,7 +117,11 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return unit.Inventory.Items.Any(KruneLoot.IsRod);
         }
 
-        /// <summary>The charges left now: taken over once from Krune's old resource, renewed after 24 hours.</summary>
+        /// <summary>
+        /// The charges left now: taken over once from Krune's old resource, then renewed on the rod's fixed 24-hour schedule
+        /// (RodRules.Renew: a renewal that falls due while the rod is full still moves the schedule on, so an expenditure
+        /// right after it is never refunded by the next read).
+        /// </summary>
         public static int Charges()
         {
             KruneState krune = WardStore.Existing?.Krune;
@@ -122,22 +139,46 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 krune.RodRenewedAt = now;
                 KruneAwakening.Note($"rune-carved rod: its charges are kept with the rod from now on ({krune.RodCharges}).");
             }
-            if (RodRules.Renews(krune.RodRenewedAt, now, WardProfile.DaySeconds) && krune.RodCharges < RodRules.ChargesPerDay)
+            double renewedAt = krune.RodRenewedAt;
+            int renewed = RodRules.Renew(krune.RodCharges, ref renewedAt, now, WardProfile.DaySeconds);
+            if (renewedAt != krune.RodRenewedAt)
             {
-                krune.RodCharges = RodRules.ChargesPerDay;
-                krune.RodRenewedAt = now;
-                KruneAwakening.Note("rune-carved rod: its charges are renewed (24 hours).");
+                KruneAwakening.Note($"rune-carved rod: renewal due ({krune.RodCharges} -> {renewed}); next renewal at {renewedAt + WardProfile.DaySeconds:0}.");
             }
+            krune.RodCharges = renewed;
+            krune.RodRenewedAt = renewedAt;
             return krune.RodCharges;
         }
 
-        private static void Spend(int cost)
+        /// <summary>Spends what a cast promised; returns false (and spends what is left) if the rod cannot pay in full.</summary>
+        private static bool Spend(int cost)
         {
             KruneState krune = WardStore.Existing?.Krune;
-            if (krune != null && cost > 0)
+            if (krune == null || cost <= 0)
             {
-                krune.RodCharges = Math.Max(0, Charges() - cost);
+                return cost <= 0;
             }
+            int have = Charges();
+            krune.RodCharges = Math.Max(0, have - cost);
+            return have >= cost;
+        }
+
+        /// <summary>The charges other pending casts have promised (a round's grace), excluding this caster's own.</summary>
+        private static int ReservedByOthers(string key)
+        {
+            double now = WardRuntime.Now;
+            foreach (string stale in s_Pending.Where(p => now < p.Value.At || now - p.Value.At > PendingSeconds).Select(p => p.Key).ToList())
+            {
+                s_Pending.Remove(stale);
+            }
+            // A caster casts one spell at a time: his own previews of other spells promise nothing against him.
+            string caster = key.Substring(0, key.IndexOf('/') + 1);
+            return s_Pending.Where(p => !p.Key.StartsWith(caster, StringComparison.Ordinal)).Sum(p => p.Value.Applied.Sum(o => o.Cost));
+        }
+
+        private static string KeyOf(UnitEntityData caster, BlueprintAbility spell)
+        {
+            return caster.UniqueId + "/" + (spell.Parent ?? spell).AssetGuid;
         }
 
         public static IEnumerable<string> Legal(BlueprintAbility spell)
@@ -159,7 +200,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 return null;
             }
             List<string> already = RodRules.Options.Where(o => o.Supported && spell.MetamagicData != null && spell.MetamagicData.Has(Parse(o.Native))).Select(o => o.Native).ToList();
-            List<RodOption> preview = RodRules.Apply(requested, Legal(spell.Blueprint).ToList(), already, Charges());
+            List<RodOption> preview = RodRules.Apply(requested, Legal(spell.Blueprint).ToList(), already, RodRules.Available(Charges(), ReservedByOthers(KeyOf(krune, spell.Blueprint))));
             if (preview.Count == 0)
             {
                 return null;
@@ -203,7 +244,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 s_Order = null;
                 return;
             }
-            order.Applied = ApplyTo(evt, order.Requested);
+            order.Applied = ApplyTo(evt, order.Requested, KeyOf(krune, evt.Spell));
         }
 
         public static void KruneCast(UnitEntityData krune, RuleCastSpell evt)
@@ -214,6 +255,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 return;
             }
             s_Order = null;
+            s_Pending.Remove(KeyOf(krune, evt.Spell.Blueprint));
             Pay(krune, evt, order.Applied);
         }
 
@@ -225,29 +267,53 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
             List<string> requested = RodRules.Options.Where(o => o.Supported && s_Toggles.TryGetValue(o.Native, out BlueprintActivatableAbility t)
                 && caster.Descriptor.ActivatableAbilities.Enumerable.Any(a => a.Blueprint == t && a.IsOn)).Select(o => o.Native).ToList();
-            s_PartyApplied[caster.UniqueId + "/" + evt.Spell.AssetGuid] = requested.Count == 0 ? new List<RodOption>() : ApplyTo(evt, requested);
+            if (requested.Count > 0)
+            {
+                ApplyTo(evt, requested, KeyOf(caster, evt.Spell));
+            }
+            else
+            {
+                s_Pending.Remove(KeyOf(caster, evt.Spell));
+            }
         }
 
         public static void PartyCast(UnitEntityData caster, RuleCastSpell evt)
         {
-            string key = caster.UniqueId + "/" + evt.Spell.Blueprint.AssetGuid;
-            if (s_PartyApplied.TryGetValue(key, out List<RodOption> applied))
+            string key = KeyOf(caster, evt.Spell.Blueprint);
+            if (s_Pending.TryGetValue(key, out Pending pending))
             {
-                s_PartyApplied.Remove(key);
+                s_Pending.Remove(key);
                 if (Possesses(caster))
                 {
-                    Pay(caster, evt, applied);
+                    Pay(caster, evt, pending.Applied);
                 }
             }
         }
 
-        private static List<RodOption> ApplyTo(RuleCalculateAbilityParams evt, List<string> requested)
+        /// <summary>
+        /// The metamagic one cast may have: what it asks for, legal for the spell, and affordable from the charges not already
+        /// promised to another pending cast. With too few charges the spell is simply cast without it (never unpaid).
+        /// </summary>
+        private static List<RodOption> ApplyTo(RuleCalculateAbilityParams evt, List<string> requested, string key)
         {
             List<string> already = RodRules.Options.Where(o => o.Supported && evt.HasMetamagic(Parse(o.Native))).Select(o => o.Native).ToList();
-            List<RodOption> applied = RodRules.Apply(requested, Legal(evt.Spell).ToList(), already, Charges());
+            int available = RodRules.Available(Charges(), ReservedByOthers(key));
+            List<RodOption> applied = RodRules.Apply(requested, Legal(evt.Spell).ToList(), already, available);
             foreach (RodOption option in applied)
             {
                 evt.AddMetamagic(Parse(option.Native));
+            }
+            if (applied.Count > 0)
+            {
+                s_Pending[key] = new Pending { Applied = applied, At = WardRuntime.Now };
+            }
+            else
+            {
+                s_Pending.Remove(key);
+                if (requested.Count > 0)
+                {
+                    Log.Info($"Rune-carved rod: {evt.Initiator?.CharacterName}'s {evt.Spell.name}: [{string.Join("+", requested.ToArray())}] not applied ({available} charges free).");
+                }
             }
             return applied;
         }
@@ -259,8 +325,9 @@ namespace KingmakerWakingRune.Sanctum.Krune
             {
                 return;
             }
-            Spend(cost);
-            string text = $"the rune-carved rod adds {string.Join(" + ", applied.Select(o => o.Feat).ToArray())} to {caster.CharacterName}'s {evt.Spell.Blueprint.name}: {cost} charges spent, {Charges()} left.";
+            bool paid = Spend(cost);
+            KruneState krune = WardStore.Existing?.Krune;
+            string text = $"the rune-carved rod adds {string.Join(" + ", applied.Select(o => o.Feat).ToArray())} to {caster.CharacterName}'s {evt.Spell.Blueprint.name}: {cost} charges spent, {krune?.RodCharges} left{(paid ? string.Empty : " (UNPAID: the rod ran short)")}.";
             KruneAwakening.Note(text);
             Log.Info("Rune-carved rod: " + text);
         }

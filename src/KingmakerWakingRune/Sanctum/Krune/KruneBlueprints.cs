@@ -255,7 +255,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             rod.name = "KWR_KruneRuneCarvedRod";
             rod.AssetGuid = ScenarioIds.Derive("krune." + rod.name);
             AccessTools.Field(typeof(BlueprintItem), "m_Icon").SetValue(rod, rodDonor.Icon);
-            ItemName(rod, "Krune's Rune-Carved Rod", "A two-foot shaft of weathered dark grey stone crawling with runes (minor artifact): a greater metamagic rod of seven feats, up to three on one spell, with 10 charges renewed every 24 hours. Empower, Enlarge, Extend and Maximize work in this world; Silent, Still and Widen have no effect here.");
+            ItemName(rod, "Krune's Rune-Carved Rod", "A two-foot shaft of weathered dark grey stone crawling with runes (minor artifact): a greater metamagic rod of seven feats, up to three on one spell, with 10 charges renewed every 24 hours. Empower, Enlarge (adapted as Reach Spell), Extend and Maximize are available; Silent, Still and Widen are not implemented in this draft.");
             s_Register(rod);
             Rod = rod;
 

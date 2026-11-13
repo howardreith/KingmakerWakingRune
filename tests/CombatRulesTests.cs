@@ -88,8 +88,50 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal("Extend", string.Join(",", RodRules.KruneRequest(false, true, 6, 5).ToArray()), "a summons while five charges stay in hand");
             Assert.Equal(0, RodRules.KruneRequest(false, true, 5, 9).Count, "not at the cost of the next potent spell");
             Assert.Equal(0, RodRules.KruneRequest(false, false, 10, 9).Count, "nothing for anything else");
-            Assert.Equal(true, RodRules.Renews(0d, 86400d, 86400d), "renewed after 24 hours");
-            Assert.Equal(false, RodRules.Renews(0d, 86399d, 86400d), "not before");
+        }
+
+        public static void TestTheRodRenewsOnScheduleAndNeverRefundsASpend()
+        {
+            const double Day = 86400d;
+            // Left full across its renewal: the renewal is taken (the schedule moves on), so spending then sticks.
+            double at = 0d;
+            int charges = RodRules.Renew(10, ref at, 100000d, Day);
+            Assert.Equal(10, charges, "full rod across the boundary stays full");
+            Assert.Equal(Day, at, "but its schedule moves on to the last due renewal");
+            charges -= 1;
+            Assert.Equal(9, RodRules.Renew(charges, ref at, 100000d, Day), "the read right after a spend does not refund it");
+            Assert.Equal(9, RodRules.Renew(charges, ref at, 100500d, Day), "nor any later read before the next renewal");
+            double restartAt = at;
+            Assert.Equal(9, RodRules.Renew(9, ref restartAt, 101000d, Day), "a restart reads the saved 9 and date: still 9");
+            charges -= 3;
+            Assert.Equal(6, RodRules.Renew(charges, ref at, 100000d, Day), "several charges spent, still kept");
+            Assert.Equal(10, RodRules.Renew(charges, ref at, 2 * Day + 1d, Day), "renewed at the next due time");
+            Assert.Equal(2 * Day, at, "schedule at the renewal just taken");
+            // Partly spent across one or more days: renewed once, the schedule advanced by whole days.
+            at = 0d;
+            Assert.Equal(10, RodRules.Renew(4, ref at, 3.5 * Day, Day), "a partly spent rod renews");
+            Assert.Equal(3 * Day, at, "three whole days passed");
+            Assert.Equal(4, RodRules.Renew(4, ref at, 3.9 * Day, Day), "not again within the day");
+            // No schedule yet, or a date after now: it starts now, nothing refilled.
+            at = -1d;
+            Assert.Equal(2, RodRules.Renew(2, ref at, 500d, Day), "first schedule: no refill");
+            Assert.Equal(500d, at, "starts now");
+            at = 900d;
+            Assert.Equal(2, RodRules.Renew(2, ref at, 500d, Day), "a date after now: no refill");
+        }
+
+        public static void TestTwoCastersCannotBothDrawTheLastCharges()
+        {
+            var all = new List<string> { "Empower", "Reach", "Extend", "Maximize" };
+            var none = new List<string>();
+            int charges = 3;
+            List<RodOption> first = RodRules.Apply(new[] { "Maximize" }, all, none, RodRules.Available(charges, 0));
+            Assert.Equal(1, first.Count, "the first caster takes Maximize with the last 3");
+            List<RodOption> second = RodRules.Apply(new[] { "Maximize" }, all, none, RodRules.Available(charges, first.Sum(o => o.Cost)));
+            Assert.Equal(0, second.Count, "the second, while the first is pending, gets nothing (the spell casts without it)");
+            List<RodOption> third = RodRules.Apply(new[] { "Extend", "Maximize" }, all, none, RodRules.Available(charges, 2));
+            Assert.Equal("Extend", string.Join(",", third.Select(o => o.Feat).ToArray()), "one free charge: only Extend");
+            Assert.Equal(0, RodRules.Available(1, 5), "never negative");
         }
 
         public static void TestTheSpearStrikesFromTheSecondAttempt()

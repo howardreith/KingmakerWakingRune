@@ -133,9 +133,9 @@ namespace KingmakerWakingRune.Sanctum.Krune
 
     /// <summary>
     /// Krune's rune-carved rod (page 16): a greater metamagic rod with seven feats; up to three applied to one spell as it
-    /// is cast; 10 charges a day; each costs charges equal to the spell levels it adds. Silent, Still and Widen have no
-    /// mechanic in this game (no verbal or somatic components; no area widening): they are listed, not applied. Enlarge is
-    /// the game's own Reach (+1 level, the next range band), the game's version of a longer range.
+    /// is cast; 10 charges a day; each costs charges equal to the spell levels it adds. Silent, Still and Widen are not
+    /// implemented in this draft: they are listed as unavailable, never applied and never charged. Enlarge is adapted as
+    /// the game's own Reach (+1 level, the next range band) rather than Enlarge's doubled range.
     /// </summary>
     internal static class RodRules
     {
@@ -145,12 +145,12 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public static readonly RodOption[] Options =
         {
             new RodOption { Feat = "Empower", Native = "Empower", Cost = 2, Note = "variable numeric effects x1.5" },
-            new RodOption { Feat = "Enlarge", Native = "Reach", Cost = 1, Note = "as the game's Reach Spell: the next range band" },
+            new RodOption { Feat = "Enlarge", Native = "Reach", Cost = 1, Note = "adapted as the game's Reach Spell (the next range band), not Enlarge's doubled range" },
             new RodOption { Feat = "Extend", Native = "Extend", Cost = 1, Note = "double duration" },
             new RodOption { Feat = "Maximize", Native = "Maximize", Cost = 3, Note = "variable numeric effects maximized" },
-            new RodOption { Feat = "Silent", Native = string.Empty, Cost = 1, Note = "no verbal components exist in this game: no effect" },
-            new RodOption { Feat = "Still", Native = string.Empty, Cost = 1, Note = "no somatic components exist in this game: no effect" },
-            new RodOption { Feat = "Widen", Native = string.Empty, Cost = 3, Note = "this game has no way to widen an area: not available" },
+            new RodOption { Feat = "Silent", Native = string.Empty, Cost = 1, Note = "not implemented in this draft" },
+            new RodOption { Feat = "Still", Native = string.Empty, Cost = 1, Note = "not implemented in this draft" },
+            new RodOption { Feat = "Widen", Native = string.Empty, Cost = 3, Note = "not implemented in this draft" },
         };
 
         public static RodOption Option(string native)
@@ -201,10 +201,32 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return new List<string>();
         }
 
-        /// <summary>The 24-hour renewal: charges back to 10 once a day has passed since the last renewal.</summary>
-        public static bool Renews(double renewedAt, double now, double daySeconds)
+        /// <summary>
+        /// The 24-hour renewal, on a fixed schedule: each whole day since the last renewal advances the schedule by that many
+        /// days and restores the rod to 10, whether or not it was full. So a renewal that falls due while the rod is full is
+        /// still taken (its date moves on), and a later expenditure is never refunded by a read. No schedule yet, or a date
+        /// after now (an inconsistent state): the schedule starts now, with no refill.
+        /// </summary>
+        public static int Renew(int charges, ref double renewedAt, double now, double daySeconds)
         {
-            return renewedAt < 0d || now < renewedAt || now - renewedAt >= daySeconds;
+            if (renewedAt < 0d || now < renewedAt)
+            {
+                renewedAt = now;
+                return charges;
+            }
+            double periods = Math.Floor((now - renewedAt) / daySeconds);
+            if (periods < 1d)
+            {
+                return charges;
+            }
+            renewedAt += periods * daySeconds;
+            return ChargesPerDay;
+        }
+
+        /// <summary>What one caster may still draw: the charges less those already promised to other casts pending now.</summary>
+        public static int Available(int charges, int reservedByOthers)
+        {
+            return Math.Max(0, charges - Math.Max(0, reservedByOthers));
         }
     }
 
