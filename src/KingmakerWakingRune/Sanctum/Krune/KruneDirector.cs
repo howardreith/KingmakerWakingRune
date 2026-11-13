@@ -229,9 +229,10 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 && krune.Descriptor.Faction == Game.Instance.BlueprintRoot.SystemMechanics.FactionMobs && krune.IsInCombat;
         }
 
+        /// <summary>Conscious foes within 40 m: a fallen foe is no target for his spells, his clusters or his trips.</summary>
         private static List<UnitEntityData> Foes(UnitEntityData krune)
         {
-            return Game.Instance.State.Units.Where(u => u.IsInGame && !u.Descriptor.State.IsDead && WardFixtures.IdOf(u) == null && krune.IsEnemy(u) && u.DistanceTo(krune) < 40f).ToList();
+            return Game.Instance.State.Units.Where(u => u.IsInGame && u.Descriptor.State.IsConscious && WardFixtures.IdOf(u) == null && krune.IsEnemy(u) && u.DistanceTo(krune) < 40f).ToList();
         }
 
         private static KruneView View(UnitEntityData krune, List<UnitEntityData> foes, KruneState state)
@@ -428,6 +429,10 @@ namespace KingmakerWakingRune.Sanctum.Krune
                     bool poisonCloud = (ability.Blueprint.GetComponent<SpellDescriptorComponent>()?.Descriptor.Value & SpellDescriptor.Poison) != 0;
                     // Tentacles cannot hold a creature that cannot be held in place (freedom of movement): those do not count.
                     List<UnitEntityData> pool = ability.Blueprint.name == "KWR_KruneBlackTentacles" ? foes.Where(f => !f.Descriptor.State.HasConditionImmunity(UnitCondition.CantMove)).ToList() : foes;
+                    // Foes already inside one of his own areas of the same spell are not a reason to cast it again.
+                    List<Vector3> covered = Game.Instance.State.AreaEffects.Where(a => a.Context?.MaybeCaster == krune && a.Context.SourceAbility != null
+                        && (a.Context.SourceAbility == ability.Blueprint || a.Context.SourceAbility == ability.Blueprint.Parent)).Select(a => a.Position).ToList();
+                    pool = pool.Where(f => !covered.Any(p => Vector3.Distance(p, f.Position) <= radius)).ToList();
                     float reach = ability.Blueprint.GetRange().Meters;
                     int caught = BestPoint(krune, pool, radius, poisonCloud, out Vector3 at, reach > 0f && reach < 500f ? reach : 0f);
                     return caught > 0 ? new TargetWrapper(at) : null;
