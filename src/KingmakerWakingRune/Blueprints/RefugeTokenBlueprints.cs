@@ -26,7 +26,7 @@ namespace KingmakerWakingRune.Blueprints
         public static BlueprintItemEquipmentUsable Create(Action<BlueprintScriptableObject> register)
         {
             LocalizedText.Define("kwr.token.name", "Refuge Token");
-            LocalizedText.Define("kwr.token.description", "Break this rune-marked token to transport your active party from Magnimar Lodge to the Sanctum of Sloth. Consumed on successful use.");
+            LocalizedText.Define("kwr.token.description", "Break this rune-marked token to transport your active party from Magnimar Lodge to the Sanctum of Sloth. The expedition sets out ready: wounds are tended and each caster's chosen spells and daily abilities are ready, while protective spells already cast keep their remaining time. Scrolls, potions, wand charges and other consumables stay as they are. Consumed on successful use.");
             LocalizedText.Define("kwr.token.action", "Break Refuge Token");
 
             Sprite icon = LoadIcon();

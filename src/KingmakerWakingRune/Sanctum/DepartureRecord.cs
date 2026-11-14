@@ -1,56 +1,40 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
 namespace KingmakerWakingRune.Sanctum
 {
+    /// <summary>What the saved departure record means for the next use of the Refuge Token.</summary>
+    internal enum DepartureReadiness
+    {
+        /// <summary>No record: ready the expedition now, once.</summary>
+        Refresh,
+
+        /// <summary>This departure was already readied (a transfer that did not complete is being retried): nothing again.</summary>
+        Reuse,
+
+        /// <summary>A record of the earlier two-use flow ("rested, awaiting the second use"): dropped, then ready once.</summary>
+        Legacy,
+    }
+
     /// <summary>
-    /// The party as its departure rest left it, member by member: what each one chose to be ready with (spellbooks, caster
-    /// levels and every prepared slot's spell), never what has been spent since. A rested party may then prepare in the
-    /// lodge, casting protections and using items, and leave without a second rest; only a member who joined or left, or a
-    /// spell selection or caster level that changed, makes the token ask again. Pure, so the comparison is unit-tested.
+    /// The departure's saved record (WR-PLAYTEST-01). Using the token readies the expedition once and writes a marker; the
+    /// marker stays until the arrival is committed, so a retry after a failed transfer, or a reload of the checkpoint written
+    /// before leaving, departs as readied and never refreshes twice. Any other payload is the earlier flow's selections
+    /// record, which is dropped without reopening its dialogues. Pure, so the decision is unit-tested.
     /// </summary>
     internal static class DepartureRecord
     {
-        public static string Write(IDictionary<string, string> members)
+        public const string ReadyPrefix = "ready:";
+
+        public static string Ready(double gameTimeSeconds)
         {
-            return string.Join("\n", members.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => p.Key + "\t" + p.Value).ToArray());
+            return ReadyPrefix + gameTimeSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture);
         }
 
-        public static Dictionary<string, string> Read(string payload)
+        public static DepartureReadiness Classify(string payload)
         {
-            var members = new Dictionary<string, string>();
-            foreach (string line in (payload ?? string.Empty).Split('\n'))
+            if (payload == null)
             {
-                int tab = line.IndexOf('\t');
-                if (tab > 0)
-                {
-                    members[line.Substring(0, tab)] = line.Substring(tab + 1);
-                }
+                return DepartureReadiness.Refresh;
             }
-            return members;
-        }
-
-        /// <summary>Each way the party differs from the one that rested, by name; empty when it is the same party with the same selections.</summary>
-        public static List<string> Changes(IDictionary<string, string> rested, IDictionary<string, string> now, Func<string, string> nameOf)
-        {
-            var changes = new List<string>();
-            foreach (var member in now.OrderBy(p => p.Key, StringComparer.Ordinal))
-            {
-                if (!rested.TryGetValue(member.Key, out string before))
-                {
-                    changes.Add($"{nameOf(member.Key)} joined");
-                }
-                else if (before != member.Value)
-                {
-                    changes.Add($"{nameOf(member.Key)}'s prepared spells or caster level changed");
-                }
-            }
-            if (rested.Keys.Any(id => !now.ContainsKey(id)))
-            {
-                changes.Add("a member left");
-            }
-            return changes;
+            return payload.StartsWith(ReadyPrefix, System.StringComparison.Ordinal) ? DepartureReadiness.Reuse : DepartureReadiness.Legacy;
         }
     }
 }
