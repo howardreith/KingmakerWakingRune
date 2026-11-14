@@ -27,10 +27,11 @@ namespace KingmakerWakingRune.Blueprints
     /// <summary>
     /// Every player-facing Wizard spell of levels 0-6 in the installed game (the Wizard spell list itself, so spells other
     /// enabled mods add to it are included), each with a scroll. A native scroll is used when one exists: the one written at
-    /// the Wizard level, else the cheapest. A spell whose variants each have their own native scroll is stocked through those.
-    /// A spell with no native scroll gets a wrapper: a native scroll of the same school cloned onto the working spell, at the
-    /// Wizard level and the minimum caster level, with the native price formula, so it casts, is learned and is priced like
-    /// any scroll. The audit is the proof: an eligible spell without a scroll and without a recorded reason fails it.
+    /// the Wizard level, else the cheapest. A spell with variants (Resist Energy, Dispel Magic, the summonings) is stocked
+    /// as the game stocks it, one scroll per variant, native where one exists; each is learned as the parent spell. A spell
+    /// (or variant) with no native scroll gets a wrapper: a native scroll of the same school cloned onto the working spell,
+    /// at the Wizard level and the minimum caster level, with the native price formula, so it casts, is learned and is priced
+    /// like any scroll. The audit is the proof: an eligible spell without a scroll and without a recorded reason fails it.
     /// </summary>
     internal static class WizardScrolls
     {
@@ -83,24 +84,38 @@ namespace KingmakerWakingRune.Blueprints
                     }
                     else
                     {
-                        BlueprintAbility[] variants = spell.GetComponent<AbilityVariants>()?.Variants?.Where(v => v != null).ToArray() ?? new BlueprintAbility[0];
-                        List<BlueprintItemEquipmentUsable> variantScrolls = variants.Select(v => Pick(byAbility[v], list.SpellLevel)).ToList();
-                        if (variants.Length > 0 && variantScrolls.All(s => s != null))
+                        BlueprintAbility[] variants = spell.GetComponent<AbilityVariants>()?.Variants?.Where(v => v != null && v.Parent == spell).ToArray() ?? new BlueprintAbility[0];
+                        if (variants.Length > 0)
                         {
-                            row.Scrolls.AddRange(variantScrolls);
-                            row.Source = "native variant scrolls";
+                            // As the game does it: one scroll per variant (an item's button has no variant choice, so a scroll
+                            // of the parent cannot be cast), each learned as the parent spell. Native where one exists.
+                            if (register != null)
+                            {
+                                // Kept registered, never stocked: the first 0.10 candidates sold a scroll of the parent, and a
+                                // save that holds one must still resolve it.
+                                Registered(spell, list.SpellLevel, scrolls, register);
+                            }
+                            foreach (BlueprintAbility variant in variants)
+                            {
+                                BlueprintItemEquipmentUsable scroll = Pick(byAbility[variant], list.SpellLevel) ?? Registered(variant, list.SpellLevel, scrolls, register);
+                                if (scroll != null)
+                                {
+                                    row.Scrolls.Add(scroll);
+                                }
+                            }
+                            if (row.Scrolls.Count < variants.Length)
+                            {
+                                row.Scrolls.Clear();
+                                row.Exception = register == null
+                                    ? "joined the Wizard list after loading (another mod) without a scroll for each variant"
+                                    : "no native scroll and no donor scroll to wrap a variant";
+                                continue;
+                            }
+                            row.Source = row.Scrolls.All(s => !s_Wrappers.ContainsValue(s)) ? "native variant scrolls" : "Waking Rune variant wrappers";
                         }
                         else
                         {
-                            if (!s_Wrappers.TryGetValue(spell, out BlueprintItemEquipmentUsable wrapper) && register != null)
-                            {
-                                wrapper = Wrap(spell, list.SpellLevel, scrolls);
-                                if (wrapper != null)
-                                {
-                                    s_Wrappers[spell] = wrapper;
-                                    register(wrapper);
-                                }
-                            }
+                            BlueprintItemEquipmentUsable wrapper = Registered(spell, list.SpellLevel, scrolls, register);
                             if (wrapper == null)
                             {
                                 row.Exception = register == null
@@ -118,7 +133,7 @@ namespace KingmakerWakingRune.Blueprints
                     }
                 }
             }
-            int wrappers = Audit.Count(r => r.Source == "Waking Rune wrapper");
+            int wrappers = Audit.Count(r => r.Source != null && r.Source.StartsWith("Waking Rune", System.StringComparison.Ordinal));
             List<ScrollAuditRow> failures = Failures().ToList();
             Log.Info($"Wizard scrolls 0-{MaxLevel} ({(register != null ? "load" : "shop")}): {Audit.Count} spells, {stocked.Count} scrolls ({wrappers} wrappers), {Audit.Count(r => r.Exception != null)} recorded exceptions.");
             foreach (ScrollAuditRow failure in failures)
@@ -154,6 +169,21 @@ namespace KingmakerWakingRune.Blueprints
         private static string Origin(BlueprintItem item)
         {
             return ProviderStock.Owns(item.AssetGuid) ? ProviderStock.DisplayName : "native";
+        }
+
+        /// <summary>The wrapper for a spell (or a variant): made and registered at load, looked up afterwards.</summary>
+        private static BlueprintItemEquipmentUsable Registered(BlueprintAbility spell, int level, List<BlueprintItemEquipmentUsable> scrolls, System.Action<BlueprintScriptableObject> register)
+        {
+            if (!s_Wrappers.TryGetValue(spell, out BlueprintItemEquipmentUsable wrapper) && register != null)
+            {
+                wrapper = Wrap(spell, level, scrolls);
+                if (wrapper != null)
+                {
+                    s_Wrappers[spell] = wrapper;
+                    register(wrapper);
+                }
+            }
+            return wrapper;
         }
 
         private static BlueprintItemEquipmentUsable Wrap(BlueprintAbility spell, int level, List<BlueprintItemEquipmentUsable> scrolls)

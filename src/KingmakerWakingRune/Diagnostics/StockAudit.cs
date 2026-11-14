@@ -48,7 +48,7 @@ namespace KingmakerWakingRune.Diagnostics
             md.AppendLine($"- Lines: {catalogue.Count}; items: {catalogue.Values.Sum()}.");
             md.AppendLine($"- Optional provider: {ProviderStock.Status}.");
             md.AppendLine($"- Wizard spells 0-{WizardScrolls.MaxLevel}: {audit.Count}; with scrolls: {audit.Count(r => r.Scrolls.Count > 0)}; " +
-                          $"wrappers: {audit.Count(r => r.Source == "Waking Rune wrapper")}; recorded exceptions: {audit.Count(r => r.Exception != null)}; " +
+                          $"wrappers: {audit.Count(r => r.Source != null && r.Source.StartsWith("Waking Rune", StringComparison.Ordinal))}; recorded exceptions: {audit.Count(r => r.Exception != null)}; " +
                           $"unexplained omissions: {failures} ({(failures == 0 ? "PASS" : "FAIL")}).");
             md.AppendLine();
 
