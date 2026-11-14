@@ -1,11 +1,26 @@
 # WR-PLAYTEST-01: Quartermaster stock, Wizard scroll and skill coverage
 
-Generated in game by the harness's READ command `stockaudit` (0.10.0, run `wrplay-p1`), from the live blueprints after every mod had published its content. Two profiles were audited:
+Generated in game by the harness's READ command `stockaudit` (run `wrplay-p2`) from the live blueprints after every
+mod had published its content. The stock code is unchanged from 0.10.8 to the candidate 0.10.11, apart from the
+resupply (which never changes a line's catalogue count). Two profiles:
 
-- **No provider:** Lines: 446; items: 20292. Wizard audit: Wizard spells 0-6: 178; with scrolls: 178; wrappers: 0 (a labelling defect of that build: the shop pass counted the wrappers as native scrolls; fixed in `2cae765`, the load log shows 37 wrappers built); recorded exceptions: 0; unexplained omissions: 0 (PASS).
-- **With Mr. Bard's Tabletop Rules Expansion 0.0.188:** Lines: 540; items: 30843. Optional provider: 0.0.188 enabled; 51 lines. Wizard audit: Wizard spells 0-6: 179; with scrolls: 179; wrappers: 38; recorded exceptions: 0; unexplained omissions: 0 (PASS).
+- **No provider (0.10.8):** Lines: 566; items: 34,893. Wizard spells 0-6: 178; with scrolls: 178; plain wrappers: 9
+  (cantrips); recorded exceptions: 0; unexplained omissions: 0 (PASS). Sources: 141 native scrolls, 113 native
+  variant scrolls, 9 Waking Rune wrappers.
+- **With Mr. Bard's Tabletop Rules Expansion 0.0.188 (0.10.10):** Lines: 884; items: 64,899. Optional provider:
+  0.0.188 enabled; 51 lines. Wizard spells 0-6: 179; with scrolls: 179; recorded exceptions: 0; unexplained
+  omissions: 0 (PASS). Sources: 141 native, 99 native variant scrolls, 10 wrappers, 280 variant wrappers. The
+  provider's summoning module turns each Summon Monster spell into one variant per creature (Summon Monster VI alone
+  has 91), and a scroll is stocked for each, which is why the shop grows so much with it.
 
-(The no-provider audit above was taken before the catalogue additions of commit `2cae765`; the tables below are the provider profile on the final catalogue. The CSV part of the catalogue is listed in `docs/QUARTERMASTER.md`.) A *Waking Rune wrapper* is a scroll built on the game's own working spell where the game ships no scroll of it: the Wizard level, the minimum caster level and the native price (caster level × spell level × 25 gp; 12 gp for a cantrip).
+**How a spell gets its scroll.** A native scroll of the spell itself is used when one exists (the one written at the
+Wizard level, else the cheapest). A spell with variants (Resist Energy, Dispel Magic, the summonings, Dragonkind...)
+is stocked as the game stocks it: one scroll per variant, native where one exists, each learned as the parent spell.
+An item's button has no variant choice, so the first 0.10 candidates' single scroll of the parent could not be cast
+(found in this pass, fixed in 0.10.7/0.10.8); those parent wrappers stay registered so a save holding one loads. A
+*Waking Rune wrapper* is a native scroll cloned onto the working spell (or variant) where the game ships none: the
+Wizard level, the minimum caster level and the native price formula. The CSV part of the catalogue is listed in
+`docs/QUARTERMASTER.md`. The tables below are the provider profile.
 
 ## Ability and skill coverage (from enchantment effects)
 
@@ -58,7 +73,10 @@ Generated in game by the harness's READ command `stockaudit` (0.10.0, run `wrpla
 | 1 | Hypnotism | Scroll of Hypnotism `78da1d5a10d8e384285e54df202dfb01` | 1 | 1 | 25 | 99 | native |
 | 1 | Mage Armor | Scroll of Mage Armor `e8308a74821762e49bc3211358e81016` | 1 | 1 | 25 | 99 | native |
 | 1 | Magic Missile | Scroll of Magic Missile `63caf94a780472b448f50d0bc183c38f` | 1 | 1 | 25 | 99 | native |
-| 1 | Protection from Alignment | Scroll of Protection from Alignment `e12ba1c92eea8b626c3c2aed166b9ee8` | 1 | 1 | 25 | 99 | Waking Rune wrapper |
+| 1 | Protection from Alignment | Scroll of Protection from Evil `96eb7a498b4db2c4a9fcfb632064b948` | 1 | 1 | 25 | 99 | native variant scrolls |
+| 1 | Protection from Alignment | Scroll of Protection from Good `c75c69797fd6ee24d84b12796c0c3d45` | 1 | 1 | 25 | 99 | native variant scrolls |
+| 1 | Protection from Alignment | Scroll of Protection from Law `6dad6628ecc36c7428f6e877975a1041` | 1 | 1 | 25 | 99 | native variant scrolls |
+| 1 | Protection from Alignment | Scroll of Protection from Chaos `59110d30bb15dcd4d89f762b6aa9db9b` | 1 | 1 | 25 | 99 | native variant scrolls |
 | 1 | Ray of Enfeeblement | Scroll of Ray of Enfeeblement `792862674c565ad4fbb1ab0c97c42acd` | 1 | 1 | 25 | 99 | native |
 | 1 | Ray of Sickening | Scroll of Ray of Sickening `37b332a8c7d904e47b46b5df49e62057` | 1 | 1 | 25 | 99 | native |
 | 1 | Reduce Person | Scroll of Reduce Person `a341ba25915761441905bc6c82677244` | 1 | 1 | 25 | 99 | native |
@@ -92,21 +110,51 @@ Generated in game by the harness's READ command `stockaudit` (0.10.0, run `wrpla
 | 2 | Molten Orb | Scroll of Molten Orb `ecb145cb6e1b206408c8fd618337aded` | 2 | 3 | 150 | 99 | native |
 | 2 | Owl's Wisdom | Scroll of Owl's Wisdom `8c89e97d333561741bedfc98a364ac67` | 2 | 3 | 150 | 99 | native |
 | 2 | Pernicious Poison | Scroll of Pernicious Poison `ac73301ffe7e0ac4ebf7f1ed0ce014df` | 2 | 3 | 150 | 99 | native |
-| 2 | Protection from Alignment, Communal | Scroll of Protection from Alignment, Communal `2dcc386fa4fef54ede9feaa8554a81fb` | 2 | 3 | 150 | 99 | Waking Rune wrapper |
+| 2 | Protection from Alignment, Communal | Scroll of Protection from Evil, Communal `eb776c7c1a2ffc3498adab069588b70c` | 2 | 3 | 150 | 99 | native variant scrolls |
+| 2 | Protection from Alignment, Communal | Scroll of Protection from Good, Communal `0afbc5cbd6165a64ea79b0a87058f6c1` | 2 | 3 | 150 | 99 | native variant scrolls |
+| 2 | Protection from Alignment, Communal | Scroll of Protection from Law, Communal `915d6ff0a30fe974ca843dde14b1619a` | 2 | 3 | 150 | 99 | native variant scrolls |
+| 2 | Protection from Alignment, Communal | Scroll of Protection from Chaos, Communal `a2af3233183a22a4693e3de034068d29` | 2 | 3 | 150 | 99 | native variant scrolls |
 | 2 | Protection from Arrows | Scroll of Protection from Arrows `179d91b899fa6304b8c076e002890317` | 2 | 3 | 150 | 99 | native |
-| 2 | Resist Energy | Scroll of Resist Energy `707ea07c028315c7aea0a8536c38fe34` | 2 | 3 | 150 | 99 | Waking Rune wrapper |
+| 2 | Resist Energy | Scroll of Resist Acid `d9d188b6354c8094ea3c08648db1418c` | 2 | 3 | 150 | 99 | native variant scrolls |
+| 2 | Resist Energy | Scroll of Resist Cold `cc88c86f8e9f5744bb1875655b1b7d26` | 2 | 3 | 150 | 99 | native variant scrolls |
+| 2 | Resist Energy | Scroll of Resist Electricity `69a37e5724b62ac458a4fa810bfccd4c` | 2 | 3 | 150 | 99 | native variant scrolls |
+| 2 | Resist Energy | Scroll of Resist Fire `e3348348571d2a84c90332cf93a54bdd` | 2 | 3 | 150 | 99 | native variant scrolls |
+| 2 | Resist Energy | Scroll of Resist Sonic `d784ca4606b0e534786a140c1debf7d7` | 2 | 3 | 150 | 99 | native variant scrolls |
 | 2 | Scare | Scroll of Scare `a3f5fbdd5f43f274baa3ee8c96d8c1a8` | 2 | 3 | 150 | 99 | native |
 | 2 | Scorching Ray | Scroll of Scorching Ray `95bf8273fd7930c4da3eaaf636a6cd29` | 2 | 3 | 150 | 99 | native |
 | 2 | See Invisibility | Scroll of See Invisibility `12f4ee72c02537244b5b2bacfa236bc7` | 2 | 3 | 150 | 99 | native |
 | 2 | Sense Vitals | Scroll of Sense Vitals `d4dc796367b4fb342ad7e8221fb8d813` | 2 | 3 | 150 | 99 | native |
 | 2 | Stone Call | Scroll of Stone Call `87a562c6974bffb4aa9db89db0bccec8` | 2 | 3 | 150 | 99 | native |
-| 2 | Summon Monster II | Scroll of Summon Monster II `c15397df7f44df5093f9ce829735d2b2` | 2 | 3 | 150 | 99 | Waking Rune wrapper |
-| 2 | Summon Small Elemental | Scroll of Summon Small Elemental `fa3f0087bc9653e4b42640b38a2b3ebf` | 2 | 3 | 150 | 99 | Waking Rune wrapper |
+| 2 | Summon Monster II | Scroll of Ant, Giant (Worker) `32c2082ae44455e049bb6d981094cc6b` | 2 | 3 | 150 | 99 | Waking Rune variant wrappers |
+| 2 | Summon Monster II | Scroll of Centipede, Giant `73b698c9daf5b3fd60603fec4db484ff` | 2 | 3 | 150 | 99 | Waking Rune variant wrappers |
+| 2 | Summon Monster II | Scroll of Devil, Lemure `6170d324045ad7d43ae826d6b52eaf8e` | 2 | 3 | 150 | 99 | Waking Rune variant wrappers |
+| 2 | Summon Monster II | Scroll of Dog, Goblin `0f7b662320f38373bfb457be9fbf4cde` | 2 | 3 | 150 | 99 | Waking Rune variant wrappers |
+| 2 | Summon Monster II | Scroll of Elemental, Air, Small `803e9bb83818b9f4bd21ae42b1afc807` | 2 | 3 | 150 | 99 | Waking Rune variant wrappers |
+| 2 | Summon Monster II | Scroll of Elemental, Earth, Small `0e17cdba41365a8988a063b3655fdf06` | 2 | 3 | 150 | 99 | Waking Rune variant wrappers |
+| 2 | Summon Monster II | Scroll of Elemental, Fire, Small `d940736a3fbcdd10659f4f377dcca42c` | 2 | 3 | 150 | 99 | Waking Rune variant wrappers |
+| 2 | Summon Monster II | Scroll of Elemental, Water, Small `e07f085e1f32c5eb9bb6e3b8adb77054` | 2 | 3 | 150 | 99 | Waking Rune variant wrappers |
+| 2 | Summon Monster II | Scroll of Frog, Giant `0b0f6a1d9af915f0bb82e3a1bac1c72f` | 2 | 3 | 150 | 99 | Waking Rune variant wrappers |
+| 2 | Summon Monster II | Scroll of Horse `01bb906f2cc789a75d089460d9923d09` | 2 | 3 | 150 | 99 | Waking Rune variant wrappers |
+| 2 | Summon Monster II | Scroll of Hyena `ff78b062d543ae4d10e20caaf41963d0` | 2 | 3 | 150 | 99 | Waking Rune variant wrappers |
+| 2 | Summon Monster II | Scroll of Spider, Giant `0aa0a4bbaa66542e6e4f1935508b173e` | 2 | 3 | 150 | 99 | Waking Rune variant wrappers |
+| 2 | Summon Monster II | Scroll of Wolf `35b17d0f93173d9a7b10c3940e989bbc` | 2 | 3 | 150 | 99 | Waking Rune variant wrappers |
+| 2 | Summon Monster II | Scroll of Beetle, Fire (1d3) `545bc95ff2117fed91da182e74a54228` | 2 | 3 | 150 | 99 | Waking Rune variant wrappers |
+| 2 | Summon Monster II | Scroll of Dog (1d3) `eb4a1ec17f240df4fed9cb0795ad8844` | 2 | 3 | 150 | 99 | Waking Rune variant wrappers |
+| 2 | Summon Monster II | Scroll of Eagle (1d3) `f9f0a79410aeb39e103092192e995d2e` | 2 | 3 | 150 | 99 | Waking Rune variant wrappers |
+| 2 | Summon Monster II | Scroll of Frog, Poisonous (1d3) `e49a55513a1820db2ea27ea07560b019` | 2 | 3 | 150 | 99 | Waking Rune variant wrappers |
+| 2 | Summon Monster II | Scroll of Pony (1d3) `b531127a8374c98792d800ad6f181fce` | 2 | 3 | 150 | 99 | Waking Rune variant wrappers |
+| 2 | Summon Monster II | Scroll of Rat, Dire (1d3) `3458dca91776d406c872b38935719587` | 2 | 3 | 150 | 99 | Waking Rune variant wrappers |
+| 2 | Summon Monster II | Scroll of Viper (1d3) `22b5d06927f00544346c7c42e7599c70` | 2 | 3 | 150 | 99 | Waking Rune variant wrappers |
+| 2 | Summon Small Elemental | Scroll of Summon Small Air Elemental `faf04bd70f411b44486a4a6005ddb77c` | 2 | 3 | 150 | 99 | native variant scrolls |
+| 2 | Summon Small Elemental | Scroll of Summon Small Earth Elemental `128957e1b674f73429ff3566407287cb` | 2 | 3 | 150 | 99 | native variant scrolls |
+| 2 | Summon Small Elemental | Scroll of Summon Small Fire Elemental `f6de1f3b73e0bb6498f892d1aa0aa423` | 2 | 3 | 150 | 99 | native variant scrolls |
+| 2 | Summon Small Elemental | Scroll of Summon Small Water Elemental `97e0fea318da80b45b29a39f183ff8df` | 2 | 3 | 150 | 99 | native variant scrolls |
 | 2 | Web | Scroll of Web `efc97cdb15c92194bbbe4a2a3c1ecd78` | 2 | 3 | 150 | 99 | native |
 | 3 | Battering Blast | Scroll of Battering Blast `1940573d3b0a47949832488a27831b19` | 3 | 5 | 375 | 99 | native |
 | 3 | Beast Shape I | Scroll of Beast Shape I `3598a1d21491993419c7484028257eac` | 3 | 5 | 375 | 99 | native |
 | 3 | Deep Slumber | Scroll of Deep Slumber `63bc71021dbba204c96cdb88971d9083` | 3 | 5 | 375 | 99 | native |
-| 3 | Dispel Magic | Scroll of Dispel Magic `c7384b3c45e8dad28211bcf9a1705174` | 3 | 5 | 375 | 99 | Waking Rune wrapper |
+| 3 | Dispel Magic | Scroll of Dispel Magic (Target) `92a1bfd42ef1ec04794355579c699da0` | 3 | 5 | 375 | 99 | native variant scrolls |
+| 3 | Dispel Magic | Scroll of Dispel Magic (Point) `4b2d0e65fb9775341b6c4f7c178f0fe5` | 3 | 5 | 375 | 99 | native variant scrolls |
 | 3 | Displacement | Scroll of Displacement `4d9f5336b51cae34cb491cbde6aac4b6` | 3 | 5 | 375 | 99 | native |
 | 3 | Fireball | Scroll of Fireball `5b172c2c3e356eb43ba5a8f8008a8a5a` | 3 | 5 | 375 | 99 | native |
 | 3 | Haste | Scroll of Haste `6b3f04dd5eb9675499f815d5086fe018` | 3 | 5 | 375 | 99 | native |
@@ -114,27 +162,83 @@ Generated in game by the harness's READ command `stockaudit` (0.10.0, run `wrpla
 | 3 | Hold Person | Scroll of Hold Person `11987b82dbc808143963b9acaa81bf07` | 3 | 5 | 375 | 99 | native |
 | 3 | Lightning Bolt | Scroll of Lightning Bolt `9d6d963e1a2d2474db1a23250abeb170` | 3 | 5 | 375 | 99 | native |
 | 3 | Protection from Arrows, Communal | Scroll of Protection from Arrows, Communal `45e656affe6f0614ab8e99a5e09d56a2` | 3 | 5 | 375 | 99 | native |
-| 3 | Protection From Energy | Scroll of Protection From Energy `10ff32501dc78a1a4f58c78a66bd935e` | 3 | 5 | 375 | 99 | Waking Rune wrapper |
+| 3 | Protection From Energy | Scroll of Protection from Acid `c7185bb3eb517804da246aa323d98fd8` | 3 | 5 | 375 | 99 | native variant scrolls |
+| 3 | Protection From Energy | Scroll of Protection from Cold `2f55c17cbac95664cb1a39568df63d8b` | 3 | 5 | 375 | 99 | native variant scrolls |
+| 3 | Protection From Energy | Scroll of Protection from Electricity `3b064dd1174e9f0449fb7f3cc585caf1` | 3 | 5 | 375 | 99 | native variant scrolls |
+| 3 | Protection From Energy | Scroll of Protection from Fire `c2cadc1c19cc4b54eb73b987f540ddca` | 3 | 5 | 375 | 99 | native variant scrolls |
+| 3 | Protection From Energy | Scroll of Protection from Sonic `15fd666cb2d6678438d96cbcc7f574d2` | 3 | 5 | 375 | 99 | native variant scrolls |
 | 3 | Rage | Scroll of Rage `81f35b521b23ad947acaa8151fa81139` | 3 | 5 | 375 | 99 | native |
-| 3 | Resist Energy, Communal | Scroll of Resist Energy, Communal `355bf287b78abf3c555df45f134726f1` | 3 | 5 | 375 | 99 | Waking Rune wrapper |
+| 3 | Resist Energy, Communal | Scroll of Resist Acid, Communal `7ebc4615b5f74ea4d81dfaafaa8575f7` | 3 | 5 | 375 | 99 | native variant scrolls |
+| 3 | Resist Energy, Communal | Scroll of Resist Cold, Communal `7d7399c58d99a43489fd5ce3c5fc26bf` | 3 | 5 | 375 | 99 | native variant scrolls |
+| 3 | Resist Energy, Communal | Scroll of Resist Electricity, Communal `324bb995a2c3fae4395982752a64861b` | 3 | 5 | 375 | 99 | native variant scrolls |
+| 3 | Resist Energy, Communal | Scroll of Resist Fire, Communal `425d435d4abb51348828aa4bc28d698c` | 3 | 5 | 375 | 99 | native variant scrolls |
+| 3 | Resist Energy, Communal | Scroll of Resist Sonic, Communal `1a67af2026eaee049a15f7d5cb429c16` | 3 | 5 | 375 | 99 | native variant scrolls |
 | 3 | See Invisibility, Communal | Scroll of See Invisibility, Communal `36a77c24f4060044685daa8c9facf51f` | 3 | 5 | 375 | 99 | native |
 | 3 | Slow | Scroll of Slow `fc4f7d5bfd3502a4d94e9de731a86c8a` | 3 | 5 | 375 | 99 | native |
 | 3 | Spiked Pit | Scroll of Spiked Pit `8aca97895c1c6ae458bfd3cfd7fa4680` | 3 | 5 | 375 | 99 | native |
 | 3 | Stinking Cloud | Scroll of Stinking Cloud `c92308c160d6d424fb64f1fd708aa6cd` | 3 | 5 | 375 | 99 | native |
-| 3 | Summon Monster III | Scroll of Summon Monster III `580fd4b5d873e3711fe0cc5b6645d2b3` | 3 | 5 | 375 | 99 | Waking Rune wrapper |
+| 3 | Summon Monster III | Scroll of Ant, Giant (Soldier) `96673e4037d862b6961c0969cb6208ef` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Ape `2a2b0e047a328a5c693aabe5e185a981` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Archon, Lantern `d4a10bace808f3440051c95dca7609f6` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Aurochs `2a4cf1cfc31715684ef054f66692a483` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Bat, Dire `16362c054c1a11241d1c626ebac421f4` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Boar `07e754b25f8e9b99685585399701825e` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Cheetah `cb5193ac4ebf63a5825971c4d10fd86e` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Crocodile `b19d63eed2e119dc9b1506679a10f5cf` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Demon, Dretch `2d09955c2f0806fc37451ab0e0760d9f` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Leopard `ea077333e434ca30b884ca539cede87f` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Lizard, Monitor `f157d12fa7ce8a9fe638dea549ef4cd2` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Snake, Constrictor `4f9274cfe434747ba4c7a6b8e056898d` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Wolverine `6531197c73b6dfdb28ee9c4b0f3982cf` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Ant, Giant (Worker) (1d3) `0658174b9d1d837c44afc1d24058486a` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Centipede, Giant (1d3) `b6a1befe2dbb3028fed207d1cc47455a` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Devil, Lemure (1d3) `01a98c7a7c4580d780b730f6ebd55774` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Dog, Goblin (1d3) `5991d9bc7454ebfc06994fcd49ccc8ab` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Elemental, Air, Small (1d3) `fd1c36fe7754d5458a971025c1c00e2c` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Elemental, Earth, Small (1d3) `70d74ea1c95d507cf98fe7e686958c84` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Elemental, Fire, Small (1d3) `e7a73e1fc3aea7e455d06d1b7ff3c5f2` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Elemental, Water, Small (1d3) `5abe8d6e2756d5017479771a1a9384d7` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Frog, Giant (1d3) `ffced8f69988daeb54aad1a9e943f3e4` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Horse (1d3) `6b17c6b3f86a6d66af546d3a361d41a0` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Hyena (1d3) `5ba8c6b7c3428ffb47ebbf18f8761361` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Spider, Giant (1d3) `f931f8660254b61024f9dc7490033f32` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Wolf (1d3) `32659f016128db77f247a3d605c7311b` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Beetle, Fire (1d4+1) `edd9382e29e5759d8e57dae034cca650` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Dog (1d4+1) `3d91bc2590d5029c5d0930db4c331e85` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Eagle (1d4+1) `7fc9b15724c9a9acafa6bcf1ac88a584` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Frog, Poisonous (1d4+1) `44f3220735c440f4fe01dd5bdd6b2baf` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Pony (1d4+1) `e47e2235b5fd1886b79b4cc5a328c346` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Rat, Dire (1d4+1) `db4842f9f270710d93d73408de718621` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
+| 3 | Summon Monster III | Scroll of Viper (1d4+1) `2992ea68eb1111c0d8daea976f841e80` | 3 | 5 | 375 | 99 | Waking Rune variant wrappers |
 | 3 | Vampiric Touch | Scroll of Vampiric Touch `b693e8cc94f4477498d396a40817ff77` | 3 | 5 | 375 | 99 | native |
 | 4 | Acid Pit | Scroll of Acid Pit `bb030e6b3b1ae8c46ad2f013e42e597e` | 4 | 7 | 700 | 99 | native |
 | 4 | Animate Dead | Scroll of Animate Dead `bc0180b8b29abf9468dea1a24332d159` | 4 | 7 | 700 | 99 | native |
 | 4 | Beast Shape II | Scroll of Beast Shape II `d68c2728020fbe543826a9f6beaad379` | 4 | 7 | 700 | 99 | native |
-| 4 | Bestow Curse | Scroll of Bestow Curse `a7be773786f85c85acbbdd8eec12d040` | 4 | 7 | 700 | 99 | Waking Rune wrapper |
+| 4 | Bestow Curse | Scroll of Curse of Feeble Body `9a9e5ee5d52e22947b72a1ee0d2b86ea` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Bestow Curse | Scroll of Curse of Idiocy `410997c0f60edbc44aa05fcee1c34bee` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Bestow Curse | Scroll of Curse of Weakness `6e5222e84d72ad94080a844bc88e4c90` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Bestow Curse | Scroll of Curse of Deterioration `094374e92b317634a9a383f9f134e4c4` | 4 | 7 | 700 | 99 | native variant scrolls |
 | 4 | Boneshatter | Scroll of Boneshatter `6f36a274115b20e4c86fa6771be8b7dd` | 4 | 7 | 700 | 99 | native |
 | 4 | Confusion | Scroll of Confusion `1db86aaa479be6944abe90eaddb4afa2` | 4 | 7 | 700 | 99 | native |
-| 4 | Contagion | Scroll of Contagion `b97aee68e62b74accbc872cb81dd9e9d` | 4 | 7 | 700 | 99 | Waking Rune wrapper |
+| 4 | Contagion | Scroll of Contagion: Blinding Sickness `3c1202a25476d4444b5fadc0bb44ed9b` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Contagion | Scroll of Contagion: Bubonic Plague `57b9d400ca4f079488bd2152654062d8` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Contagion | Scroll of Contagion: Cackle Fever `aa932973b8c53844c83420982c3d0ace` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Contagion | Scroll of Contagion: Mindfire `90929cdec7d769843b6f62eb75699853` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Contagion | Scroll of Contagion: Shakes `925ff1eb9d105404fa8366b2dc995d77` | 4 | 7 | 700 | 99 | native variant scrolls |
 | 4 | Controlled Fireball | Scroll of Controlled Fireball `4b0ff254dca06894cba7eace7eef6bfe` | 4 | 7 | 700 | 99 | native |
 | 4 | Crushing Despair | Scroll of Crushing Despair `5da62245cf5b9e54fa12aeaaf398b298` | 4 | 7 | 700 | 99 | native |
-| 4 | Dimension Door | Scroll of Dimension Door `7aa654dc6c15e612c4bf5f57e1c481f3` | 4 | 7 | 700 | 99 | Waking Rune wrapper |
-| 4 | Dragon's Breath | Scroll of Dragon's Breath `83a7fc87fe99f7a0a5b1abc0ee75f8e4` | 4 | 7 | 700 | 99 | Waking Rune wrapper |
-| 4 | Elemental Body I | Scroll of Elemental Body I `3f9c266e88bf2cb65445ded41fc1c519` | 4 | 7 | 700 | 99 | Waking Rune wrapper |
+| 4 | Dimension Door | Scroll of Dimension Door — Mass `a7f61c7d07a8d9945a891c9a8c75d0cb` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Dimension Door | Scroll of Dimension Door — Single `02adc587ef2d8a54ababd846072dbef8` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Dragon's Breath | Scroll of Dragon's Breath (Black) `4bdef8d4ef98c564facc08fbec70a66d` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Dragon's Breath | Scroll of Dragon's Breath (Blue) `d18f67888af73d4408bf8b90f554c927` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Dragon's Breath | Scroll of Dragon's Breath (Green) `f3e747cb9a08f094e9cb6f231f90598f` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Dragon's Breath | Scroll of Dragon's Breath (Gold) `2192f73b61b67e941acfab679ce008c4` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Dragon's Breath | Scroll of Dragon's Breath (Silver) `31bd897310db0f44d82c6f6bdf92e599` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Dragon's Breath | Scroll of Dragon's Breath (Brass) `c7d77dceece0c964184a911869f685e3` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Elemental Body I | Scroll of Elemental Body I (Air) `5f5e2e9c2a95e5c469fffd0f8095e86b` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Elemental Body I | Scroll of Elemental Body I (Earth) `197b783196e83ef49abec6235e010eac` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Elemental Body I | Scroll of Elemental Body I (Fire) `2e637313c26ed8547b985457286a1748` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Elemental Body I | Scroll of Elemental Body I (Water) `2be39a9892e926d4e9360536564676d2` | 4 | 7 | 700 | 99 | native variant scrolls |
 | 4 | Enervation | Scroll of Enervation `0589a68074a003b49961ec334a0e9138` | 4 | 7 | 700 | 99 | native |
 | 4 | Enlarge Person, Mass | Scroll of Enlarge Person, Mass `6e77ed864d7112d44a2e9bc73a265060` | 4 | 7 | 700 | 99 | native |
 | 4 | False Life, Greater | Scroll of False Life, Greater `7bb01ba2ab53cd64693ad324564af5cb` | 4 | 7 | 700 | 99 | native |
@@ -144,14 +248,81 @@ Generated in game by the harness's READ command `stockaudit` (0.10.0, run `wrpla
 | 4 | Obsidian Flow | Scroll of Obsidian Flow `695cc4b16a367144ca1717b37bce626e` | 4 | 7 | 700 | 99 | native |
 | 4 | Overwhelming Grief | Scroll of Overwhelming Grief `8a2189c96e35b9f4da4a2f53bcdfa466` | 4 | 7 | 700 | 99 | native |
 | 4 | Phantasmal Killer | Scroll of Phantasmal Killer `2b73dd1aecdbf1e4a8d7ca18139b1cca` | 4 | 7 | 700 | 99 | native |
-| 4 | Protection from Energy, Communal | Scroll of Protection from Energy, Communal `6246693fa7ae14da7cb06c8e723a2e10` | 4 | 7 | 700 | 99 | Waking Rune wrapper |
+| 4 | Protection from Energy, Communal | Scroll of Protection From Acid, Communal `8e4e14165d4665f43939fee5ec131dbf` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Protection from Energy, Communal | Scroll of Protection From Cold, Communal `be1eb2520e17f0e41b8893c089b5ea08` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Protection from Energy, Communal | Scroll of Protection From Electricity, Communal `b2a8e96d987dabc439e565b8aef88049` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Protection from Energy, Communal | Scroll of Protection From Fire, Communal `3caf877fddf36f84a943baad216aaf59` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Protection from Energy, Communal | Scroll of Protection From Sonic, Communal `423fb363ae714fe43a1ad3203874edeb` | 4 | 7 | 700 | 99 | native variant scrolls |
 | 4 | Rainbow Pattern | Scroll of Rainbow Pattern `84cd707a7ae9f934389ed6bbf51b023a` | 4 | 7 | 700 | 99 | native |
 | 4 | Reduce Person, Mass | Scroll of Reduce Person, Mass `fbde449fffbf2d64983ad2e11981a23a` | 4 | 7 | 700 | 99 | native |
 | 4 | Remove Curse | Scroll of Remove Curse `f2b8655382429c14c8c888f1cf109020` | 4 | 7 | 700 | 99 | native |
 | 4 | Shout | Scroll of Shout `4c73f11f91ca3fb4a8af325686b660d8` | 4 | 7 | 700 | 99 | native |
 | 4 | Stoneskin | Scroll of Stoneskin `a8422c98704e6a0429ebc5a56e132d95` | 4 | 7 | 700 | 99 | native |
-| 4 | Summon Medium Elemental | Scroll of Summon Medium Elemental `a718b9cbf588fbf7097f7adbacbf489d` | 4 | 7 | 700 | 99 | Waking Rune wrapper |
-| 4 | Summon Monster IV | Scroll of Summon Monster IV `3e8766e5b6c9bf59aba9ad84baaef52d` | 4 | 7 | 700 | 99 | Waking Rune wrapper |
+| 4 | Summon Medium Elemental | Scroll of Summon Medium Air Elemental `014d7e866bb85e942a2d77fe3d1e5372` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Summon Medium Elemental | Scroll of Summon Medium Earth Elemental `713c2a0e5dd99584587b888ebc49dd13` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Summon Medium Elemental | Scroll of Summon Medium Fire Elemental `324db2d5ab0e22a44b0ac370e4e823bf` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Summon Medium Elemental | Scroll of Summon Medium Water Elemental `06e8db7e93c82a94e9f0c78e30009996` | 4 | 7 | 700 | 99 | native variant scrolls |
+| 4 | Summon Monster IV | Scroll of Ant, Giant (Drone) `f105cbab4de5179c4baa9dd536c59daa` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Ape, Dire `fbafb9224f2077c919da210ca42a9c39` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Archon, Hound `d422831e3405944e5dcf096dd181f4fa` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Bear, Grizzly `8e1c5076415130c237ac8705f6103e48` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Bison `8fa8696ce0e050125a3fbdfa8fc0a8e5` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Boar, Dire `f6105630f569c9e02176b1975de9f950` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Deinonychus `db09995cd0d4bb8c08a2fe46adddb2ae` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Elemental, Air, Medium `8fb2335c1db027791e0cd7b6b4c47a5d` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Elemental, Earth, Medium `f8cbf20769ac403b9e35e62fe0c8a73a` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Elemental, Fire, Medium `8ece38015d401dd126eccec7cf898a33` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Elemental, Water, Medium `edf19ebf1af7015da367b3549cecf14c` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Hell Hound `ec91577720d1c6aeaa9492e0129eebda` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Lion `a4cc8a07fe1353f3863e42e19891baa6` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Mephit, Air `3155fd3ed413d173c8157d48c693fb57` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Mephit, Dust `ad514aa9b6e3651dc06fefc2f9d25373` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Mephit, Earth `662e47f1c2d3b0cc20b4556f52acd6fd` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Mephit, Fire `f36ab24d8b02e51b79a06d0ff12a0cbd` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Mephit, Ice `466a39e976d3755145f9b0fc0e8d5e94` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Mephit, Magma `7da76e6716d568188aaf6accb434b744` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Mephit, Ooze `6c58bed86ff547686dc1f7c53c26187b` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Mephit, Salt `75fe2a2c1796eec928e2d46387c7421d` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Mephit, Steam `397edf52d82e4ff870c3a66b023ec97c` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Mephit, Water `24c400903e9a06561da5ddf6bc971ea1` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Pteranodon `6391f83705e00f028fa8a211a1f58814` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Rhinoceros `de7b2457f3c5423f76bb0c34c5c3060c` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Scorpion, Giant `383814d302cef84df540dc2b03273fd2` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Wasp, Giant `cf85798962c4628edcb8d8758c6af51f` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Wolf, Dire `ba79d0da9d07a765ddf77dd8af64a3aa` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Ant, Giant (Soldier) (1d3) `43179201f910fc5ed1d3f051cb6d24f4` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Ape (1d3) `f75d58a1ebb5ca5580f0b81878091565` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Archon, Lantern (1d3) `66f48101491bb9743e5a554aa35ef6c6` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Aurochs (1d3) `5071583ccecf32106ff9f46b6025baab` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Bat, Dire (1d3) `b406beddcfa2f950e2d9171cfe1fe70a` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Boar (1d3) `7ae1d1564e4a04924f0e6c3e46e524e7` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Cheetah (1d3) `d8e3e7796957f9866e7fc390f247e442` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Crocodile (1d3) `c01541fe3a147dcbaed25ae31fc8b034` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Demon, Dretch (1d3) `794ec333c397bcf3358c3ab23608db6e` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Leopard (1d3) `4a97a6337d8c2c301695431e87bb0f20` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Lizard, Monitor (1d3) `5da0be2cef56e6d98494298817d47d4d` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Snake, Constrictor (1d3) `afd5065d308f951039bbce2a20facd33` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Wolverine (1d3) `2f37bc270bbf1a69e3861c8167568593` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Ant, Giant (Worker) (1d4+1) `b6ca122775f392cb58822428d7b9457f` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Beetle, Fire (1d4+1) `2d1550e3cbd085f409337062008db006` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Centipede, Giant (1d4+1) `d8208b3183f7525b0a2502507129a606` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Devil, Lemure (1d4+1) `613c8f5c9c8e408a736ed2f1a08f0286` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Dog (1d4+1) `1c59a0a7106c0e86a4e3a15ad6cbe254` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Dog, Goblin (1d4+1) `ae9b62a2bff295a283b6a2d35410671c` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Eagle (1d4+1) `e0d2042da9ad96895355a86ae19f6c1a` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Elemental, Air, Small (1d4+1) `30a41d7be77f17026979bb5d4bd38b85` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Elemental, Earth, Small (1d4+1) `f85c014ce5776e3e02ffffd19cb7b68a` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Elemental, Fire, Small (1d4+1) `4e497526af3212559e373e93d502c200` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Elemental, Water, Small (1d4+1) `e4281186377dc34c330eb540939e50f3` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Frog, Giant (1d4+1) `bed637017d9393a0a59bcbb6b0b641a6` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Frog, Poisonous (1d4+1) `19261999d38181eabb61fe90da5f8652` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Horse (1d4+1) `64858d94c3b819f1c563255275bb1795` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Hyena (1d4+1) `f7636a6c5cf9221b3f2a44ca33dec4bd` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Pony (1d4+1) `c21d92451860f1d8682f7282f1fce6a4` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Rat, Dire (1d4+1) `4729aa03798c86a381386e79b9e576e3` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Spider, Giant (1d4+1) `fb758be7a42ef22d9984a9ffa4005e41` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Viper (1d4+1) `1e3f3ca502b52fa3676f7cdb68f9e6cf` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
+| 4 | Summon Monster IV | Scroll of Wolf (1d4+1) `40ecf11a118ceb7cac5bab4139a08faf` | 4 | 7 | 700 | 99 | Waking Rune variant wrappers |
 | 4 | Touch of Slime | Scroll of Touch of Slime `d1a586649cea48f48a0c535aacecfba3` | 4 | 7 | 700 | 99 | native |
 | 4 | Volcanic Storm | Scroll of Volcanic Storm `349a071cd51f6224e9647dc2cf06c243` | 4 | 7 | 700 | 99 | native |
 | 5 | Acidic Spray | Scroll of Acidic Spray `ba78d5a438e8d154dbd6e4f991fc320f` | 5 | 9 | 1,125 | 99 | native |
@@ -166,27 +337,120 @@ Generated in game by the harness's READ command `stockaudit` (0.10.0, run `wrpla
 | 5 | Dismissal | Scroll of Dismissal `aef1531dc1d3799428eaa5e9b70b5e2c` | 5 | 9 | 1,125 | 99 | native |
 | 5 | Dominate Person | Scroll of Dominate Person `f199f6e5026488c499042900b572eb7f` | 5 | 9 | 1,125 | 99 | native |
 | 5 | Echolocation | Scroll of Echolocation `33770ff24b320e343bb767815f800fc4` | 5 | 9 | 1,125 | 99 | native |
-| 5 | Elemental Body II | Scroll of Elemental Body II `e73d2c10e29ffa040e3549b745164ee8` | 5 | 9 | 1,125 | 99 | Waking Rune wrapper |
+| 5 | Elemental Body II | Scroll of Elemental Body II (Air) `2b193dfc0e9e58e48a465c046fd09dc5` | 5 | 9 | 1,125 | 99 | native variant scrolls |
+| 5 | Elemental Body II | Scroll of Elemental Body II (Earth) `a088c56f8f96e86479ac3051d200cd5b` | 5 | 9 | 1,125 | 99 | native variant scrolls |
+| 5 | Elemental Body II | Scroll of Elemental Body II (Fire) `105337cfa693a9a4989cb8bbafd1f978` | 5 | 9 | 1,125 | 99 | native variant scrolls |
+| 5 | Elemental Body II | Scroll of Elemental Body II (Water) `1e44b976daba6e64299ca4d63bcf9514` | 5 | 9 | 1,125 | 99 | native variant scrolls |
 | 5 | Feeblemind | Scroll of Feeblemind `17c17e5c409d6814786259d99bf9a43d` | 5 | 9 | 1,125 | 99 | native |
 | 5 | Fire Snake | Scroll of Fire Snake `73d88f8434d24c848a1c77a9c05f68c0` | 5 | 9 | 1,125 | 99 | native |
-| 5 | Geniekind | Scroll of Geniekind `012c230365f929a7a93497dbeefe8ae9` | 5 | 9 | 1,125 | 99 | Waking Rune wrapper |
+| 5 | Geniekind | Scroll of Geniekind: Djinni `f948342d6a9f2ce49b6aa5f362569d72` | 5 | 9 | 1,125 | 99 | native variant scrolls |
+| 5 | Geniekind | Scroll of Geniekind: Efreeti `399510617a0302843a52f8047cde0362` | 5 | 9 | 1,125 | 99 | native variant scrolls |
+| 5 | Geniekind | Scroll of Geniekind: Marid `f8a4958be82e652429be39b885f296fb` | 5 | 9 | 1,125 | 99 | native variant scrolls |
+| 5 | Geniekind | Scroll of Geniekind: Shaitan `bb5dd1a687fd1154bbf9af55764c4fbf` | 5 | 9 | 1,125 | 99 | native variant scrolls |
 | 5 | Hold Monster | Scroll of Hold Monster `d8c52df98e5815d4aa9d2bd2b73b88c9` | 5 | 9 | 1,125 | 99 | native |
 | 5 | Hungry Pit | Scroll of Hungry Pit `bc25efed54c66a147b3615fb05f302e0` | 5 | 13 | 1,625 | 99 | native |
 | 5 | Icy Prison | Scroll of Icy Prison `de05d46f44c8439488a8bbcc0059c09f` | 5 | 9 | 1,125 | 99 | native |
 | 5 | Mind Fog | Scroll of Mind Fog `61bacc43652d76c42b60d965b65cd741` | 5 | 9 | 1,125 | 99 | native |
 | 5 | Phantasmal Web | Scroll of Phantasmal Web `4b0dc7926c0ad8d4bae8d7a5f3eed6f8` | 5 | 9 | 1,125 | 99 | native |
-| 5 | Polymorph | Scroll of Polymorph `5e4dcce7e622a8b55ad607c63a7bf290` | 5 | 9 | 1,125 | 99 | Waking Rune wrapper |
-| 5 | Shadow Evocation | Scroll of Shadow Evocation `bd7614e3dcbf1f33a3646a9597305e14` | 5 | 9 | 1,125 | 99 | Waking Rune wrapper |
+| 5 | Polymorph | Scroll of Polymorph (Leopard) `0a6bab77988d8504d91d16a9d545a8d3` | 5 | 9 | 1,125 | 99 | native variant scrolls |
+| 5 | Polymorph | Scroll of Polymorph (Small Air Elemental) `f9f4a67168cdd91419ed3d7705e3cb9e` | 5 | 9 | 1,125 | 99 | native variant scrolls |
+| 5 | Polymorph | Scroll of Polymorph (Small Earth Elemental) `45a63607f1f5c8f4ea6f78aa67812a72` | 5 | 9 | 1,125 | 99 | native variant scrolls |
+| 5 | Polymorph | Scroll of Polymorph (Small Fire Elemental) `8784d751cb39815429d6881e939a153d` | 5 | 9 | 1,125 | 99 | native variant scrolls |
+| 5 | Polymorph | Scroll of Polymorph (Small Water Elemental) `8084d681426991d4580bd7bda7f3823c` | 5 | 9 | 1,125 | 99 | native variant scrolls |
+| 5 | Shadow Evocation | Scroll of Shadow Evocation (Fireball) `02086fbbda266ed4b8e9124abe5abd75` | 5 | 9 | 1,125 | 99 | native variant scrolls |
+| 5 | Shadow Evocation | Scroll of Shadow Evocation (Lightning Bolt) `9ca9c92db551aad47b8da56add25d650` | 5 | 9 | 1,125 | 99 | native variant scrolls |
+| 5 | Shadow Evocation | Scroll of Shadow Evocation (Shout) `be363f46ab29f7b4b85bb3f3185766e0` | 5 | 9 | 1,125 | 99 | native variant scrolls |
+| 5 | Shadow Evocation | Scroll of Shadow Evocation (Volcanic Storm) `9cf0e18880224974cac34e78eeda42d6` | 5 | 9 | 1,125 | 99 | native variant scrolls |
+| 5 | Shadow Evocation | Scroll of Shadow Evocation (Ice Storm) `7e5600c187986f0479dbc3e85250427c` | 5 | 9 | 1,125 | 99 | native variant scrolls |
 | 5 | Stoneskin, Communal | Scroll of Stoneskin, Communal `0dd764b2234a4d84dadeb45a2deaf9f9` | 5 | 9 | 1,125 | 99 | native |
-| 5 | Summon Large Elemental | Scroll of Summon Large Elemental `bffbb8f8ca0d150f775c970dcaee644a` | 5 | 9 | 1,125 | 99 | Waking Rune wrapper |
-| 5 | Summon Monster V | Scroll of Summon Monster V `0e5ad4837518462afcbdb5ef1cda777c` | 5 | 9 | 1,125 | 99 | Waking Rune wrapper |
+| 5 | Summon Large Elemental | Scroll of Summon Large Air Elemental `af031968f37b15840a0fb40a81fab9dc` | 5 | 9 | 1,125 | 99 | native variant scrolls |
+| 5 | Summon Large Elemental | Scroll of Summon Large Earth Elemental `138e1b1415aadc64e9c33033896cac57` | 5 | 9 | 1,125 | 99 | native variant scrolls |
+| 5 | Summon Large Elemental | Scroll of Summon Large Fire Elemental `efb84fddf5ae79b49a3a84d07a069efa` | 5 | 9 | 1,125 | 99 | native variant scrolls |
+| 5 | Summon Large Elemental | Scroll of Summon Large Water Elemental `a955b0fd117643f438063843cbcbf22c` | 5 | 9 | 1,125 | 99 | native variant scrolls |
+| 5 | Summon Monster V | Scroll of Ankylosaurus `723789737e2c9299a7e6edd420a6229d` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Azata, Bralani `d4bf4ee2baa87ee4ddaa969d278aaf6b` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Demon, Babau `4a6c43a6d05ed258560fb25d842a98b4` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Devil, Bearded (Barbazu) `6c1e4d0f1c33b9d50e36524ca526cf19` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Elemental, Air, Large `58e26fe9a8f44ae09ae8428c73f8b397` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Elemental, Earth, Large `7fb001168dfa700216c74f0c804aa525` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Elemental, Fire, Large `22bf869774a86e706c14bdd95b36672c` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Elemental, Water, Large `ba6f0bb100758f8a67c4a37260f5ac5e` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Kyton (Chain Devil) `914c3a91341b530e8e6d7bad9c73da5b` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Lion, Dire `34926f5dd444ef85cd38c91fed42bda0` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Redcap `b3666e0b8d73ff8353e982d257210793` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Rhinoceros, Woolly `8d5bf3c074d4a71c603ebdd4971afdca` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Salamander `eb40cc58a56b87c9ba47c636da3c83dd` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Xill `e5a53f0c3a27a39f368792bb9be81461` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Ant, Giant (Drone) (1d3) `6d19fdda82c7ab2084e6e23713f502f4` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Ape, Dire (1d3) `3300f74371332691d0c76cb4adf79cf8` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Archon, Hound (1d3) `bbd382401110dd3122ffa8860d4586a4` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Bear, Grizzly (1d3) `5a92c6bbd557b8ea80859435e314e628` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Bison (1d3) `f0181424978c474d5aeeb3ef1919e973` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Boar, Dire (1d3) `e43d54f587a1638c199edbdbac36951f` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Deinonychus (1d3) `3f8a31b896053e5d50e73cae102399bb` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Elemental, Air, Medium (1d3) `adb891b30048d8f4e75cee1f7dced84e` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Elemental, Earth, Medium (1d3) `6a24d8f53ed0946d48ec61ad3932792e` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Elemental, Fire, Medium (1d3) `40eade1deb79ea2ffcb9868e5b750dec` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Elemental, Water, Medium (1d3) `38abef26b0fc6664a56b32e34f05b268` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Hell Hound (1d3) `94da03744a66356af65b1d05efa04827` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Lion (1d3) `32b5abc4d8f796fe96c6ae004ab830ba` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Mephit, Air (1d3) `1bedf54916807c3d155f6a4d6c24dd8b` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Mephit, Dust (1d3) `9c2e599d44e452dc0643c8277e5d89eb` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Mephit, Earth (1d3) `2da8e6dac459d5b9afbaaede62a02c14` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Mephit, Fire (1d3) `98372914a570bdfcbc64b034d6608057` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Mephit, Ice (1d3) `28a4b9be78161070789f299b481a612c` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Mephit, Magma (1d3) `50fbeadd92e39940a0c7d81234d8ad1c` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Mephit, Ooze (1d3) `99dca45b56994866bf33d93f3e29b5ad` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Mephit, Salt (1d3) `a74d67b252d8d49a86c4df193134fba9` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Mephit, Steam (1d3) `49b96bdf57a40c223a6f4b3f06ab5984` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Mephit, Water (1d3) `4f2a6f8b09045236b6a4f1d87cb440c7` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Pteranodon (1d3) `4166616401a4bce8aaa5bd55e3d037c2` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Rhinoceros (1d3) `8ea7e0ecad9ab840044b8eb27dd71432` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Scorpion, Giant (1d3) `87457b7f395b5ff7c03c760948f11dc8` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Wasp, Giant (1d3) `b65f9759c56043ddf3bbb8802b6aedbf` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Wolf, Dire (1d3) `90cc3a913f91396edd787c83f721f150` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Ant, Giant (Soldier) (1d4+1) `e74862ae991a7c87a25fb3acb91ad3cf` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Ant, Giant (Worker) (1d4+1) `d19a69f684103f3a838d6a9eaa28d18e` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Ape (1d4+1) `d6be8f9557e699a716edf6bbc2d73ee7` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Archon, Lantern (1d4+1) `b234f84b89428ea5894921dd84cc60c0` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Aurochs (1d4+1) `5894a9a32e4e92ab3caa2e7beb9a3c3d` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Bat, Dire (1d4+1) `7ee3f83d988e59c7f7928c2db98387ea` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Beetle, Fire (1d4+1) `0265ba3807fdec8ff929875c4995de10` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Boar (1d4+1) `689dc5c11efaede1087e7aa5f1d39a72` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Centipede, Giant (1d4+1) `c7bb724f38030792e93c0308a4ac2ea0` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Cheetah (1d4+1) `06d1d1eee4172db9dd10e398bbd1244d` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Crocodile (1d4+1) `7d92652f8f013092836f7b58591d66cb` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Demon, Dretch (1d4+1) `c3e08ed7d6c023009560ed921bb8aa69` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Devil, Lemure (1d4+1) `c935e0be2921bb49bd448fa32f6243b5` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Dog (1d4+1) `0654dbee09d945c78db8534db06a1694` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Dog, Goblin (1d4+1) `ea59bd2396d2a9884b639d5bcf853e9a` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Eagle (1d4+1) `68e9f80ed3b9ccfd0cb31d9277fe40b5` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Elemental, Air, Small (1d4+1) `ea099188c8705a7118736caa147b1962` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Elemental, Earth, Small (1d4+1) `0d5d70ca893e18e204670997ce1b1dea` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Elemental, Fire, Small (1d4+1) `8eb77854eacdedf273ea5e53ee62b13f` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Elemental, Water, Small (1d4+1) `b2966774d137ac760c5f11dd30e5bb4a` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Frog, Giant (1d4+1) `f155003394d2a4efe18d58f80107cc53` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Frog, Poisonous (1d4+1) `49d1ff85c3ad8884fac3b2eefd550097` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Horse (1d4+1) `ac09f0a988a8301b442a72c8a1d2889d` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Hyena (1d4+1) `404a1415476fc580e0e0d3ee5cc3be83` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Leopard (1d4+1) `b0230116cd6821711f12053ca376790c` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Lizard, Monitor (1d4+1) `6412fd3ddf5c9bcc1004b2325858e434` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Pony (1d4+1) `060a3e9258d12ff8c1ab5f8a95c0f23a` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Rat, Dire (1d4+1) `7d126a42a9263beaef6311775f98d63e` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Snake, Constrictor (1d4+1) `d738a8620fbaac150a7b0e9301500c21` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Spider, Giant (1d4+1) `603262ec89f58cc9f89abba64d5d57bc` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Viper (1d4+1) `927623a54efdfb09e32b0b0b8088bf81` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Wolf (1d4+1) `e0f94ac8a7194786ec040d8bb66dc3fd` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
+| 5 | Summon Monster V | Scroll of Wolverine (1d4+1) `4a7b6e8ab030c569a70c253a4e195485` | 5 | 9 | 1,125 | 99 | Waking Rune variant wrappers |
 | 5 | Teleport | Scroll of Teleport `4551541688de0b48a47e4890cfe60c9a` | 5 | 9 | 1,125 | 99 | Waking Rune wrapper |
 | 5 | Vampiric Shadow Shield | Scroll of Vampiric Shadow Shield `1bcc05d40824dfa46b7f6cb6318b4926` | 5 | 9 | 1,125 | 99 | native |
 | 5 | Waves of Fatigue | Scroll of Waves of Fatigue `3baaaa7cb91704342b0314b6f06cdc91` | 5 | 9 | 1,125 | 99 | native |
 | 6 | Acid Fog | Scroll of Acid Fog `a931181d47d35ae4da06a243906eece2` | 6 | 11 | 1,650 | 99 | native |
 | 6 | Banshee Blast | Scroll of Banshee Blast `f6073b26d3e1d61418f62928f34b601f` | 6 | 11 | 1,650 | 99 | native |
 | 6 | Bear's Endurance, Mass | Scroll of Bear's Endurance, Mass `78631cf6b42590f40b44c79389c6af74` | 6 | 11 | 1,650 | 99 | native |
-| 6 | Beast Shape IV | Scroll of Beast Shape IV `a09737f1304acb932c48fb2b3aab91b1` | 6 | 11 | 1,650 | 99 | Waking Rune wrapper |
+| 6 | Beast Shape IV | Scroll of Beast Shape IV (Shambling Mound) `0a6f44fc0fc4b364db392b2e73b626d1` | 6 | 11 | 1,650 | 99 | native variant scrolls |
+| 6 | Beast Shape IV | Scroll of Beast Shape IV (Smilodon) `c94d8e1d2c6f9c54e946c57139837249` | 6 | 11 | 1,650 | 99 | native variant scrolls |
+| 6 | Beast Shape IV | Scroll of Beast Shape IV (Wyvern) `7ed316e488b68a248ad37c1e312f4e9e` | 6 | 11 | 1,650 | 99 | native variant scrolls |
 | 6 | Bull's Strength, Mass | Scroll of Bull's Strength, Mass `7e6ca8816f50a7f4e9dccc90f958e4f4` | 6 | 11 | 1,650 | 99 | native |
 | 6 | Cat's Grace, Mass | Scroll of Cat's Grace, Mass `e1e455570ca262244a572a3efed337ce` | 6 | 11 | 1,650 | 99 | native |
 | 6 | Chain Lightning | Scroll of Chain Lightning `141ffc89f1630ff45812f50ed3922088` | 6 | 11 | 1,650 | 99 | native |
@@ -196,10 +460,19 @@ Generated in game by the harness's READ command `stockaudit` (0.10.0, run `wrpla
 | 6 | Cold Ice Strike | Scroll of Cold Ice Strike `686c2a9cffbf0cc4d9038d66a852cc3b` | 6 | 11 | 1,650 | 99 | native |
 | 6 | Disintegrate | Scroll of Disintegrate `bb2f172e429b40840a7dc25bc83732cb` | 6 | 11 | 1,650 | 99 | native |
 | 6 | Dispel Magic, Greater | Scroll of Dispel Magic, Greater `56975b102c539b544a77e602c7d8d490` | 6 | 11 | 1,650 | 99 | native |
-| 6 | Dragonkind I | Scroll of Dragonkind I `dbb1c74a280bf6915abac5e63189d6b0` | 6 | 11 | 1,650 | 99 | Waking Rune wrapper |
+| 6 | Dragonkind I | Scroll of Dragonkind I (Black) `d1125725cdfc9b346a4ee179308debac` | 6 | 11 | 1,650 | 99 | native variant scrolls |
+| 6 | Dragonkind I | Scroll of Dragonkind I (Blue) `41083598f40f9ba4ab01ca529f3cd614` | 6 | 11 | 1,650 | 99 | native variant scrolls |
+| 6 | Dragonkind I | Scroll of Dragonkind I (Brass) `8dfd59dfc14c55e4cad92445630baf30` | 6 | 11 | 1,650 | 99 | native variant scrolls |
+| 6 | Dragonkind I | Scroll of Dragonkind I (Red) `96a94e142630d8649b3f8c4ff9e56f40` | 6 | 11 | 1,650 | 99 | native variant scrolls |
+| 6 | Dragonkind I | Scroll of Dragonkind I (Green) `dc633c7aa7ef05840a5b84a2616c0300` | 6 | 11 | 1,650 | 99 | native variant scrolls |
+| 6 | Dragonkind I | Scroll of Dragonkind I (Silver) `1d5102760b2f5524d98c38919b32174e` | 6 | 11 | 1,650 | 99 | native variant scrolls |
+| 6 | Dragonkind I | Scroll of Dragonkind I (White) `25bf6b0fb3258494a8f4bdd44aa05894` | 6 | 11 | 1,650 | 99 | native variant scrolls |
 | 6 | Eagle's Splendor, Mass | Scroll of Eagle's Splendor, Mass `fe94b92146d7bb44c9983ed6d3080d8a` | 6 | 11 | 1,650 | 99 | native |
 | 6 | Elemental Assessor | Scroll of Elemental Assessor `7dce00472dcde1644b908d4e0eefc078` | 6 | 11 | 1,650 | 99 | native |
-| 6 | Elemental Body III | Scroll of Elemental Body III `577f66ea0da95598df91a1308dc606db` | 6 | 11 | 1,650 | 99 | Waking Rune wrapper |
+| 6 | Elemental Body III | Scroll of Elemental Body III (Air) `83906ecaac786d742b902677e169994f` | 6 | 11 | 1,650 | 99 | native variant scrolls |
+| 6 | Elemental Body III | Scroll of Elemental Body III (Earth) `790ffc21663eee140971a2ae8510223b` | 6 | 11 | 1,650 | 99 | native variant scrolls |
+| 6 | Elemental Body III | Scroll of Elemental Body III (Fire) `0437d7a2ea4b01542907c4d5fb12c4da` | 6 | 11 | 1,650 | 99 | native variant scrolls |
+| 6 | Elemental Body III | Scroll of Elemental Body III (Water) `935e1081a3086a34aabbf77d73fe6b01` | 6 | 11 | 1,650 | 99 | native variant scrolls |
 | 6 | Eyebite | Scroll of Eyebite `f80549ec4e61ae64d8051bb3b24cf10e` | 6 | 11 | 1,650 | 99 | native |
 | 6 | Fox's Cunning, Mass | Scroll of Fox's Cunning, Mass `bdfbfdcecfdc3b346a1e6fc37bca8bb7` | 6 | 11 | 1,650 | 99 | native |
 | 6 | Hellfire Ray | Scroll of Hellfire Ray `eca3b7aa601fc1b46a940897cb2142d3` | 6 | 11 | 1,650 | 99 | native |
@@ -209,8 +482,101 @@ Generated in game by the harness's READ command `stockaudit` (0.10.0, run `wrpla
 | 6 | Serenity | Scroll of Serenity `7c2fe7abcecee534d95d5ddd4d814585` | 6 | 11 | 1,650 | 99 | native |
 | 6 | Sirocco | Scroll of Sirocco `c17e4bd5028d6534a8c8d317cd8244ca` | 6 | 11 | 1,650 | 99 | native |
 | 6 | Stone to Flesh | Scroll of Stone to Flesh `394ba24aed75f0d459ed84d1b1b98f60` | 6 | 11 | 1,650 | 99 | native |
-| 6 | Summon Huge Elemental | Scroll of Summon Huge Elemental `b571be8ddcfe584dd688aaf1959e7eca` | 6 | 11 | 1,650 | 99 | Waking Rune wrapper |
-| 6 | Summon Monster VI | Scroll of Summon Monster VI `39c17f317c071040f53214fe38c89409` | 6 | 11 | 1,650 | 99 | Waking Rune wrapper |
+| 6 | Summon Huge Elemental | Scroll of Summon Huge Air Elemental `75c6ff4988c20084cbff9e08665e59c4` | 6 | 11 | 1,650 | 99 | native variant scrolls |
+| 6 | Summon Huge Elemental | Scroll of Summon Huge Earth Elemental `dbc7d92109ede8e43a021bc8f71a4f23` | 6 | 11 | 1,650 | 99 | native variant scrolls |
+| 6 | Summon Huge Elemental | Scroll of Summon Huge Fire Elemental `e029556a583b8e04682011c8512cc4bf` | 6 | 11 | 1,650 | 99 | native variant scrolls |
+| 6 | Summon Huge Elemental | Scroll of Summon Huge Water Elemental `09991b9a972e9ef48b5147a147f47bba` | 6 | 11 | 1,650 | 99 | native variant scrolls |
+| 6 | Summon Monster VI | Scroll of Axiomite `a558ba1e03866ea8aed330f537321b86` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Azata, Lillend `e635513fff399ddcacdfbf408c7f62f2` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Bear, Dire `fc14acc90e8c611918d9786ab28ab8b4` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Demon, Shadow `53d17c5d3c3a304d202615abba49527b` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Devil, Erinyes `86f9d0c94f2ffe84a5b9e0e1654a6b57` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Elemental, Air, Huge `1dfff031ec305965428c2975f8247d32` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Elemental, Earth, Huge `02a0d2c120901c4c535c101354f1b062` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Elemental, Fire, Huge `c164a88650aaf04a84e33340d4db0850` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Elemental, Water, Huge `5a280de8fb44c75a46d4a19d892e61b4` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Elephant `b53eacfc258ac24905f1b0fdd58ed651` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Invisible Stalker `f62653a85ddfc057efb65df1bbdf94c9` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Mastiff, Shadow `ccf0f16d86a4746e373ff4fc75b5e85c` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Smilodon `1a7690fbf4455f00c52b6be455203bc5` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Soul Eater `2fcb9fea493de8f268a563ca94a90ebe` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Succubus `257406c8a00ec9c25fd57fe40e8afb12` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Triceratops `f6f88280abf18b24cfff403842194f53` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Ankylosaurus (1d3) `f475b9218da9ab1e8bbc8622b39ba8a1` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Azata, Bralani (1d3) `97bcab95ff231b83f44cefbf72e572aa` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Demon, Babau (1d3) `a7e1d58e7a3d5cc6c45e3f63ef8c900e` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Devil, Bearded (Barbazu) (1d3) `882953c168c9825a37832bf8af83f22a` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Elemental, Air, Large (1d3) `c4e3b4b532be1a6e1945a118411e7f64` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Elemental, Earth, Large (1d3) `56b3a9124a8adfd3009f79273f4c3625` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Elemental, Fire, Large (1d3) `fb6db322c332dcfbb6cdd2b49cc9bcb7` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Elemental, Water, Large (1d3) `9d72e09c15234df4cc6d48cb1dfd2026` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Kyton (Chain Devil) (1d3) `97a028ce33ea2e3f2ffc6c6b70767135` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Lion, Dire (1d3) `cccf3bfd40c551abd171ff00c5ace640` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Redcap (1d3) `3f78888ad0892f96c414b1f99f77583b` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Rhinoceros, Woolly (1d3) `8676decf7ea432a0ed3a541c56c8f940` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Salamander (1d3) `a15460f840f3b6c4f03f56c5f4d24806` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Xill (1d3) `edde3f1a9114e60564306212c5592075` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Ant, Giant (Drone) (1d4+1) `b16fcac5b0ea713444fe8880ff3d0ea0` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Ant, Giant (Soldier) (1d4+1) `df494fe49f163bcadf01cbcd21cf7d9d` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Ant, Giant (Worker) (1d4+1) `fd3421075ee77ae7f93cdfaa06a249c6` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Ape (1d4+1) `a326024857c3788b1cc8534ad4a20706` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Ape, Dire (1d4+1) `5208efae9c2b68362f555d936b479407` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Archon, Hound (1d4+1) `c9c22e8dea26f7fa157e3508d8b42438` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Archon, Lantern (1d4+1) `13d59a9b13730274943e316949372786` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Aurochs (1d4+1) `cd29058dfd5640ad696824a448ef6e86` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Bat, Dire (1d4+1) `33f16617f490a07ae5bb1e4404cb3eba` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Bear, Grizzly (1d4+1) `b7dfd9b14555f9c844ee74b8b1c6ec1c` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Beetle, Fire (1d4+1) `c7dd467be6b6d1da6e19a90fb5d23d71` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Bison (1d4+1) `926fc751905c32cf2e4aeb3e4a1574c1` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Boar (1d4+1) `f950f6e83943a7987457df0a9595e07b` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Boar, Dire (1d4+1) `fd1381c6e2270fbf532bafd4954224cc` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Centipede, Giant (1d4+1) `4f6762bfec69c3cfd259087a38bfd567` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Cheetah (1d4+1) `3f8b3245be9ba85eb6a804021f36747f` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Crocodile (1d4+1) `4ab84f521abbe47bf703d0f28d82038d` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Deinonychus (1d4+1) `220faade29d0e628693ee77051662d84` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Demon, Dretch (1d4+1) `79fc76231d5d71015f5da62ee98ae6aa` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Devil, Lemure (1d4+1) `3961bb383037a0cf61180937a2e76964` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Dog (1d4+1) `dab2fbb69a7bc99ff8303022e2b7dbf5` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Dog, Goblin (1d4+1) `aed4ac4577151825e50278ae49931223` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Eagle (1d4+1) `8b2cd3ab9c49392c8be417bb8cff3a32` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Elemental, Air, Medium (1d4+1) `38906a2dfe0dc0b5e085de69d98d9e10` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Elemental, Air, Small (1d4+1) `f1e98bd72a33823c2ffce96fa46e1d4a` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Elemental, Earth, Medium (1d4+1) `28f32228864bcd7e6a24a615d55d7112` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Elemental, Earth, Small (1d4+1) `ad1b351b7f55415eac1e7e1f42aaeeac` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Elemental, Fire, Medium (1d4+1) `e9c1271a862a133226f7f4466d268ca0` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Elemental, Fire, Small (1d4+1) `1a1caf80f5ae8f4b0c0bd242f57e3ec0` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Elemental, Water, Medium (1d4+1) `80176674dc27c4a549f2aba67c46b674` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Elemental, Water, Small (1d4+1) `9a1376bae56d07eb938792cce1859607` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Frog, Giant (1d4+1) `f4343d33ae92c1f04d2dc145b76e3df9` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Frog, Poisonous (1d4+1) `ec879ee72e49323996f471224e080422` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Hell Hound (1d4+1) `f3ad21a8521e66f9a8d4cc70ceb254ac` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Horse (1d4+1) `7525a391efa6f3d1b56558ac8a87ebcd` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Hyena (1d4+1) `c06b2cd6e4b5436f114739f68a2df089` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Leopard (1d4+1) `a2eb5a0fb3a555faeb80a04e458c0f1e` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Lion (1d4+1) `86785e854fbe249ac7f49b10c6cbd6e1` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Lizard, Monitor (1d4+1) `f8cf26143f024878d14de2f6feaf7c0e` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Mephit, Air (1d4+1) `b4b9190d728869090d84f087466202c8` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Mephit, Dust (1d4+1) `af4e665820b0abf7526c807090324515` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Mephit, Earth (1d4+1) `eb9a2416827c635e7ab1b771ddaf8b91` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Mephit, Fire (1d4+1) `6b9a3636be5314f7664d8b5cd87ba84a` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Mephit, Ice (1d4+1) `bf466288f9680e4aecf55462e141b711` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Mephit, Magma (1d4+1) `59b60fbf4208a355afaa7f95a0cc7d22` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Mephit, Ooze (1d4+1) `751a4f6cd7387d53b7896c1892009a3b` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Mephit, Salt (1d4+1) `6fd1c6287c2ef100e8073b8408801cc4` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Mephit, Steam (1d4+1) `10872e3346061b377d4950cc20074b07` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Mephit, Water (1d4+1) `63edb33d4f3cb627798f515d0416088a` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Pony (1d4+1) `2186fa7322486f2164cf29195e144346` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Pteranodon (1d4+1) `bbb5f6774d755c70cf378def9f343dc1` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Rat, Dire (1d4+1) `05da8fea43425838da9618996e06ab17` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Rhinoceros (1d4+1) `c959ecd1a5a8b94c6dc8b8337595b11b` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Scorpion, Giant (1d4+1) `c2cd69111d3969cd7b9dbd2b3c16ee65` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Snake, Constrictor (1d4+1) `f3e585ebebd21e48c97eab73f5b9950c` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Spider, Giant (1d4+1) `f30aaf3b75034d84b0c61c0b463a5b56` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Viper (1d4+1) `696d756ef8539b3a41579fb14cac75d8` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Wasp, Giant (1d4+1) `c844ec5c9d26a57bd634c481702869b2` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Wolf (1d4+1) `989178a51f26bf21998f96d4fad42205` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Wolf, Dire (1d4+1) `4d53825f6d006fb9fc117c7d4eeb841f` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
+| 6 | Summon Monster VI | Scroll of Wolverine (1d4+1) `af90477431015d71fb8b971dd5295a2e` | 6 | 11 | 1,650 | 99 | Waking Rune variant wrappers |
 | 6 | Tar Pool | Scroll of Tar Pool `d81fa529db47380468c9e8310f8d18ea` | 6 | 11 | 1,650 | 99 | native |
 | 6 | Transformation | Scroll of Transformation `d7536624e1ab8d8499f6e8d9689940b6` | 6 | 11 | 1,650 | 99 | native |
 | 6 | True Seeing | Scroll of True Seeing `7a05e6eea60a1864d935abd6c281a531` | 6 | 11 | 1,650 | 99 | native |
@@ -615,7 +981,10 @@ Generated in game by the harness's READ command `stockaudit` (0.10.0, run `wrpla
 | Scroll of Hurricane Bow | scroll | 99 | 25 | Wizard scrolls | `ce41e625eae914d4bad729f090e9001f` |
 | Scroll of Shield | scroll | 99 | 25 | Wizard scrolls | `807763fd874989e4d96eb2d8e234139e` |
 | Scroll of Magic Missile | scroll | 99 | 25 | Wizard scrolls | `63caf94a780472b448f50d0bc183c38f` |
-| Scroll of Protection from Alignment | scroll | 99 | 25 | Wizard scrolls | `e12ba1c92eea8b626c3c2aed166b9ee8` |
+| Scroll of Protection from Evil | scroll | 99 | 25 | Wizard scrolls | `96eb7a498b4db2c4a9fcfb632064b948` |
+| Scroll of Protection from Good | scroll | 99 | 25 | Wizard scrolls | `c75c69797fd6ee24d84b12796c0c3d45` |
+| Scroll of Protection from Law | scroll | 99 | 25 | Wizard scrolls | `6dad6628ecc36c7428f6e877975a1041` |
+| Scroll of Protection from Chaos | scroll | 99 | 25 | Wizard scrolls | `59110d30bb15dcd4d89f762b6aa9db9b` |
 | Scroll of Ray of Enfeeblement | scroll | 99 | 25 | Wizard scrolls | `792862674c565ad4fbb1ab0c97c42acd` |
 | Scroll of Ray of Sickening | scroll | 99 | 25 | Wizard scrolls | `37b332a8c7d904e47b46b5df49e62057` |
 | Scroll of Reduce Person | scroll | 99 | 25 | Wizard scrolls | `a341ba25915761441905bc6c82677244` |
@@ -647,34 +1016,104 @@ Generated in game by the harness's READ command `stockaudit` (0.10.0, run `wrpla
 | Scroll of Molten Orb | scroll | 99 | 150 | Wizard scrolls | `ecb145cb6e1b206408c8fd618337aded` |
 | Scroll of Owl's Wisdom | scroll | 99 | 150 | Wizard scrolls | `8c89e97d333561741bedfc98a364ac67` |
 | Scroll of Pernicious Poison | scroll | 99 | 150 | Wizard scrolls | `ac73301ffe7e0ac4ebf7f1ed0ce014df` |
-| Scroll of Protection from Alignment, Communal | scroll | 99 | 150 | Wizard scrolls | `2dcc386fa4fef54ede9feaa8554a81fb` |
+| Scroll of Protection from Evil, Communal | scroll | 99 | 150 | Wizard scrolls | `eb776c7c1a2ffc3498adab069588b70c` |
+| Scroll of Protection from Good, Communal | scroll | 99 | 150 | Wizard scrolls | `0afbc5cbd6165a64ea79b0a87058f6c1` |
+| Scroll of Protection from Law, Communal | scroll | 99 | 150 | Wizard scrolls | `915d6ff0a30fe974ca843dde14b1619a` |
+| Scroll of Protection from Chaos, Communal | scroll | 99 | 150 | Wizard scrolls | `a2af3233183a22a4693e3de034068d29` |
 | Scroll of Protection from Arrows | scroll | 99 | 150 | Wizard scrolls | `179d91b899fa6304b8c076e002890317` |
-| Scroll of Resist Energy | scroll | 99 | 150 | Wizard scrolls | `707ea07c028315c7aea0a8536c38fe34` |
+| Scroll of Resist Acid | scroll | 99 | 150 | Wizard scrolls | `d9d188b6354c8094ea3c08648db1418c` |
+| Scroll of Resist Cold | scroll | 99 | 150 | Wizard scrolls | `cc88c86f8e9f5744bb1875655b1b7d26` |
+| Scroll of Resist Electricity | scroll | 99 | 150 | Wizard scrolls | `69a37e5724b62ac458a4fa810bfccd4c` |
+| Scroll of Resist Fire | scroll | 99 | 150 | Wizard scrolls | `e3348348571d2a84c90332cf93a54bdd` |
+| Scroll of Resist Sonic | scroll | 99 | 150 | Wizard scrolls | `d784ca4606b0e534786a140c1debf7d7` |
 | Scroll of Scare | scroll | 99 | 150 | Wizard scrolls | `a3f5fbdd5f43f274baa3ee8c96d8c1a8` |
 | Scroll of Scorching Ray | scroll | 99 | 150 | Wizard scrolls | `95bf8273fd7930c4da3eaaf636a6cd29` |
 | Scroll of See Invisibility | scroll | 99 | 150 | Wizard scrolls | `12f4ee72c02537244b5b2bacfa236bc7` |
 | Scroll of Sense Vitals | scroll | 99 | 150 | Wizard scrolls | `d4dc796367b4fb342ad7e8221fb8d813` |
 | Scroll of Stone Call | scroll | 99 | 150 | Wizard scrolls | `87a562c6974bffb4aa9db89db0bccec8` |
-| Scroll of Summon Small Elemental | scroll | 99 | 150 | Wizard scrolls | `fa3f0087bc9653e4b42640b38a2b3ebf` |
-| Scroll of Summon Monster II | scroll | 99 | 150 | Wizard scrolls | `c15397df7f44df5093f9ce829735d2b2` |
+| Scroll of Summon Small Air Elemental | scroll | 99 | 150 | Wizard scrolls | `faf04bd70f411b44486a4a6005ddb77c` |
+| Scroll of Summon Small Earth Elemental | scroll | 99 | 150 | Wizard scrolls | `128957e1b674f73429ff3566407287cb` |
+| Scroll of Summon Small Fire Elemental | scroll | 99 | 150 | Wizard scrolls | `f6de1f3b73e0bb6498f892d1aa0aa423` |
+| Scroll of Summon Small Water Elemental | scroll | 99 | 150 | Wizard scrolls | `97e0fea318da80b45b29a39f183ff8df` |
+| Scroll of Ant, Giant (Worker) | scroll | 99 | 150 | Wizard scrolls | `32c2082ae44455e049bb6d981094cc6b` |
+| Scroll of Centipede, Giant | scroll | 99 | 150 | Wizard scrolls | `73b698c9daf5b3fd60603fec4db484ff` |
+| Scroll of Devil, Lemure | scroll | 99 | 150 | Wizard scrolls | `6170d324045ad7d43ae826d6b52eaf8e` |
+| Scroll of Dog, Goblin | scroll | 99 | 150 | Wizard scrolls | `0f7b662320f38373bfb457be9fbf4cde` |
+| Scroll of Elemental, Air, Small | scroll | 99 | 150 | Wizard scrolls | `803e9bb83818b9f4bd21ae42b1afc807` |
+| Scroll of Elemental, Earth, Small | scroll | 99 | 150 | Wizard scrolls | `0e17cdba41365a8988a063b3655fdf06` |
+| Scroll of Elemental, Fire, Small | scroll | 99 | 150 | Wizard scrolls | `d940736a3fbcdd10659f4f377dcca42c` |
+| Scroll of Elemental, Water, Small | scroll | 99 | 150 | Wizard scrolls | `e07f085e1f32c5eb9bb6e3b8adb77054` |
+| Scroll of Frog, Giant | scroll | 99 | 150 | Wizard scrolls | `0b0f6a1d9af915f0bb82e3a1bac1c72f` |
+| Scroll of Horse | scroll | 99 | 150 | Wizard scrolls | `01bb906f2cc789a75d089460d9923d09` |
+| Scroll of Hyena | scroll | 99 | 150 | Wizard scrolls | `ff78b062d543ae4d10e20caaf41963d0` |
+| Scroll of Spider, Giant | scroll | 99 | 150 | Wizard scrolls | `0aa0a4bbaa66542e6e4f1935508b173e` |
+| Scroll of Wolf | scroll | 99 | 150 | Wizard scrolls | `35b17d0f93173d9a7b10c3940e989bbc` |
+| Scroll of Beetle, Fire (1d3) | scroll | 99 | 150 | Wizard scrolls | `545bc95ff2117fed91da182e74a54228` |
+| Scroll of Dog (1d3) | scroll | 99 | 150 | Wizard scrolls | `eb4a1ec17f240df4fed9cb0795ad8844` |
+| Scroll of Eagle (1d3) | scroll | 99 | 150 | Wizard scrolls | `f9f0a79410aeb39e103092192e995d2e` |
+| Scroll of Frog, Poisonous (1d3) | scroll | 99 | 150 | Wizard scrolls | `e49a55513a1820db2ea27ea07560b019` |
+| Scroll of Pony (1d3) | scroll | 99 | 150 | Wizard scrolls | `b531127a8374c98792d800ad6f181fce` |
+| Scroll of Rat, Dire (1d3) | scroll | 99 | 150 | Wizard scrolls | `3458dca91776d406c872b38935719587` |
+| Scroll of Viper (1d3) | scroll | 99 | 150 | Wizard scrolls | `22b5d06927f00544346c7c42e7599c70` |
 | Scroll of Web | scroll | 99 | 150 | Wizard scrolls | `efc97cdb15c92194bbbe4a2a3c1ecd78` |
 | Scroll of Battering Blast | scroll | 99 | 375 | Wizard scrolls | `1940573d3b0a47949832488a27831b19` |
 | Scroll of Beast Shape I | scroll | 99 | 375 | Wizard scrolls | `3598a1d21491993419c7484028257eac` |
 | Scroll of Deep Slumber | scroll | 99 | 375 | Wizard scrolls | `63bc71021dbba204c96cdb88971d9083` |
-| Scroll of Dispel Magic | scroll | 99 | 375 | Wizard scrolls | `c7384b3c45e8dad28211bcf9a1705174` |
 | Scroll of Hold Person | scroll | 99 | 375 | Wizard scrolls | `11987b82dbc808143963b9acaa81bf07` |
 | Scroll of Protection from Arrows, Communal | scroll | 99 | 375 | Wizard scrolls | `45e656affe6f0614ab8e99a5e09d56a2` |
-| Scroll of Protection From Energy | scroll | 99 | 375 | Wizard scrolls | `10ff32501dc78a1a4f58c78a66bd935e` |
 | Scroll of Rage | scroll | 99 | 375 | Wizard scrolls | `81f35b521b23ad947acaa8151fa81139` |
-| Scroll of Resist Energy, Communal | scroll | 99 | 375 | Wizard scrolls | `355bf287b78abf3c555df45f134726f1` |
+| Scroll of Resist Acid, Communal | scroll | 99 | 375 | Wizard scrolls | `7ebc4615b5f74ea4d81dfaafaa8575f7` |
+| Scroll of Resist Cold, Communal | scroll | 99 | 375 | Wizard scrolls | `7d7399c58d99a43489fd5ce3c5fc26bf` |
+| Scroll of Resist Electricity, Communal | scroll | 99 | 375 | Wizard scrolls | `324bb995a2c3fae4395982752a64861b` |
+| Scroll of Resist Fire, Communal | scroll | 99 | 375 | Wizard scrolls | `425d435d4abb51348828aa4bc28d698c` |
+| Scroll of Resist Sonic, Communal | scroll | 99 | 375 | Wizard scrolls | `1a67af2026eaee049a15f7d5cb429c16` |
 | Scroll of See Invisibility, Communal | scroll | 99 | 375 | Wizard scrolls | `36a77c24f4060044685daa8c9facf51f` |
 | Scroll of Slow | scroll | 99 | 375 | Wizard scrolls | `fc4f7d5bfd3502a4d94e9de731a86c8a` |
 | Scroll of Spiked Pit | scroll | 99 | 375 | Wizard scrolls | `8aca97895c1c6ae458bfd3cfd7fa4680` |
 | Scroll of Stinking Cloud | scroll | 99 | 375 | Wizard scrolls | `c92308c160d6d424fb64f1fd708aa6cd` |
-| Scroll of Summon Monster III | scroll | 99 | 375 | Wizard scrolls | `580fd4b5d873e3711fe0cc5b6645d2b3` |
+| Scroll of Ant, Giant (Soldier) | scroll | 99 | 375 | Wizard scrolls | `96673e4037d862b6961c0969cb6208ef` |
+| Scroll of Ape | scroll | 99 | 375 | Wizard scrolls | `2a2b0e047a328a5c693aabe5e185a981` |
+| Scroll of Archon, Lantern | scroll | 99 | 375 | Wizard scrolls | `d4a10bace808f3440051c95dca7609f6` |
+| Scroll of Aurochs | scroll | 99 | 375 | Wizard scrolls | `2a4cf1cfc31715684ef054f66692a483` |
+| Scroll of Bat, Dire | scroll | 99 | 375 | Wizard scrolls | `16362c054c1a11241d1c626ebac421f4` |
+| Scroll of Boar | scroll | 99 | 375 | Wizard scrolls | `07e754b25f8e9b99685585399701825e` |
+| Scroll of Cheetah | scroll | 99 | 375 | Wizard scrolls | `cb5193ac4ebf63a5825971c4d10fd86e` |
+| Scroll of Crocodile | scroll | 99 | 375 | Wizard scrolls | `b19d63eed2e119dc9b1506679a10f5cf` |
+| Scroll of Demon, Dretch | scroll | 99 | 375 | Wizard scrolls | `2d09955c2f0806fc37451ab0e0760d9f` |
+| Scroll of Leopard | scroll | 99 | 375 | Wizard scrolls | `ea077333e434ca30b884ca539cede87f` |
+| Scroll of Lizard, Monitor | scroll | 99 | 375 | Wizard scrolls | `f157d12fa7ce8a9fe638dea549ef4cd2` |
+| Scroll of Snake, Constrictor | scroll | 99 | 375 | Wizard scrolls | `4f9274cfe434747ba4c7a6b8e056898d` |
+| Scroll of Wolverine | scroll | 99 | 375 | Wizard scrolls | `6531197c73b6dfdb28ee9c4b0f3982cf` |
+| Scroll of Ant, Giant (Worker) (1d3) | scroll | 99 | 375 | Wizard scrolls | `0658174b9d1d837c44afc1d24058486a` |
+| Scroll of Centipede, Giant (1d3) | scroll | 99 | 375 | Wizard scrolls | `b6a1befe2dbb3028fed207d1cc47455a` |
+| Scroll of Devil, Lemure (1d3) | scroll | 99 | 375 | Wizard scrolls | `01a98c7a7c4580d780b730f6ebd55774` |
+| Scroll of Dog, Goblin (1d3) | scroll | 99 | 375 | Wizard scrolls | `5991d9bc7454ebfc06994fcd49ccc8ab` |
+| Scroll of Elemental, Air, Small (1d3) | scroll | 99 | 375 | Wizard scrolls | `fd1c36fe7754d5458a971025c1c00e2c` |
+| Scroll of Elemental, Earth, Small (1d3) | scroll | 99 | 375 | Wizard scrolls | `70d74ea1c95d507cf98fe7e686958c84` |
+| Scroll of Elemental, Fire, Small (1d3) | scroll | 99 | 375 | Wizard scrolls | `e7a73e1fc3aea7e455d06d1b7ff3c5f2` |
+| Scroll of Elemental, Water, Small (1d3) | scroll | 99 | 375 | Wizard scrolls | `5abe8d6e2756d5017479771a1a9384d7` |
+| Scroll of Frog, Giant (1d3) | scroll | 99 | 375 | Wizard scrolls | `ffced8f69988daeb54aad1a9e943f3e4` |
+| Scroll of Horse (1d3) | scroll | 99 | 375 | Wizard scrolls | `6b17c6b3f86a6d66af546d3a361d41a0` |
+| Scroll of Hyena (1d3) | scroll | 99 | 375 | Wizard scrolls | `5ba8c6b7c3428ffb47ebbf18f8761361` |
+| Scroll of Spider, Giant (1d3) | scroll | 99 | 375 | Wizard scrolls | `f931f8660254b61024f9dc7490033f32` |
+| Scroll of Wolf (1d3) | scroll | 99 | 375 | Wizard scrolls | `32659f016128db77f247a3d605c7311b` |
+| Scroll of Beetle, Fire (1d4+1) | scroll | 99 | 375 | Wizard scrolls | `edd9382e29e5759d8e57dae034cca650` |
+| Scroll of Dog (1d4+1) | scroll | 99 | 375 | Wizard scrolls | `3d91bc2590d5029c5d0930db4c331e85` |
+| Scroll of Eagle (1d4+1) | scroll | 99 | 375 | Wizard scrolls | `7fc9b15724c9a9acafa6bcf1ac88a584` |
+| Scroll of Frog, Poisonous (1d4+1) | scroll | 99 | 375 | Wizard scrolls | `44f3220735c440f4fe01dd5bdd6b2baf` |
+| Scroll of Pony (1d4+1) | scroll | 99 | 375 | Wizard scrolls | `e47e2235b5fd1886b79b4cc5a328c346` |
+| Scroll of Rat, Dire (1d4+1) | scroll | 99 | 375 | Wizard scrolls | `db4842f9f270710d93d73408de718621` |
+| Scroll of Viper (1d4+1) | scroll | 99 | 375 | Wizard scrolls | `2992ea68eb1111c0d8daea976f841e80` |
 | Scroll of Vampiric Touch | scroll | 99 | 375 | Wizard scrolls | `b693e8cc94f4477498d396a40817ff77` |
-| Scroll of Bestow Curse | scroll | 99 | 700 | Wizard scrolls | `a7be773786f85c85acbbdd8eec12d040` |
-| Scroll of Contagion | scroll | 99 | 700 | Wizard scrolls | `b97aee68e62b74accbc872cb81dd9e9d` |
+| Scroll of Curse of Feeble Body | scroll | 99 | 700 | Wizard scrolls | `9a9e5ee5d52e22947b72a1ee0d2b86ea` |
+| Scroll of Curse of Idiocy | scroll | 99 | 700 | Wizard scrolls | `410997c0f60edbc44aa05fcee1c34bee` |
+| Scroll of Curse of Weakness | scroll | 99 | 700 | Wizard scrolls | `6e5222e84d72ad94080a844bc88e4c90` |
+| Scroll of Curse of Deterioration | scroll | 99 | 700 | Wizard scrolls | `094374e92b317634a9a383f9f134e4c4` |
+| Scroll of Contagion: Blinding Sickness | scroll | 99 | 700 | Wizard scrolls | `3c1202a25476d4444b5fadc0bb44ed9b` |
+| Scroll of Contagion: Bubonic Plague | scroll | 99 | 700 | Wizard scrolls | `57b9d400ca4f079488bd2152654062d8` |
+| Scroll of Contagion: Cackle Fever | scroll | 99 | 700 | Wizard scrolls | `aa932973b8c53844c83420982c3d0ace` |
+| Scroll of Contagion: Mindfire | scroll | 99 | 700 | Wizard scrolls | `90929cdec7d769843b6f62eb75699853` |
+| Scroll of Contagion: Shakes | scroll | 99 | 700 | Wizard scrolls | `925ff1eb9d105404fa8366b2dc995d77` |
 | Scroll of Crushing Despair | scroll | 99 | 700 | Wizard scrolls | `5da62245cf5b9e54fa12aeaaf398b298` |
 | Scroll of Overwhelming Grief | scroll | 99 | 700 | Wizard scrolls | `8a2189c96e35b9f4da4a2f53bcdfa466` |
 | Scroll of Remove Curse | scroll | 99 | 700 | Wizard scrolls | `f2b8655382429c14c8c888f1cf109020` |
@@ -684,9 +1123,18 @@ Generated in game by the harness's READ command `stockaudit` (0.10.0, run `wrpla
 | Scroll of Boneshatter | scroll | 99 | 700 | Wizard scrolls | `6f36a274115b20e4c86fa6771be8b7dd` |
 | Scroll of Confusion | scroll | 99 | 700 | Wizard scrolls | `1db86aaa479be6944abe90eaddb4afa2` |
 | Scroll of Controlled Fireball | scroll | 99 | 700 | Wizard scrolls | `4b0ff254dca06894cba7eace7eef6bfe` |
-| Scroll of Dimension Door | scroll | 99 | 700 | Wizard scrolls | `7aa654dc6c15e612c4bf5f57e1c481f3` |
-| Scroll of Dragon's Breath | scroll | 99 | 700 | Wizard scrolls | `83a7fc87fe99f7a0a5b1abc0ee75f8e4` |
-| Scroll of Elemental Body I | scroll | 99 | 700 | Wizard scrolls | `3f9c266e88bf2cb65445ded41fc1c519` |
+| Scroll of Dimension Door — Mass | scroll | 99 | 700 | Wizard scrolls | `a7f61c7d07a8d9945a891c9a8c75d0cb` |
+| Scroll of Dimension Door — Single | scroll | 99 | 700 | Wizard scrolls | `02adc587ef2d8a54ababd846072dbef8` |
+| Scroll of Dragon's Breath (Black) | scroll | 99 | 700 | Wizard scrolls | `4bdef8d4ef98c564facc08fbec70a66d` |
+| Scroll of Dragon's Breath (Blue) | scroll | 99 | 700 | Wizard scrolls | `d18f67888af73d4408bf8b90f554c927` |
+| Scroll of Dragon's Breath (Green) | scroll | 99 | 700 | Wizard scrolls | `f3e747cb9a08f094e9cb6f231f90598f` |
+| Scroll of Dragon's Breath (Gold) | scroll | 99 | 700 | Wizard scrolls | `2192f73b61b67e941acfab679ce008c4` |
+| Scroll of Dragon's Breath (Silver) | scroll | 99 | 700 | Wizard scrolls | `31bd897310db0f44d82c6f6bdf92e599` |
+| Scroll of Dragon's Breath (Brass) | scroll | 99 | 700 | Wizard scrolls | `c7d77dceece0c964184a911869f685e3` |
+| Scroll of Elemental Body I (Air) | scroll | 99 | 700 | Wizard scrolls | `5f5e2e9c2a95e5c469fffd0f8095e86b` |
+| Scroll of Elemental Body I (Earth) | scroll | 99 | 700 | Wizard scrolls | `197b783196e83ef49abec6235e010eac` |
+| Scroll of Elemental Body I (Fire) | scroll | 99 | 700 | Wizard scrolls | `2e637313c26ed8547b985457286a1748` |
+| Scroll of Elemental Body I (Water) | scroll | 99 | 700 | Wizard scrolls | `2be39a9892e926d4e9360536564676d2` |
 | Scroll of Enervation | scroll | 99 | 700 | Wizard scrolls | `0589a68074a003b49961ec334a0e9138` |
 | Scroll of Enlarge Person, Mass | scroll | 99 | 700 | Wizard scrolls | `6e77ed864d7112d44a2e9bc73a265060` |
 | Scroll of False Life, Greater | scroll | 99 | 700 | Wizard scrolls | `7bb01ba2ab53cd64693ad324564af5cb` |
@@ -694,13 +1142,80 @@ Generated in game by the harness's READ command `stockaudit` (0.10.0, run `wrpla
 | Scroll of Ice Storm | scroll | 99 | 700 | Wizard scrolls | `a5c98d83dd1e2b2448acf51552c9b9d3` |
 | Scroll of Obsidian Flow | scroll | 99 | 700 | Wizard scrolls | `695cc4b16a367144ca1717b37bce626e` |
 | Scroll of Phantasmal Killer | scroll | 99 | 700 | Wizard scrolls | `2b73dd1aecdbf1e4a8d7ca18139b1cca` |
-| Scroll of Protection from Energy, Communal | scroll | 99 | 700 | Wizard scrolls | `6246693fa7ae14da7cb06c8e723a2e10` |
+| Scroll of Protection From Acid, Communal | scroll | 99 | 700 | Wizard scrolls | `8e4e14165d4665f43939fee5ec131dbf` |
+| Scroll of Protection From Cold, Communal | scroll | 99 | 700 | Wizard scrolls | `be1eb2520e17f0e41b8893c089b5ea08` |
+| Scroll of Protection From Electricity, Communal | scroll | 99 | 700 | Wizard scrolls | `b2a8e96d987dabc439e565b8aef88049` |
+| Scroll of Protection From Fire, Communal | scroll | 99 | 700 | Wizard scrolls | `3caf877fddf36f84a943baad216aaf59` |
+| Scroll of Protection From Sonic, Communal | scroll | 99 | 700 | Wizard scrolls | `423fb363ae714fe43a1ad3203874edeb` |
 | Scroll of Rainbow Pattern | scroll | 99 | 700 | Wizard scrolls | `84cd707a7ae9f934389ed6bbf51b023a` |
 | Scroll of Reduce Person, Mass | scroll | 99 | 700 | Wizard scrolls | `fbde449fffbf2d64983ad2e11981a23a` |
 | Scroll of Shout | scroll | 99 | 700 | Wizard scrolls | `4c73f11f91ca3fb4a8af325686b660d8` |
 | Scroll of Stoneskin | scroll | 99 | 700 | Wizard scrolls | `a8422c98704e6a0429ebc5a56e132d95` |
-| Scroll of Summon Medium Elemental | scroll | 99 | 700 | Wizard scrolls | `a718b9cbf588fbf7097f7adbacbf489d` |
-| Scroll of Summon Monster IV | scroll | 99 | 700 | Wizard scrolls | `3e8766e5b6c9bf59aba9ad84baaef52d` |
+| Scroll of Summon Medium Air Elemental | scroll | 99 | 700 | Wizard scrolls | `014d7e866bb85e942a2d77fe3d1e5372` |
+| Scroll of Summon Medium Earth Elemental | scroll | 99 | 700 | Wizard scrolls | `713c2a0e5dd99584587b888ebc49dd13` |
+| Scroll of Summon Medium Fire Elemental | scroll | 99 | 700 | Wizard scrolls | `324db2d5ab0e22a44b0ac370e4e823bf` |
+| Scroll of Summon Medium Water Elemental | scroll | 99 | 700 | Wizard scrolls | `06e8db7e93c82a94e9f0c78e30009996` |
+| Scroll of Ant, Giant (Drone) | scroll | 99 | 700 | Wizard scrolls | `f105cbab4de5179c4baa9dd536c59daa` |
+| Scroll of Ape, Dire | scroll | 99 | 700 | Wizard scrolls | `fbafb9224f2077c919da210ca42a9c39` |
+| Scroll of Archon, Hound | scroll | 99 | 700 | Wizard scrolls | `d422831e3405944e5dcf096dd181f4fa` |
+| Scroll of Bear, Grizzly | scroll | 99 | 700 | Wizard scrolls | `8e1c5076415130c237ac8705f6103e48` |
+| Scroll of Bison | scroll | 99 | 700 | Wizard scrolls | `8fa8696ce0e050125a3fbdfa8fc0a8e5` |
+| Scroll of Boar, Dire | scroll | 99 | 700 | Wizard scrolls | `f6105630f569c9e02176b1975de9f950` |
+| Scroll of Deinonychus | scroll | 99 | 700 | Wizard scrolls | `db09995cd0d4bb8c08a2fe46adddb2ae` |
+| Scroll of Elemental, Air, Medium | scroll | 99 | 700 | Wizard scrolls | `8fb2335c1db027791e0cd7b6b4c47a5d` |
+| Scroll of Elemental, Earth, Medium | scroll | 99 | 700 | Wizard scrolls | `f8cbf20769ac403b9e35e62fe0c8a73a` |
+| Scroll of Elemental, Fire, Medium | scroll | 99 | 700 | Wizard scrolls | `8ece38015d401dd126eccec7cf898a33` |
+| Scroll of Elemental, Water, Medium | scroll | 99 | 700 | Wizard scrolls | `edf19ebf1af7015da367b3549cecf14c` |
+| Scroll of Hell Hound | scroll | 99 | 700 | Wizard scrolls | `ec91577720d1c6aeaa9492e0129eebda` |
+| Scroll of Lion | scroll | 99 | 700 | Wizard scrolls | `a4cc8a07fe1353f3863e42e19891baa6` |
+| Scroll of Mephit, Air | scroll | 99 | 700 | Wizard scrolls | `3155fd3ed413d173c8157d48c693fb57` |
+| Scroll of Mephit, Dust | scroll | 99 | 700 | Wizard scrolls | `ad514aa9b6e3651dc06fefc2f9d25373` |
+| Scroll of Mephit, Earth | scroll | 99 | 700 | Wizard scrolls | `662e47f1c2d3b0cc20b4556f52acd6fd` |
+| Scroll of Mephit, Fire | scroll | 99 | 700 | Wizard scrolls | `f36ab24d8b02e51b79a06d0ff12a0cbd` |
+| Scroll of Mephit, Ice | scroll | 99 | 700 | Wizard scrolls | `466a39e976d3755145f9b0fc0e8d5e94` |
+| Scroll of Mephit, Magma | scroll | 99 | 700 | Wizard scrolls | `7da76e6716d568188aaf6accb434b744` |
+| Scroll of Mephit, Ooze | scroll | 99 | 700 | Wizard scrolls | `6c58bed86ff547686dc1f7c53c26187b` |
+| Scroll of Mephit, Salt | scroll | 99 | 700 | Wizard scrolls | `75fe2a2c1796eec928e2d46387c7421d` |
+| Scroll of Mephit, Steam | scroll | 99 | 700 | Wizard scrolls | `397edf52d82e4ff870c3a66b023ec97c` |
+| Scroll of Mephit, Water | scroll | 99 | 700 | Wizard scrolls | `24c400903e9a06561da5ddf6bc971ea1` |
+| Scroll of Pteranodon | scroll | 99 | 700 | Wizard scrolls | `6391f83705e00f028fa8a211a1f58814` |
+| Scroll of Rhinoceros | scroll | 99 | 700 | Wizard scrolls | `de7b2457f3c5423f76bb0c34c5c3060c` |
+| Scroll of Scorpion, Giant | scroll | 99 | 700 | Wizard scrolls | `383814d302cef84df540dc2b03273fd2` |
+| Scroll of Wasp, Giant | scroll | 99 | 700 | Wizard scrolls | `cf85798962c4628edcb8d8758c6af51f` |
+| Scroll of Wolf, Dire | scroll | 99 | 700 | Wizard scrolls | `ba79d0da9d07a765ddf77dd8af64a3aa` |
+| Scroll of Ant, Giant (Soldier) (1d3) | scroll | 99 | 700 | Wizard scrolls | `43179201f910fc5ed1d3f051cb6d24f4` |
+| Scroll of Ape (1d3) | scroll | 99 | 700 | Wizard scrolls | `f75d58a1ebb5ca5580f0b81878091565` |
+| Scroll of Archon, Lantern (1d3) | scroll | 99 | 700 | Wizard scrolls | `66f48101491bb9743e5a554aa35ef6c6` |
+| Scroll of Aurochs (1d3) | scroll | 99 | 700 | Wizard scrolls | `5071583ccecf32106ff9f46b6025baab` |
+| Scroll of Bat, Dire (1d3) | scroll | 99 | 700 | Wizard scrolls | `b406beddcfa2f950e2d9171cfe1fe70a` |
+| Scroll of Boar (1d3) | scroll | 99 | 700 | Wizard scrolls | `7ae1d1564e4a04924f0e6c3e46e524e7` |
+| Scroll of Cheetah (1d3) | scroll | 99 | 700 | Wizard scrolls | `d8e3e7796957f9866e7fc390f247e442` |
+| Scroll of Crocodile (1d3) | scroll | 99 | 700 | Wizard scrolls | `c01541fe3a147dcbaed25ae31fc8b034` |
+| Scroll of Demon, Dretch (1d3) | scroll | 99 | 700 | Wizard scrolls | `794ec333c397bcf3358c3ab23608db6e` |
+| Scroll of Leopard (1d3) | scroll | 99 | 700 | Wizard scrolls | `4a97a6337d8c2c301695431e87bb0f20` |
+| Scroll of Lizard, Monitor (1d3) | scroll | 99 | 700 | Wizard scrolls | `5da0be2cef56e6d98494298817d47d4d` |
+| Scroll of Snake, Constrictor (1d3) | scroll | 99 | 700 | Wizard scrolls | `afd5065d308f951039bbce2a20facd33` |
+| Scroll of Wolverine (1d3) | scroll | 99 | 700 | Wizard scrolls | `2f37bc270bbf1a69e3861c8167568593` |
+| Scroll of Ant, Giant (Worker) (1d4+1) | scroll | 99 | 700 | Wizard scrolls | `b6ca122775f392cb58822428d7b9457f` |
+| Scroll of Beetle, Fire (1d4+1) | scroll | 99 | 700 | Wizard scrolls | `2d1550e3cbd085f409337062008db006` |
+| Scroll of Centipede, Giant (1d4+1) | scroll | 99 | 700 | Wizard scrolls | `d8208b3183f7525b0a2502507129a606` |
+| Scroll of Devil, Lemure (1d4+1) | scroll | 99 | 700 | Wizard scrolls | `613c8f5c9c8e408a736ed2f1a08f0286` |
+| Scroll of Dog (1d4+1) | scroll | 99 | 700 | Wizard scrolls | `1c59a0a7106c0e86a4e3a15ad6cbe254` |
+| Scroll of Dog, Goblin (1d4+1) | scroll | 99 | 700 | Wizard scrolls | `ae9b62a2bff295a283b6a2d35410671c` |
+| Scroll of Eagle (1d4+1) | scroll | 99 | 700 | Wizard scrolls | `e0d2042da9ad96895355a86ae19f6c1a` |
+| Scroll of Elemental, Air, Small (1d4+1) | scroll | 99 | 700 | Wizard scrolls | `30a41d7be77f17026979bb5d4bd38b85` |
+| Scroll of Elemental, Earth, Small (1d4+1) | scroll | 99 | 700 | Wizard scrolls | `f85c014ce5776e3e02ffffd19cb7b68a` |
+| Scroll of Elemental, Fire, Small (1d4+1) | scroll | 99 | 700 | Wizard scrolls | `4e497526af3212559e373e93d502c200` |
+| Scroll of Elemental, Water, Small (1d4+1) | scroll | 99 | 700 | Wizard scrolls | `e4281186377dc34c330eb540939e50f3` |
+| Scroll of Frog, Giant (1d4+1) | scroll | 99 | 700 | Wizard scrolls | `bed637017d9393a0a59bcbb6b0b641a6` |
+| Scroll of Frog, Poisonous (1d4+1) | scroll | 99 | 700 | Wizard scrolls | `19261999d38181eabb61fe90da5f8652` |
+| Scroll of Horse (1d4+1) | scroll | 99 | 700 | Wizard scrolls | `64858d94c3b819f1c563255275bb1795` |
+| Scroll of Hyena (1d4+1) | scroll | 99 | 700 | Wizard scrolls | `f7636a6c5cf9221b3f2a44ca33dec4bd` |
+| Scroll of Pony (1d4+1) | scroll | 99 | 700 | Wizard scrolls | `c21d92451860f1d8682f7282f1fce6a4` |
+| Scroll of Rat, Dire (1d4+1) | scroll | 99 | 700 | Wizard scrolls | `4729aa03798c86a381386e79b9e576e3` |
+| Scroll of Spider, Giant (1d4+1) | scroll | 99 | 700 | Wizard scrolls | `fb758be7a42ef22d9984a9ffa4005e41` |
+| Scroll of Viper (1d4+1) | scroll | 99 | 700 | Wizard scrolls | `1e3f3ca502b52fa3676f7cdb68f9e6cf` |
+| Scroll of Wolf (1d4+1) | scroll | 99 | 700 | Wizard scrolls | `40ecf11a118ceb7cac5bab4139a08faf` |
 | Scroll of Touch of Slime | scroll | 99 | 700 | Wizard scrolls | `d1a586649cea48f48a0c535aacecfba3` |
 | Scroll of Volcanic Storm | scroll | 99 | 700 | Wizard scrolls | `349a071cd51f6224e9647dc2cf06c243` |
 | Scroll of Angelic Aspect | scroll | 99 | 1,125 | Wizard scrolls | `4c79f5ad0bc683d43ac0bda57f7843b3` |
@@ -714,19 +1229,110 @@ Generated in game by the harness's READ command `stockaudit` (0.10.0, run `wrpla
 | Scroll of Constricting Coils | scroll | 99 | 1,125 | Wizard scrolls | `ebaeaebc1a30536468ba680aff1d6471` |
 | Scroll of Dismissal | scroll | 99 | 1,125 | Wizard scrolls | `aef1531dc1d3799428eaa5e9b70b5e2c` |
 | Scroll of Dominate Person | scroll | 99 | 1,125 | Wizard scrolls | `f199f6e5026488c499042900b572eb7f` |
-| Scroll of Elemental Body II | scroll | 99 | 1,125 | Wizard scrolls | `e73d2c10e29ffa040e3549b745164ee8` |
+| Scroll of Elemental Body II (Air) | scroll | 99 | 1,125 | Wizard scrolls | `2b193dfc0e9e58e48a465c046fd09dc5` |
+| Scroll of Elemental Body II (Earth) | scroll | 99 | 1,125 | Wizard scrolls | `a088c56f8f96e86479ac3051d200cd5b` |
+| Scroll of Elemental Body II (Fire) | scroll | 99 | 1,125 | Wizard scrolls | `105337cfa693a9a4989cb8bbafd1f978` |
+| Scroll of Elemental Body II (Water) | scroll | 99 | 1,125 | Wizard scrolls | `1e44b976daba6e64299ca4d63bcf9514` |
 | Scroll of Feeblemind | scroll | 99 | 1,125 | Wizard scrolls | `17c17e5c409d6814786259d99bf9a43d` |
 | Scroll of Fire Snake | scroll | 99 | 1,125 | Wizard scrolls | `73d88f8434d24c848a1c77a9c05f68c0` |
-| Scroll of Geniekind | scroll | 99 | 1,125 | Wizard scrolls | `012c230365f929a7a93497dbeefe8ae9` |
+| Scroll of Geniekind: Djinni | scroll | 99 | 1,125 | Wizard scrolls | `f948342d6a9f2ce49b6aa5f362569d72` |
+| Scroll of Geniekind: Efreeti | scroll | 99 | 1,125 | Wizard scrolls | `399510617a0302843a52f8047cde0362` |
+| Scroll of Geniekind: Marid | scroll | 99 | 1,125 | Wizard scrolls | `f8a4958be82e652429be39b885f296fb` |
+| Scroll of Geniekind: Shaitan | scroll | 99 | 1,125 | Wizard scrolls | `bb5dd1a687fd1154bbf9af55764c4fbf` |
 | Scroll of Hold Monster | scroll | 99 | 1,125 | Wizard scrolls | `d8c52df98e5815d4aa9d2bd2b73b88c9` |
 | Scroll of Icy Prison | scroll | 99 | 1,125 | Wizard scrolls | `de05d46f44c8439488a8bbcc0059c09f` |
 | Scroll of Mind Fog | scroll | 99 | 1,125 | Wizard scrolls | `61bacc43652d76c42b60d965b65cd741` |
 | Scroll of Phantasmal Web | scroll | 99 | 1,125 | Wizard scrolls | `4b0dc7926c0ad8d4bae8d7a5f3eed6f8` |
-| Scroll of Polymorph | scroll | 99 | 1,125 | Wizard scrolls | `5e4dcce7e622a8b55ad607c63a7bf290` |
-| Scroll of Shadow Evocation | scroll | 99 | 1,125 | Wizard scrolls | `bd7614e3dcbf1f33a3646a9597305e14` |
+| Scroll of Polymorph (Leopard) | scroll | 99 | 1,125 | Wizard scrolls | `0a6bab77988d8504d91d16a9d545a8d3` |
+| Scroll of Polymorph (Small Air Elemental) | scroll | 99 | 1,125 | Wizard scrolls | `f9f4a67168cdd91419ed3d7705e3cb9e` |
+| Scroll of Polymorph (Small Earth Elemental) | scroll | 99 | 1,125 | Wizard scrolls | `45a63607f1f5c8f4ea6f78aa67812a72` |
+| Scroll of Polymorph (Small Fire Elemental) | scroll | 99 | 1,125 | Wizard scrolls | `8784d751cb39815429d6881e939a153d` |
+| Scroll of Polymorph (Small Water Elemental) | scroll | 99 | 1,125 | Wizard scrolls | `8084d681426991d4580bd7bda7f3823c` |
+| Scroll of Shadow Evocation (Fireball) | scroll | 99 | 1,125 | Wizard scrolls | `02086fbbda266ed4b8e9124abe5abd75` |
+| Scroll of Shadow Evocation (Lightning Bolt) | scroll | 99 | 1,125 | Wizard scrolls | `9ca9c92db551aad47b8da56add25d650` |
+| Scroll of Shadow Evocation (Shout) | scroll | 99 | 1,125 | Wizard scrolls | `be363f46ab29f7b4b85bb3f3185766e0` |
+| Scroll of Shadow Evocation (Volcanic Storm) | scroll | 99 | 1,125 | Wizard scrolls | `9cf0e18880224974cac34e78eeda42d6` |
+| Scroll of Shadow Evocation (Ice Storm) | scroll | 99 | 1,125 | Wizard scrolls | `7e5600c187986f0479dbc3e85250427c` |
 | Scroll of Stoneskin, Communal | scroll | 99 | 1,125 | Wizard scrolls | `0dd764b2234a4d84dadeb45a2deaf9f9` |
-| Scroll of Summon Large Elemental | scroll | 99 | 1,125 | Wizard scrolls | `bffbb8f8ca0d150f775c970dcaee644a` |
-| Scroll of Summon Monster V | scroll | 99 | 1,125 | Wizard scrolls | `0e5ad4837518462afcbdb5ef1cda777c` |
+| Scroll of Summon Large Air Elemental | scroll | 99 | 1,125 | Wizard scrolls | `af031968f37b15840a0fb40a81fab9dc` |
+| Scroll of Summon Large Earth Elemental | scroll | 99 | 1,125 | Wizard scrolls | `138e1b1415aadc64e9c33033896cac57` |
+| Scroll of Summon Large Fire Elemental | scroll | 99 | 1,125 | Wizard scrolls | `efb84fddf5ae79b49a3a84d07a069efa` |
+| Scroll of Summon Large Water Elemental | scroll | 99 | 1,125 | Wizard scrolls | `a955b0fd117643f438063843cbcbf22c` |
+| Scroll of Ankylosaurus | scroll | 99 | 1,125 | Wizard scrolls | `723789737e2c9299a7e6edd420a6229d` |
+| Scroll of Azata, Bralani | scroll | 99 | 1,125 | Wizard scrolls | `d4bf4ee2baa87ee4ddaa969d278aaf6b` |
+| Scroll of Demon, Babau | scroll | 99 | 1,125 | Wizard scrolls | `4a6c43a6d05ed258560fb25d842a98b4` |
+| Scroll of Devil, Bearded (Barbazu) | scroll | 99 | 1,125 | Wizard scrolls | `6c1e4d0f1c33b9d50e36524ca526cf19` |
+| Scroll of Elemental, Air, Large | scroll | 99 | 1,125 | Wizard scrolls | `58e26fe9a8f44ae09ae8428c73f8b397` |
+| Scroll of Elemental, Earth, Large | scroll | 99 | 1,125 | Wizard scrolls | `7fb001168dfa700216c74f0c804aa525` |
+| Scroll of Elemental, Fire, Large | scroll | 99 | 1,125 | Wizard scrolls | `22bf869774a86e706c14bdd95b36672c` |
+| Scroll of Elemental, Water, Large | scroll | 99 | 1,125 | Wizard scrolls | `ba6f0bb100758f8a67c4a37260f5ac5e` |
+| Scroll of Kyton (Chain Devil) | scroll | 99 | 1,125 | Wizard scrolls | `914c3a91341b530e8e6d7bad9c73da5b` |
+| Scroll of Lion, Dire | scroll | 99 | 1,125 | Wizard scrolls | `34926f5dd444ef85cd38c91fed42bda0` |
+| Scroll of Redcap | scroll | 99 | 1,125 | Wizard scrolls | `b3666e0b8d73ff8353e982d257210793` |
+| Scroll of Rhinoceros, Woolly | scroll | 99 | 1,125 | Wizard scrolls | `8d5bf3c074d4a71c603ebdd4971afdca` |
+| Scroll of Salamander | scroll | 99 | 1,125 | Wizard scrolls | `eb40cc58a56b87c9ba47c636da3c83dd` |
+| Scroll of Xill | scroll | 99 | 1,125 | Wizard scrolls | `e5a53f0c3a27a39f368792bb9be81461` |
+| Scroll of Ant, Giant (Drone) (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `6d19fdda82c7ab2084e6e23713f502f4` |
+| Scroll of Ape, Dire (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `3300f74371332691d0c76cb4adf79cf8` |
+| Scroll of Archon, Hound (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `bbd382401110dd3122ffa8860d4586a4` |
+| Scroll of Bear, Grizzly (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `5a92c6bbd557b8ea80859435e314e628` |
+| Scroll of Bison (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `f0181424978c474d5aeeb3ef1919e973` |
+| Scroll of Boar, Dire (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `e43d54f587a1638c199edbdbac36951f` |
+| Scroll of Deinonychus (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `3f8a31b896053e5d50e73cae102399bb` |
+| Scroll of Elemental, Air, Medium (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `adb891b30048d8f4e75cee1f7dced84e` |
+| Scroll of Elemental, Earth, Medium (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `6a24d8f53ed0946d48ec61ad3932792e` |
+| Scroll of Elemental, Fire, Medium (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `40eade1deb79ea2ffcb9868e5b750dec` |
+| Scroll of Elemental, Water, Medium (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `38abef26b0fc6664a56b32e34f05b268` |
+| Scroll of Hell Hound (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `94da03744a66356af65b1d05efa04827` |
+| Scroll of Lion (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `32b5abc4d8f796fe96c6ae004ab830ba` |
+| Scroll of Mephit, Air (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `1bedf54916807c3d155f6a4d6c24dd8b` |
+| Scroll of Mephit, Dust (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `9c2e599d44e452dc0643c8277e5d89eb` |
+| Scroll of Mephit, Earth (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `2da8e6dac459d5b9afbaaede62a02c14` |
+| Scroll of Mephit, Fire (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `98372914a570bdfcbc64b034d6608057` |
+| Scroll of Mephit, Ice (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `28a4b9be78161070789f299b481a612c` |
+| Scroll of Mephit, Magma (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `50fbeadd92e39940a0c7d81234d8ad1c` |
+| Scroll of Mephit, Ooze (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `99dca45b56994866bf33d93f3e29b5ad` |
+| Scroll of Mephit, Salt (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `a74d67b252d8d49a86c4df193134fba9` |
+| Scroll of Mephit, Steam (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `49b96bdf57a40c223a6f4b3f06ab5984` |
+| Scroll of Mephit, Water (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `4f2a6f8b09045236b6a4f1d87cb440c7` |
+| Scroll of Pteranodon (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `4166616401a4bce8aaa5bd55e3d037c2` |
+| Scroll of Rhinoceros (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `8ea7e0ecad9ab840044b8eb27dd71432` |
+| Scroll of Scorpion, Giant (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `87457b7f395b5ff7c03c760948f11dc8` |
+| Scroll of Wasp, Giant (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `b65f9759c56043ddf3bbb8802b6aedbf` |
+| Scroll of Wolf, Dire (1d3) | scroll | 99 | 1,125 | Wizard scrolls | `90cc3a913f91396edd787c83f721f150` |
+| Scroll of Ant, Giant (Soldier) (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `e74862ae991a7c87a25fb3acb91ad3cf` |
+| Scroll of Ant, Giant (Worker) (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `d19a69f684103f3a838d6a9eaa28d18e` |
+| Scroll of Ape (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `d6be8f9557e699a716edf6bbc2d73ee7` |
+| Scroll of Archon, Lantern (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `b234f84b89428ea5894921dd84cc60c0` |
+| Scroll of Aurochs (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `5894a9a32e4e92ab3caa2e7beb9a3c3d` |
+| Scroll of Bat, Dire (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `7ee3f83d988e59c7f7928c2db98387ea` |
+| Scroll of Beetle, Fire (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `0265ba3807fdec8ff929875c4995de10` |
+| Scroll of Boar (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `689dc5c11efaede1087e7aa5f1d39a72` |
+| Scroll of Centipede, Giant (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `c7bb724f38030792e93c0308a4ac2ea0` |
+| Scroll of Cheetah (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `06d1d1eee4172db9dd10e398bbd1244d` |
+| Scroll of Crocodile (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `7d92652f8f013092836f7b58591d66cb` |
+| Scroll of Demon, Dretch (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `c3e08ed7d6c023009560ed921bb8aa69` |
+| Scroll of Devil, Lemure (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `c935e0be2921bb49bd448fa32f6243b5` |
+| Scroll of Dog (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `0654dbee09d945c78db8534db06a1694` |
+| Scroll of Dog, Goblin (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `ea59bd2396d2a9884b639d5bcf853e9a` |
+| Scroll of Eagle (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `68e9f80ed3b9ccfd0cb31d9277fe40b5` |
+| Scroll of Elemental, Air, Small (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `ea099188c8705a7118736caa147b1962` |
+| Scroll of Elemental, Earth, Small (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `0d5d70ca893e18e204670997ce1b1dea` |
+| Scroll of Elemental, Fire, Small (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `8eb77854eacdedf273ea5e53ee62b13f` |
+| Scroll of Elemental, Water, Small (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `b2966774d137ac760c5f11dd30e5bb4a` |
+| Scroll of Frog, Giant (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `f155003394d2a4efe18d58f80107cc53` |
+| Scroll of Frog, Poisonous (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `49d1ff85c3ad8884fac3b2eefd550097` |
+| Scroll of Horse (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `ac09f0a988a8301b442a72c8a1d2889d` |
+| Scroll of Hyena (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `404a1415476fc580e0e0d3ee5cc3be83` |
+| Scroll of Leopard (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `b0230116cd6821711f12053ca376790c` |
+| Scroll of Lizard, Monitor (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `6412fd3ddf5c9bcc1004b2325858e434` |
+| Scroll of Pony (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `060a3e9258d12ff8c1ab5f8a95c0f23a` |
+| Scroll of Rat, Dire (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `7d126a42a9263beaef6311775f98d63e` |
+| Scroll of Snake, Constrictor (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `d738a8620fbaac150a7b0e9301500c21` |
+| Scroll of Spider, Giant (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `603262ec89f58cc9f89abba64d5d57bc` |
+| Scroll of Viper (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `927623a54efdfb09e32b0b0b8088bf81` |
+| Scroll of Wolf (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `e0f94ac8a7194786ec040d8bb66dc3fd` |
+| Scroll of Wolverine (1d4+1) | scroll | 99 | 1,125 | Wizard scrolls | `4a7b6e8ab030c569a70c253a4e195485` |
 | Scroll of Vampiric Shadow Shield | scroll | 99 | 1,125 | Wizard scrolls | `1bcc05d40824dfa46b7f6cb6318b4926` |
 | Scroll of Waves of Fatigue | scroll | 99 | 1,125 | Wizard scrolls | `3baaaa7cb91704342b0314b6f06cdc91` |
 | Scroll of Teleport | scroll | 99 | 1,125 | Wizard scrolls | `4551541688de0b48a47e4890cfe60c9a` |
@@ -736,7 +1342,9 @@ Generated in game by the harness's READ command `stockaudit` (0.10.0, run `wrpla
 | Scroll of Acid Fog | scroll | 99 | 1,650 | Wizard scrolls | `a931181d47d35ae4da06a243906eece2` |
 | Scroll of Banshee Blast | scroll | 99 | 1,650 | Wizard scrolls | `f6073b26d3e1d61418f62928f34b601f` |
 | Scroll of Bear's Endurance, Mass | scroll | 99 | 1,650 | Wizard scrolls | `78631cf6b42590f40b44c79389c6af74` |
-| Scroll of Beast Shape IV | scroll | 99 | 1,650 | Wizard scrolls | `a09737f1304acb932c48fb2b3aab91b1` |
+| Scroll of Beast Shape IV (Shambling Mound) | scroll | 99 | 1,650 | Wizard scrolls | `0a6f44fc0fc4b364db392b2e73b626d1` |
+| Scroll of Beast Shape IV (Smilodon) | scroll | 99 | 1,650 | Wizard scrolls | `c94d8e1d2c6f9c54e946c57139837249` |
+| Scroll of Beast Shape IV (Wyvern) | scroll | 99 | 1,650 | Wizard scrolls | `7ed316e488b68a248ad37c1e312f4e9e` |
 | Scroll of Bull's Strength, Mass | scroll | 99 | 1,650 | Wizard scrolls | `7e6ca8816f50a7f4e9dccc90f958e4f4` |
 | Scroll of Cat's Grace, Mass | scroll | 99 | 1,650 | Wizard scrolls | `e1e455570ca262244a572a3efed337ce` |
 | Scroll of Chain Lightning | scroll | 99 | 1,650 | Wizard scrolls | `141ffc89f1630ff45812f50ed3922088` |
@@ -746,16 +1354,118 @@ Generated in game by the harness's READ command `stockaudit` (0.10.0, run `wrpla
 | Scroll of Dispel Magic, Greater | scroll | 99 | 1,650 | Wizard scrolls | `56975b102c539b544a77e602c7d8d490` |
 | Scroll of Eagle's Splendor, Mass | scroll | 99 | 1,650 | Wizard scrolls | `fe94b92146d7bb44c9983ed6d3080d8a` |
 | Scroll of Elemental Assessor | scroll | 99 | 1,650 | Wizard scrolls | `7dce00472dcde1644b908d4e0eefc078` |
-| Scroll of Elemental Body III | scroll | 99 | 1,650 | Wizard scrolls | `577f66ea0da95598df91a1308dc606db` |
+| Scroll of Elemental Body III (Air) | scroll | 99 | 1,650 | Wizard scrolls | `83906ecaac786d742b902677e169994f` |
+| Scroll of Elemental Body III (Earth) | scroll | 99 | 1,650 | Wizard scrolls | `790ffc21663eee140971a2ae8510223b` |
+| Scroll of Elemental Body III (Fire) | scroll | 99 | 1,650 | Wizard scrolls | `0437d7a2ea4b01542907c4d5fb12c4da` |
+| Scroll of Elemental Body III (Water) | scroll | 99 | 1,650 | Wizard scrolls | `935e1081a3086a34aabbf77d73fe6b01` |
 | Scroll of Eyebite | scroll | 99 | 1,650 | Wizard scrolls | `f80549ec4e61ae64d8051bb3b24cf10e` |
-| Scroll of Dragonkind I | scroll | 99 | 1,650 | Wizard scrolls | `dbb1c74a280bf6915abac5e63189d6b0` |
+| Scroll of Dragonkind I (Black) | scroll | 99 | 1,650 | Wizard scrolls | `d1125725cdfc9b346a4ee179308debac` |
+| Scroll of Dragonkind I (Blue) | scroll | 99 | 1,650 | Wizard scrolls | `41083598f40f9ba4ab01ca529f3cd614` |
+| Scroll of Dragonkind I (Brass) | scroll | 99 | 1,650 | Wizard scrolls | `8dfd59dfc14c55e4cad92445630baf30` |
+| Scroll of Dragonkind I (Red) | scroll | 99 | 1,650 | Wizard scrolls | `96a94e142630d8649b3f8c4ff9e56f40` |
+| Scroll of Dragonkind I (Green) | scroll | 99 | 1,650 | Wizard scrolls | `dc633c7aa7ef05840a5b84a2616c0300` |
+| Scroll of Dragonkind I (Silver) | scroll | 99 | 1,650 | Wizard scrolls | `1d5102760b2f5524d98c38919b32174e` |
+| Scroll of Dragonkind I (White) | scroll | 99 | 1,650 | Wizard scrolls | `25bf6b0fb3258494a8f4bdd44aa05894` |
 | Scroll of Fox's Cunning, Mass | scroll | 99 | 1,650 | Wizard scrolls | `bdfbfdcecfdc3b346a1e6fc37bca8bb7` |
 | Scroll of Hellfire Ray | scroll | 99 | 1,650 | Wizard scrolls | `eca3b7aa601fc1b46a940897cb2142d3` |
 | Scroll of Owl's Wisdom, Mass | scroll | 99 | 1,650 | Wizard scrolls | `2f247d1cb09ca6341bdd01cdcc3c46a9` |
 | Scroll of Phantasmal Putrefaction | scroll | 99 | 1,650 | Wizard scrolls | `cd9e8fa2df821d04ab46c8affaff9470` |
 | Scroll of Sirocco | scroll | 99 | 1,650 | Wizard scrolls | `c17e4bd5028d6534a8c8d317cd8244ca` |
-| Scroll of Summon Huge Elemental | scroll | 99 | 1,650 | Wizard scrolls | `b571be8ddcfe584dd688aaf1959e7eca` |
-| Scroll of Summon Monster VI | scroll | 99 | 1,650 | Wizard scrolls | `39c17f317c071040f53214fe38c89409` |
+| Scroll of Summon Huge Air Elemental | scroll | 99 | 1,650 | Wizard scrolls | `75c6ff4988c20084cbff9e08665e59c4` |
+| Scroll of Summon Huge Earth Elemental | scroll | 99 | 1,650 | Wizard scrolls | `dbc7d92109ede8e43a021bc8f71a4f23` |
+| Scroll of Summon Huge Fire Elemental | scroll | 99 | 1,650 | Wizard scrolls | `e029556a583b8e04682011c8512cc4bf` |
+| Scroll of Summon Huge Water Elemental | scroll | 99 | 1,650 | Wizard scrolls | `09991b9a972e9ef48b5147a147f47bba` |
+| Scroll of Axiomite | scroll | 99 | 1,650 | Wizard scrolls | `a558ba1e03866ea8aed330f537321b86` |
+| Scroll of Azata, Lillend | scroll | 99 | 1,650 | Wizard scrolls | `e635513fff399ddcacdfbf408c7f62f2` |
+| Scroll of Bear, Dire | scroll | 99 | 1,650 | Wizard scrolls | `fc14acc90e8c611918d9786ab28ab8b4` |
+| Scroll of Demon, Shadow | scroll | 99 | 1,650 | Wizard scrolls | `53d17c5d3c3a304d202615abba49527b` |
+| Scroll of Devil, Erinyes | scroll | 99 | 1,650 | Wizard scrolls | `86f9d0c94f2ffe84a5b9e0e1654a6b57` |
+| Scroll of Elemental, Air, Huge | scroll | 99 | 1,650 | Wizard scrolls | `1dfff031ec305965428c2975f8247d32` |
+| Scroll of Elemental, Earth, Huge | scroll | 99 | 1,650 | Wizard scrolls | `02a0d2c120901c4c535c101354f1b062` |
+| Scroll of Elemental, Fire, Huge | scroll | 99 | 1,650 | Wizard scrolls | `c164a88650aaf04a84e33340d4db0850` |
+| Scroll of Elemental, Water, Huge | scroll | 99 | 1,650 | Wizard scrolls | `5a280de8fb44c75a46d4a19d892e61b4` |
+| Scroll of Elephant | scroll | 99 | 1,650 | Wizard scrolls | `b53eacfc258ac24905f1b0fdd58ed651` |
+| Scroll of Invisible Stalker | scroll | 99 | 1,650 | Wizard scrolls | `f62653a85ddfc057efb65df1bbdf94c9` |
+| Scroll of Mastiff, Shadow | scroll | 99 | 1,650 | Wizard scrolls | `ccf0f16d86a4746e373ff4fc75b5e85c` |
+| Scroll of Smilodon | scroll | 99 | 1,650 | Wizard scrolls | `1a7690fbf4455f00c52b6be455203bc5` |
+| Scroll of Soul Eater | scroll | 99 | 1,650 | Wizard scrolls | `2fcb9fea493de8f268a563ca94a90ebe` |
+| Scroll of Succubus | scroll | 99 | 1,650 | Wizard scrolls | `257406c8a00ec9c25fd57fe40e8afb12` |
+| Scroll of Triceratops | scroll | 99 | 1,650 | Wizard scrolls | `f6f88280abf18b24cfff403842194f53` |
+| Scroll of Ankylosaurus (1d3) | scroll | 99 | 1,650 | Wizard scrolls | `f475b9218da9ab1e8bbc8622b39ba8a1` |
+| Scroll of Azata, Bralani (1d3) | scroll | 99 | 1,650 | Wizard scrolls | `97bcab95ff231b83f44cefbf72e572aa` |
+| Scroll of Demon, Babau (1d3) | scroll | 99 | 1,650 | Wizard scrolls | `a7e1d58e7a3d5cc6c45e3f63ef8c900e` |
+| Scroll of Devil, Bearded (Barbazu) (1d3) | scroll | 99 | 1,650 | Wizard scrolls | `882953c168c9825a37832bf8af83f22a` |
+| Scroll of Elemental, Air, Large (1d3) | scroll | 99 | 1,650 | Wizard scrolls | `c4e3b4b532be1a6e1945a118411e7f64` |
+| Scroll of Elemental, Earth, Large (1d3) | scroll | 99 | 1,650 | Wizard scrolls | `56b3a9124a8adfd3009f79273f4c3625` |
+| Scroll of Elemental, Fire, Large (1d3) | scroll | 99 | 1,650 | Wizard scrolls | `fb6db322c332dcfbb6cdd2b49cc9bcb7` |
+| Scroll of Elemental, Water, Large (1d3) | scroll | 99 | 1,650 | Wizard scrolls | `9d72e09c15234df4cc6d48cb1dfd2026` |
+| Scroll of Kyton (Chain Devil) (1d3) | scroll | 99 | 1,650 | Wizard scrolls | `97a028ce33ea2e3f2ffc6c6b70767135` |
+| Scroll of Lion, Dire (1d3) | scroll | 99 | 1,650 | Wizard scrolls | `cccf3bfd40c551abd171ff00c5ace640` |
+| Scroll of Redcap (1d3) | scroll | 99 | 1,650 | Wizard scrolls | `3f78888ad0892f96c414b1f99f77583b` |
+| Scroll of Rhinoceros, Woolly (1d3) | scroll | 99 | 1,650 | Wizard scrolls | `8676decf7ea432a0ed3a541c56c8f940` |
+| Scroll of Salamander (1d3) | scroll | 99 | 1,650 | Wizard scrolls | `a15460f840f3b6c4f03f56c5f4d24806` |
+| Scroll of Xill (1d3) | scroll | 99 | 1,650 | Wizard scrolls | `edde3f1a9114e60564306212c5592075` |
+| Scroll of Ant, Giant (Drone) (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `b16fcac5b0ea713444fe8880ff3d0ea0` |
+| Scroll of Ant, Giant (Soldier) (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `df494fe49f163bcadf01cbcd21cf7d9d` |
+| Scroll of Ant, Giant (Worker) (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `fd3421075ee77ae7f93cdfaa06a249c6` |
+| Scroll of Ape (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `a326024857c3788b1cc8534ad4a20706` |
+| Scroll of Ape, Dire (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `5208efae9c2b68362f555d936b479407` |
+| Scroll of Archon, Hound (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `c9c22e8dea26f7fa157e3508d8b42438` |
+| Scroll of Archon, Lantern (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `13d59a9b13730274943e316949372786` |
+| Scroll of Aurochs (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `cd29058dfd5640ad696824a448ef6e86` |
+| Scroll of Bat, Dire (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `33f16617f490a07ae5bb1e4404cb3eba` |
+| Scroll of Bear, Grizzly (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `b7dfd9b14555f9c844ee74b8b1c6ec1c` |
+| Scroll of Beetle, Fire (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `c7dd467be6b6d1da6e19a90fb5d23d71` |
+| Scroll of Bison (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `926fc751905c32cf2e4aeb3e4a1574c1` |
+| Scroll of Boar (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `f950f6e83943a7987457df0a9595e07b` |
+| Scroll of Boar, Dire (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `fd1381c6e2270fbf532bafd4954224cc` |
+| Scroll of Centipede, Giant (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `4f6762bfec69c3cfd259087a38bfd567` |
+| Scroll of Cheetah (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `3f8b3245be9ba85eb6a804021f36747f` |
+| Scroll of Crocodile (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `4ab84f521abbe47bf703d0f28d82038d` |
+| Scroll of Deinonychus (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `220faade29d0e628693ee77051662d84` |
+| Scroll of Demon, Dretch (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `79fc76231d5d71015f5da62ee98ae6aa` |
+| Scroll of Devil, Lemure (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `3961bb383037a0cf61180937a2e76964` |
+| Scroll of Dog (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `dab2fbb69a7bc99ff8303022e2b7dbf5` |
+| Scroll of Dog, Goblin (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `aed4ac4577151825e50278ae49931223` |
+| Scroll of Eagle (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `8b2cd3ab9c49392c8be417bb8cff3a32` |
+| Scroll of Elemental, Air, Medium (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `38906a2dfe0dc0b5e085de69d98d9e10` |
+| Scroll of Elemental, Air, Small (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `f1e98bd72a33823c2ffce96fa46e1d4a` |
+| Scroll of Elemental, Earth, Medium (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `28f32228864bcd7e6a24a615d55d7112` |
+| Scroll of Elemental, Earth, Small (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `ad1b351b7f55415eac1e7e1f42aaeeac` |
+| Scroll of Elemental, Fire, Medium (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `e9c1271a862a133226f7f4466d268ca0` |
+| Scroll of Elemental, Fire, Small (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `1a1caf80f5ae8f4b0c0bd242f57e3ec0` |
+| Scroll of Elemental, Water, Medium (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `80176674dc27c4a549f2aba67c46b674` |
+| Scroll of Elemental, Water, Small (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `9a1376bae56d07eb938792cce1859607` |
+| Scroll of Frog, Giant (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `f4343d33ae92c1f04d2dc145b76e3df9` |
+| Scroll of Frog, Poisonous (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `ec879ee72e49323996f471224e080422` |
+| Scroll of Hell Hound (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `f3ad21a8521e66f9a8d4cc70ceb254ac` |
+| Scroll of Horse (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `7525a391efa6f3d1b56558ac8a87ebcd` |
+| Scroll of Hyena (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `c06b2cd6e4b5436f114739f68a2df089` |
+| Scroll of Leopard (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `a2eb5a0fb3a555faeb80a04e458c0f1e` |
+| Scroll of Lion (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `86785e854fbe249ac7f49b10c6cbd6e1` |
+| Scroll of Lizard, Monitor (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `f8cf26143f024878d14de2f6feaf7c0e` |
+| Scroll of Mephit, Air (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `b4b9190d728869090d84f087466202c8` |
+| Scroll of Mephit, Dust (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `af4e665820b0abf7526c807090324515` |
+| Scroll of Mephit, Earth (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `eb9a2416827c635e7ab1b771ddaf8b91` |
+| Scroll of Mephit, Fire (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `6b9a3636be5314f7664d8b5cd87ba84a` |
+| Scroll of Mephit, Ice (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `bf466288f9680e4aecf55462e141b711` |
+| Scroll of Mephit, Magma (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `59b60fbf4208a355afaa7f95a0cc7d22` |
+| Scroll of Mephit, Ooze (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `751a4f6cd7387d53b7896c1892009a3b` |
+| Scroll of Mephit, Salt (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `6fd1c6287c2ef100e8073b8408801cc4` |
+| Scroll of Mephit, Steam (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `10872e3346061b377d4950cc20074b07` |
+| Scroll of Mephit, Water (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `63edb33d4f3cb627798f515d0416088a` |
+| Scroll of Pony (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `2186fa7322486f2164cf29195e144346` |
+| Scroll of Pteranodon (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `bbb5f6774d755c70cf378def9f343dc1` |
+| Scroll of Rat, Dire (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `05da8fea43425838da9618996e06ab17` |
+| Scroll of Rhinoceros (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `c959ecd1a5a8b94c6dc8b8337595b11b` |
+| Scroll of Scorpion, Giant (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `c2cd69111d3969cd7b9dbd2b3c16ee65` |
+| Scroll of Snake, Constrictor (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `f3e585ebebd21e48c97eab73f5b9950c` |
+| Scroll of Spider, Giant (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `f30aaf3b75034d84b0c61c0b463a5b56` |
+| Scroll of Viper (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `696d756ef8539b3a41579fb14cac75d8` |
+| Scroll of Wasp, Giant (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `c844ec5c9d26a57bd634c481702869b2` |
+| Scroll of Wolf (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `989178a51f26bf21998f96d4fad42205` |
+| Scroll of Wolf, Dire (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `4d53825f6d006fb9fc117c7d4eeb841f` |
+| Scroll of Wolverine (1d4+1) | scroll | 99 | 1,650 | Wizard scrolls | `af90477431015d71fb8b971dd5295a2e` |
 | Scroll of Tar Pool | scroll | 99 | 1,650 | Wizard scrolls | `d81fa529db47380468c9e8310f8d18ea` |
 | Scroll of Transformation | scroll | 99 | 1,650 | Wizard scrolls | `d7536624e1ab8d8499f6e8d9689940b6` |
 | Scroll of True Seeing | scroll | 99 | 1,650 | Wizard scrolls | `7a05e6eea60a1864d935abd6c281a531` |
