@@ -514,6 +514,25 @@ namespace KingmakerWakingRune.Diagnostics
                     return $"HARNESS-COMMANDED move order: {Member(args[1]).CharacterName} to ({args[2]},{args[3]}).";
                 case "stock":
                     return Stock();
+                case "stockaudit":
+                    return StockAudit.Write(args[1]);
+                case "deep":
+                {
+                    BlueprintScriptableObject bp = ResourcesLibrary.LibraryObject.BlueprintsByAssetId.Values.FirstOrDefault(b => b.name == args[1]);
+                    if (bp == null)
+                    {
+                        return $"no blueprint named {args[1]}";
+                    }
+                    var deep = new StringBuilder($"READ deep {bp.name} ({bp.GetType().Name}, {bp.AssetGuid})\n");
+                    foreach (BlueprintComponent c in bp.ComponentsArray)
+                    {
+                        Deep(deep, c, 1, new System.Collections.Generic.HashSet<object>());
+                    }
+                    return deep.ToString();
+                }
+                case "statuesave":
+                    WardStatues.ForcedSurvival = args[1] == "pass";
+                    return $"SETUP the next Stone to Flesh survival save is forced to {(WardStatues.ForcedSurvival.Value ? "pass" : "fail")} (once; the roll is still made and logged).";
                 case "slots":
                     return Slots(Member(args[1]));
                 case "known":
@@ -962,6 +981,54 @@ namespace KingmakerWakingRune.Diagnostics
                 }
             }
             return sb.ToString();
+        }
+
+        /// <summary>Read only: a component or action and every serialized field beneath it (actions, conditions), as an indented tree.</summary>
+        private static void Deep(StringBuilder sb, object value, int depth, System.Collections.Generic.HashSet<object> seen)
+        {
+            if (value == null || depth > 9 || !seen.Add(value))
+            {
+                return;
+            }
+            string pad = new string(' ', depth * 2);
+            sb.Append(pad).Append('[').Append(value.GetType().Name).Append(']');
+            var nested = new System.Collections.Generic.List<object>();
+            for (Type t = value.GetType(); t != null && t != typeof(object) && t != typeof(UnityEngine.Object) && t != typeof(ScriptableObject); t = t.BaseType)
+            {
+                foreach (System.Reflection.FieldInfo f in t.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly))
+                {
+                    object v = f.GetValue(value);
+                    if (v is Kingmaker.ElementsSystem.ActionList list)
+                    {
+                        sb.Append($" {f.Name}=<{list.Actions?.Length ?? 0} actions>");
+                        nested.AddRange(list.Actions ?? new Kingmaker.ElementsSystem.GameAction[0]);
+                    }
+                    else if (v is Kingmaker.ElementsSystem.ConditionsChecker check)
+                    {
+                        sb.Append($" {f.Name}=<{check.Operation} of {check.Conditions?.Length ?? 0}>");
+                        nested.AddRange(check.Conditions ?? new Kingmaker.ElementsSystem.Condition[0]);
+                    }
+                    else if (v is Kingmaker.ElementsSystem.GameAction || v is Kingmaker.ElementsSystem.Condition)
+                    {
+                        sb.Append($" {f.Name}=<nested>");
+                        nested.Add(v);
+                    }
+                    else if (v is UnityEngine.Object o)
+                    {
+                        sb.Append($" {f.Name}={(o ? o.name : "null")}");
+                    }
+                    else if (v != null && (f.FieldType.IsPrimitive || f.FieldType.IsEnum || v is string || f.FieldType.Namespace?.StartsWith("Kingmaker") == true))
+                    {
+                        string text = v is System.Collections.IEnumerable e && !(v is string) ? "[" + string.Join(",", e.Cast<object>().Select(x => x?.ToString()).ToArray()) + "]" : v.ToString();
+                        sb.Append($" {f.Name}={text}");
+                    }
+                }
+            }
+            sb.Append('\n');
+            foreach (object n in nested)
+            {
+                Deep(sb, n, depth + 1, seen);
+            }
         }
 
         /// <summary>Read only: which native cursor the game is drawing now (screenshots do not capture it), and over what.</summary>

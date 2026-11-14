@@ -28,6 +28,7 @@ namespace KingmakerWakingRune.Diagnostics
 
         private void Update()
         {
+            PlayProbe.Tick();
             if (++m_Frames < PollFrames)
             {
                 return;
