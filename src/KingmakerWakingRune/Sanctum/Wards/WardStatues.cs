@@ -384,6 +384,13 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 case RunnerStep.OpenA2:
                     if (WardRuntime.State.Door.Destroyed || (WardDoor.A2 != null && WardDoor.A2.IsOpen))
                     {
+                        // Passage is open: an unmarked cultist that turned on an intruder while the door held breaks off and
+                        // flees on (its only attacks are the door's; a reporter's own AI is off).
+                        if (runner.Commands.Attack != null)
+                        {
+                            runner.Commands.InterruptAll(c => c is UnitAttack);
+                            Log.Info($"Runner {statue.Id} ({runner.CharacterName}): A2 is passable; it breaks off its attack and flees on.");
+                        }
                         Advance(statue, runner);
                     }
                     else if (WardRuntime.State.Door.Latched && !runner.Descriptor.HasFact(WardBlueprints.SihedronBrand))
