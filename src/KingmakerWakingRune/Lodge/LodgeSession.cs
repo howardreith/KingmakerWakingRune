@@ -128,6 +128,9 @@ namespace KingmakerWakingRune.Lodge
                             return;
                         }
                         break;
+                    case WakingPolicies.CastAction.Report when present == 0 && member.Id == "masked" && DebriefService.HandoverRecorded:
+                        // He took the artifacts and left (DebriefService.ApplyDeparture); his absence is the recorded outcome.
+                        break;
                     case WakingPolicies.CastAction.Report:
                         Log.Error($"Cast member {member.Id} has {present} instances but setup recorded={recorded}; not changed.");
                         break;

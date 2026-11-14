@@ -96,14 +96,7 @@ namespace KingmakerWakingRune.Blueprints
 
         private static Sprite LoadIcon()
         {
-            string path = Path.Combine(Path.Combine(Main.Mod.Path, "Icons"), "RefugeToken.png");
-            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
-            if (!File.Exists(path) || !ImageConversion.LoadImage(texture, File.ReadAllBytes(path)))
-            {
-                Log.Error($"Refuge Token icon missing or unreadable at {path}.");
-                return null;
-            }
-            return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), NativeIconPixelsPerUnit);
+            return PackagedAssets.Sprite("Icons/RefugeToken.png", NativeIconPixelsPerUnit);
         }
     }
 }
