@@ -159,11 +159,11 @@ namespace KingmakerWakingRune.Blueprints
                 .FirstOrDefault();
         }
 
-        /// <summary>A scroll a Wizard can learn from: its copy component (if any) teaches the scroll's own spell.</summary>
+        /// <summary>A scroll a Wizard can learn from: its copy component (if any) teaches the scroll's own spell, or the parent of its variant.</summary>
         private static bool Copyable(BlueprintItemEquipmentUsable scroll)
         {
             CopyScroll copy = scroll.GetComponent<CopyScroll>();
-            return copy == null || copy.CustomSpell == null;
+            return copy == null || copy.CustomSpell == null || copy.CustomSpell == scroll.Ability.Parent;
         }
 
         private static string Origin(BlueprintItem item)
