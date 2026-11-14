@@ -126,7 +126,12 @@ namespace KingmakerWakingRune.Blueprints
                 int missing = line.Value - onShelf.Get(line.Key, 0);
                 if (missing > 0)
                 {
-                    shelf.Add(line.Key, missing);
+                    // New stock is new: a vendor table stacks everything, so fresh copies would otherwise join a used item
+                    // the party sold here (a part-spent wand) and take on its charges. They stand apart instead.
+                    ItemEntity fresh = line.Key.CreateEntity();
+                    fresh.IncrementCount(missing - 1, true);
+                    bool spent = shelf.Items.Any(i => i.Blueprint == line.Key && i.IsSpendCharges && i.Charges != fresh.Charges);
+                    shelf.Add(fresh, noAutoMerge: spent);
                     lines++;
                     added += missing;
                 }
