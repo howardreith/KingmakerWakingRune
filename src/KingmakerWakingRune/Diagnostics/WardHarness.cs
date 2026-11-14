@@ -595,6 +595,14 @@ namespace KingmakerWakingRune.Diagnostics
                     return Cursor();
                 case "spell":
                     return SpellFromBook(Member(args[1]), args[2], args.Skip(3).ToArray());
+                case "departure":
+                {
+                    // READ: the saved departure record (members and number of recorded choices) and the token count.
+                    string payload = Game.Instance.Player.MainCharacter.Value?.Descriptor.Get<KingmakerWakingRune.Sanctum.DepartureRecordPart>()?.Payload;
+                    string members = payload == null ? "none" : string.Join(", ", KingmakerWakingRune.Sanctum.DepartureRecord.Parse(payload).Values.Select(m => $"{Game.Instance.State.Units.All.FirstOrDefault(u => u.UniqueId == m.Unit)?.CharacterName ?? m.Unit} ({m.Entries.Count})").ToArray());
+                    int tokens = Game.Instance.Player.Inventory.Where(i => i.Blueprint.name.Contains("RefugeToken")).Sum(i => i.Count);
+                    return $"Departure record: {(payload == null ? "none" : payload.Split('|')[0])}; members: {members}; tokens in inventory: {tokens}.";
+                }
                 case "token":
                     // The Refuge Token ability's own callback, for when the action bar cannot be clicked.
                     KingmakerWakingRune.Sanctum.RefugeTransit.Request();
@@ -622,7 +630,11 @@ namespace KingmakerWakingRune.Diagnostics
                 case "answer":
                     return AnswerBox(args[1] == "yes");
                 case "memorize":
-                    return Memorize(Member(args[1]), args[2], int.Parse(args[3]));
+                    return Memorize(Member(args[1]), args[2], int.Parse(args[3]), args.Length > 4 && args[4] == "pending");
+                case "xp":
+                    // SETUP: experience granted to a member (the level-up itself is then the player's, through the native screen).
+                    Member(args[1]).Descriptor.Progression.GainExperience(int.Parse(args[2]));
+                    return $"SETUP {args[2]} experience granted to {Member(args[1]).CharacterName}: now {Member(args[1]).Descriptor.Progression.Experience} (level {Member(args[1]).Descriptor.Progression.CharacterLevel}).";
                 case "cantarget":
                     return CanTarget(Member(args[1]), args[2], args[3]);
                 case "screen":
@@ -1360,7 +1372,7 @@ namespace KingmakerWakingRune.Diagnostics
         }
 
         /// <summary>Prepares a known spell into an empty slot of its level, as dragging it into the spellbook would.</summary>
-        private static string Memorize(UnitEntityData unit, string name, int level)
+        private static string Memorize(UnitEntityData unit, string name, int level, bool pending = false)
         {
             foreach (Spellbook book in unit.Descriptor.Spellbooks.Where(b => !b.Blueprint.Spontaneous))
             {
@@ -1370,7 +1382,8 @@ namespace KingmakerWakingRune.Diagnostics
                     continue;
                 }
                 // An empty slot if there is one, else each slot in turn is overwritten until the native rules accept one
-                // (SETUP only); the prepared slots are then marked ready, as the next rest would.
+                // (SETUP only); the prepared slots are then marked ready, as the next rest would. "pending" leaves them as the
+                // spellbook screen does, chosen but not ready until a rest (HARNESS-COMMANDED, the native Memorize call).
                 foreach (SpellSlot slot in book.GetMemorizedSpellSlots(level).OrderBy(s => s.Spell == null ? 0 : 1).ToList())
                 {
                     if (slot.Spell != null)
@@ -1379,6 +1392,10 @@ namespace KingmakerWakingRune.Diagnostics
                     }
                     if (book.Memorize(spell, slot))
                     {
+                        if (pending)
+                        {
+                            return $"HARNESS-COMMANDED memorize {name} at level {level} for {unit.CharacterName}: chosen, not ready until a rest.";
+                        }
                         foreach (SpellSlot linked in slot.LinkedSlots ?? new[] { slot })
                         {
                             linked.Available = true;

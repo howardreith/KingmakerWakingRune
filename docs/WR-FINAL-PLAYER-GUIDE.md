@@ -8,7 +8,8 @@ Pathfinder: Kingmaker 2.1.7 with Unity Mod Manager. Extract the zip into `<Kingm
 UMM installer) and enable it; Ctrl+F10 in game shows the version. No other mods are needed. The portraits are inside
 the mod's DLL, so nothing else needs copying. Optional: with Mr. Bard's Tabletop Rules Expansion (KingmakerGunslinger)
 enabled, the Quartermaster also sells its firearms (Reliable ones included), loading supplies, eastern weapons and
-branched spears. A save in which you bought one of its items needs that mod too.
+branched spears. **Once you open the Quartermaster's shop with that mod enabled, that save refers to its items (even
+if you buy nothing) and should not be loaded without it.**
 
 ## Starting
 Main Menu → **New Game** → **The Waking Rune** → difficulty → create your hero (or take a pregen). You begin in the
@@ -58,7 +59,9 @@ party quickly.
 - **The token, the pedestal and other special objects** use the game's own interactions: right-click an item in the
   inventory for Use; click an object in the world to examine or use it.
 - **Leaving for the sanctum** takes one use of the token: prepare (choose spells, cast protections, drink potions),
-  then break it. The readiness happens once per departure.
+  then break it. The readiness happens once per departure: if the departure is retried (after a failed transfer, or
+  by loading the save made just before leaving), only what changed since is readied: a new companion, a slot
+  prepared with a different spell, or what a level-up added.
 - **Runes:** while a qualifying hold works on a rune you see "The rune's motion falters. Keep it bound."; when a rune
   is disabled it flares, goes dark with a sound, and the log says so. A disabled plate shows "(disabled)" when you
   point at it, pale ash lies around it, and examining it starts with its state.
