@@ -395,7 +395,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                             runner.Commands.Run(UnitAttack.CreateAttackCommand(runner, nearest));
                         }
                     }
-                    else if (runner.Commands.Empty && MayOrder(statue, runner, now))
+                    else if (runner.Commands.Empty && MayOrder(statue, runner, now, door: true))
                     {
                         // The cultist's own brand, through the real door interaction at arm's length. The leg ends only when
                         // the door is seen open (above), never on the request itself.
@@ -408,7 +408,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                     {
                         Advance(statue, runner);
                     }
-                    else if (runner.Commands.Empty && MayOrder(statue, runner, now))
+                    else if (runner.Commands.Empty && MayOrder(statue, runner, now, door: true))
                     {
                         // Opens it only while it is still closed; the leg ends when the door is seen open.
                         KwrFixtureCommand.Issue(runner, KwrFixtureCommand.AtPoint(east.transform.position, east.ProximityRadius, "open the east door", false, u => !east.IsOpen, u => east.Toggle(u)));
@@ -440,14 +440,30 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         private static readonly System.Collections.Generic.Dictionary<string, double> s_LastOrderAt = new System.Collections.Generic.Dictionary<string, double>();
 
+        private static readonly System.Collections.Generic.Dictionary<string, object> s_DoorTurn = new System.Collections.Generic.Dictionary<string, object>();
+
         /// <summary>
         /// Whether the runner may be given a new order now. In real time, one order per second of game time at most (game time
         /// stands still while paused); in turn-based combat its own turn paces it, and a failed action ends that turn instead.
         /// </summary>
-        private static bool MayOrder(StatueState statue, UnitEntityData runner, double now)
+        private static bool MayOrder(StatueState statue, UnitEntityData runner, double now, bool door = false)
         {
             if (TurnBased.Controllers.CombatController.IsInTurnBasedCombat())
             {
+                if (!door)
+                {
+                    return true;
+                }
+                // One door action per turn: if it could not be made (no action left this turn), the turn ends instead of
+                // the action being ordered again on every tick.
+                TurnBased.Controllers.TurnController turn = Game.Instance.TurnBasedCombatController.CurrentTurn;
+                if (s_DoorTurn.TryGetValue(statue.Id, out object ordered) && ReferenceEquals(ordered, turn))
+                {
+                    Log.Info($"Runner {runner.CharacterName} could not make its door action this turn; its turn ends.");
+                    turn?.ForceToEnd();
+                    return false;
+                }
+                s_DoorTurn[statue.Id] = turn;
                 return true;
             }
             if (s_LastOrderAt.TryGetValue(statue.Id, out double last) && now >= last && now - last < RetrySeconds)

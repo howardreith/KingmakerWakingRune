@@ -530,6 +530,48 @@ namespace KingmakerWakingRune.Diagnostics
                     }
                     return deep.ToString();
                 }
+                case "addknown":
+                {
+                    // SETUP: a spell added to a member's spellbook at the given level (as copying its scroll would).
+                    UnitEntityData member = Member(args[1]);
+                    BlueprintAbility spell = ResourcesLibrary.GetBlueprints<BlueprintAbility>().FirstOrDefault(a => a.name == args[2]);
+                    Spellbook book = member.Descriptor.Spellbooks.FirstOrDefault(b => !b.Blueprint.Spontaneous);
+                    if (spell == null || book == null)
+                    {
+                        return $"no spell {args[2]} or no prepared spellbook";
+                    }
+                    book.AddKnown(int.Parse(args[3]), spell);
+                    return $"SETUP {member.CharacterName} knows {spell.name} at level {args[3]}.";
+                }
+                case "rodon":
+                {
+                    // HARNESS-COMMANDED: a carried rod into a free quick slot, and its native metamagic toggle switched on.
+                    UnitEntityData member = Member(args[1]);
+                    Kingmaker.Items.ItemEntity rod = Game.Instance.Player.Inventory.FirstOrDefault(i => i.Blueprint.name == args[2]);
+                    var slot = member.Body.QuickSlots.FirstOrDefault(s => !s.HasItem && s.CanInsertItem(rod));
+                    if (rod == null || slot == null)
+                    {
+                        return $"no {args[2]} carried or no free quick slot";
+                    }
+                    slot.InsertItem(rod);
+                    var toggle = member.Descriptor.ActivatableAbilities.Enumerable.FirstOrDefault(a => a.Blueprint == ((Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipment)rod.Blueprint).ActivatableAbility);
+                    if (toggle == null)
+                    {
+                        return $"HARNESS-COMMANDED {rod.Name} in a quick slot, but no toggle was granted";
+                    }
+                    toggle.IsOn = true;
+                    return $"HARNESS-COMMANDED {member.CharacterName} readies {rod.Name}: toggle {toggle.Blueprint.name} on={toggle.IsOn}, charges {rod.Charges}.";
+                }
+                case "entity":
+                {
+                    // Read only: a unit by id prefix among all units the state holds, in game or not.
+                    var found = Game.Instance.State.Units.All.Where(u => u.UniqueId.StartsWith(args[1], StringComparison.Ordinal)).ToList();
+                    if (found.Count == 0)
+                    {
+                        return $"READ entity {args[1]}: not held by the state at all";
+                    }
+                    return string.Join("\n", found.Select(u => $"READ entity {u.UniqueId} '{u.CharacterName}' inGame={u.IsInGame} dead={u.Descriptor.State.IsDead} view={(u.View != null)} viewActive={(u.View != null && u.View.gameObject.activeInHierarchy)} pos=({u.Position.x:0.0},{u.Position.y:0.0},{u.Position.z:0.0}) faction={u.Descriptor.Faction?.name} brain={u.IsBrainActive} commands=[{string.Join(",", u.Commands.Raw.Where(c => c != null).Select(c => c.GetType().Name).ToArray())}] part={(u.Get<WardRestoredPart>() != null)}").ToArray());
+                }
                 case "statuesave":
                     WardStatues.ForcedSurvival = args[1] == "pass";
                     return $"SETUP the next Stone to Flesh survival save is forced to {(WardStatues.ForcedSurvival.Value ? "pass" : "fail")} (once; the roll is still made and logged).";
@@ -1323,11 +1365,26 @@ namespace KingmakerWakingRune.Diagnostics
             foreach (Spellbook book in unit.Descriptor.Spellbooks.Where(b => !b.Blueprint.Spontaneous))
             {
                 AbilityData spell = book.GetKnownSpells(level).FirstOrDefault(s => s.Blueprint.name == name);
-                SpellSlot empty = book.GetMemorizedSpellSlots(level).FirstOrDefault(s => s.Spell == null);
-                if (spell != null && empty != null)
+                if (spell == null)
                 {
-                    bool done = book.Memorize(spell, empty);
-                    return $"SETUP memorize {name} at level {level} for {unit.CharacterName}: {done}; ready now={empty.Available}.";
+                    continue;
+                }
+                // An empty slot if there is one, else each slot in turn is overwritten until the native rules accept one
+                // (SETUP only); the prepared slots are then marked ready, as the next rest would.
+                foreach (SpellSlot slot in book.GetMemorizedSpellSlots(level).OrderBy(s => s.Spell == null ? 0 : 1).ToList())
+                {
+                    if (slot.Spell != null)
+                    {
+                        book.ForgetMemorized(slot);
+                    }
+                    if (book.Memorize(spell, slot))
+                    {
+                        foreach (SpellSlot linked in slot.LinkedSlots ?? new[] { slot })
+                        {
+                            linked.Available = true;
+                        }
+                        return $"SETUP memorize {name} at level {level} for {unit.CharacterName}: prepared and ready.";
+                    }
                 }
             }
             return $"{unit.CharacterName} cannot prepare {name} at level {level} into an empty slot";

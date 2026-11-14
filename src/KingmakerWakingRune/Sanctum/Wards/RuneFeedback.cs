@@ -61,7 +61,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
             string wanted = disabled ? (Identified(focus) ? $"Rune of {focus.Kind} (disabled)" : PlateName + " (disabled)") : string.Empty;
             if (proxy.Descriptor.CustomName != wanted)
             {
+                // The native rename (ChangeUnitName): the overtip and hover name listen for this event.
                 proxy.Descriptor.CustomName = wanted;
+                EventBus.RaiseEvent(delegate(IUnitNameHandler h) { h.OnUnitNameChanged(proxy); });
             }
         }
 
