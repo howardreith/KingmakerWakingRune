@@ -595,6 +595,21 @@ namespace KingmakerWakingRune.Diagnostics
                     return Cursor();
                 case "spell":
                     return SpellFromBook(Member(args[1]), args[2], args.Skip(3).ToArray());
+                case "cmd":
+                {
+                    // READ: why a unit's queued command has or has not started (the native start conditions), and its view.
+                    string missing = Resolve(args[1], out UnitEntityData unit);
+                    if (missing != null)
+                    {
+                        return missing;
+                    }
+                    var sb = new StringBuilder($"READ commands of {unit.CharacterName}: handsBusy={unit.AreHandsBusyWithAnimation} canAct={unit.Descriptor.State.CanAct} moving={unit.View?.IsMoving()} inCombat={unit.IsInCombat} visible={unit.IsVisibleForPlayer} inFog={unit.IsInFogOfWar} animator={(unit.View?.Animator == null ? "none" : unit.View.Animator.enabled + "/" + unit.View.Animator.cullingMode + "/visible=" + unit.View.Animator.isActiveAndEnabled)} rendererVisible={unit.View?.GetComponentsInChildren<Renderer>().Any(r => r.isVisible)}\n");
+                    foreach (Kingmaker.UnitLogic.Commands.Base.UnitCommand c in unit.Commands.Raw.Where(c => c != null))
+                    {
+                        sb.AppendLine($"  {c.GetType().Name} started={c.IsStarted} acted={c.IsActed} result={c.Result} running={c.IsRunning} close={c.IsUnitEnoughClose} shouldApproach={c.ShouldUnitApproach} moveUnit={c.IsMoveUnit} finishedApproaching={c.FinishedApproaching} canStart={c.CanStart} t={c.TimeSinceStart:0.0} anim={(c.Animation == null ? "none" : c.Animation.IsActed + "/" + c.Animation.IsFinished)} approach={c.ApproachPoint} radius={c.ApproachRadius} at={unit.Position} dist={Vector3.Distance(c.ApproachPoint, unit.Position):0.00}");
+                    }
+                    return sb.ToString();
+                }
                 case "departure":
                 {
                     // READ: the saved departure record (members and number of recorded choices) and the token count.

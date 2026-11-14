@@ -48,6 +48,13 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         public override bool ShouldBeInterrupted => m_OutOfCombatOnly && Executor.IsInCombat;
 
+        /// <summary>
+        /// An unseen actor's hands guard (a weapon being drawn or put away) can stay set until it is seen again, and the native
+        /// controller starts no command that waits for hands: a fleeing cultist out of sight stood at a closed door
+        /// indefinitely (WR-PLAYTEST-01 review). Out of sight, the action does not wait for the hands; in sight it does.
+        /// </summary>
+        public override bool DontWaitForHands => !Executor.IsVisibleForPlayer;
+
         protected override void TriggerAnimation()
         {
             base.TriggerAnimation();
