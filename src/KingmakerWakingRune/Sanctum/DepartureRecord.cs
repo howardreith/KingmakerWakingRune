@@ -68,7 +68,8 @@ namespace KingmakerWakingRune.Sanctum
     /// a failed transfer, or a reload of the checkpoint written before leaving, reconciles against it: an unchanged
     /// expedition departs as it stands (nothing is refreshed twice, so spells cast since stay spent); a member who was not
     /// readied is readied in full; a slot whose spell was changed, a slot a level-up added, and spontaneous spells a level-up
-    /// added are made ready, and nothing else. Any other payload is the earlier flow's selections record, dropped without
+    /// added are made ready, as is a slot prepared again since (even with the same spell, which the native preparation leaves
+    /// unready until a rest), and nothing else. Any other payload is the earlier flow's selections record, dropped without
     /// reopening its dialogues. Pure, so the decisions are unit-tested.
     /// </summary>
     internal static class DepartureRecord
@@ -123,7 +124,8 @@ namespace KingmakerWakingRune.Sanctum
             return members;
         }
 
-        public static List<DepartureAction> Reconcile(Dictionary<string, DepartureSnapshot> readied, IEnumerable<DepartureSnapshot> current)
+        /// <summary>What to ready now; <paramref name="preparedSince"/> lists slots the player prepared after the record was written.</summary>
+        public static List<DepartureAction> Reconcile(Dictionary<string, DepartureSnapshot> readied, IEnumerable<DepartureSnapshot> current, ICollection<string> preparedSince = null)
         {
             var actions = new List<DepartureAction>();
             foreach (DepartureSnapshot member in current)
@@ -140,7 +142,7 @@ namespace KingmakerWakingRune.Sanctum
                     before.Entries.TryGetValue(entry.Key, out string was);
                     if (entry.Key.StartsWith("s:", StringComparison.Ordinal))
                     {
-                        if (entry.Value.Length > 0 && entry.Value != was)
+                        if (entry.Value.Length > 0 && (entry.Value != was || (preparedSince != null && preparedSince.Contains(entry.Key))))
                         {
                             action.Slots.Add(entry.Key);
                         }

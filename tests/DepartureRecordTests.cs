@@ -64,6 +64,14 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(0, Changes(payload, Wizard(""), Sorcerer(5)).Count, "a slot emptied is not readied");
         }
 
+        public static void TestSlotPreparedAgainIsReadied()
+        {
+            string payload = DepartureRecord.Ready(100, new[] { Wizard(Fly) });
+            var prepared = new List<string> { DepartureSnapshot.SlotKey(Book, 3, 0, 1) };
+            List<DepartureAction> changes = DepartureRecord.Reconcile(DepartureRecord.Parse(payload), new[] { Wizard(Fly) }, prepared).Where(a => !a.Nothing).ToList();
+            Assert.Equal(DepartureSnapshot.SlotKey(Book, 3, 0, 1), changes.Single().Slots.Single(), "the same spell prepared again is readied");
+        }
+
         public static void TestNewRecruitIsReadied()
         {
             string payload = DepartureRecord.Ready(100, new[] { Wizard(Fly) });

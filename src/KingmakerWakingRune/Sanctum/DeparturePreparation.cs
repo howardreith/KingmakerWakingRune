@@ -25,6 +25,10 @@ namespace KingmakerWakingRune.Sanctum
     {
         [JsonProperty]
         public string Payload;
+
+        /// <summary>Slots prepared since the record was written (see <see cref="DeparturePreparation.NotePrepared"/>).</summary>
+        [JsonProperty]
+        public List<string> Prepared = new List<string>();
     }
 
     /// <summary>
@@ -51,6 +55,42 @@ namespace KingmakerWakingRune.Sanctum
 
         /// <summary>Synchronous: nothing waits between the token's use and the transfer's own stages.</summary>
         public bool InProgress => false;
+
+        /// <summary>Whether this save holds a readied departure (a retry or a reload of the checkpoint can follow).</summary>
+        public static bool Recorded => DepartureRecord.Classify(Game.Instance.Player.MainCharacter.Value?.Descriptor.Get<DepartureRecordPart>()?.Payload) == DepartureReadiness.Reconcile;
+
+        /// <summary>Every slot of a prepared book.</summary>
+        public static IEnumerable<SpellSlot> SlotsOf(Spellbook book)
+        {
+            return book.Blueprint.Spontaneous ? Enumerable.Empty<SpellSlot>() : Enumerable.Range(1, book.MaxSpellLevel).SelectMany(book.GetMemorizedSpellSlots).ToList();
+        }
+
+        /// <summary>
+        /// Slots the player prepared after the readiness was recorded; the next use of the token readies them, even when a
+        /// slot holds the same spell it held before (the native preparation leaves it unready until a rest).
+        /// </summary>
+        public static void NotePrepared(Spellbook book, IEnumerable<SpellSlot> slots)
+        {
+            DepartureRecordPart record = Game.Instance.Player.MainCharacter.Value?.Descriptor.Get<DepartureRecordPart>();
+            if (record == null)
+            {
+                return;
+            }
+            foreach (SpellSlot slot in slots)
+            {
+                string key = SlotKey(book, slot);
+                if (!record.Prepared.Contains(key))
+                {
+                    record.Prepared.Add(key);
+                    Log.Info($"Departure: {book.Owner.CharacterName} prepared {slot.Spell?.Name} after the readiness ({key}); the next use of the token readies it.");
+                }
+            }
+        }
+
+        private static string SlotKey(Spellbook book, SpellSlot slot)
+        {
+            return DepartureSnapshot.SlotKey(book.Blueprint.AssetGuid, slot.SpellLevel, (int)slot.Type, slot.Index);
+        }
 
         public static void Forget(string reason)
         {
@@ -127,7 +167,8 @@ namespace KingmakerWakingRune.Sanctum
         private static void Reconcile(UnitEntityData main, string payload)
         {
             List<UnitEntityData> members = Members();
-            List<DepartureAction> actions = DepartureRecord.Reconcile(DepartureRecord.Parse(payload), members.Select(Snapshot)).Where(a => !a.Nothing).ToList();
+            List<string> prepared = main.Descriptor.Get<DepartureRecordPart>().Prepared ?? new List<string>();
+            List<DepartureAction> actions = DepartureRecord.Reconcile(DepartureRecord.Parse(payload), members.Select(Snapshot), prepared).Where(a => !a.Nothing).ToList();
             if (actions.Count == 0)
             {
                 Log.Info($"Departure: this expedition was already readied and is unchanged ({payload.Split('|')[0]}); departing as it stands: {string.Join("; ", members.Select(Readiness).ToArray())}.");
@@ -195,7 +236,9 @@ namespace KingmakerWakingRune.Sanctum
         {
             if (main != null)
             {
-                main.Descriptor.Ensure<DepartureRecordPart>().Payload = DepartureRecord.Ready(Game.Instance.TimeController.GameTime.TotalSeconds, members.Select(Snapshot));
+                DepartureRecordPart record = main.Descriptor.Ensure<DepartureRecordPart>();
+                record.Payload = DepartureRecord.Ready(Game.Instance.TimeController.GameTime.TotalSeconds, members.Select(Snapshot));
+                record.Prepared = new List<string>();
             }
         }
 
@@ -207,7 +250,11 @@ namespace KingmakerWakingRune.Sanctum
                 Log.Info($"Departure: empty prepared slots, left empty: {string.Join("; ", empty.ToArray())}.");
                 line += " Unfilled prepared slots: " + string.Join("; ", empty.ToArray()) + ".";
             }
-            Game.Instance.UI.BattleLogManager?.HandleOnDialogHistory(line);
+            if (line != warning)
+            {
+                // The warning notice is also written to the log; a longer line adds its details.
+                Game.Instance.UI.BattleLogManager?.HandleOnDialogHistory(line);
+            }
             EventBus.RaiseEvent(delegate(IWarningNotificationUIHandler h) { h.HandleWarning(warning); });
         }
 
@@ -222,7 +269,7 @@ namespace KingmakerWakingRune.Sanctum
                 {
                     foreach (SpellSlot slot in book.GetMemorizedSpellSlots(level))
                     {
-                        slots[DepartureSnapshot.SlotKey(book.Blueprint.AssetGuid, level, (int)slot.Type, slot.Index)] = slot;
+                        slots[SlotKey(book, slot)] = slot;
                     }
                 }
             }
