@@ -331,7 +331,13 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
             SanctumState state = WardRuntime.State;
             string body = BearerManifest.IsBearer(id) ? WardText.BodyLine(id, state.Statue(id).Outcome, WardStatues.BodyIsCorpse(id), state.Credentials.HandsRecovered.Contains(id)) : null;
-            var text = new System.Text.StringBuilder(body ?? def.Observe);
+            var text = new System.Text.StringBuilder();
+            if (KruneProjection.Foci.Any(f => f.Id == id) && state.Focus(id).Disabled)
+            {
+                // The current state comes first and is authoritative; seeing that the magic has stopped needs no roll.
+                text.Append(RuneFeedback.DisabledStatus(KruneProjection.Focus(id), RuneIdentified(id, state))).Append("\n\n");
+            }
+            text.Append(body ?? def.Observe);
             AppendStatus(text, id, state);
             foreach (InspectCheck check in def.Checks)
             {
@@ -355,6 +361,13 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
             WardDialogs.TextKey(id, text.ToString());
             LocalizedText.InjectInto(Kingmaker.Localization.LocalizationManager.CurrentPack);
+        }
+
+        /// <summary>Whether the party has already identified this plate's rune (its first study tier), from saved knowledge.</summary>
+        public static bool RuneIdentified(string id, SanctumState state)
+        {
+            InspectDef def = WardText.Find(id);
+            return def != null && def.Checks.Where(IsRuneCheck).Any(c => InspectionRules.RuneTier(InspectionRules.BestResult(state.Knowledge, c.Key)) >= 1);
         }
 
         private static bool IsRuneCheck(InspectCheck check)
