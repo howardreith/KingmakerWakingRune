@@ -46,6 +46,9 @@ namespace KingmakerWakingRune.Blueprints
 
         public static readonly Dictionary<BlueprintItem, string> Sources = new Dictionary<BlueprintItem, string>();
 
+        /// <summary>The Quartermaster's shelf as the shop last opened it (see <see cref="Patches.QuartermasterMergePatch"/>).</summary>
+        public static ItemsCollection Shelf;
+
         private static readonly List<KeyValuePair<BlueprintItem, int>> s_Base = new List<KeyValuePair<BlueprintItem, int>>();
         private static bool s_Assembled;
 
@@ -115,6 +118,7 @@ namespace KingmakerWakingRune.Blueprints
         {
             EnsureAssembled();
             ItemsCollection shelf = Game.Instance.Player.SharedVendorTables.GetTable(Table);
+            Shelf = shelf;
             if (shelf == null)
             {
                 return;
@@ -126,12 +130,8 @@ namespace KingmakerWakingRune.Blueprints
                 int missing = line.Value - onShelf.Get(line.Key, 0);
                 if (missing > 0)
                 {
-                    // New stock is new: a vendor table stacks everything, so fresh copies would otherwise join a used item
-                    // the party sold here (a part-spent wand) and take on its charges. They stand apart instead.
-                    ItemEntity fresh = line.Key.CreateEntity();
-                    fresh.IncrementCount(missing - 1, true);
-                    bool spent = shelf.Items.Any(i => i.Blueprint == line.Key && i.IsSpendCharges && i.Charges != fresh.Charges);
-                    shelf.Add(fresh, noAutoMerge: spent);
+                    // New stock never joins a part-spent item the party sold here (Patches.QuartermasterMergePatch).
+                    shelf.Add(line.Key, missing);
                     lines++;
                     added += missing;
                 }
