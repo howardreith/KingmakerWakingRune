@@ -37,7 +37,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
         private static void HandleDamage(RuleDealDamage evt)
         {
             string fixtureId = WardFixtures.IdOf(evt.Target);
-            if (fixtureId == WardText.DoorId || fixtureId == WardText.GemId)
+            if (fixtureId == WardText.DoorId || fixtureId == WardText.GemId || Krune.KruneWalls.IsWall(fixtureId))
             {
                 HandleBreakable(evt, fixtureId);
                 return;
@@ -182,15 +182,33 @@ namespace KingmakerWakingRune.Sanctum.Wards
             int total = evt.ResultDamage.Where(v => !v.Source.Immune && v.FinalValue > 0).Sum(v => ObjectShare(v.Source, v.FinalValue));
             evt.Target.Damage = 0;
             bool bypass = evt.ResultDamage.Any(v => v.Source is PhysicalDamage physical && HasAdamantine(physical));
+            // Disintegrate against an object: an unmade save disintegrates it outright; a made save is ordinary damage.
+            var context = evt.Reason?.Context;
+            bool disintegrated = WardObjects.IsDisintegrate(context) && ObjectRules.Disintegrate(context.SavingThrow?.IsPassed ?? false) == DisintegrateOutcome.Disintegrated;
+            if (Krune.KruneWalls.IsWall(fixtureId))
+            {
+                Krune.KruneWalls.TakeHit(fixtureId, Attacker(evt), total, disintegrated);
+                return;
+            }
             if (fixtureId == WardText.DoorId)
             {
                 var weapon = evt.DamageBundle.Weapon;
+                if (disintegrated)
+                {
+                    WardDoor.Disintegrate(Attacker(evt));
+                    return;
+                }
                 WardDoor.TakeHit(Attacker(evt), total, weapon != null && weapon.Blueprint.IsMelee, bypass);
             }
-            else
+            else if (!WardRuntime.State.Gem.Destroyed)
             {
                 // Striking the soul gem is an attack on the rite: its guardians answer (WR-06). Destruction stays immediate.
                 Lashmistress.LashmistressEncounter.EmeraldStruck(Attacker(evt));
+                if (disintegrated)
+                {
+                    WardGem.Disintegrate(Attacker(evt));
+                    return;
+                }
                 WardGem.TakeHit(total, bypass);
             }
         }

@@ -52,6 +52,8 @@ namespace KingmakerWakingRune.Lodge
             {
                 Log.Error("Lodge setup failed.", ex);
             }
+            // After the lodge's own setup: a party arriving through the sanctum's portal is committed here, once.
+            Sanctum.PortalTransit.OnLodgeLoaded();
         }
 
         private static void Apply()

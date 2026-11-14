@@ -21,6 +21,10 @@ namespace KingmakerWakingRune.Sanctum
         private static Transform s_Root;
         private static SceneryMesh s_Mesh;
         private static SanctumPalette s_Palette;
+
+        public static SanctumPalette Palette => s_Palette;
+
+        public static Transform Root => s_Root;
         private static StatueBuilder s_Statues;
         public const string FlailObjectName = "KWR_FlailScenery";
         private const string BrokenRunePrefix = "KWR_RuneBroken_";
@@ -31,6 +35,8 @@ namespace KingmakerWakingRune.Sanctum
         /// <summary>The emerald's two states on the altar, each its own object so the saved state can show one or the other.</summary>
         public static GameObject[] EmeraldIntact = new GameObject[0];
         public static GameObject[] EmeraldBroken = new GameObject[0];
+        public static GameObject[] Sarcophagus = new GameObject[0];
+        public static GameObject[] SarcophagusRubble = new GameObject[0];
 
         /// <summary>Each statue's floor position this build, where its target proxy stands.</summary>
         public static readonly Dictionary<string, Vector3> StatueFeet = new Dictionary<string, Vector3>();
@@ -57,6 +63,8 @@ namespace KingmakerWakingRune.Sanctum
             BrokenRunes.Clear();
             EmeraldIntact = new GameObject[0];
             EmeraldBroken = new GameObject[0];
+            Sarcophagus = new GameObject[0];
+            SarcophagusRubble = new GameObject[0];
             StatueFigures.Clear();
             StatuePalms.Clear();
             PalmMarks.Clear();
@@ -74,8 +82,15 @@ namespace KingmakerWakingRune.Sanctum
                 BuildRuneFixture(plate);
             }
             BuildAtrium();
-            BuildInnerSanctum();
             s_Mesh.Instantiate(s_Root, "Scenery");
+            // The hanging sarcophagus, its chains and anchor piers are their own object so Krune's death can crumble them
+            // (WR-FINAL); the rubble that replaces them is built hidden alongside.
+            s_Mesh = new SceneryMesh();
+            BuildInnerSanctum();
+            Sarcophagus = Instantiate(s_Mesh, "KWR_Sarcophagus", true);
+            s_Mesh = new SceneryMesh();
+            BuildRubble();
+            SarcophagusRubble = Instantiate(s_Mesh, "KWR_SarcophagusRubble", false);
             s_Statues.Finish();
             Log.Info($"Sanctum dressing built in {timer.ElapsedMilliseconds} ms, statues included.");
         }
@@ -412,6 +427,27 @@ namespace KingmakerWakingRune.Sanctum
             {
                 float angle = i * 137.5f * Mathf.Deg2Rad, r = 0.06f + 0.022f * i;
                 s_Mesh.Box(s_Palette.Crystal, p + new Vector3(Mathf.Cos(angle) * r, height + 0.04f, Mathf.Sin(angle) * r), new Vector3(0.05f, 0.13f, 0.05f), Quaternion.Euler(20f + i * 11f, i * 47f, 15f));
+            }
+        }
+
+        /// <summary>A low heap of broken stone and chain links where the sarcophagus hung; it covers only the coffin's own shadow.</summary>
+        private static void BuildRubble()
+        {
+            GridPoint centre = SanctumPlan.SarcophagusCenter;
+            Vector3 at = World(centre, 0f);
+            var random = new System.Random(17);
+            for (int i = 0; i < 26; i++)
+            {
+                float angle = (float)(random.NextDouble() * Mathf.PI * 2d);
+                float r = (float)random.NextDouble() * 0.9f;
+                Vector3 p = at + new Vector3(Mathf.Cos(angle) * r * 1.4f, 0.08f, Mathf.Sin(angle) * r * 0.7f);
+                Vector3 size = new Vector3(0.18f + (float)random.NextDouble() * 0.3f, 0.08f + (float)random.NextDouble() * 0.16f, 0.15f + (float)random.NextDouble() * 0.25f);
+                s_Mesh.Box(i % 5 == 0 ? s_Palette.Basalt : s_Palette.Stone, p, size, Quaternion.Euler((float)random.NextDouble() * 30f, (float)random.NextDouble() * 360f, (float)random.NextDouble() * 30f));
+            }
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 p = at + new Vector3(-0.8f + i * 0.22f, 0.04f, 0.5f - (i % 3) * 0.3f);
+                s_Mesh.Box(s_Palette.Iron, p, new Vector3(0.13f, 0.05f, 0.24f), Quaternion.Euler(0f, i * 37f, 0f));
             }
         }
 

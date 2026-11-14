@@ -12,6 +12,12 @@ namespace KingmakerWakingRune.Sanctum
     internal sealed class SanctumMist : MonoBehaviour
     {
         private const float PollSeconds = 1f;
+        /// <summary>The mist's particles; switched off for good when the mist dissipates (Krune's death).</summary>
+        public static GameObject Effects;
+
+        /// <summary>Set by the aftermath (and on every load after it): the particles stay off.</summary>
+        public static bool Dissipated;
+
         private static readonly string[] ShaderCandidates = { "Sprites/Default", "Legacy Shaders/Particles/Alpha Blended", "UI/Default" };
 
         private GameObject m_Effects;
@@ -36,6 +42,7 @@ namespace KingmakerWakingRune.Sanctum
             }
 
             var effects = new GameObject("A5_Effects");
+            Effects = effects;
             effects.transform.SetParent(root, false);
             effects.SetActive(false);
             Texture2D puff = SoftPuff();
@@ -80,7 +87,7 @@ namespace KingmakerWakingRune.Sanctum
         private void Update()
         {
             // A save load disposes the player's state before this scene is unloaded, so the party cannot be asked for then.
-            if (Time.unscaledTime < m_NextPoll || m_Effects.activeSelf || LoadingProcess.Instance.IsLoadingInProcess)
+            if (Dissipated || Time.unscaledTime < m_NextPoll || m_Effects.activeSelf || LoadingProcess.Instance.IsLoadingInProcess)
             {
                 return;
             }

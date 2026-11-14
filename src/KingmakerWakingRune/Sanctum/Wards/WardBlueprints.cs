@@ -91,6 +91,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public static BlueprintUnit StatueFixture { get; private set; }
         public static BlueprintUnit DoorFixture { get; private set; }
         public static BlueprintUnit GemFixture { get; private set; }
+        public static BlueprintUnit WallFixture { get; private set; }
         public static BlueprintUnit KruneSupport { get; private set; }
         public static BlueprintUnit VandianaSupport { get; private set; }
         public static readonly Dictionary<string, BlueprintUnit> RuneFixtures = new Dictionary<string, BlueprintUnit>();
@@ -145,6 +146,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             StatueFixture = Fixture(root, donor, "KWR_StatueFixture", "Stone figure", StatueFaction, new BlueprintUnitFact[] { objectFeature });
             DoorFixture = Fixture(root, donor, "KWR_DoorFixture", "Conduit Door", FixtureFaction, fixtureFacts);
             GemFixture = Fixture(root, donor, "KWR_GemFixture", "Flawless emerald", FixtureFaction, fixtureFacts);
+            WallFixture = Fixture(root, donor, "KWR_WallOfStoneFixture", "Wall of stone", FixtureFaction, fixtureFacts);
             KruneSupport = Fixture(root, donor, "KWR_KruneSupport", "Runelord Krune", StatueFaction, new BlueprintUnitFact[] { objectFeature });
             VandianaSupport = Fixture(root, donor, "KWR_VandianaSupport", "Vandiana the Lashmistress", StatueFaction, new BlueprintUnitFact[] { objectFeature });
 

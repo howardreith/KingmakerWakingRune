@@ -112,6 +112,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
         private static bool s_Subscribed;
         private static double s_NextTick;
 
+        /// <summary>The harness's per-frame timing fixtures (none in play).</summary>
+        internal static Action TestHook;
+
         /// <summary>The existing state only: nothing outside <see cref="OnSanctumLoaded"/> may create scenario state.</summary>
         public static SanctumState State => WardStore.Existing;
 
@@ -165,6 +168,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
             WardRitual.EnsureBaseline(state);
             ApplyRuneVisuals(state);
             ApplyEmeraldVisual(state);
+            Krune.KruneWalls.Rebuild(state);
+            Krune.KruneAftermath.Apply(state);
             GrantWake();
             if (initializedNow && state.MigratedLegacy)
             {
@@ -210,6 +215,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 return;
             }
+            KingmakerWakingRune.Scenario.ScenarioJournal.Tick();
+            Sanctum.Krune.RuneRod.SyncWielders();
+            TestHook?.Invoke();
             double now = Now;
             if (now < s_NextTick)
             {
@@ -312,6 +320,17 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 if (part != null)
                 {
                     part.SetActive(state.Gem.Destroyed);
+                }
+            }
+            // The same proxy (same saved identity) names what is left, and leaves the game: the broken socket is scenery, with
+            // nothing to break, attack or catch in an area effect, and it stays out on every load.
+            UnitEntityData proxy = WardFixtures.Gem;
+            if (proxy != null)
+            {
+                proxy.Descriptor.CustomName = state.Gem.Destroyed ? WardText.ShatteredEmeraldName : string.Empty;
+                if (proxy.IsInGame == state.Gem.Destroyed)
+                {
+                    proxy.IsInGame = !state.Gem.Destroyed;
                 }
             }
         }

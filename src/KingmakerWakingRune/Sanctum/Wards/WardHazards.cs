@@ -69,9 +69,15 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
         }
 
+        /// <summary>The preservation mist dissipates with Krune's death (page 15): nothing new is exposed after the aftermath.</summary>
+        public static bool MistGone(SanctumState state)
+        {
+            return state != null && state.Conclusion.AftermathAt >= 0d;
+        }
+
         public static bool AnyoneInMist()
         {
-            return Actors().Any(u => WardGeometry.InMist(GridX(u.Position), GridY(u.Position)));
+            return !MistGone(WardRuntime.State) && Actors().Any(u => WardGeometry.InMist(GridX(u.Position), GridY(u.Position)));
         }
 
         /// <summary>True while the active hound would notice someone of the party: long work beside it is refused.</summary>
@@ -359,7 +365,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
         {
             MistRules.Schedule(record, now);
             Vector3 p = unit.Position;
-            if (!WardGeometry.InMist(GridX(p), GridY(p)))
+            // Once Krune is dead the preservation mist has dissipated: no new exposure, and a streak ends as if outside.
+            if (MistGone(state) || !WardGeometry.InMist(GridX(p), GridY(p)))
             {
                 MistRules.EndRoundOutside(record, now);
                 return;
@@ -416,7 +423,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
             ModifiableValue.Modifier bonus = null;
             if (IsKruneSummon(unit, state))
             {
+                int before = unit.Stats.SaveWill.ModifiedValue;
                 bonus = unit.Stats.SaveWill.AddModifier(WardProfile.MistKruneSummonResistance, null, ModifierDescriptor.Resistance);
+                Log.Info($"Mist: {unit.CharacterName} is Krune's summons: +{WardProfile.MistKruneSummonResistance} resistance (Will {before} -> {unit.Stats.SaveWill.ModifiedValue}, the larger resistance bonus only).");
             }
             try
             {

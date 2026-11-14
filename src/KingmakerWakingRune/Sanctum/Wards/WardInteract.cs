@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Kingmaker;
+using Kingmaker.PubSubSystem;
+using Kingmaker.UI;
 using Kingmaker.Blueprints;
 using Kingmaker.EntitySystem.Entities;
 using Kingmaker.EntitySystem.Stats;
@@ -61,6 +63,12 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 yield return new WardAction { Key = "break", Label = "[Strength] Force the emerald from the altar", Show = () => !WardRuntime.State.Gem.Destroyed, Run = user => WardInteract.Defer(() => WardGem.Order(user)) };
                 yield return new WardAction { Key = "attack", Label = "Attack the emerald", Show = () => !WardRuntime.State.Gem.Destroyed, Run = user => WardInteract.Defer(() => WardInteract.Attack(WardFixtures.Gem)) };
             }
+            else if (id == WardText.PedestalId)
+            {
+                // The way home (WR-FINAL): no roll stands between the party and the shard its own token matches.
+                yield return new WardAction { Key = "lookhome", Label = "Hold up the shard that matches your refuge token, and look through the frame", StaysOpen = true, Show = () => WardRuntime.State.Conclusion.ReturnedAt < 0d, Run = u => LookThroughPortal() };
+                yield return new WardAction { Key = "gohome", Label = "Step through to the lodge (one way, the whole party)", Show = () => WardRuntime.State.Conclusion.ReturnedAt < 0d, Run = u => WardInteract.Defer(ConfirmPortal) };
+            }
             else if (id == WardText.ToolsId)
             {
                 // An aggressive act against the rite, through the one commit every engagement uses: never a second trigger.
@@ -76,6 +84,39 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 yield return new WardAction { Key = "impression", Label = "Take an impression of the marked palm (1 minute)", Show = () => WardCredentials.CanTakeImpression(id), Run = user => Physical(user, id, "take a palm impression", u => WardCredentials.CanTakeImpression(id), u => WardCredentials.TakeImpression(u, id), outOfCombatOnly: true) };
                 yield return new WardAction { Key = "hand", Label = "Recover the marked hand", Show = () => WardCredentials.CanRecoverHand(id), Run = user => Physical(user, id, "recover the marked hand", u => WardCredentials.CanRecoverHand(id), u => WardCredentials.RecoverHand(u, id), outOfCombatOnly: true) };
             }
+        }
+
+        /// <summary>What the matching shard shows: the lodge, economically described; the other shards lead nowhere this draft goes.</summary>
+        private static void LookThroughPortal()
+        {
+            SanctumState state = WardRuntime.State;
+            string mark = string.IsNullOrEmpty(state.TokenMotif) ? string.Empty : $" ({state.TokenMotif})";
+            string text = $"One shard bears the same mark as your refuge token{mark}. Held up to the iron mosaic, it fills the frame with a shimmering view: Sheila Heidmarch's study in Magnimar, lamplit and quiet, exactly as you left it.\n\nThe other shards carry marks you do not know. Through them the frame shows only grey distance: places no one in the Society has seen.\n\nThe passage would carry the whole expedition, once, and close behind it.";
+            EventBus.RaiseEvent(delegate(IDialogMessageBoxUIHandler h) { h.HandleOpen(text, DialogMessageBoxBase.BoxType.Message, button => { }); });
+        }
+
+        /// <summary>One way home: a clear warning of what is abandoned or left behind, then the guarded journey.</summary>
+        private static void ConfirmPortal()
+        {
+            string refusal = PortalTransit.Refusal();
+            if (refusal != null)
+            {
+                EventBus.RaiseEvent(delegate(IWarningNotificationUIHandler h) { h.HandleWarning(refusal); });
+                return;
+            }
+            var carried = Lodge.DebriefService.Artifacts().ToList();
+            string warning = Krune.ConclusionRules.ReturnWarning(WardRuntime.State.Conclusion, carried.Any(Krune.KruneLoot.IsSpear), carried.Any(Krune.KruneLoot.IsRod));
+            string text = (warning.Length > 0 ? warning + "\n\n" : string.Empty) + "Step through the portal to the lodge? The journey is one way: the whole party goes, and the sanctum cannot be reached again.";
+            EventBus.RaiseEvent(delegate(IDialogMessageBoxUIHandler h)
+            {
+                h.HandleOpen(text, DialogMessageBoxBase.BoxType.Dialog, button =>
+                {
+                    if (button == DialogMessageBoxBase.BoxButton.Yes)
+                    {
+                        PortalTransit.Request();
+                    }
+                });
+            });
         }
 
         private static UnitEntityData Speaker()
@@ -360,11 +401,16 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 text.Append(state.Door.Destroyed ? "\n\nNothing remains of it but rubble in the doorway." : state.Door.Latched ? string.Empty : "\n\nIt is no longer held fast.");
             }
-            if (id == WardText.GemId && state.Gem.Destroyed)
+            bool aftermath = state.Conclusion.AftermathAt >= 0d;
+            if (id == WardText.GemId && (state.Gem.Destroyed || aftermath))
             {
-                text.Append("\n\nThe emerald is shattered.");
+                text.Append(state.Gem.Destroyed ? "\n\nThe emerald is shattered." : "\n\nThe emptied emerald has cracked through and gone dark.");
             }
-            if (id == WardText.SarcophagusId && state.Krune.Stage >= Krune.AwakeningStage.Emerged)
+            if (id == WardText.SarcophagusId && aftermath)
+            {
+                text.Append("\n\nWith its master's death it crumbled: only rubble and slack chains remain.");
+            }
+            else if (id == WardText.SarcophagusId && state.Krune.Stage >= Krune.AwakeningStage.Emerged)
             {
                 text.Append("\n\nIts occupant is gone: the runelord has stepped out of it.");
             }

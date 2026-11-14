@@ -1,6 +1,52 @@
 # Status: The Waking Rune
 
-**Milestone:** WR-07A, Krune's awakening. The candidate is ready for owner review. It ends at a labelled development checkpoint before Krune's combat encounter, which is the next milestone.
+**Milestone:** WR-FINAL draft on `feature/wr-final-draft` (from `main` at `c110f8b`), PR #8 (draft, owner review).
+The legitimate journey is complete on 0.9.30:
+- A4 → Krune slain → both artifacts → portal → debrief (Success) → reload of the completed outcome.
+- Krune was at full strength for mask 75; nothing was weakened, injected or skipped.
+
+## WR-FINAL: 0.9.30 (third review pass)
+- **Build:** 0.9.30, commit `6886bcb`; zip `artifacts\KingmakerWakingRune-0.9.30.zip`
+  (`b6adbe38fbff3f56c8b3e8d3f3d954efb263a4e42c87d7a780c3d973c17160b1`); DLL
+  `317dc363cc2426af65b903f58a306a00103f6959480840a2a5246a3289819688`. 243 unit tests pass.
+- **Since the third review** (ledger, "WR-FINAL third review pass"):
+  - **Spear, out of combat (0.9.29):** Krune takes up his dropped spear only by his own will. A dominated, charmed,
+    confused, frightened or cowering Krune leaves it where it lies (seen under Confusion).
+  - **Spear, end of the dance (0.9.30):** the same test applies.
+  - **Rod (0.9.29):** charges are promised only inside the cast rule itself. A failed concentration check holds
+    nothing back; a preview and cancel reserve nothing; a delayed cast gets no metamagic if the charges are gone.
+    Each was checked natively.
+  - **Harness:** refuses quicksave and quickload; the game's quick slots rotate across every campaign.
+- **The completed journey** (ledger, "WR-FINAL legitimate journey, completed"):
+  - **Attempts:** three hand-commanded turn-based attempts were abandoned by legal reload; the fourth, in real time
+    with paused PLAYER orders, killed Krune.
+  - **Artifacts:** collected (PLAYER); the post-death restart was verified.
+  - **Portal and debrief:** Yadmila took the Pedestal's "Step through to the lodge"; the debrief handed over both
+    artifacts with outcome Success.
+  - **Reloads:** the completed outcome and the pre-return checkpoint both reload cleanly in fresh game processes.
+- **Installed:** 0.9.30. Transaction `wrfinal-p6` ended (owner saves, Steam mirror and registry restored); 0.9.28 is
+  backed up in `runtime-backups\wrfinal-p6\mod-existing`. Seeds: `runtime-evidence\wrfinal-p6\seeds`.
+
+## Open boundaries
+- One of Orin's Cones of Cold, cast from A5 at Krune in the north hall, resolved with no damage or saves (attempt 7).
+  Not investigated; line of effect through the A5 wall is the likely cause.
+- The debrief begins as the party arrives at the lodge, so no save exists between arrival and handover. The pre-return
+  checkpoint and the completed save bracket it.
+
+The sections below are earlier milestones, kept for history.
+
+## WR-FINAL: 0.9.28 (history)
+- 0.9.28, commit `253ee17`: the rod's renewal fix and native checks, the spear's pickup. Superseded by 0.9.30 above.
+
+## WR-FINAL: 0.9.25 (history)
+- 0.9.25, commit `227c3d8`: the first review's repairs (fog, tentacles, session state, perception, dancing spear, rod,
+  Ego, death anywhere, the blueprint self-check, diamond dust). Superseded by 0.9.28 above.
+
+## WR-FINAL: 0.9.19 (history)
+- 0.9.19, commit `35c54e1`, zip `a4feed24…`: the first draft for review (implementation, endings, journal, cold iron).
+  Superseded by 0.9.25 above.
+
+# WR-07A (history)
 
 ## WR-07A: candidate 0.8.13 (after the review closeout)
 - **Candidate:**
@@ -42,15 +88,6 @@
     - 998: the legal break at the checkpoint;
     - 999: Mage Armor dispelled.
 
-## Next exact action
-Owner review of draft PR #7 (WR-07A). If it is accepted, the next milestone is Krune's combat encounter (WR-07B):
-- his spells and slots;
-- the artifacts' powers;
-- the summons' mist resistance;
-- his tactics;
-- the removal of the checkpoint.
-
-The sections below are earlier milestones, kept for history.
 
 
 # WR-06 (history)

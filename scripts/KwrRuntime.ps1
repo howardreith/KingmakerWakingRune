@@ -442,7 +442,8 @@ function Invoke-Scroll {
     Write-Step "Scroll $Delta at window ($X,$Y)"
 }
 
-$VirtualKeys = @{ ESC = 0x1B; ENTER = 0x0D; SPACE = 0x20; TAB = 0x09; BACK = 0x08; DEL = 0x2E; I = 0x49; C = 0x43; M = 0x4D; W = 0x57; A = 0x41; S = 0x53; D = 0x44; F5 = 0x74; F9 = 0x78; CTRL = 0x11; SHIFT = 0x10; ALT = 0x12; LEFT = 0x25; UP = 0x26; RIGHT = 0x27; DOWN = 0x28 }
+$VirtualKeys = @{ ESC = 0x1B; ENTER = 0x0D; SPACE = 0x20; TAB = 0x09; BACK = 0x08; DEL = 0x2E; I = 0x49; J = 0x4A; R = 0x52; T = 0x54; C = 0x43; M = 0x4D; W = 0x57; A = 0x41; S = 0x53; D = 0x44; CTRL = 0x11; SHIFT = 0x10; ALT = 0x12; LEFT = 0x25; UP = 0x26; RIGHT = 0x27; DOWN = 0x28 }
+foreach ($letter in [char[]]"ABCDEFGHIJKLMNOPQRSTUVWXYZ") { $VirtualKeys["$letter"] = [int][char]$letter }
 
 function Send-Vk([byte] $vk, [bool] $up) { [KwrInput]::keybd_event($vk, 0, $(if ($up) { 2 } else { 0 }), [UIntPtr]::Zero) }
 
@@ -452,6 +453,9 @@ function Invoke-Key {
     Start-Sleep -Milliseconds 150
     foreach ($chord in $Keys.Split(' ')) {
         $parts = $chord.Split('+') | ForEach-Object { $_.ToUpperInvariant() }
+        # Quicksave and quickload are refused: the game's quick slots rotate across every campaign, so a test quicksave
+        # overwrites the owner's oldest quicksave. Test saves are named saves through the harness's own save command.
+        foreach ($k in $parts) { if ($k -eq 'F5' -or $k -eq 'F9') { throw "$k (quicksave/quickload) is refused: use the harness's named save and load" } }
         foreach ($k in $parts) { if (-not $VirtualKeys.ContainsKey($k)) { throw "Unknown key $k" }; Send-Vk $VirtualKeys[$k] $false; Start-Sleep -Milliseconds 40 }
         [array]::Reverse($parts)
         foreach ($k in $parts) { Send-Vk $VirtualKeys[$k] $true; Start-Sleep -Milliseconds 40 }

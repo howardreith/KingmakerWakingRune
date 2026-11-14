@@ -78,6 +78,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public static BlueprintItemEquipmentUsable WandOfSummonMonsterIII { get; private set; }
         public static BlueprintItemEquipmentNeck Periapt { get; private set; }
         public static BlueprintItemEquipmentRing RingOfFreedom { get; private set; }
+        public static BlueprintEquipmentEnchantment RingOfFreedomEnchantment { get; private set; }
+        public static BlueprintFeature FreedomOfMovement { get; private set; }
         public static BlueprintAbility DimensionDoorFx { get; private set; }
         public static string Problem { get; private set; }
         public static readonly List<string> Resolved = new List<string>();
@@ -144,6 +146,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
             DimensionalSteps = Named<BlueprintAbilityResource>("ConjurationDimensionalStepsResource");
             RodCharges = Resource("KWR_KruneRodCharges", RodChargesPerDay);
             BuildItems();
+            KruneDancing.Build(root, s_All);
+            KruneGear.Build(s_All);
 
             var immunePoison = Component<BuffDescriptorImmunity>("KWR_KruneNoPoison");
             immunePoison.Descriptor = SpellDescriptor.Poison;
@@ -188,7 +192,13 @@ namespace KingmakerWakingRune.Sanctum.Krune
             BlueprintUnit donor = Get<BlueprintUnit>(Donor);
             const string name = "KWR_RunelordKrune";
             LocalizedText.Define("kwr.unit." + name, "Runelord Krune");
-            BlueprintUnit unit = LodgeCast.CloneUnit(donor, root, name, ScenarioIds.Derive("unit." + name), "kwr.unit." + name, PortraitAssets.Create("RunelordKrune"));
+            // Registered like every other portrait: a unit refers to it by id.
+            BlueprintPortrait krunePortrait = PortraitAssets.Create("RunelordKrune");
+            if (krunePortrait != null)
+            {
+                s_Register(krunePortrait);
+            }
+            BlueprintUnit unit = LodgeCast.CloneUnit(donor, root, name, ScenarioIds.Derive("unit." + name), "kwr.unit." + name, krunePortrait);
             var portraitField = AccessTools.Field(typeof(BlueprintUnit), "m_Portrait");
             if (portraitField.GetValue(unit) == portraitField.GetValue(donor))
             {
@@ -235,7 +245,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             Spear = UnityEngine.Object.Instantiate(Get<BlueprintItemWeapon>(LongspearPlus3));
             Spear.name = "KWR_KruneDragonToothSpear";
             Spear.AssetGuid = ScenarioIds.Derive("krune." + Spear.name);
-            ItemName(Spear, "Krune's Dragon-Tooth Spear", "One of the Alara'quin, the seven icons Emperor Xin crafted for the runelords: a +3 longspear of dragon tooth, and Krune's arcane bond (major artifact). Its dancing, ego, telekinesis and other powers are not part of this build.");
+            ItemName(Spear, "Krune's Dragon-Tooth Spear", "One of the Alara'quin, the seven icons Emperor Xin crafted for the runelords: a +3 dancing longspear of dragon tooth, and Krune's arcane bond (major artifact). Ego 22: it serves only the Runelord of Sloth; another who takes it in hand must master it (Will DC 22), is struck for it from the second try on, and must then keep it against its telekinesis.");
             s_Register(Spear);
 
             // Carried, not usable: a plain item with the metamagic rod's icon. Its metamagic belongs to the combat increment;
@@ -245,7 +255,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             rod.name = "KWR_KruneRuneCarvedRod";
             rod.AssetGuid = ScenarioIds.Derive("krune." + rod.name);
             AccessTools.Field(typeof(BlueprintItem), "m_Icon").SetValue(rod, rodDonor.Icon);
-            ItemName(rod, "Krune's Rune-Carved Rod", "A two-foot shaft of weathered dark grey stone crawling with runes (minor artifact): a greater metamagic rod of seven feats, up to three on one spell, with 10 charges renewed every 24 hours. Its powers are not part of this build.");
+            ItemName(rod, "Krune's Rune-Carved Rod", "A two-foot shaft of weathered dark grey stone crawling with runes (minor artifact): a greater metamagic rod of seven feats, up to three on one spell, with 10 charges renewed every 24 hours. Empower, Enlarge (adapted as Reach Spell), Extend and Maximize are available; Silent, Still and Widen are not implemented in this draft.");
             s_Register(rod);
             Rod = rod;
 
@@ -291,16 +301,22 @@ namespace KingmakerWakingRune.Sanctum.Krune
 
             var poisonFeature = Feature("KWR_KrunePeriaptPoisonImmunity", "Proof against Poison", "Immune to poison.", ImmuneBuffs(SpellDescriptor.Poison, "KWR_KrunePeriaptNoPoisonBuffs"), ImmuneSpells(SpellDescriptor.Poison, "KWR_KrunePeriaptNoPoisonSpells"));
             Periapt = Equipment(Get<BlueprintItemEquipmentNeck>(AmuletDonor), "KWR_KrunePeriaptOfProofAgainstPoison", "Periapt of Proof against Poison", "This black-stone periapt grants its wearer immunity to poison.", Enchantment("KWR_KrunePeriaptEnchantment", poisonFeature));
-            BlueprintEquipmentEnchantment freedom = s_All.OfType<BlueprintEquipmentEnchantment>().FirstOrDefault(e => e.name == "PermanentFreedomHoldImmun");
+            // The native permanent freedom of movement (its condition, maneuver and descriptor immunities), worn through the ring:
+            // the native ring enchantment only stops holds and paralysis, which would leave him to his own black tentacles.
+            BlueprintBuff freedom = s_All.OfType<BlueprintBuff>().FirstOrDefault(b => b.name == "FreedomOfMovementBuffPermanent");
             if (freedom == null)
             {
-                throw new InvalidOperationException("native enchantment PermanentFreedomHoldImmun not found");
+                throw new InvalidOperationException("native buff FreedomOfMovementBuffPermanent not found");
             }
-            RingOfFreedom = Equipment(Get<BlueprintItemEquipmentRing>(RingDonor), "KWR_KruneRingOfFreedomOfMovement", "Ring of Freedom of Movement", "This ring lets its wearer move and act normally, as freedom of movement, at all times.", freedom);
+            BlueprintComponent[] freedomParts = freedom.ComponentsArray.Select(c => { BlueprintComponent copy = UnityEngine.Object.Instantiate(c); copy.name = "KWR_KruneFreedom_" + c.GetType().Name; return copy; }).ToArray();
+            var freedomFeature = Feature("KWR_KruneFreedomOfMovement", "Freedom of Movement", "Moves and acts normally despite magic that impedes movement.", freedomParts);
+            FreedomOfMovement = freedomFeature;
+            RingOfFreedomEnchantment = Enchantment("KWR_KruneRingOfFreedomEnchantment", freedomFeature);
+            RingOfFreedom = Equipment(Get<BlueprintItemEquipmentRing>(RingDonor), "KWR_KruneRingOfFreedomOfMovement", "Ring of Freedom of Movement", "This ring lets its wearer move and act normally, as freedom of movement, at all times.", RingOfFreedomEnchantment);
             Resolved.Add("freedom of movement from " + freedom.name);
         }
 
-        private static T Equipment<T>(T donor, string name, string display, string description, BlueprintEquipmentEnchantment enchantment) where T : BlueprintItemEquipmentSimple
+        internal static T Equipment<T>(T donor, string name, string display, string description, BlueprintEquipmentEnchantment enchantment) where T : BlueprintItemEquipmentSimple
         {
             T item = UnityEngine.Object.Instantiate(donor);
             item.name = name;
@@ -319,7 +335,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             AccessTools.Field(typeof(BlueprintItem), "m_CachedEnchantments").SetValue(item, null);
         }
 
-        private static BlueprintEquipmentEnchantment Enchantment(string name, BlueprintFeature feature)
+        internal static BlueprintEquipmentEnchantment Enchantment(string name, BlueprintFeature feature)
         {
             var enchantment = Create<BlueprintEquipmentEnchantment>(name);
             var add = Component<AddUnitFeatureEquipment>(name + "Logic");
@@ -349,7 +365,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return immune;
         }
 
-        private static void ItemName(BlueprintItem item, string display, string description)
+        internal static void ItemName(BlueprintItem item, string display, string description)
         {
             string key = "kwr.krune.item." + item.name;
             LocalizedText.Define(key, display);
@@ -361,27 +377,31 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
         }
 
-        /// <summary>
-        /// The interim brain: a native melee attack only. His tactics are the combat increment's; this keeps a released
-        /// diagnostic run native rather than inert, and is never what a player meets (the checkpoint holds before it).
-        /// </summary>
+        /// <summary>His brain: the director first (spells, items, movement), then his spear when it has nothing to cast.</summary>
         private static BlueprintBrain InterimBrain()
         {
-            Type type = AccessTools.TypeByName("Kingmaker.Controllers.Brain.Blueprints.BlueprintAiAttack");
-            var attack = (BlueprintAiAction)ScriptableObject.CreateInstance(type);
-            attack.name = "KWR_KruneAi_Melee";
-            attack.AssetGuid = ScenarioIds.Derive("krune." + attack.name);
+            // The name (and so the id) of the earlier native melee action: saved brains refer to it, and a save that refers to
+            // a missing blueprint does not load.
+            var attack = Create<KwrKruneMeleeAction>("KWR_KruneAi_Melee");
             attack.BaseScore = 1f;
             attack.ActorConsiderations = new Kingmaker.Controllers.Brain.Blueprints.Considerations.Consideration[0];
             attack.TargetConsiderations = new Kingmaker.Controllers.Brain.Blueprints.Considerations.Consideration[0];
             s_Register(attack);
+            // The director (WR-FINAL) chooses his spells, items and movement; the native attack is what is left when it has
+            // nothing to cast (out of slots, or a foe at his side and nothing worth a spell).
+            var director = Create<KwrKruneDirectorAction>("KWR_KruneAi_Director");
+            director.BaseScore = 20f;
+            director.ActorConsiderations = new Kingmaker.Controllers.Brain.Blueprints.Considerations.Consideration[0];
+            director.TargetConsiderations = new Kingmaker.Controllers.Brain.Blueprints.Considerations.Consideration[0];
+            // Registered: a saved brain names its actions by id (unregistered, every save made after he woke could not load).
+            s_Register(director);
             var brain = Create<BlueprintBrain>("KWR_KruneBrain");
-            brain.Actions = new[] { attack };
+            brain.Actions = new BlueprintAiAction[] { director, attack };
             s_Register(brain);
             return brain;
         }
 
-        private static BlueprintAbilityResource Resource(string name, int perDay)
+        internal static BlueprintAbilityResource Resource(string name, int perDay)
         {
             var resource = Create<BlueprintAbilityResource>(name);
             var field = AccessTools.Field(typeof(BlueprintAbilityResource), "m_MaxAmount");
@@ -397,7 +417,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return resource;
         }
 
-        private static AddAbilityResources GrantResource(BlueprintAbilityResource resource)
+        internal static AddAbilityResources GrantResource(BlueprintAbilityResource resource)
         {
             var grant = Component<AddAbilityResources>("KWR_KruneGrant_" + resource.name);
             grant.Resource = resource;
@@ -420,7 +440,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             };
         }
 
-        private static BlueprintFeature Feature(string name, string display, string description, params BlueprintComponent[] components)
+        internal static BlueprintFeature Feature(string name, string display, string description, params BlueprintComponent[] components)
         {
             var feature = Create<BlueprintFeature>(name);
             Name(feature, display, description);
@@ -432,7 +452,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
         }
 
         /// <summary>Flags as the game reads them: IsFromSpell 1 (what native dispel requires), HiddenInUi 2.</summary>
-        private static BlueprintBuff Buff(BlueprintBuff donor, string name, string title, string description, bool hidden, bool fromSpell, params BlueprintComponent[] components)
+        internal static BlueprintBuff Buff(BlueprintBuff donor, string name, string title, string description, bool hidden, bool fromSpell, params BlueprintComponent[] components)
         {
             var buff = UnityEngine.Object.Instantiate(donor);
             buff.name = name;
@@ -446,7 +466,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return buff;
         }
 
-        private static void Name(BlueprintUnitFact fact, string display, string description)
+        internal static void Name(BlueprintUnitFact fact, string display, string description)
         {
             string key = "kwr.krune." + fact.name;
             LocalizedText.Define(key, display);
@@ -471,24 +491,29 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return add;
         }
 
-        private static T Get<T>(string guid) where T : BlueprintScriptableObject
+        internal static T Get<T>(string guid) where T : BlueprintScriptableObject
         {
             return s_All.OfType<T>().FirstOrDefault(b => b.AssetGuid == guid) ?? throw new InvalidOperationException($"native {typeof(T).Name} {guid} not found");
         }
 
-        private static T Named<T>(string name) where T : BlueprintScriptableObject
+        internal static T Named<T>(string name) where T : BlueprintScriptableObject
         {
             return s_All.OfType<T>().FirstOrDefault(b => b.name == name) ?? throw new InvalidOperationException($"native {typeof(T).Name} {name} not found");
         }
 
-        private static T Optional<T>(string name) where T : BlueprintScriptableObject
+        internal static T Optional<T>(string name) where T : BlueprintScriptableObject
         {
             T found = s_All.OfType<T>().FirstOrDefault(b => b.name == name);
             (found != null ? Resolved : Missing).Add(name);
             return found;
         }
 
-        private static T Create<T>(string name) where T : BlueprintScriptableObject
+        internal static void Register(BlueprintScriptableObject blueprint)
+        {
+            s_Register(blueprint);
+        }
+
+        internal static T Create<T>(string name) where T : BlueprintScriptableObject
         {
             var blueprint = ScriptableObject.CreateInstance<T>();
             blueprint.name = name;
@@ -496,7 +521,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return blueprint;
         }
 
-        private static T Component<T>(string name) where T : BlueprintComponent
+        internal static T Component<T>(string name) where T : BlueprintComponent
         {
             var component = ScriptableObject.CreateInstance<T>();
             component.name = name;

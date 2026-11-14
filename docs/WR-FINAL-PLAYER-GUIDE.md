@@ -1,0 +1,67 @@
+# The Waking Rune: player guide (playtest draft)
+
+A Pathfinder Society adventure (#4–26) for a party of six at level 11, played as its own campaign in Pathfinder:
+Kingmaker. Spoiler-light: it says how to start, what the lodge offers, and how the adventure can end, not how to win.
+
+## Installing
+Pathfinder: Kingmaker 2.1.7 with Unity Mod Manager. Extract the zip into `<Kingmaker>\Mods\` (or install it through the
+UMM installer) and enable it; Ctrl+F10 in game shows the version. No other mods are needed.
+
+## Starting
+Main Menu → **New Game** → **The Waking Rune** → difficulty → create your hero (or take a pregen). You begin in the
+Magnimar lodge.
+
+## The lodge
+- **Venture-Captain Sheila Heidmarch** briefs you. Listen to the end: the briefing sets your mission.
+- **The Society Coordinator** recruits adventurers for free; build a party of six. Everyone can reach level 11 here.
+- **The Quartermaster** sells equipment from a shared purse of 450,000 gp (stock is not refilled), and offers a night's
+  rest.
+- Rest before you leave.
+- When ready, **break the Refuge Token** (use it from the belt or inventory). There is no way back by the token.
+
+## The sanctum
+You arrive in a frozen chamber. Explore, read what you find, and think about the wards before forcing them: runes,
+statues and doors respond to how you treat them. Saving often is wise.
+
+**The runelord:** a 17th-level conjurer of ancient Thassilon. He fights to the death within his sanctum. Expect
+summoned creatures, walls of stone, clinging tentacles, teleports, rebounding spells and a spear with a will of its own.
+Freedom of movement, dispels, see invisibility and a way to deal with summons are worth bringing.
+
+## How it can end
+- **Victory:** defeat him, recover the **dragon-tooth spear** and the **rune-carved rod** from his belongings, and step
+  through the portal home in the antechamber. The Society thanks you at the lodge.
+- **Victory with an artifact left behind:** possible, and the lodge says so.
+- **Withdrawal:** the portal home works before he is slain too; the mission is then abandoned.
+- **Defeat:** if your hero falls, the game ends; load a save.
+
+The outcome is recorded in your save. The artifacts cannot be dropped. A character who takes the spear in hand must
+resist its will each time (and it does not take kindly to a second try); one who masters it still has to keep hold of
+it. While the party carries the rod, each spellcaster gains toggles for its Empower, Enlarge, Extend and Maximize Spell
+(up to three on one spell, from its 10 daily charges).
+
+## Saves and the mod
+Saves from this adventure need the mod. Removing the mod does not affect your other campaigns.
+
+## Profile and difficulty
+The adventure is tuned to Subtier 10–11 for six characters with the extra challenge on. Your chosen difficulty preset
+applies on top as in any campaign. Auto level-up "All possible" with the premade recruit builds works well for building a
+party quickly.
+
+## Controls worth knowing
+- **The token, the pedestal and other special objects** use the game's own interactions: right-click an item in the
+  inventory for Use; click an object in the world to examine or use it.
+- **Leaving for the sanctum** first rests the party once in the lodge (spells chosen in the spellbook become ready),
+  then lets you make final preparations; use the token again to go.
+- **Turn-based mode** works throughout (the rook button by the hourglass).
+
+## Preparation hints (no spoilers beyond the first room)
+Bring cold iron (or +3 weapons) for something that shrugs off ordinary steel, acid for something that will not stay
+down, and a plan for being held in place. The Quartermaster stocks all of these, and diamond dust for stoneskin (each
+casting uses a good deal of it). Sabotaging the runes takes varied tools: holds and entanglement, fire or acid, dispels,
+negative energy or death magic, and a skilled hand with magic devices or traps.
+
+## Known limitations of this playtest draft
+- The rod's Silent, Still and Widen Spell are not implemented in this draft; its Enlarge works as Reach Spell (the
+  next range band).
+- Some of Krune's printed spells and abilities have no use in this game (they are listed in his spellbook as held).
+- Placeholder model and portrait for Krune; the journal's title is the game's own ("Linzi's Journal").

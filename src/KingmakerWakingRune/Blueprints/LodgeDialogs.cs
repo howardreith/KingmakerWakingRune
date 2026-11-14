@@ -111,6 +111,46 @@ namespace KingmakerWakingRune.Blueprints
                 Answer("coordinator.leave", "Nothing for now.", null),
             };
             AddInteraction(coordinator, Dialog("coordinator", recruitPrompt, new ActionList()), new ConditionsChecker());
+
+            BuildDebriefs(sheila, ambrus, masked);
+        }
+
+        public static BlueprintDialog DebriefSuccess { get; private set; }
+        public static BlueprintDialog DebriefPartial { get; private set; }
+        public static BlueprintDialog DebriefWithdrawn { get; private set; }
+
+        /// <summary>
+        /// The return to the lodge (WR-FINAL): one short exchange for each way the expedition can end. Original wording in the
+        /// briefing's voice. The handover and the outcome are recorded by <see cref="Lodge.DebriefService"/>, once.
+        /// </summary>
+        private static void BuildDebriefs(BlueprintUnit sheila, BlueprintUnit ambrus, BlueprintUnit masked)
+        {
+            BlueprintCue s1 = Cue("debrief.success.ambrus", ambrus, "You are back, all of you that could be, and I can read it in your faces before you say a word. Krune is dead?");
+            BlueprintCue s2 = Cue("debrief.success.sheila", sheila, "Slain in his own sanctum, before he could take back the full weight of his power. Varisia will never know how close it came, and that is as it should be. The Society owes you more than it will ever say aloud.");
+            BlueprintCue s3 = Cue("debrief.success.masked", masked, "The spear and the rod. Give them to me. They will not stay in Magnimar.");
+            BlueprintCue s4 = Cue("debrief.success.handover", null, "The masked figure takes the dragon-tooth spear and the rune-carved rod, speaks a single word, and is gone.");
+            BlueprintCue s5 = Cue("debrief.success.rest", ambrus, "Rest now; you have earned it. The Lissalans have lost their high priest and their runelord in a single night. Whatever comes next can wait for another day.");
+            Continue(s1, s2);
+            Continue(s2, s3);
+            Continue(s3, s4);
+            Continue(s4, s5);
+            s4.OnShow = new ActionList { Actions = new[] { Callback("Hand over the artifacts", Lodge.DebriefService.HandOver) } };
+            DebriefSuccess = Dialog("debrief.success", s1, new ActionList { Actions = new[] { Callback("Record the outcome", Lodge.DebriefService.Finish) } });
+
+            BlueprintCue p1 = Cue("debrief.partial.ambrus", ambrus, "Krune is dead? Then the worst of it is behind us. But you were sent for two things, and I do not see them both.");
+            BlueprintCue p2 = Cue("debrief.partial.masked", masked, "A runelord's weapon left in a broken sanctum is a seed for the next revival. What you brought, I will take. What you left, we will see to ourselves, in our own time.");
+            BlueprintCue p3 = Cue("debrief.partial.sheila", sheila, "You did what you went to do: the runelord is slain. What was left behind is the Decemvirate's concern now. Rest, Pathfinders.");
+            Continue(p1, p2);
+            Continue(p2, p3);
+            p2.OnShow = new ActionList { Actions = new[] { Callback("Hand over what was carried home", Lodge.DebriefService.HandOver) } };
+            DebriefPartial = Dialog("debrief.partial", p1, new ActionList { Actions = new[] { Callback("Record the outcome", Lodge.DebriefService.Finish) } });
+
+            BlueprintCue w1 = Cue("debrief.withdrawn.sheila", sheila, "You are back early. And from your faces, Krune still lives.");
+            BlueprintCue w2 = Cue("debrief.withdrawn.ambrus", ambrus, "Then the Decemvirate's contingencies must do what they were made for. They will slow him; they will not end him. That task falls to another team now.");
+            BlueprintCue w3 = Cue("debrief.withdrawn.masked", masked, "Your tokens are spent and the sanctum is lost to us. Live, learn from it, and do not speak of this to anyone.");
+            Continue(w1, w2);
+            Continue(w2, w3);
+            DebriefWithdrawn = Dialog("debrief.withdrawn", w1, new ActionList { Actions = new[] { Callback("Record the outcome", Lodge.DebriefService.Finish) } });
         }
 
 

@@ -53,6 +53,9 @@ namespace KingmakerWakingRune.Lodge
                 return;
             }
             BriefingService.TryOpen();
+            DebriefService.TryOpen();
+            KingmakerWakingRune.Scenario.ScenarioJournal.Tick();
+            Sanctum.Krune.RuneRod.SyncWielders();
             if (Time.unscaledTime >= m_NextRefresh)
             {
                 m_NextRefresh = Time.unscaledTime + AgentRefreshSeconds;

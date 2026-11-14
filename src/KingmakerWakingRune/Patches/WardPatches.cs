@@ -226,34 +226,9 @@ namespace KingmakerWakingRune.Patches
     [HarmonyPatch(typeof(TimeController), "Tick")]
     internal static class TimeControllerTickPatch
     {
-        /// <summary>
-        /// A frame that runs while Krune's prototype checkpoint holds (after a load, or in turn-based combat, which refuses
-        /// the pause) holds the simulation again at once: the native pause, or the turn-based freeze.
-        /// </summary>
-        private static void Prefix()
-        {
-            if (Sanctum.Krune.KruneAwakening.CheckpointHolds)
-            {
-                Sanctum.Krune.KruneAwakening.EnforceCheckpoint();
-            }
-        }
-
         private static void Postfix()
         {
             WardRuntime.Tick();
-        }
-    }
-
-    /// <summary>
-    /// The WR-07A prototype checkpoint pauses the whole simulation, both sides alike: while it holds, nothing unpauses the
-    /// game. Inspection, menus and saving (where the game allows) still work. Outside a checkpoint save this does nothing.
-    /// </summary>
-    [HarmonyPatch(typeof(Kingmaker.Game), "set_IsPaused")]
-    internal static class KruneCheckpointPausePatch
-    {
-        private static bool Prefix(bool value)
-        {
-            return value || !Sanctum.Krune.KruneAwakening.CheckpointHolds;
         }
     }
 
@@ -320,6 +295,29 @@ namespace KingmakerWakingRune.Patches
     }
 
     /// <summary>
+    /// An authored breakable object saves with its authored bonus (ObjectRules), never with its proxy's statistics: the
+    /// proxy's Constitution 200 and the like only keep ability damage from disabling it. The d20, the DC, and the
+    /// natural 1 and 20 stay the game's own. Every other unit, rune plates included, is untouched.
+    /// </summary>
+    [HarmonyPatch(typeof(RuleSavingThrow), nameof(RuleSavingThrow.OnTrigger))]
+    internal static class ObjectSavePatch
+    {
+        private static readonly System.Reflection.MethodInfo s_SetStatValue = AccessTools.Property(typeof(RuleSavingThrow), nameof(RuleSavingThrow.StatValue)).GetSetMethod(true);
+
+        private static void Postfix(RuleSavingThrow __instance)
+        {
+            if (WardObjects.SaveOf(__instance.Initiator) != ObjectSave.MagicItem)
+            {
+                return;
+            }
+            string id = WardFixtures.IdOf(__instance.Initiator);
+            int proxy = __instance.StatValue;
+            s_SetStatValue.Invoke(__instance, new object[] { ObjectRules.SaveBonus(id) });
+            Log.Info($"Object save: {id} {__instance.Type} d20 {__instance.D20} + {__instance.StatValue} (authored; proxy would have had {proxy}) vs DC {__instance.DifficultyClass}.");
+        }
+    }
+
+    /// <summary>
     /// The printed rune plates "receive no saving throw to resist effects to which they are vulnerable": only a rune plate,
     /// and only against an effect of the kind its own routes name, by descriptor or by what the effect does (Harm's
     /// negative energy has no descriptor). Statues, props, Krune and Vandiana save normally.
@@ -334,6 +332,12 @@ namespace KingmakerWakingRune.Patches
             string id = WardFixtures.IdOf(__instance.Initiator);
             if (!__result || id == null)
             {
+                return;
+            }
+            // An unattended nonmagical object never saves, a natural 20 included.
+            if (WardObjects.SaveOf(__instance.Initiator) == ObjectSave.Never)
+            {
+                __result = false;
                 return;
             }
             var context = __instance.Reason?.Context;

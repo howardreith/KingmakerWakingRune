@@ -22,6 +22,39 @@ namespace KingmakerWakingRune.Diagnostics
     /// install. A command can position, grant or advance; every effect it provokes still resolves through native rules.
     /// </summary>
     /// <summary>
+    /// SETUP controlled roll: the next native d20 rolled by one fixture (its saving throw) comes up as given. The rule
+    /// itself, the bonus, the DC and every consequence stay native. Fires once, then disarms.
+    /// </summary>
+    [Harmony12.HarmonyPatch(typeof(Kingmaker.RuleSystem.Rules.RuleRollD20), "Roll")]
+    internal static class ControlledRoll
+    {
+        private static string s_FixtureId;
+        private static int s_Value;
+
+        public static string Arm(string fixtureId, int value)
+        {
+            if (WardFixtures.Find(fixtureId) == null || value < 1 || value > 20)
+            {
+                return $"no fixture {fixtureId} or no d20 value {value}";
+            }
+            s_FixtureId = fixtureId;
+            s_Value = value;
+            return $"SETUP controlled roll armed: the next d20 rolled by {fixtureId} will be {value}.";
+        }
+
+        private static void Prefix(Kingmaker.RuleSystem.Rules.RuleRollD20 __instance)
+        {
+            if (s_FixtureId == null || WardFixtures.IdOf(__instance.Initiator) != s_FixtureId)
+            {
+                return;
+            }
+            Harmony12.Traverse.Create(__instance).Field("m_PreRolledResult").SetValue((int?)s_Value);
+            Log.Info($"SETUP controlled roll used: {s_FixtureId} d20 = {s_Value}.");
+            s_FixtureId = null;
+        }
+    }
+
+    /// <summary>
     /// INJECTED ordering fixture: armed on one member, it waits for the native rule by which restoration heals that member's
     /// Intelligence, and in the same rule call delivers her slam's drain for a fixed amount through the production drain path,
     /// so no periodic recovery check can run in between. Fires once, then disarms.
@@ -233,6 +266,30 @@ namespace KingmakerWakingRune.Diagnostics
                     Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.Damage.RuleDealDamage(unit, unit, new Kingmaker.RuleSystem.Rules.Damage.DamageBundle(hit)));
                     return $"INJECTED {args[2]} lethal damage on {unit.CharacterName}: hp {unit.HPLeft}/{unit.Stats.HitPoints.ModifiedValue}.";
                 }
+                case "armdamage":
+                {
+                    // INJECTED timing fixture: waits until this unit's spell is being cast (its command running, the spell not
+                    // yet released), then in that frame deals lethal damage through the native rule from the unit itself, so
+                    // the game's own concentration check on damage takes place. Fires once.
+                    string missing = Resolve(args[1], out UnitEntityData unit);
+                    if (missing != null)
+                    {
+                        return missing;
+                    }
+                    int amount = int.Parse(args[2]);
+                    KingmakerWakingRune.Sanctum.Wards.WardRuntime.TestHook = () =>
+                    {
+                        if (!(unit.Commands.Standard is UnitUseAbility cast) || !cast.IsRunning || cast.IsActed)
+                        {
+                            return;
+                        }
+                        KingmakerWakingRune.Sanctum.Wards.WardRuntime.TestHook = null;
+                        var hit = new Kingmaker.RuleSystem.Rules.Damage.DirectDamage(new Kingmaker.RuleSystem.DiceFormula(0, Kingmaker.RuleSystem.DiceType.Zero), amount);
+                        Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.Damage.RuleDealDamage(unit, unit, new Kingmaker.RuleSystem.Rules.Damage.DamageBundle(hit)));
+                        Log.Info($"INJECTED timing fixture: {amount} damage on {unit.CharacterName} while casting {cast.Spell.Blueprint.name} (not yet released); hp {unit.HPLeft}.");
+                    };
+                    return $"INJECTED timing fixture armed: {amount} damage on {unit.CharacterName} when a spell of theirs is next being cast.";
+                }
                 case "armcontrol":
                 {
                     // INJECTED timing fixture: waits for the director's own command to be running for this defender, then in the
@@ -403,6 +460,17 @@ namespace KingmakerWakingRune.Diagnostics
                     return KingmakerWakingRune.Sanctum.Krune.KruneAwakening.ReleaseForDiagnostics();
                 case "krunedeadline":
                     return KruneDeadline(double.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture));
+                case "krunebook":
+                {
+                    // Read only: his book as it stands (ready slots by level and metamagic), and the one-time setup note.
+                    UnitEntityData k = KingmakerWakingRune.Sanctum.Krune.KruneAwakening.Actor;
+                    var lines = KingmakerWakingRune.Sanctum.Krune.KruneSpellbook.Ready(k)
+                        .GroupBy(s => $"L{s.SpellLevel} {s.Spell.Blueprint.name}{(s.Spell.MetamagicData != null && s.Spell.MetamagicData.NotEmpty ? " [" + s.Spell.MetamagicData.MetamagicMask + "]" : string.Empty)}")
+                        .Select(g => g.Key + (g.Count() > 1 ? " x" + g.Count() : string.Empty));
+                    return $"READ book: {WardRuntime.State?.Krune.CombatInitializedNote}\n  ready: {string.Join("; ", lines.ToArray())}\n  phase {WardRuntime.State?.Krune.DirectorPhase}, combat since {WardRuntime.State?.Krune.CombatStartedAt:0.0}, walls {WardRuntime.State?.Walls.Count}";
+                }
+                case "objectroll":
+                    return ControlledRoll.Arm(args[1], int.Parse(args[2]));
                 case "hitgem":
                 {
                     // INJECTED: one physical hit of a fixed amount from a party member on the emerald, through the native damage
@@ -497,9 +565,14 @@ namespace KingmakerWakingRune.Diagnostics
                 case "cantarget":
                     return CanTarget(Member(args[1]), args[2], args[3]);
                 case "screen":
-                    return ScreenPoint(args[1]);
+                    return args.Length > 2 ? GridScreen(float.Parse(args[1]), float.Parse(args[2])) : ScreenPoint(args[1]);
                 case "look":
                     // The camera only, as a player's own scrolling would: no unit, rule or state changes.
+                    if (args.Length > 2)
+                    {
+                        Game.Instance.UI.GetCameraRig().ScrollToImmediately(GridWorld(float.Parse(args[1]), float.Parse(args[2])));
+                        return $"CAMERA moved to grid ({args[1]},{args[2]}).";
+                    }
                     Resolve(args[1], out UnitEntityData seen);
                     if (seen == null)
                     {
@@ -510,6 +583,77 @@ namespace KingmakerWakingRune.Diagnostics
                 case "advance":
                     Game.Instance.AdvanceGameTime(TimeSpan.FromSeconds(double.Parse(args[1])));
                     return $"INJECTED time advance: {args[1]} seconds, now {WardRuntime.Now:0}.";
+                case "combat":
+                    return CombatRead();
+                case "area":
+                    return SpawnArea(args[1], float.Parse(args[2]), float.Parse(args[3]), double.Parse(args[4], System.Globalization.CultureInfo.InvariantCulture), args.Length > 5 ? args[5] : "krune", args.Length > 6 ? int.Parse(args[6]) : 0);
+                case "place":
+                {
+                    string missing = Resolve(args[1], out UnitEntityData placed);
+                    return missing ?? "SETUP " + Teleport(placed, float.Parse(args[2]), float.Parse(args[3]));
+                }
+                case "kruneuse":
+                {
+                    // HARNESS-COMMANDED: Krune uses one of his own ability facts (a native command; its own checks and costs).
+                    // "Parent:Variant" picks one variant (his Wish).
+                    UnitEntityData krune = WardFixtures.Krune;
+                    string[] parts = args[1].Split(':');
+                    Kingmaker.UnitLogic.Abilities.Ability fact = krune?.Descriptor.Abilities.Enumerable.FirstOrDefault(a => a.Blueprint.name == parts[0]);
+                    if (fact == null)
+                    {
+                        return $"Krune has no ability {parts[0]}";
+                    }
+                    AbilityData data = fact.Data;
+                    if (parts.Length > 1)
+                    {
+                        BlueprintAbility variant = fact.Blueprint.GetComponent<Kingmaker.UnitLogic.Abilities.Components.AbilityVariants>()?.Variants.FirstOrDefault(v => v.name == parts[1]);
+                        if (variant == null)
+                        {
+                            return $"{parts[0]} has no variant {parts[1]}";
+                        }
+                        data = new AbilityData(fact.Data, variant);
+                    }
+                    TargetWrapper on = krune;
+                    if (args.Length > 2 && Resolve(args[2], out UnitEntityData other) == null)
+                    {
+                        on = other;
+                    }
+                    else if (args.Length > 3)
+                    {
+                        on = new TargetWrapper(new Vector3(SanctumPlan.ToWorldX(float.Parse(args[2])), SanctumPlan.HeightAt(float.Parse(args[2]), float.Parse(args[3])) ?? 0f, SanctumPlan.ToWorldZ(float.Parse(args[3]))));
+                    }
+                    bool can = data.IsAvailableForCast && data.CanTarget(on);
+                    if (can)
+                    {
+                        krune.Commands.Run(new UnitUseAbility(data, on));
+                    }
+                    return $"HARNESS-COMMANDED Krune uses {args[1]} on {(on.IsUnit ? on.Unit.CharacterName : on.Point.ToString())}: available {data.IsAvailableForCast}, can target {data.CanTarget(on)}{(can ? ", ordered" : ", not ordered")}; bond uses left {krune.Descriptor.Resources.GetResourceAmount(KingmakerWakingRune.Sanctum.Krune.KruneGear.Bond)}.";
+                }
+                case "takeloot":
+                {
+                    // INJECTED (focused checks only): everything in Krune's loot bag moved to the party's inventory, in place of
+                    // walking a member to it and taking it (the PLAYER way, shown in earlier runs).
+                    string id = WardRuntime.State?.Conclusion.LootContainerId;
+                    var bag = Game.Instance.State.MapObjects.All.FirstOrDefault(m => m.UniqueId == id)?.View as Kingmaker.View.MapObjects.DroppedLoot;
+                    if (bag == null || bag.Loot == null)
+                    {
+                        return $"no loot bag {id}";
+                    }
+                    var items = bag.Loot.Items.ToList();
+                    foreach (Kingmaker.Items.ItemEntity item in items)
+                    {
+                        bag.Loot.Transfer(item, Game.Instance.Player.Inventory);
+                    }
+                    return $"INJECTED loot taken: {items.Count} items from Krune's bag into the party inventory.";
+                }
+                case "kruneawake":
+                    // SETUP control for the off-screen death comparison only: the encounter's keep-awake can be suspended.
+                    KingmakerWakingRune.Sanctum.Krune.KruneAwakening.HarnessNoKeepAwake = args[1] == "off";
+                    if (args[1] == "off" && WardFixtures.Krune != null)
+                    {
+                        WardFixtures.Krune.Sleepless = false;
+                    }
+                    return $"SETUP control: Krune kept awake {(args[1] == "off" ? "SUSPENDED (pre-0.9.20 behaviour)" : "as built")}.";
                 default:
                     return $"unknown command {args[0]}";
             }
@@ -1140,6 +1284,18 @@ namespace KingmakerWakingRune.Diagnostics
         }
 
         /// <summary>Read only: where a fixture, body or party member stands in game-window pixels, for aiming real clicks.</summary>
+        private static Vector3 GridWorld(float x, float y)
+        {
+            return new Vector3(SanctumPlan.ToWorldX(x), SanctumPlan.HeightAt(x, y) ?? 0f, SanctumPlan.ToWorldZ(y));
+        }
+
+        /// <summary>READ: where a sanctum grid point is on the screen (to aim a player's click), and whether it is in view.</summary>
+        private static string GridScreen(float x, float y)
+        {
+            Vector3 p = Camera.main.WorldToScreenPoint(GridWorld(x, y));
+            return $"READ screen grid ({x},{y}): x={p.x:0} y={Screen.height - p.y:0} onScreen={p.z > 0 && p.x >= 0 && p.x <= Screen.width && p.y >= 0 && p.y <= Screen.height} ({Screen.width}x{Screen.height}).";
+        }
+
         private static string ScreenPoint(string target)
         {
             string missing = Resolve(target, out UnitEntityData unit);
@@ -1349,6 +1505,68 @@ namespace KingmakerWakingRune.Diagnostics
                 sb.AppendLine($"{unit.Get<WardRestoredPart>().StatueId} '{unit.CharacterName}' {unit.Blueprint.name} id={unit.UniqueId} dead={unit.Descriptor.State.IsDead} hp={unit.Descriptor.HPLeft}/{unit.Stats.HitPoints.ModifiedValue} ac={unit.Stats.AC.ModifiedValue} str={unit.Stats.Strength.ModifiedValue} dex={unit.Stats.Dexterity.ModifiedValue} con={unit.Stats.Constitution.ModifiedValue} wis={unit.Stats.Wisdom.ModifiedValue} dexDmg={unit.Stats.Dexterity.Damage} dexDrain={unit.Stats.Dexterity.Drain} fort={unit.Stats.SaveFortitude.ModifiedValue} level={unit.Descriptor.Progression.CharacterLevel} align={unit.Descriptor.Alignment.Value} weapon={unit.Body.PrimaryHand.MaybeWeapon?.Blueprint.name} armor={unit.Body.Armor.MaybeArmor?.Blueprint.name} buffs=[{string.Join(",", unit.Buffs.Enumerable.Select(b => b.Blueprint.name).ToArray())}] brand={unit.Descriptor.HasFact(WardBlueprints.SihedronBrand)} grid=({p.x / SanctumPlan.MetersPerSquare + SanctumPlan.OriginX:0.00},{SanctumPlan.OriginY - p.z / SanctumPlan.MetersPerSquare:0.00}) inCombat={unit.IsInCombat} commands=[{string.Join(",", unit.Commands.Raw.Where(c => c != null).Select(c => c.GetType().Name).ToArray())}]");
             }
             return sb.Length == 0 ? "no restored units" : sb.ToString();
+        }
+
+        /// <summary>
+        /// READ: every living creature in the sanctum with what the combat repairs turn on: its own speed and the speed the game
+        /// moves it at, haste, solid fog and the tentacles' hold, freedom of movement, sleeping, whether Krune detects it now;
+        /// then the areas in play, Krune's life state and the spear's dance, the rod's charges and the turn-based 5-foot step.
+        /// </summary>
+        private static string CombatRead()
+        {
+            var sb = new StringBuilder("READ combat:\n");
+            UnitEntityData krune = WardFixtures.Krune;
+            foreach (UnitEntityData u in Game.Instance.State.Units.Where(u => u.IsInGame && WardFixtures.IdOf(u) == null && u.Get<WardRestoredPart>() == null))
+            {
+                Vector3 p = u.Position;
+                string held = u.Descriptor.Get<KingmakerWakingRune.Sanctum.Krune.KwrConjuredMagicPart>()?.HeldByArea ?? string.Empty;
+                sb.AppendLine($"'{u.CharacterName}' id={u.UniqueId} {u.Blueprint.name} hp={u.Descriptor.HPLeft}/{u.MaxHP} dmg={u.Damage} life={u.Descriptor.State.LifeState} dead={u.Descriptor.State.IsDead} speedStat={u.Stats.Speed.ModifiedValue}ft modifiedMps={u.ModifiedSpeedMps:0.00} combatMps={u.CombatSpeedMps:0.00}"
+                    + $" hasted={u.Buffs.Enumerable.Any(b => b.Blueprint.name.StartsWith("Haste", StringComparison.Ordinal))} fog={KingmakerWakingRune.Sanctum.Krune.KwrSolidFogLogic.In(u)} free={KingmakerWakingRune.Sanctum.Krune.KwrSolidFogLogic.Free(u)} grappled={u.Buffs.HasFact(KingmakerWakingRune.Sanctum.Krune.KruneLocalSpells.TentaclesGrappled)}{(held.Length > 0 ? " heldBy=" + held : string.Empty)}"
+                    + $" invisible={u.Descriptor.State.HasCondition(UnitCondition.Invisible)} untargetable={(bool)u.Descriptor.State.IsUntargetable} sleeping={u.IsSleeping} sleepless={u.Sleepless} inCombat={u.IsInCombat}"
+                    + (krune != null && u != krune && krune.IsEnemy(u) ? $" kruneMemory={krune.Memory.Contains(u)} kruneSees={krune.Memory.ContainsVisible(u)}" : string.Empty)
+                    + $" grid=({p.x / SanctumPlan.MetersPerSquare + SanctumPlan.OriginX:0.00},{SanctumPlan.OriginY - p.z / SanctumPlan.MetersPerSquare:0.00}) weapon={u.Body.PrimaryHand.MaybeItem?.Blueprint.name}");
+            }
+            foreach (Kingmaker.EntitySystem.Entities.AreaEffectEntityData a in Game.Instance.State.AreaEffects)
+            {
+                Vector3 p = a.Position;
+                sb.AppendLine($"area {a.Blueprint.name} id={a.UniqueId} caster={a.Context?.MaybeCaster?.CharacterName} r={a.Blueprint.Size.Meters:0.0}m grid=({p.x / SanctumPlan.MetersPerSquare + SanctumPlan.OriginX:0.00},{SanctumPlan.OriginY - p.z / SanctumPlan.MetersPerSquare:0.00}) inside=[{string.Join(",", a.UnitsInside.Select(x => x.CharacterName).ToArray())}]");
+            }
+            KingmakerWakingRune.Sanctum.Krune.KruneState k = WardRuntime.State?.Krune;
+            if (k != null)
+            {
+                sb.AppendLine("director: " + KingmakerWakingRune.Sanctum.Krune.KruneDirector.DebugState() + " rod: " + KingmakerWakingRune.Sanctum.Krune.RuneRod.DebugState());
+                sb.AppendLine($"krune: stage={k.Stage} dancingForm={k.DancingFormId} until={k.DancingUntil:0.0} lockedUntil={k.DanceLockedUntil:0.0} droppedBag={k.DroppedSpearBagId} rodCharges={k.RodCharges} rodRenewedAt={k.RodRenewedAt:0} now={WardRuntime.Now:0.0} hand={krune?.Body.PrimaryHand.MaybeItem?.Blueprint.name} keepAwake={!KingmakerWakingRune.Sanctum.Krune.KruneAwakening.HarnessNoKeepAwake}");
+            }
+            TurnBased.Controllers.TurnController turn = Game.Instance.TurnBasedCombatController?.CurrentTurn;
+            if (turn != null)
+            {
+                sb.AppendLine($"turn: {turn.Unit.CharacterName} restrictFiveFootStep={turn.ShouldRestrictFiveFootStep()} hasFiveFootStep={turn.HasFiveFootStep()}");
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// INJECTED: one of Krune's local spell areas (or any area blueprint) at a grid point for a time, with the caster's own
+        /// context (Krune's by default, or a party member's: "party:3"). Its rules run natively from then on. For the focused
+        /// spell checks only.
+        /// </summary>
+        private static string SpawnArea(string name, float x, float y, double seconds, string casterKey, int casterLevel)
+        {
+            Kingmaker.UnitLogic.Abilities.Blueprints.BlueprintAbilityAreaEffect area = ResourcesLibrary.GetBlueprints<Kingmaker.UnitLogic.Abilities.Blueprints.BlueprintAbilityAreaEffect>().FirstOrDefault(a => a.name == name);
+            string missing = Resolve(casterKey, out UnitEntityData caster);
+            if (area == null || missing != null)
+            {
+                return area == null ? $"no area {name}" : missing;
+            }
+            var context = new Kingmaker.UnitLogic.Mechanics.MechanicsContext(caster, caster.Descriptor, area);
+            context.Recalculate();
+            if (casterLevel > 0 && context.Params != null)
+            {
+                context.Params.CasterLevel = casterLevel;
+            }
+            var point = new Vector3(SanctumPlan.ToWorldX(x), SanctumPlan.HeightAt(x, y) ?? 0f, SanctumPlan.ToWorldZ(y));
+            Kingmaker.EntitySystem.Entities.AreaEffectEntityData spawned = Kingmaker.Controllers.AreaEffectsController.Spawn(context, area, point, TimeSpan.FromSeconds(seconds));
+            return $"INJECTED area {name} by {caster.CharacterName} at ({x},{y}) for {seconds} s (caster level {context.Params?.CasterLevel}): id {spawned?.UniqueId}.";
         }
 
         private static string Attack(UnitEntityData attacker, string target)

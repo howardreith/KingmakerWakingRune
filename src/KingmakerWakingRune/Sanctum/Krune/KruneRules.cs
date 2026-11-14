@@ -118,6 +118,25 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public string LastFailure = string.Empty;
         public LegacyAwakening Legacy = LegacyAwakening.None;
         public bool LegacyNoticeShown;
+        /// <summary>The director's tactical phase (WR-FINAL): fighting, or withdrawn elsewhere in the sanctum to recover.</summary>
+        public KrunePhase DirectorPhase = KrunePhase.Fight;
+        /// <summary>When his combat began (the handoff), for his round count; -1 until then.</summary>
+        public double CombatStartedAt = -1d;
+        /// <summary>A WR-07A save that reached the development checkpoint, brought into the real encounter once (WR-FINAL).</summary>
+        public bool PrototypeRetired;
+        /// <summary>His book, director brain and combat gear were set up once (WR-FINAL); never refilled.</summary>
+        public bool CombatInitialized;
+        public string CombatInitializedNote = string.Empty;
+        /// <summary>The dancing spear's form while it dances, and when the dance ends (WR-FINAL).</summary>
+        public string DancingFormId = string.Empty;
+        public double DancingUntil = -1d;
+        /// <summary>After he grasps the dancing spear it cannot dance again until then.</summary>
+        public double DanceLockedUntil = -1d;
+        /// <summary>The loot bag the spear dropped into when its dance ended while he could not grasp it (empty: none).</summary>
+        public string DroppedSpearBagId = string.Empty;
+        /// <summary>The rune-carved rod's charges (-1: not yet taken over from Krune's old resource) and their last renewal.</summary>
+        public int RodCharges = -1;
+        public double RodRenewedAt = -1d;
     }
 
     /// <summary>Krune's linked and revival-dependent values at one instant. Before the native difficulty preset.</summary>
@@ -392,7 +411,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
         /// <summary>The prototype boundary holds the whole simulation once the handoff is reached, unless the harness released it.</summary>
         public static bool CheckpointHolds(KruneState krune)
         {
-            return krune != null && krune.CheckpointReached && !krune.DiagnosticRelease;
+            return krune != null && krune.CheckpointReached && !krune.DiagnosticRelease && !krune.PrototypeRetired;
         }
 
         private static float Distance(float ax, float ay, float bx, float by)

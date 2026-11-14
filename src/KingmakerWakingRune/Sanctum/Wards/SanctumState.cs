@@ -162,6 +162,10 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public LashmistressState Lashmistress = new LashmistressState();
         /// <summary>Krune's awakening (WR-07A). A version 5 state whose ritual already came due is offered a one-time choice.</summary>
         public Krune.KruneState Krune = new Krune.KruneState();
+        /// <summary>Walls of stone standing in the sanctum (WR-FINAL): instantaneous conjurations, rebuilt from here on every load.</summary>
+        public List<Krune.WallRecord> Walls = new List<Krune.WallRecord>();
+        /// <summary>The expedition's conclusion (WR-FINAL): Krune's death, the aftermath, the artifacts, the return and the outcome.</summary>
+        public Krune.ConclusionState Conclusion = new Krune.ConclusionState();
 
         /// <summary>
         /// Brings an older save forward without resetting anything it recorded. Version 1 predates credentials and route
