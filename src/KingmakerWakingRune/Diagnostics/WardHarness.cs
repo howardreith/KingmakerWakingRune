@@ -618,6 +618,22 @@ namespace KingmakerWakingRune.Diagnostics
                     }
                     return sb.ToString();
                 }
+                case "params":
+                {
+                    // READ: the native ability parameters of a member's own ability (as its next use would compute them) and
+                    // each rank its effects would use: how equipment such as a phylactery changes it. Nothing is cast.
+                    UnitEntityData member = Member(args[1]);
+                    Kingmaker.UnitLogic.Abilities.Ability fact = member.Descriptor.Abilities.RawFacts.OfType<Kingmaker.UnitLogic.Abilities.Ability>().FirstOrDefault(a => a.Blueprint.name == args[2]);
+                    if (fact == null)
+                    {
+                        return $"{member.CharacterName} has no ability {args[2]}";
+                    }
+                    var data = new AbilityData(fact);
+                    Kingmaker.UnitLogic.Abilities.AbilityParams values = data.CalculateParams();
+                    var context = new Kingmaker.UnitLogic.Abilities.AbilityExecutionContext(data, values, member);
+                    string ranks = string.Join(", ", data.Blueprint.GetComponents<Kingmaker.UnitLogic.Mechanics.Components.ContextRankConfig>().Select(r => $"{r.Type}={r.GetValue(context)}").ToArray());
+                    return $"READ params of {member.CharacterName}'s {args[2]}: caster level {values.CasterLevel}, rank bonus {values.RankBonus}; ranks [{ranks}].";
+                }
                 case "departure":
                 {
                     // READ: the saved departure record (members and number of recorded choices) and the token count.
