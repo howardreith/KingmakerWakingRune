@@ -41,7 +41,21 @@ namespace KingmakerWakingRune.Party
                     player.SpendMoney(-delta);
                 }
                 flags.Unlock(ScenarioBlueprints.TreasuryFlag);
+                // A new game is granted the current amount, so the supplement for older lodge saves never applies to it.
+                flags.Unlock(ScenarioBlueprints.TreasurySupplementFlag);
                 Log.Info($"Party treasury initialized once: {before} -> {player.Money} gp.");
+            }
+            else
+            {
+                long supplement = WakingPolicies.TreasurySupplement(true, flags.IsUnlocked(ScenarioBlueprints.TreasurySupplementFlag),
+                    flags.IsUnlocked(ScenarioBlueprints.SanctumEnteredFlag), ScenarioIds.PreviousStartingTreasury, ScenarioIds.StartingTreasury);
+                if (supplement > 0)
+                {
+                    long before = player.Money;
+                    player.GainMoney(supplement);
+                    flags.Unlock(ScenarioBlueprints.TreasurySupplementFlag);
+                    Log.Info($"Treasury supplement for a lodge save from before 500,000 gp, applied once: {before} -> {player.Money} gp (+{supplement}).");
+                }
             }
         }
     }

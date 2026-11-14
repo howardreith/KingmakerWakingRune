@@ -110,6 +110,7 @@ namespace KingmakerWakingRune.Party
                     Log.Error("Quartermaster unit not found; the shop cannot open.");
                     return;
                 }
+                Blueprints.QuartermasterStock.Resupply();
                 EventBus.RaiseEvent(delegate(IVendorUIHandler h)
                 {
                     h.HandleTradeStarted(vendor);

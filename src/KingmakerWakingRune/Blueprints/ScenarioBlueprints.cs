@@ -34,6 +34,7 @@ namespace KingmakerWakingRune.Blueprints
         public static BlueprintUnlockableFlag CastSetupFlag { get; private set; }
         public static BlueprintUnlockableFlag ProtagonistXpFlag { get; private set; }
         public static BlueprintUnlockableFlag TreasuryFlag { get; private set; }
+        public static BlueprintUnlockableFlag TreasurySupplementFlag { get; private set; }
         public static BlueprintUnlockableFlag BriefingCompleteFlag { get; private set; }
         public static BlueprintUnlockableFlag TokenGrantedFlag { get; private set; }
         public static BlueprintUnlockableFlag SanctumEnteredFlag { get; private set; }
@@ -79,6 +80,7 @@ namespace KingmakerWakingRune.Blueprints
                 CastSetupFlag = Flag("KWR_LodgeCastSetupDone");
                 ProtagonistXpFlag = Flag("KWR_ProtagonistXpGranted");
                 TreasuryFlag = Flag("KWR_TreasuryInitialized");
+                TreasurySupplementFlag = Flag("KWR_TreasurySupplement500k");
                 BriefingCompleteFlag = Flag("KWR_BriefingComplete");
                 Area = CreateArea(donorArea);
                 EnterPoint = Create<BlueprintAreaEnterPoint>("KWR_MagnimarLodge_Enter", ScenarioIds.EnterPointGuid);
@@ -86,7 +88,7 @@ namespace KingmakerWakingRune.Blueprints
                 Sheila = CreateSheila(donorUnit, root);
                 Preset = CreatePreset(root);
                 RootStartGameActions = root.StartGameActions;
-                foreach (BlueprintScriptableObject bp in new BlueprintScriptableObject[] { SessionFlag, SetupFlag, CastSetupFlag, ProtagonistXpFlag, TreasuryFlag, BriefingCompleteFlag, Area, EnterPoint, Sheila, Preset })
+                foreach (BlueprintScriptableObject bp in new BlueprintScriptableObject[] { SessionFlag, SetupFlag, CastSetupFlag, ProtagonistXpFlag, TreasuryFlag, TreasurySupplementFlag, BriefingCompleteFlag, Area, EnterPoint, Sheila, Preset })
                 {
                     register(bp);
                 }

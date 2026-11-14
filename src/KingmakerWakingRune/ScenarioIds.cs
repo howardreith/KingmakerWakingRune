@@ -25,8 +25,11 @@ namespace KingmakerWakingRune
         /// <summary>Level the protagonist and every recruit are brought to (by XP, never by assigned levels).</summary>
         public const int PartyLevelTarget = 11;
 
-        /// <summary>The shared party treasury set once for each new Waking Rune game.</summary>
-        public const long StartingTreasury = 450000;
+        /// <summary>The shared party treasury set once for each new Waking Rune game (WR-PLAYTEST-01: 500,000).</summary>
+        public const long StartingTreasury = 500000;
+
+        /// <summary>The treasury granted before WR-PLAYTEST-01; lodge saves that had it get the difference once.</summary>
+        public const long PreviousStartingTreasury = 450000;
 
         /// <summary>
         /// Out-of-range DlcType identifying the Waking Rune as its own campaign: the selector entry,

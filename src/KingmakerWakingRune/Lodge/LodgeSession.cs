@@ -103,6 +103,7 @@ namespace KingmakerWakingRune.Lodge
             if (inLodge)
             {
                 EnsureCast();
+                Blueprints.QuartermasterStock.EnsureAssembled();
                 StartingGrants.ApplyOnce();
                 RefugeToken.EnsureGranted();
                 BriefingService.ArmIfPending();

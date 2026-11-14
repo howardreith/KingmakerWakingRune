@@ -5,287 +5,329 @@ namespace KingmakerWakingRune.Blueprints
     {
         public static readonly CatalogueEntry[] Items =
         {
-            new CatalogueEntry("03d706655c07d804cb9d5a5583f9aec5", 2), // Longsword +1
-            new CatalogueEntry("193972650bc0e40409a6773e924ad612", 2), // Longsword +2
-            new CatalogueEntry("68fbe8e38f215d2448ce7610e8d57a29", 1), // Longsword +3
-            new CatalogueEntry("e4925df9c7ab2714793cd5834e0a3039", 2), // Greatsword +1
-            new CatalogueEntry("8b0ad785727b2154ab4029508738fbdd", 2), // Greatsword +2
-            new CatalogueEntry("b734631d6b981a844bd817c2961d5f29", 1), // Greatsword +3
-            new CatalogueEntry("adbc18abae2534740a7f162ae33a86fc", 2), // Bastard Sword +1
-            new CatalogueEntry("8b5d119f1f2009b4aaab7024bf53e483", 2), // Bastard Sword +2
-            new CatalogueEntry("1cf115afab1777245b035ffe8012c281", 1), // Bastard Sword +3
-            new CatalogueEntry("66106d59fd4615842af854cc9b7cbea4", 2), // Dueling Sword +1
-            new CatalogueEntry("695057131a48b4f4884c00f690363f5e", 1), // Dueling Sword +2
-            new CatalogueEntry("ea664cd1cf41a4044bbf3e6bcff18ebc", 1), // Dueling Sword +3
-            new CatalogueEntry("9d23d26b2fdbe484b89867667aabeebe", 2), // Rapier +1
-            new CatalogueEntry("d713662146582ac48a38692aa6f7ec07", 2), // Rapier +2
-            new CatalogueEntry("1a5f81e26e4c41c44a2a3b034369ef0b", 1), // Rapier +3
-            new CatalogueEntry("7bef1327d4cb31249823d9fcb24af332", 2), // Scimitar +1
-            new CatalogueEntry("a231bbf909edfb548928e56091f71b56", 2), // Scimitar +2
-            new CatalogueEntry("536277f87a94d4a4ca7a6f777866059f", 1), // Scimitar +3
-            new CatalogueEntry("9f455505128866146a9bd81895d4cecd", 2), // Shortsword +1
-            new CatalogueEntry("0af6a4ac898a2ca4c9b0a7e76ec7522b", 2), // Shortsword +2
-            new CatalogueEntry("9ed29d74f5f9fc64786cc340806d420f", 1), // Shortsword +3
-            new CatalogueEntry("f93a7882fb01963428b091f259b15d3a", 2), // Falchion +1
-            new CatalogueEntry("4884c93b5dcfcd341bbea50751f4cd20", 2), // Falchion +2
-            new CatalogueEntry("a00f39e6fed1e544588782a73a5e9d99", 1), // Falchion +3
-            new CatalogueEntry("2a45458f776442e43bba57de65f9b738", 3), // Dagger +1
-            new CatalogueEntry("4607f83de16245844acb4596fc797147", 2), // Dagger +2
-            new CatalogueEntry("4c08dc9c56fd3ea4da4c6825105f0498", 2), // Dagger +3
-            new CatalogueEntry("cece2e26b026b244fba86a2075fc9811", 2), // Kukri +1
-            new CatalogueEntry("ce7ef76c973ecfc47ba7515a743c8fd4", 2), // Kukri +2
-            new CatalogueEntry("04284ae47696e4e4fa5fbdfe9e1f04cf", 1), // Kukri +3
-            new CatalogueEntry("4f0704c1d4d53cf419bd200bdfc12a0a", 2), // Greataxe +1
-            new CatalogueEntry("b45b18552598a2d4c9cdc8296c490825", 2), // Greataxe +2
-            new CatalogueEntry("61c1565f7a9eeb74799d27f526718f40", 1), // Greataxe +3
-            new CatalogueEntry("0ce4b3f4a3d70fa45851313a7f3d233f", 2), // Battleaxe +1
-            new CatalogueEntry("21ed826b9c60c7f43af2a3c041046670", 2), // Battleaxe +2
-            new CatalogueEntry("3d9e3fc1d4f4d8640bc4fac27a50fd5c", 1), // Battleaxe +3
-            new CatalogueEntry("2618c8c4e4be9bc48acdbcc7d92d6dc1", 2), // Handaxe +1
-            new CatalogueEntry("a8c3b480482b24f4bb4f49bc47804ece", 2), // Handaxe +2
-            new CatalogueEntry("1ffd6bb86a1aedd4687b4a89ffb478e8", 2), // Warhammer +1
-            new CatalogueEntry("11ea0d6335a0fee4a87bfdc9201076c3", 2), // Warhammer +2
-            new CatalogueEntry("57898b7567742fb458a5e57d112c19ec", 1), // Warhammer +3
-            new CatalogueEntry("86d5d758c2dd24747bad1c7b1f32e9df", 2), // Heavy Mace +1
-            new CatalogueEntry("3e728d0847794234fbedd98fe62cdec8", 2), // Heavy Mace +2
-            new CatalogueEntry("ed5c9e684981d774eab7aeec8e21a418", 1), // Heavy Mace +3
-            new CatalogueEntry("5fe90cd1d77d8f446ac955dec7c8759f", 2), // Light mace +1
-            new CatalogueEntry("6d228172531659e449fe189a4c579ea3", 1), // Light mace +2
-            new CatalogueEntry("93db492fa4e99c34eabacb1ca5c159dd", 2), // Heavy Flail +1
-            new CatalogueEntry("b3d3daa4153f12e4db798ce76bdf554b", 2), // Heavy Flail +2
-            new CatalogueEntry("e3c21d29a55842146af65892cd2927cd", 1), // Heavy Flail +3
-            new CatalogueEntry("9b64866b008a35d4ab1ba6f1a23bb7dc", 2), // Glaive +1
-            new CatalogueEntry("1ccf54ab622d5294f9a2ba65b96d09f7", 2), // Glaive +2
-            new CatalogueEntry("7e4224e752358094a923c0ab5f636b3b", 1), // Glaive +3
-            new CatalogueEntry("9479af1ecd44ceb47a1e54b7268175c3", 2), // Longspear +1
-            new CatalogueEntry("d512ed2b42265fa41bd3066eb11f6a90", 2), // Longspear +2
-            new CatalogueEntry("2c4a3077efc2378499c60b03d2b0527a", 3), // Quarterstaff +1
-            new CatalogueEntry("a2aad194f9a067f408752bce24965dd6", 2), // Quarterstaff +2
-            new CatalogueEntry("1c6e64ffdb3c8af47b2c8b88f802c728", 1), // Quarterstaff +3
-            new CatalogueEntry("833d02226c289ce4892666e9d5880ae5", 2), // Kama +1
-            new CatalogueEntry("a58ef6b142297af4482a5154765e777f", 1), // Kama +2
-            new CatalogueEntry("726719d53e2c663408fb739c25b96786", 1), // Kama +3
-            new CatalogueEntry("373894b330b2d7a4485284e1909d6b1a", 2), // Nunchaku +1
-            new CatalogueEntry("c40d09652bcc37846b09f650b51963e9", 1), // Nunchaku +2
-            new CatalogueEntry("9b24946e18686e244b935ed66bf29f14", 1), // Nunchaku +3
-            new CatalogueEntry("3329eae7f8a5e3e4d80e3e15746d82bb", 2), // Earth Breaker +1
-            new CatalogueEntry("9cb48261dd41b7948bf630297ca6a92c", 2), // Earth Breaker +2
-            new CatalogueEntry("158fbe1c26025f3459c1af29a8faf2d8", 2), // Elven Curve Blade +1
-            new CatalogueEntry("a81078f8f9148b94ca9f438171792ce9", 2), // Elven Curve Blade +2
-            new CatalogueEntry("62ba202662960dd488330f24999435b6", 1), // Elven Curve Blade +3
-            new CatalogueEntry("36cadeb70d35fc84a9b69db9fb7e64f5", 2), // Fauchard +1
-            new CatalogueEntry("70a5422b73f42e441a1482c112e71afb", 2), // Fauchard +2
-            new CatalogueEntry("a802f19be1140cf4683b85fab38928ac", 1), // Fauchard +3
-            new CatalogueEntry("096350418ea1f614bb489191398ab64b", 2), // Sai +1
-            new CatalogueEntry("97462573cb0d5c04283e0825d5182d6e", 1), // Sai +2
-            new CatalogueEntry("ebb1ce40634dbd24392a9225147eaa7d", 1), // Sai +3
-            new CatalogueEntry("a06dd370e2d02cd449f82b209cbd61d6", 2), // Dwarven Waraxe +1
-            new CatalogueEntry("8e6bada1ed926e94f851e9c50585d8b7", 2), // Dwarven Waraxe +2
-            new CatalogueEntry("04798cc8a7a55494d8fb898fa1b52ab3", 1), // Dwarven Waraxe +3
-            new CatalogueEntry("11c66ec41f62708498f751abd911db88", 2), // Estoc +1
-            new CatalogueEntry("8c31edb13b069104a946599c31cf9079", 1), // Estoc +2
-            new CatalogueEntry("3ae572d645784214794eb667dccb3a98", 1), // Estoc +3
-            new CatalogueEntry("babd2990d6ff6734d8a755a36cf8ad40", 2), // Falcata +1
-            new CatalogueEntry("9b90a5b27e1a8994bae5cbb7298e1c15", 1), // Falcata +2
-            new CatalogueEntry("678a667e5223d54419ea5deeb86c82f0", 1), // Falcata +3
-            new CatalogueEntry("9d3d4b12be558c548b65c9093ff6ec54", 2), // Tongi +1
-            new CatalogueEntry("d75803253b68d5944b7cc40fdb6211f6", 1), // Tongi +2
-            new CatalogueEntry("a65588031b28e124780c77af70577ffa", 1), // Tongi +3
-            new CatalogueEntry("acf57e1471b5b1d40893c2f3186e49fa", 2), // Orc Double Axe +1
-            new CatalogueEntry("aa5ec13aa89ab6346a272c9ab92afd64", 1), // Orc Double Axe +2
-            new CatalogueEntry("aee6a20693a182a4fbd84b2746b13ef3", 1), // Orc Double Axe +3
-            new CatalogueEntry("f1db33a3f2b5dfd40a10fae7ea1fd76d", 2), // Two-bladed Sword +1
-            new CatalogueEntry("c7f6f2e50a37d8c4baaa41035a918037", 1), // Two-bladed Sword +2
-            new CatalogueEntry("e08a031aed7947b4ca43f1eef03d321f", 1), // Two-bladed Sword +3
-            new CatalogueEntry("924b5edb3e09b2c4fbeb314b070b9eeb", 2), // Dwarven Urgrosh +1
-            new CatalogueEntry("bad4fb2a5e668d44c80e541477f7457d", 1), // Dwarven Urgrosh +2
-            new CatalogueEntry("2c5e6213acdcc3c489dc27dbbd301395", 1), // Dwarven Urgrosh +3
-            new CatalogueEntry("2ea8925adb856fe45990a4fd01ff0148", 2), // Gnome Hooked Hammer +1
-            new CatalogueEntry("cbaa12b9fc981af40b8658b966114040", 1), // Gnome Hooked Hammer +2
-            new CatalogueEntry("18449108bafff5d4f932cd3fb8621b9b", 1), // Gnome Hooked Hammer +3
-            new CatalogueEntry("643b5b476b7fc1942aa24a50dedc8de4", 2), // Sling Staff +1
-            new CatalogueEntry("1dc78587aa10b0849b863f57615ddce2", 1), // Sling Staff +2
-            new CatalogueEntry("69245594968164347b63b2ddc3c24eef", 1), // Sling Staff +3
-            new CatalogueEntry("203d3fbf74304ec4aba2ed1021742e59", 2), // Cold Iron Longsword +1
-            new CatalogueEntry("23855f41005569b43bcdca1c299471b4", 1), // Cold Iron Earth Breaker +1
-            new CatalogueEntry("ebea3139c4649e7459079d424c89e561", 2), // Cold Iron Dagger +1
-            new CatalogueEntry("76b3cfacefc66234ebe3f14669e9d208", 1), // Cold Iron Handaxe +1
-            new CatalogueEntry("4c30b1cd4041d214dbe028e293c7a5ff", 1), // Cold Iron Dwarven Waraxe +3
-            new CatalogueEntry("92752bbbf04dfa1439af186f48aee0e9", 40), // Diamond Dust
-            new CatalogueEntry("fd732e6688007e449964d8c5f2fc659d", 2), // Longbow +1
-            new CatalogueEntry("335efd45aba89a245adf68a8da1fd3ca", 2), // Longbow +2
-            new CatalogueEntry("426c900c0787c844c85bb4ac8cba6d27", 1), // Longbow +3
-            new CatalogueEntry("3e53a85140b50b24498e03e07a2df7e2", 2), // Shortbow +1
-            new CatalogueEntry("2cbe261ab90d6cc4194cc1c8c85c3cbc", 2), // Shortbow +2
-            new CatalogueEntry("3df5b2e2c59e5624eb564dbe9d754886", 1), // Shortbow +3
-            new CatalogueEntry("2753a0159681be94da3a5eeabc8c8d1a", 2), // Composite Longbow +1
-            new CatalogueEntry("862cf5b6dc694054bad497636834faa8", 1), // Composite Longbow +4
-            new CatalogueEntry("eec59da36fadf594aac6bd9add90652e", 2), // Composite Shortbow +1
-            new CatalogueEntry("1e396f7871b73234fb41d72cd8c441f9", 2), // Composite Shortbow +2
-            new CatalogueEntry("2f1673e87242d2941a1e49b850dbc9f2", 1), // Composite Shortbow +3
-            new CatalogueEntry("f5528acb89757ab4fb9350f45cc4f3b4", 2), // Light Crossbow +1
-            new CatalogueEntry("1fb0ea666a65a004dac6327d0e6682bc", 2), // Light Crossbow +2
-            new CatalogueEntry("8ee3176eb0ed29c418120b04dbb76aa9", 1), // Light Crossbow +3
-            new CatalogueEntry("e8aa3f5ca26027b4b846de538b01ee50", 2), // Heavy Crossbow +1
-            new CatalogueEntry("c98788ea762ecad44b73610c1e065bf8", 2), // Heavy Crossbow +2
-            new CatalogueEntry("6967f62da3cfacb4eacb4f6227c4afd6", 1), // Heavy Crossbow +3
-            new CatalogueEntry("80756136484c44845ab19b2105c5702c", 2), // Javelin +1
-            new CatalogueEntry("947df50f2c208c04388c7e165b8c8788", 2), // Javelin +2
-            new CatalogueEntry("32786a0a5807d5a448581a8b17864319", 2), // Sling +1
-            new CatalogueEntry("c293e5abe38167b4e8b8cdaa1e95a054", 1), // Sling +2
-            new CatalogueEntry("18c627302593ab142bb8219525e1aed1", 2), // Leather Armor +1
-            new CatalogueEntry("f251cb7bbf176e340893b9e40f9a7c29", 2), // Leather Armor +2
-            new CatalogueEntry("fb4e768611f820b4186a004cbd70ead6", 1), // Leather Armor +3
-            new CatalogueEntry("45e86ae29df5f4b48a66da15fde62217", 2), // Hide Armor +1
-            new CatalogueEntry("01117df73f22d5b4294136d2ae8efad4", 2), // Hide Armor +2
-            new CatalogueEntry("91bf657f26eb80f4ba05b0b8440b1e8c", 2), // Chainshirt +1
-            new CatalogueEntry("d80665c8497437a418b8f39e25daf4e2", 2), // Chainshirt +2
-            new CatalogueEntry("19144cbc80e7cb84aa53692a7ddf5ba6", 1), // Chainshirt +3
-            new CatalogueEntry("5041415db3e6c394a8b2173c39fd4ec4", 2), // Breastplate +1
-            new CatalogueEntry("c77060ede0a983f4a8c7c47032ecf1ea", 2), // Breastplate +2
-            new CatalogueEntry("a7a2500acce8faf46b6ecb79ec05691e", 1), // Breastplate +3
-            new CatalogueEntry("dd3834fe3f48182438b59fd99675fd6c", 2), // Chainmail +1
-            new CatalogueEntry("be26685bdebb2a94693d2378e0235ef3", 2), // Chainmail +2
-            new CatalogueEntry("22c16b38998ebf342acdccba4f55a3b6", 1), // Chainmail +3
-            new CatalogueEntry("65de3fcad4c01ac40bc8567f67901b5b", 2), // Half-Plate +1
-            new CatalogueEntry("ce0076c7408f10741950cec394767b75", 2), // Half-Plate +2
-            new CatalogueEntry("76e68c81dd261e64789d5f2bdc77302b", 1), // Half-Plate +3
-            new CatalogueEntry("b277c8713472c3a4fb0f1e0ea6d6ed47", 2), // Banded Mail +1
-            new CatalogueEntry("0c83f2926e8ac15439830be3106a6643", 2), // Banded Mail +2
-            new CatalogueEntry("ba780a9c1e5b0304892bd2bc0c22fe4d", 2), // Full Plate +1
-            new CatalogueEntry("61787c56c01996f4c82866aca8fb0187", 2), // Full Plate +2
-            new CatalogueEntry("1e0289b5e2a002d4592c0ac079d828d9", 1), // Full Plate +3
-            new CatalogueEntry("e832847483b219841b24e0a77acd7795", 2), // Mithral Chainshirt +1
-            new CatalogueEntry("26b1c3857d4d46d4aa1b6afaa33a6f84", 2), // Mithral Chainshirt +2
-            new CatalogueEntry("fb2664f7d8534dc40aeb23392dc58c0c", 1), // Mithral Chainshirt +3
-            new CatalogueEntry("9ad5e5e5ef3ea164482217696306c6fd", 2), // Mithral Breastplate +1
-            new CatalogueEntry("72b5a62a1387ca84d9f0f1fb95dbe4fe", 1), // Mithral Breastplate +2
-            new CatalogueEntry("888cd7959836acd4eae33e815e99102c", 1), // Mithral Full Plate +1
-            new CatalogueEntry("529f8973ea1571244a48711135180e12", 1), // Mithral Full Plate +2
-            new CatalogueEntry("5615afebd80c5de43b6def5fc4646e1c", 2), // Buckler +1
-            new CatalogueEntry("cff02b5c7e391f24e88239536f88416d", 2), // Buckler +2
-            new CatalogueEntry("9552d3843ff7b4140a8cf04b753848eb", 1), // Buckler +3
-            new CatalogueEntry("cac3ca0cae325b44b9d7833bbe0e6c69", 2), // Light Shield +1
-            new CatalogueEntry("2a298726445c2184bbeab9f34ece55eb", 2), // Light Shield +2
-            new CatalogueEntry("3b3f25ba61ba5f346b4d546e702732cb", 1), // Light Shield +3
-            new CatalogueEntry("5c7b898a1bfb6cb4f8c14a0ebc143abe", 2), // Heavy Shield +1
-            new CatalogueEntry("d41ea649a1054b647aafc5b2cb4f8543", 2), // Heavy Shield +2
-            new CatalogueEntry("7e23918977b18524591204c93fae0a37", 1), // Heavy Shield +3
-            new CatalogueEntry("e7b9e76870927424eb9de56611206867", 2), // Tower Shield +1
-            new CatalogueEntry("294e15227b2c1d245ab1ff99922f339f", 1), // Tower Shield +2
-            new CatalogueEntry("9482c62934be44044918c3aac3730232", 4), // Bracers of Armor +1
-            new CatalogueEntry("bf063663cdb3df34c8ffa05ff1d1c877", 4), // Bracers of Armor +2
-            new CatalogueEntry("cc5f45518020a324b8c51d0a231984a3", 3), // Bracers of Armor +3
-            new CatalogueEntry("0a8cda1aaee1178419b32722c89dae64", 2), // Bracers of Armor +4
-            new CatalogueEntry("4aea6773c1da01c42bd382c1b7c384bc", 6), // Cloak of Resistance +1
-            new CatalogueEntry("04dff7841c5f499478c91487d9bbdcef", 6), // Cloak of Resistance +2
-            new CatalogueEntry("9f3c56d5247154e47b5ca9500f4d86ce", 4), // Cloak of Resistance +3
-            new CatalogueEntry("096125bfb3b364849b02ab65297f71de", 2), // Cloak of Resistance +4
-            new CatalogueEntry("f333bf86cd122974792162cbcd27c9ed", 6), // Ring of Protection +1
-            new CatalogueEntry("254755ca73eb52a4d8ab1a663106659b", 4), // Ring of Protection +2
-            new CatalogueEntry("31315100c28e6a2418396fb152466fcd", 2), // Ring of Protection +3
-            new CatalogueEntry("209960f8d60e23a4c8e75d14e2261263", 6), // Amulet of Natural Armor +1
-            new CatalogueEntry("becc4c1d40a77814f98c0b175e92d17c", 4), // Amulet of Natural Armor +2
-            new CatalogueEntry("081a2ffe763320a469de20f1e9b1cd71", 2), // Amulet of Natural Armor +3
-            new CatalogueEntry("a82d4f94b327d6743ad9c2b9c440061c", 2), // Amulet of Mighty Fists +1
-            new CatalogueEntry("c640025d7096aba49bd19e7ffcac9400", 1), // Amulet of Mighty Fists +2
-            new CatalogueEntry("c354de364a714ee4dbe2cfee628df267", 4), // Belt of Giant Strength +2
-            new CatalogueEntry("ede812de6b31b194686595fab33fc3ed", 2), // Belt of Giant Strength +4
-            new CatalogueEntry("b6af4c1834999e74497b41588d1071cd", 4), // Belt of Incredible Dexterity +2
-            new CatalogueEntry("20539ffabe4365e419ca7413129ab78a", 2), // Belt of Incredible Dexterity +4
-            new CatalogueEntry("b9cc5d85d4a5032458ef4491f5fed251", 4), // Belt of Mighty Constitution +2
-            new CatalogueEntry("dbeb5ba83e9fd2046a31590636b8b36d", 2), // Belt of Mighty Constitution +4
-            new CatalogueEntry("22184af355826444087506d7f2f8f0b1", 3), // Headband of Vast Intelligence +2
-            new CatalogueEntry("ee15329357f8f974bacf02521d8d37fe", 2), // Headband of Vast Intelligence +4
-            new CatalogueEntry("3d33605336c62274483f382f58908f5b", 3), // Headband of Inspired Wisdom +2
-            new CatalogueEntry("716bdfe5c57be9b43a958bb612c1ecd4", 2), // Headband of Inspired Wisdom +4
-            new CatalogueEntry("a3e8e907908ca7a40ac6da78e70bf33d", 3), // Headband of Alluring Charisma +2
-            new CatalogueEntry("71b4c3f8976784d4abf46976b15eba4a", 2), // Headband of Alluring Charisma +4
-            new CatalogueEntry("6555965e6540c3b48b9a352214ecba41", 3), // Gloves of Dexterity +2
-            new CatalogueEntry("ae3638b2f8016f84d87122ae60d26937", 1), // Ring of Evasion
-            new CatalogueEntry("1223ceb45ed647b44a04b44a9312328b", 1), // Boots of Elvenkind
-            new CatalogueEntry("8644bca1c3bf6f64ab4d89be643a8850", 2), // Swiftfoot Boots
-            new CatalogueEntry("ec34985b81b9f744488456e7009044ee", 1), // Explorer's Belt
-            new CatalogueEntry("405abbf543c9cc148a6f091bb5e58d14", 2), // Expert's Hat
-            new CatalogueEntry("1cf04842d5dbd0f49946b1af1022cd1a", 1), // Lesser Extend Metamagic Rod
-            new CatalogueEntry("1e7a5a4d257cf434a87e687c9ee7a872", 1), // Lesser Empower Metamagic Rod
-            new CatalogueEntry("8b0261621069c9a41a70f1aaefa21c75", 1), // Lesser Reach Metamagic Rod
-            new CatalogueEntry("d52566ae8cbe8dc4dae977ef51c27d91", 30), // Potion of Cure Light Wounds
-            new CatalogueEntry("f991f3051c3b9e64fabc87891077b613", 24), // Potion of Cure Moderate Wounds
-            new CatalogueEntry("e76d14096063ee041bdb1d13d8172599", 18), // Potion of Cure Serious Wounds
-            new CatalogueEntry("1365aee7d18c85d438f5b027122ca8cf", 12), // Potion of Restoration, Lesser
-            new CatalogueEntry("bafd5734adc579641904284aa380dd48", 6), // Potion of Remove Blindness
-            new CatalogueEntry("152944f618996bb4992030141bc96659", 6), // Potion of Remove Curse
-            new CatalogueEntry("42f01c3ad12d4f84c93f89e165384780", 6), // Potion of Heroism
-            new CatalogueEntry("e21a5ab9509a943409bbd791e9685b03", 6), // Potion of Displacement
-            new CatalogueEntry("5bb722fed5172ed48baa2139246bc355", 6), // Potion of Blur
-            new CatalogueEntry("5f9fe6030695f48489b59887536748e8", 6), // Potion of Invisibility
-            new CatalogueEntry("99ba9a93eb1c3cf42bfa641a59580f5b", 6), // Potion of Barkskin
-            new CatalogueEntry("2983c97b71ba60443b1c749854ef53a1", 6), // Potion of Bull's Strength
-            new CatalogueEntry("94b24d55f514cdd45a79d34904fea944", 6), // Potion of Cat's Grace
-            new CatalogueEntry("a3879b4e94c50854a873a0334fbbe36c", 6), // Potion of Bear's Endurance
-            new CatalogueEntry("17f132fa2c8c213479640212ae444005", 3), // Potion of Fox's Cunning
-            new CatalogueEntry("db548855a06daba4cb57f34f4780fd02", 3), // Potion of Owl's Wisdom
-            new CatalogueEntry("91d681b0bf6c39047a46f50ec98bf72d", 3), // Potion of Eagle's Splendor
-            new CatalogueEntry("fe7e87dc45fbcb845b7755f0733b5465", 6), // Potion of Enlarge Person
-            new CatalogueEntry("ab4961408ba080449afd3e65aa0acbc1", 6), // Potion of Mage Armor
-            new CatalogueEntry("bc93a78d71bef084fa155e529660ed0d", 6), // Potion of Shield of Faith
-            new CatalogueEntry("6e37f3e99bfa1fb4a9ad8db1775aa7aa", 4), // Potion of Resist Fire
-            new CatalogueEntry("755b60529a25f1e4f8e44436d927fc6f", 4), // Potion of Resist Cold
-            new CatalogueEntry("2b269b69a86843546bdf17a9c3c431c3", 4), // Potion of Resist Acid
-            new CatalogueEntry("5d4a59a63e6192c40a73d4b2bd722328", 4), // Potion of Resist Electricity
-            new CatalogueEntry("4cd7b3330e46f424e88602da4e358836", 4), // Potion of Protection from Fire
-            new CatalogueEntry("3a66c695016483a47b4f77ed0ff2e7fb", 4), // Potion of Protection from Cold
-            new CatalogueEntry("30d3dfb67a23cbf4a98044a8f1141b67", 4), // Potion of Protection from Acid
-            new CatalogueEntry("4d85e4763c365454d8f03335197ba6c4", 4), // Potion of Protection from Electricity
-            new CatalogueEntry("5318313176485d64ca13c1f046591326", 6), // Scroll of Breath of Life
-            new CatalogueEntry("fb822a8d451d91b438514541a9a986de", 6), // Scroll of Heal
-            new CatalogueEntry("27f9b643fe41dd34081509f0c65a3408", 8), // Scroll of Restoration
-            new CatalogueEntry("48ffa76066648a8408d4183e055346ce", 6), // Scroll of Remove Disease
-            new CatalogueEntry("de172db6e10f6d54896cb6a48b9fe8f7", 4), // Scroll of Remove Blindness
-            new CatalogueEntry("7475d23822bb7f748b54c1f3deea5080", 6), // Scroll of Remove Curse
-            new CatalogueEntry("62e633bef8ae9b241a5c084525075711", 6), // Scroll of Neutralize Poison
-            new CatalogueEntry("64b5a0f0d955c254d8dda9d19bb472ca", 4), // Scroll of Remove Paralysis
-            new CatalogueEntry("c87c32984fe3909419ee22cd7c93ce37", 6), // Scroll of Remove Fear
-            new CatalogueEntry("a43d2960b3f9bed49a02ae44efef4cfc", 4), // Scroll of Raise Dead
-            new CatalogueEntry("394ba24aed75f0d459ed84d1b1b98f60", 6), // Scroll of Stone to Flesh
-            new CatalogueEntry("89e10c3f21fa50c4b8719e004c7628d3", 4), // Scroll of Death Ward
-            new CatalogueEntry("f49fc4e47cef56e42a49d561289dd500", 6), // Scroll of Freedom of Movement
-            new CatalogueEntry("4b2d0e65fb9775341b6c4f7c178f0fe5", 6), // Scroll of Dispel Magic (Point)
-            new CatalogueEntry("92a1bfd42ef1ec04794355579c699da0", 6), // Scroll of Dispel Magic (Target)
-            new CatalogueEntry("c2cadc1c19cc4b54eb73b987f540ddca", 4), // Scroll of Protection from Fire
-            new CatalogueEntry("2f55c17cbac95664cb1a39568df63d8b", 4), // Scroll of Protection from Cold
-            new CatalogueEntry("c7185bb3eb517804da246aa323d98fd8", 4), // Scroll of Protection from Acid
-            new CatalogueEntry("3b064dd1174e9f0449fb7f3cc585caf1", 4), // Scroll of Protection from Electricity
-            new CatalogueEntry("15fd666cb2d6678438d96cbcc7f574d2", 4), // Scroll of Protection from Sonic
-            new CatalogueEntry("e8308a74821762e49bc3211358e81016", 10), // Scroll of Mage Armor
-            new CatalogueEntry("6b3f04dd5eb9675499f815d5086fe018", 8), // Scroll of Haste
-            new CatalogueEntry("50f9e398017b34c43aa08a2c2c44e8af", 6), // Scroll of Heroism
-            new CatalogueEntry("efb55589cd5b7dd4ca48d78d0d1d9248", 3), // Scroll of Heroism, Greater
-            new CatalogueEntry("4d9f5336b51cae34cb491cbde6aac4b6", 6), // Scroll of Displacement
-            new CatalogueEntry("95b6d995d4d806a4da7d4ee5989c7188", 6), // Scroll of Barkskin
-            new CatalogueEntry("4e78560ea01fe2541b663c96e87b6057", 6), // Scroll of Blur
-            new CatalogueEntry("c0af0b5277e91e347ade3aa8994b0d17", 6), // Scroll of Invisibility
-            new CatalogueEntry("d4bb60352b8a62845ba3a7b34ef29a0b", 3), // Scroll of Greater Invisibility
-            new CatalogueEntry("5b172c2c3e356eb43ba5a8f8008a8a5a", 4), // Scroll of Fireball
-            new CatalogueEntry("9d6d963e1a2d2474db1a23250abeb170", 4), // Scroll of Lightning Bolt
-            new CatalogueEntry("5344f2240620b27478d12f00643fc292", 3), // Scroll of Cone of Cold
-            new CatalogueEntry("bb2f172e429b40840a7dc25bc83732cb", 2), // Scroll of Disintegrate
-            new CatalogueEntry("201dcf730b7185344ba701f91dd405db", 4), // Wand of Cure Light Wounds
-            new CatalogueEntry("e456cd580ff88e2449f9a8e4c204c4dc", 3), // Wand of Cure Moderate Wounds
-            new CatalogueEntry("35fa690e41fb6b143b8c49cce316215d", 2), // Wand of Cure Serious Wounds
-            new CatalogueEntry("002b777e1442b7a41a4ac8cc73aeff64", 3), // Wand of Restoration, Lesser
-            new CatalogueEntry("a8c05388dec2bd64d9c413f3045fbaa7", 2), // Wand of Remove Disease
-            new CatalogueEntry("93c55c75856218e47b74348e3d1791cd", 2), // Wand of Remove Blindness
-            new CatalogueEntry("afb6a606b5d7f3a42a1a809ae8e269bb", 2), // Wand of Neutralize Poison
-            new CatalogueEntry("021b4a12739c59541922e3857f3fb3a4", 2), // Wand of Mage Armor
-            new CatalogueEntry("8bd02291b14bd7b4b914d6327b01787f", 2), // Wand of Bless
-            new CatalogueEntry("e3c33b3af83b02c458b7ccaf822eb3b6", 2), // Wand of Blur
-            new CatalogueEntry("fb97ef0889c25344f91b0d326967743a", 2), // Wand of Haste
-            new CatalogueEntry("22715f7c51efac54fa98b0b64686909b", 2), // Wand of Stoneskin
-            new CatalogueEntry("4639724c4a9cc9544a2f622b66931658", 20), // Acid Flask
-            new CatalogueEntry("fd56596e273d1ff49a8c29cc9802ae6e", 20), // Alchemist's Fire
-            new CatalogueEntry("218241b6d97158149be37b3128597b22", 6), // Oil of Enhancement II
+            new CatalogueEntry("03d706655c07d804cb9d5a5583f9aec5", 12), // Longsword +1
+            new CatalogueEntry("193972650bc0e40409a6773e924ad612", 12), // Longsword +2
+            new CatalogueEntry("68fbe8e38f215d2448ce7610e8d57a29", 12), // Longsword +3
+            new CatalogueEntry("e4925df9c7ab2714793cd5834e0a3039", 12), // Greatsword +1
+            new CatalogueEntry("8b0ad785727b2154ab4029508738fbdd", 12), // Greatsword +2
+            new CatalogueEntry("b734631d6b981a844bd817c2961d5f29", 12), // Greatsword +3
+            new CatalogueEntry("adbc18abae2534740a7f162ae33a86fc", 12), // Bastard Sword +1
+            new CatalogueEntry("8b5d119f1f2009b4aaab7024bf53e483", 12), // Bastard Sword +2
+            new CatalogueEntry("1cf115afab1777245b035ffe8012c281", 12), // Bastard Sword +3
+            new CatalogueEntry("66106d59fd4615842af854cc9b7cbea4", 12), // Dueling Sword +1
+            new CatalogueEntry("695057131a48b4f4884c00f690363f5e", 12), // Dueling Sword +2
+            new CatalogueEntry("ea664cd1cf41a4044bbf3e6bcff18ebc", 12), // Dueling Sword +3
+            new CatalogueEntry("9d23d26b2fdbe484b89867667aabeebe", 12), // Rapier +1
+            new CatalogueEntry("d713662146582ac48a38692aa6f7ec07", 12), // Rapier +2
+            new CatalogueEntry("1a5f81e26e4c41c44a2a3b034369ef0b", 12), // Rapier +3
+            new CatalogueEntry("7bef1327d4cb31249823d9fcb24af332", 12), // Scimitar +1
+            new CatalogueEntry("a231bbf909edfb548928e56091f71b56", 12), // Scimitar +2
+            new CatalogueEntry("536277f87a94d4a4ca7a6f777866059f", 12), // Scimitar +3
+            new CatalogueEntry("9f455505128866146a9bd81895d4cecd", 12), // Shortsword +1
+            new CatalogueEntry("0af6a4ac898a2ca4c9b0a7e76ec7522b", 12), // Shortsword +2
+            new CatalogueEntry("9ed29d74f5f9fc64786cc340806d420f", 12), // Shortsword +3
+            new CatalogueEntry("f93a7882fb01963428b091f259b15d3a", 12), // Falchion +1
+            new CatalogueEntry("4884c93b5dcfcd341bbea50751f4cd20", 12), // Falchion +2
+            new CatalogueEntry("a00f39e6fed1e544588782a73a5e9d99", 12), // Falchion +3
+            new CatalogueEntry("2a45458f776442e43bba57de65f9b738", 12), // Dagger +1
+            new CatalogueEntry("4607f83de16245844acb4596fc797147", 12), // Dagger +2
+            new CatalogueEntry("4c08dc9c56fd3ea4da4c6825105f0498", 12), // Dagger +3
+            new CatalogueEntry("cece2e26b026b244fba86a2075fc9811", 12), // Kukri +1
+            new CatalogueEntry("ce7ef76c973ecfc47ba7515a743c8fd4", 12), // Kukri +2
+            new CatalogueEntry("04284ae47696e4e4fa5fbdfe9e1f04cf", 12), // Kukri +3
+            new CatalogueEntry("4f0704c1d4d53cf419bd200bdfc12a0a", 12), // Greataxe +1
+            new CatalogueEntry("b45b18552598a2d4c9cdc8296c490825", 12), // Greataxe +2
+            new CatalogueEntry("61c1565f7a9eeb74799d27f526718f40", 12), // Greataxe +3
+            new CatalogueEntry("0ce4b3f4a3d70fa45851313a7f3d233f", 12), // Battleaxe +1
+            new CatalogueEntry("21ed826b9c60c7f43af2a3c041046670", 12), // Battleaxe +2
+            new CatalogueEntry("3d9e3fc1d4f4d8640bc4fac27a50fd5c", 12), // Battleaxe +3
+            new CatalogueEntry("2618c8c4e4be9bc48acdbcc7d92d6dc1", 12), // Handaxe +1
+            new CatalogueEntry("a8c3b480482b24f4bb4f49bc47804ece", 12), // Handaxe +2
+            new CatalogueEntry("1ffd6bb86a1aedd4687b4a89ffb478e8", 12), // Warhammer +1
+            new CatalogueEntry("11ea0d6335a0fee4a87bfdc9201076c3", 12), // Warhammer +2
+            new CatalogueEntry("57898b7567742fb458a5e57d112c19ec", 12), // Warhammer +3
+            new CatalogueEntry("86d5d758c2dd24747bad1c7b1f32e9df", 12), // Heavy Mace +1
+            new CatalogueEntry("3e728d0847794234fbedd98fe62cdec8", 12), // Heavy Mace +2
+            new CatalogueEntry("ed5c9e684981d774eab7aeec8e21a418", 12), // Heavy Mace +3
+            new CatalogueEntry("5fe90cd1d77d8f446ac955dec7c8759f", 12), // Light mace +1
+            new CatalogueEntry("6d228172531659e449fe189a4c579ea3", 12), // Light mace +2
+            new CatalogueEntry("93db492fa4e99c34eabacb1ca5c159dd", 12), // Heavy Flail +1
+            new CatalogueEntry("b3d3daa4153f12e4db798ce76bdf554b", 12), // Heavy Flail +2
+            new CatalogueEntry("e3c21d29a55842146af65892cd2927cd", 12), // Heavy Flail +3
+            new CatalogueEntry("9b64866b008a35d4ab1ba6f1a23bb7dc", 12), // Glaive +1
+            new CatalogueEntry("1ccf54ab622d5294f9a2ba65b96d09f7", 12), // Glaive +2
+            new CatalogueEntry("7e4224e752358094a923c0ab5f636b3b", 12), // Glaive +3
+            new CatalogueEntry("9479af1ecd44ceb47a1e54b7268175c3", 12), // Longspear +1
+            new CatalogueEntry("d512ed2b42265fa41bd3066eb11f6a90", 12), // Longspear +2
+            new CatalogueEntry("2c4a3077efc2378499c60b03d2b0527a", 12), // Quarterstaff +1
+            new CatalogueEntry("a2aad194f9a067f408752bce24965dd6", 12), // Quarterstaff +2
+            new CatalogueEntry("1c6e64ffdb3c8af47b2c8b88f802c728", 12), // Quarterstaff +3
+            new CatalogueEntry("833d02226c289ce4892666e9d5880ae5", 12), // Kama +1
+            new CatalogueEntry("a58ef6b142297af4482a5154765e777f", 12), // Kama +2
+            new CatalogueEntry("726719d53e2c663408fb739c25b96786", 12), // Kama +3
+            new CatalogueEntry("373894b330b2d7a4485284e1909d6b1a", 12), // Nunchaku +1
+            new CatalogueEntry("c40d09652bcc37846b09f650b51963e9", 12), // Nunchaku +2
+            new CatalogueEntry("9b24946e18686e244b935ed66bf29f14", 12), // Nunchaku +3
+            new CatalogueEntry("3329eae7f8a5e3e4d80e3e15746d82bb", 12), // Earth Breaker +1
+            new CatalogueEntry("9cb48261dd41b7948bf630297ca6a92c", 12), // Earth Breaker +2
+            new CatalogueEntry("158fbe1c26025f3459c1af29a8faf2d8", 12), // Elven Curve Blade +1
+            new CatalogueEntry("a81078f8f9148b94ca9f438171792ce9", 12), // Elven Curve Blade +2
+            new CatalogueEntry("62ba202662960dd488330f24999435b6", 12), // Elven Curve Blade +3
+            new CatalogueEntry("36cadeb70d35fc84a9b69db9fb7e64f5", 12), // Fauchard +1
+            new CatalogueEntry("70a5422b73f42e441a1482c112e71afb", 12), // Fauchard +2
+            new CatalogueEntry("a802f19be1140cf4683b85fab38928ac", 12), // Fauchard +3
+            new CatalogueEntry("096350418ea1f614bb489191398ab64b", 12), // Sai +1
+            new CatalogueEntry("97462573cb0d5c04283e0825d5182d6e", 12), // Sai +2
+            new CatalogueEntry("ebb1ce40634dbd24392a9225147eaa7d", 12), // Sai +3
+            new CatalogueEntry("a06dd370e2d02cd449f82b209cbd61d6", 12), // Dwarven Waraxe +1
+            new CatalogueEntry("8e6bada1ed926e94f851e9c50585d8b7", 12), // Dwarven Waraxe +2
+            new CatalogueEntry("04798cc8a7a55494d8fb898fa1b52ab3", 12), // Dwarven Waraxe +3
+            new CatalogueEntry("11c66ec41f62708498f751abd911db88", 12), // Estoc +1
+            new CatalogueEntry("8c31edb13b069104a946599c31cf9079", 12), // Estoc +2
+            new CatalogueEntry("3ae572d645784214794eb667dccb3a98", 12), // Estoc +3
+            new CatalogueEntry("babd2990d6ff6734d8a755a36cf8ad40", 12), // Falcata +1
+            new CatalogueEntry("9b90a5b27e1a8994bae5cbb7298e1c15", 12), // Falcata +2
+            new CatalogueEntry("678a667e5223d54419ea5deeb86c82f0", 12), // Falcata +3
+            new CatalogueEntry("9d3d4b12be558c548b65c9093ff6ec54", 12), // Tongi +1
+            new CatalogueEntry("d75803253b68d5944b7cc40fdb6211f6", 12), // Tongi +2
+            new CatalogueEntry("a65588031b28e124780c77af70577ffa", 12), // Tongi +3
+            new CatalogueEntry("acf57e1471b5b1d40893c2f3186e49fa", 12), // Orc Double Axe +1
+            new CatalogueEntry("aa5ec13aa89ab6346a272c9ab92afd64", 12), // Orc Double Axe +2
+            new CatalogueEntry("aee6a20693a182a4fbd84b2746b13ef3", 12), // Orc Double Axe +3
+            new CatalogueEntry("f1db33a3f2b5dfd40a10fae7ea1fd76d", 12), // Two-bladed Sword +1
+            new CatalogueEntry("c7f6f2e50a37d8c4baaa41035a918037", 12), // Two-bladed Sword +2
+            new CatalogueEntry("e08a031aed7947b4ca43f1eef03d321f", 12), // Two-bladed Sword +3
+            new CatalogueEntry("924b5edb3e09b2c4fbeb314b070b9eeb", 12), // Dwarven Urgrosh +1
+            new CatalogueEntry("bad4fb2a5e668d44c80e541477f7457d", 12), // Dwarven Urgrosh +2
+            new CatalogueEntry("2c5e6213acdcc3c489dc27dbbd301395", 12), // Dwarven Urgrosh +3
+            new CatalogueEntry("2ea8925adb856fe45990a4fd01ff0148", 12), // Gnome Hooked Hammer +1
+            new CatalogueEntry("cbaa12b9fc981af40b8658b966114040", 12), // Gnome Hooked Hammer +2
+            new CatalogueEntry("18449108bafff5d4f932cd3fb8621b9b", 12), // Gnome Hooked Hammer +3
+            new CatalogueEntry("643b5b476b7fc1942aa24a50dedc8de4", 12), // Sling Staff +1
+            new CatalogueEntry("1dc78587aa10b0849b863f57615ddce2", 12), // Sling Staff +2
+            new CatalogueEntry("69245594968164347b63b2ddc3c24eef", 12), // Sling Staff +3
+            new CatalogueEntry("203d3fbf74304ec4aba2ed1021742e59", 12), // Cold Iron Longsword +1
+            new CatalogueEntry("23855f41005569b43bcdca1c299471b4", 12), // Cold Iron Earth Breaker +1
+            new CatalogueEntry("ebea3139c4649e7459079d424c89e561", 12), // Cold Iron Dagger +1
+            new CatalogueEntry("76b3cfacefc66234ebe3f14669e9d208", 12), // Cold Iron Handaxe +1
+            new CatalogueEntry("4c30b1cd4041d214dbe028e293c7a5ff", 12), // Cold Iron Dwarven Waraxe +3
+            new CatalogueEntry("92752bbbf04dfa1439af186f48aee0e9", 999), // Diamond Dust
+            new CatalogueEntry("fd732e6688007e449964d8c5f2fc659d", 12), // Longbow +1
+            new CatalogueEntry("335efd45aba89a245adf68a8da1fd3ca", 12), // Longbow +2
+            new CatalogueEntry("426c900c0787c844c85bb4ac8cba6d27", 12), // Longbow +3
+            new CatalogueEntry("3e53a85140b50b24498e03e07a2df7e2", 12), // Shortbow +1
+            new CatalogueEntry("2cbe261ab90d6cc4194cc1c8c85c3cbc", 12), // Shortbow +2
+            new CatalogueEntry("3df5b2e2c59e5624eb564dbe9d754886", 12), // Shortbow +3
+            new CatalogueEntry("2753a0159681be94da3a5eeabc8c8d1a", 12), // Composite Longbow +1
+            new CatalogueEntry("862cf5b6dc694054bad497636834faa8", 12), // Composite Longbow +4
+            new CatalogueEntry("eec59da36fadf594aac6bd9add90652e", 12), // Composite Shortbow +1
+            new CatalogueEntry("1e396f7871b73234fb41d72cd8c441f9", 12), // Composite Shortbow +2
+            new CatalogueEntry("2f1673e87242d2941a1e49b850dbc9f2", 12), // Composite Shortbow +3
+            new CatalogueEntry("f5528acb89757ab4fb9350f45cc4f3b4", 12), // Light Crossbow +1
+            new CatalogueEntry("1fb0ea666a65a004dac6327d0e6682bc", 12), // Light Crossbow +2
+            new CatalogueEntry("8ee3176eb0ed29c418120b04dbb76aa9", 12), // Light Crossbow +3
+            new CatalogueEntry("e8aa3f5ca26027b4b846de538b01ee50", 12), // Heavy Crossbow +1
+            new CatalogueEntry("c98788ea762ecad44b73610c1e065bf8", 12), // Heavy Crossbow +2
+            new CatalogueEntry("6967f62da3cfacb4eacb4f6227c4afd6", 12), // Heavy Crossbow +3
+            new CatalogueEntry("80756136484c44845ab19b2105c5702c", 12), // Javelin +1
+            new CatalogueEntry("947df50f2c208c04388c7e165b8c8788", 12), // Javelin +2
+            new CatalogueEntry("32786a0a5807d5a448581a8b17864319", 12), // Sling +1
+            new CatalogueEntry("c293e5abe38167b4e8b8cdaa1e95a054", 12), // Sling +2
+            new CatalogueEntry("18c627302593ab142bb8219525e1aed1", 12), // Leather Armor +1
+            new CatalogueEntry("f251cb7bbf176e340893b9e40f9a7c29", 12), // Leather Armor +2
+            new CatalogueEntry("fb4e768611f820b4186a004cbd70ead6", 12), // Leather Armor +3
+            new CatalogueEntry("45e86ae29df5f4b48a66da15fde62217", 12), // Hide Armor +1
+            new CatalogueEntry("01117df73f22d5b4294136d2ae8efad4", 12), // Hide Armor +2
+            new CatalogueEntry("91bf657f26eb80f4ba05b0b8440b1e8c", 12), // Chainshirt +1
+            new CatalogueEntry("d80665c8497437a418b8f39e25daf4e2", 12), // Chainshirt +2
+            new CatalogueEntry("19144cbc80e7cb84aa53692a7ddf5ba6", 12), // Chainshirt +3
+            new CatalogueEntry("5041415db3e6c394a8b2173c39fd4ec4", 12), // Breastplate +1
+            new CatalogueEntry("c77060ede0a983f4a8c7c47032ecf1ea", 12), // Breastplate +2
+            new CatalogueEntry("a7a2500acce8faf46b6ecb79ec05691e", 12), // Breastplate +3
+            new CatalogueEntry("dd3834fe3f48182438b59fd99675fd6c", 12), // Chainmail +1
+            new CatalogueEntry("be26685bdebb2a94693d2378e0235ef3", 12), // Chainmail +2
+            new CatalogueEntry("22c16b38998ebf342acdccba4f55a3b6", 12), // Chainmail +3
+            new CatalogueEntry("65de3fcad4c01ac40bc8567f67901b5b", 12), // Half-Plate +1
+            new CatalogueEntry("ce0076c7408f10741950cec394767b75", 12), // Half-Plate +2
+            new CatalogueEntry("76e68c81dd261e64789d5f2bdc77302b", 12), // Half-Plate +3
+            new CatalogueEntry("b277c8713472c3a4fb0f1e0ea6d6ed47", 12), // Banded Mail +1
+            new CatalogueEntry("0c83f2926e8ac15439830be3106a6643", 12), // Banded Mail +2
+            new CatalogueEntry("ba780a9c1e5b0304892bd2bc0c22fe4d", 12), // Full Plate +1
+            new CatalogueEntry("61787c56c01996f4c82866aca8fb0187", 12), // Full Plate +2
+            new CatalogueEntry("1e0289b5e2a002d4592c0ac079d828d9", 12), // Full Plate +3
+            new CatalogueEntry("e832847483b219841b24e0a77acd7795", 12), // Mithral Chainshirt +1
+            new CatalogueEntry("26b1c3857d4d46d4aa1b6afaa33a6f84", 12), // Mithral Chainshirt +2
+            new CatalogueEntry("fb2664f7d8534dc40aeb23392dc58c0c", 12), // Mithral Chainshirt +3
+            new CatalogueEntry("9ad5e5e5ef3ea164482217696306c6fd", 12), // Mithral Breastplate +1
+            new CatalogueEntry("72b5a62a1387ca84d9f0f1fb95dbe4fe", 12), // Mithral Breastplate +2
+            new CatalogueEntry("888cd7959836acd4eae33e815e99102c", 12), // Mithral Full Plate +1
+            new CatalogueEntry("529f8973ea1571244a48711135180e12", 12), // Mithral Full Plate +2
+            new CatalogueEntry("5615afebd80c5de43b6def5fc4646e1c", 12), // Buckler +1
+            new CatalogueEntry("cff02b5c7e391f24e88239536f88416d", 12), // Buckler +2
+            new CatalogueEntry("9552d3843ff7b4140a8cf04b753848eb", 12), // Buckler +3
+            new CatalogueEntry("cac3ca0cae325b44b9d7833bbe0e6c69", 12), // Light Shield +1
+            new CatalogueEntry("2a298726445c2184bbeab9f34ece55eb", 12), // Light Shield +2
+            new CatalogueEntry("3b3f25ba61ba5f346b4d546e702732cb", 12), // Light Shield +3
+            new CatalogueEntry("5c7b898a1bfb6cb4f8c14a0ebc143abe", 12), // Heavy Shield +1
+            new CatalogueEntry("d41ea649a1054b647aafc5b2cb4f8543", 12), // Heavy Shield +2
+            new CatalogueEntry("7e23918977b18524591204c93fae0a37", 12), // Heavy Shield +3
+            new CatalogueEntry("e7b9e76870927424eb9de56611206867", 12), // Tower Shield +1
+            new CatalogueEntry("294e15227b2c1d245ab1ff99922f339f", 12), // Tower Shield +2
+            new CatalogueEntry("9482c62934be44044918c3aac3730232", 12), // Bracers of Armor +1
+            new CatalogueEntry("bf063663cdb3df34c8ffa05ff1d1c877", 12), // Bracers of Armor +2
+            new CatalogueEntry("cc5f45518020a324b8c51d0a231984a3", 12), // Bracers of Armor +3
+            new CatalogueEntry("0a8cda1aaee1178419b32722c89dae64", 12), // Bracers of Armor +4
+            new CatalogueEntry("4aea6773c1da01c42bd382c1b7c384bc", 12), // Cloak of Resistance +1
+            new CatalogueEntry("04dff7841c5f499478c91487d9bbdcef", 12), // Cloak of Resistance +2
+            new CatalogueEntry("9f3c56d5247154e47b5ca9500f4d86ce", 12), // Cloak of Resistance +3
+            new CatalogueEntry("096125bfb3b364849b02ab65297f71de", 12), // Cloak of Resistance +4
+            new CatalogueEntry("f333bf86cd122974792162cbcd27c9ed", 12), // Ring of Protection +1
+            new CatalogueEntry("254755ca73eb52a4d8ab1a663106659b", 12), // Ring of Protection +2
+            new CatalogueEntry("31315100c28e6a2418396fb152466fcd", 12), // Ring of Protection +3
+            new CatalogueEntry("209960f8d60e23a4c8e75d14e2261263", 12), // Amulet of Natural Armor +1
+            new CatalogueEntry("becc4c1d40a77814f98c0b175e92d17c", 12), // Amulet of Natural Armor +2
+            new CatalogueEntry("081a2ffe763320a469de20f1e9b1cd71", 12), // Amulet of Natural Armor +3
+            new CatalogueEntry("a82d4f94b327d6743ad9c2b9c440061c", 12), // Amulet of Mighty Fists +1
+            new CatalogueEntry("c640025d7096aba49bd19e7ffcac9400", 12), // Amulet of Mighty Fists +2
+            new CatalogueEntry("33179b698a3264e45bc3495a2181a0ea", 12), // Bracers of Armor +5
+            new CatalogueEntry("4811d69bde8fb0243b61c2b41300ebe7", 12), // Bracers of Armor +6
+            new CatalogueEntry("a34cd0f80d04ec647af741d924a3e2a3", 12), // Cloak of Resistance +5
+            new CatalogueEntry("1c8d2d0358c664447bc9bff52220f027", 12), // Ring of Protection +4
+            new CatalogueEntry("2d576daea5f62ae489028bce40469285", 12), // Ring of Protection +5
+            new CatalogueEntry("4378ef58796eb9744b96538c2baf8c07", 12), // Amulet of Natural Armor +4
+            new CatalogueEntry("11f435140501db84e8e787bf8792fac2", 12), // Amulet of Natural Armor +5
+            new CatalogueEntry("975aad0cf1a32534fb4c1359b7d952b2", 12), // Amulet of Mighty Fists +3
+            new CatalogueEntry("1e08c0e0300bff442ab9f8152f231f1f", 12), // Bracers of Deflection
+            new CatalogueEntry("c354de364a714ee4dbe2cfee628df267", 12), // Belt of Giant Strength +2
+            new CatalogueEntry("ede812de6b31b194686595fab33fc3ed", 12), // Belt of Giant Strength +4
+            new CatalogueEntry("b6af4c1834999e74497b41588d1071cd", 12), // Belt of Incredible Dexterity +2
+            new CatalogueEntry("20539ffabe4365e419ca7413129ab78a", 12), // Belt of Incredible Dexterity +4
+            new CatalogueEntry("b9cc5d85d4a5032458ef4491f5fed251", 12), // Belt of Mighty Constitution +2
+            new CatalogueEntry("dbeb5ba83e9fd2046a31590636b8b36d", 12), // Belt of Mighty Constitution +4
+            new CatalogueEntry("22184af355826444087506d7f2f8f0b1", 12), // Headband of Vast Intelligence +2
+            new CatalogueEntry("ee15329357f8f974bacf02521d8d37fe", 12), // Headband of Vast Intelligence +4
+            new CatalogueEntry("3d33605336c62274483f382f58908f5b", 12), // Headband of Inspired Wisdom +2
+            new CatalogueEntry("716bdfe5c57be9b43a958bb612c1ecd4", 12), // Headband of Inspired Wisdom +4
+            new CatalogueEntry("a3e8e907908ca7a40ac6da78e70bf33d", 12), // Headband of Alluring Charisma +2
+            new CatalogueEntry("71b4c3f8976784d4abf46976b15eba4a", 12), // Headband of Alluring Charisma +4
+            new CatalogueEntry("6577d56f2da72874a8abea1a3cbd2fa0", 12), // Belt of Physical Flow +2
+            new CatalogueEntry("c95c552c19a5c5a4492462802104b071", 12), // Belt of Physical Might +2
+            new CatalogueEntry("939ad0109fec02b46adcac4b85e1249a", 12), // Belt of Physical Form +2
+            new CatalogueEntry("7abdce2cab3e3dd43b9e6c41c1b44525", 12), // Belt of Physical Perfection +2
+            new CatalogueEntry("b9b49933be6ac7f4aa3c71c602227332", 12), // Headband of Mental Perfection +2
+            new CatalogueEntry("ae3638b2f8016f84d87122ae60d26937", 12), // Ring of Evasion
+            new CatalogueEntry("1223ceb45ed647b44a04b44a9312328b", 12), // Boots of Elvenkind
+            new CatalogueEntry("8644bca1c3bf6f64ab4d89be643a8850", 12), // Swiftfoot Boots
+            new CatalogueEntry("ec34985b81b9f744488456e7009044ee", 12), // Explorer's Belt
+            new CatalogueEntry("405abbf543c9cc148a6f091bb5e58d14", 12), // Expert's Hat
+            new CatalogueEntry("1cf04842d5dbd0f49946b1af1022cd1a", 12), // Lesser Extend Metamagic Rod
+            new CatalogueEntry("1e7a5a4d257cf434a87e687c9ee7a872", 12), // Lesser Empower Metamagic Rod
+            new CatalogueEntry("8b0261621069c9a41a70f1aaefa21c75", 12), // Lesser Reach Metamagic Rod
+            new CatalogueEntry("d52566ae8cbe8dc4dae977ef51c27d91", 99), // Potion of Cure Light Wounds
+            new CatalogueEntry("f991f3051c3b9e64fabc87891077b613", 99), // Potion of Cure Moderate Wounds
+            new CatalogueEntry("e76d14096063ee041bdb1d13d8172599", 99), // Potion of Cure Serious Wounds
+            new CatalogueEntry("1365aee7d18c85d438f5b027122ca8cf", 99), // Potion of Restoration, Lesser
+            new CatalogueEntry("bafd5734adc579641904284aa380dd48", 99), // Potion of Remove Blindness
+            new CatalogueEntry("152944f618996bb4992030141bc96659", 99), // Potion of Remove Curse
+            new CatalogueEntry("42f01c3ad12d4f84c93f89e165384780", 99), // Potion of Heroism
+            new CatalogueEntry("e21a5ab9509a943409bbd791e9685b03", 99), // Potion of Displacement
+            new CatalogueEntry("5bb722fed5172ed48baa2139246bc355", 99), // Potion of Blur
+            new CatalogueEntry("5f9fe6030695f48489b59887536748e8", 99), // Potion of Invisibility
+            new CatalogueEntry("99ba9a93eb1c3cf42bfa641a59580f5b", 99), // Potion of Barkskin
+            new CatalogueEntry("2983c97b71ba60443b1c749854ef53a1", 99), // Potion of Bull's Strength
+            new CatalogueEntry("94b24d55f514cdd45a79d34904fea944", 99), // Potion of Cat's Grace
+            new CatalogueEntry("a3879b4e94c50854a873a0334fbbe36c", 99), // Potion of Bear's Endurance
+            new CatalogueEntry("17f132fa2c8c213479640212ae444005", 99), // Potion of Fox's Cunning
+            new CatalogueEntry("db548855a06daba4cb57f34f4780fd02", 99), // Potion of Owl's Wisdom
+            new CatalogueEntry("91d681b0bf6c39047a46f50ec98bf72d", 99), // Potion of Eagle's Splendor
+            new CatalogueEntry("fe7e87dc45fbcb845b7755f0733b5465", 99), // Potion of Enlarge Person
+            new CatalogueEntry("ab4961408ba080449afd3e65aa0acbc1", 99), // Potion of Mage Armor
+            new CatalogueEntry("bc93a78d71bef084fa155e529660ed0d", 99), // Potion of Shield of Faith
+            new CatalogueEntry("6e37f3e99bfa1fb4a9ad8db1775aa7aa", 99), // Potion of Resist Fire
+            new CatalogueEntry("755b60529a25f1e4f8e44436d927fc6f", 99), // Potion of Resist Cold
+            new CatalogueEntry("2b269b69a86843546bdf17a9c3c431c3", 99), // Potion of Resist Acid
+            new CatalogueEntry("5d4a59a63e6192c40a73d4b2bd722328", 99), // Potion of Resist Electricity
+            new CatalogueEntry("4cd7b3330e46f424e88602da4e358836", 99), // Potion of Protection from Fire
+            new CatalogueEntry("3a66c695016483a47b4f77ed0ff2e7fb", 99), // Potion of Protection from Cold
+            new CatalogueEntry("30d3dfb67a23cbf4a98044a8f1141b67", 99), // Potion of Protection from Acid
+            new CatalogueEntry("4d85e4763c365454d8f03335197ba6c4", 99), // Potion of Protection from Electricity
+            new CatalogueEntry("5318313176485d64ca13c1f046591326", 99), // Scroll of Breath of Life
+            new CatalogueEntry("fb822a8d451d91b438514541a9a986de", 99), // Scroll of Heal
+            new CatalogueEntry("27f9b643fe41dd34081509f0c65a3408", 99), // Scroll of Restoration
+            new CatalogueEntry("48ffa76066648a8408d4183e055346ce", 99), // Scroll of Remove Disease
+            new CatalogueEntry("de172db6e10f6d54896cb6a48b9fe8f7", 99), // Scroll of Remove Blindness
+            new CatalogueEntry("7475d23822bb7f748b54c1f3deea5080", 99), // Scroll of Remove Curse
+            new CatalogueEntry("62e633bef8ae9b241a5c084525075711", 99), // Scroll of Neutralize Poison
+            new CatalogueEntry("64b5a0f0d955c254d8dda9d19bb472ca", 99), // Scroll of Remove Paralysis
+            new CatalogueEntry("c87c32984fe3909419ee22cd7c93ce37", 99), // Scroll of Remove Fear
+            new CatalogueEntry("a43d2960b3f9bed49a02ae44efef4cfc", 99), // Scroll of Raise Dead
+            new CatalogueEntry("394ba24aed75f0d459ed84d1b1b98f60", 99), // Scroll of Stone to Flesh
+            new CatalogueEntry("89e10c3f21fa50c4b8719e004c7628d3", 99), // Scroll of Death Ward
+            new CatalogueEntry("f49fc4e47cef56e42a49d561289dd500", 99), // Scroll of Freedom of Movement
+            new CatalogueEntry("4b2d0e65fb9775341b6c4f7c178f0fe5", 99), // Scroll of Dispel Magic (Point)
+            new CatalogueEntry("92a1bfd42ef1ec04794355579c699da0", 99), // Scroll of Dispel Magic (Target)
+            new CatalogueEntry("c2cadc1c19cc4b54eb73b987f540ddca", 99), // Scroll of Protection from Fire
+            new CatalogueEntry("2f55c17cbac95664cb1a39568df63d8b", 99), // Scroll of Protection from Cold
+            new CatalogueEntry("c7185bb3eb517804da246aa323d98fd8", 99), // Scroll of Protection from Acid
+            new CatalogueEntry("3b064dd1174e9f0449fb7f3cc585caf1", 99), // Scroll of Protection from Electricity
+            new CatalogueEntry("15fd666cb2d6678438d96cbcc7f574d2", 99), // Scroll of Protection from Sonic
+            new CatalogueEntry("e8308a74821762e49bc3211358e81016", 99), // Scroll of Mage Armor
+            new CatalogueEntry("6b3f04dd5eb9675499f815d5086fe018", 99), // Scroll of Haste
+            new CatalogueEntry("50f9e398017b34c43aa08a2c2c44e8af", 99), // Scroll of Heroism
+            new CatalogueEntry("efb55589cd5b7dd4ca48d78d0d1d9248", 99), // Scroll of Heroism, Greater
+            new CatalogueEntry("4d9f5336b51cae34cb491cbde6aac4b6", 99), // Scroll of Displacement
+            new CatalogueEntry("95b6d995d4d806a4da7d4ee5989c7188", 99), // Scroll of Barkskin
+            new CatalogueEntry("4e78560ea01fe2541b663c96e87b6057", 99), // Scroll of Blur
+            new CatalogueEntry("c0af0b5277e91e347ade3aa8994b0d17", 99), // Scroll of Invisibility
+            new CatalogueEntry("d4bb60352b8a62845ba3a7b34ef29a0b", 99), // Scroll of Greater Invisibility
+            new CatalogueEntry("5b172c2c3e356eb43ba5a8f8008a8a5a", 99), // Scroll of Fireball
+            new CatalogueEntry("9d6d963e1a2d2474db1a23250abeb170", 99), // Scroll of Lightning Bolt
+            new CatalogueEntry("5344f2240620b27478d12f00643fc292", 99), // Scroll of Cone of Cold
+            new CatalogueEntry("bb2f172e429b40840a7dc25bc83732cb", 99), // Scroll of Disintegrate
+            new CatalogueEntry("201dcf730b7185344ba701f91dd405db", 24), // Wand of Cure Light Wounds
+            new CatalogueEntry("e456cd580ff88e2449f9a8e4c204c4dc", 24), // Wand of Cure Moderate Wounds
+            new CatalogueEntry("35fa690e41fb6b143b8c49cce316215d", 24), // Wand of Cure Serious Wounds
+            new CatalogueEntry("002b777e1442b7a41a4ac8cc73aeff64", 24), // Wand of Restoration, Lesser
+            new CatalogueEntry("a8c05388dec2bd64d9c413f3045fbaa7", 24), // Wand of Remove Disease
+            new CatalogueEntry("93c55c75856218e47b74348e3d1791cd", 24), // Wand of Remove Blindness
+            new CatalogueEntry("afb6a606b5d7f3a42a1a809ae8e269bb", 24), // Wand of Neutralize Poison
+            new CatalogueEntry("021b4a12739c59541922e3857f3fb3a4", 24), // Wand of Mage Armor
+            new CatalogueEntry("8bd02291b14bd7b4b914d6327b01787f", 24), // Wand of Bless
+            new CatalogueEntry("e3c33b3af83b02c458b7ccaf822eb3b6", 24), // Wand of Blur
+            new CatalogueEntry("fb97ef0889c25344f91b0d326967743a", 24), // Wand of Haste
+            new CatalogueEntry("22715f7c51efac54fa98b0b64686909b", 24), // Wand of Stoneskin
+            new CatalogueEntry("4639724c4a9cc9544a2f622b66931658", 99), // Acid Flask
+            new CatalogueEntry("fd56596e273d1ff49a8c29cc9802ae6e", 99), // Alchemist's Fire
+            new CatalogueEntry("218241b6d97158149be37b3128597b22", 99), // Oil of Enhancement II
+            new CatalogueEntry("0dc9944c49e3ae343b8802a2da33973c", 12), // Trapspringer's Gloves
+            new CatalogueEntry("d24d5bcf3b99c6948a85c83d8c711ed2", 12), // Rogue's Companion
+            new CatalogueEntry("d5480772bdd29e545b627415186de20e", 12), // Athlete's Gloves
+            new CatalogueEntry("c4b62855e9f9bfa40b710445cbd91141", 12), // Riversong Amulet
+            new CatalogueEntry("42aa20c20917c41448fd6cb27de98d60", 12), // Cloak of Shadows
+            new CatalogueEntry("ee429a40453dcac43b4d272bdf35a0fe", 12), // Shadow Leather +1
+            new CatalogueEntry("2595ae738523d9c4ea96f0d7e8b35470", 12), // Thaumaturgist's Cloak
+            new CatalogueEntry("21918303993ba97408b858167f96f378", 12), // Robe of the Wise
+            new CatalogueEntry("303e3a1df232b0747b7fde723828fa45", 12), // Eyes of the Eagle
+            new CatalogueEntry("9772ab64fdf645245ac8ee27b1e5ba69", 12), // Ring of the Natural Born Commander
+            new CatalogueEntry("a35a6b6cb58453f47b10a81cddb6b9c3", 12), // Golden Tongue
+            new CatalogueEntry("66ab84747fa8c5f43851b4bd02ed3f85", 12), // Ring of Magic Devices
+            new CatalogueEntry("b1b4dbff499ceb541a148d70ef17046e", 12), // Master Hand
+            new CatalogueEntry("6b50bf738b4e6964b916539efc582a9d", 12), // Lesser Phylactery of Positive Channeling
+            new CatalogueEntry("01bc7670bd0225745a66957f21f1ba23", 12), // Phylactery of Positive Channeling
+            new CatalogueEntry("9751f7b073f740b458ab170cc81f5f1b", 12), // Lesser Phylactery of Negative Channeling
+            new CatalogueEntry("7ccc1833353d9a64cb671c7bc747bade", 12), // Phylactery of Negative Channeling
+            new CatalogueEntry("815cc85ce13ab64428253aea3b6708a8", 12), // Boots of the Light Step
+            new CatalogueEntry("01d51ff5f3db2164b88aaa662a9b0f2e", 12), // Lesser Bracers of Archery
+            new CatalogueEntry("0e7a0b96f67660c4ca74786c187a02d2", 12), // Bracers of Archery
+            new CatalogueEntry("651b0460f600d5f42b0467e7186aab80", 12), // Lesser Maximize Metamagic Rod
+            new CatalogueEntry("55a059b32df920c4abe65b8ee8b56056", 12), // Lesser Quicken Metamagic Rod
+            new CatalogueEntry("1b2a09528da9e9948aa9026037bada90", 12), // Extend Metamagic Rod
+            new CatalogueEntry("a02f06b63af839a448147dadff3724f2", 12), // Empower Metamagic Rod
+            new CatalogueEntry("648f56fbbaa71624c8ba968ade382ac6", 12), // Reach Metamagic Rod
+            new CatalogueEntry("9a511d3b04f08944eb3db4462f88c2c0", 12), // Maximize Metamagic Rod
+            new CatalogueEntry("3bcbf79b01e4db044a6f06d86cec9117", 99), // Potion of Aid
+            new CatalogueEntry("de000ebb9b86c8f48b77576965303183", 99), // Potion of Protection from Evil
+            new CatalogueEntry("a05bfdfe2df01204ab8e367c2c0b72ce", 99), // Potion of Feather Step
         };
     }
 }

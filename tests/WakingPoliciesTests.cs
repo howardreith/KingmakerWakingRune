@@ -45,6 +45,10 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(450000L, 0 + WakingPolicies.TreasuryDelta(0, 450000), "from zero");
             Assert.Equal(449100L, WakingPolicies.TreasuryDelta(900, 450000), "class starting gold absorbed");
             Assert.Equal(-50L, WakingPolicies.TreasuryDelta(450050, 450000), "above target comes down");
+            Assert.Equal(50000L, WakingPolicies.TreasurySupplement(true, false, false, 450000, 500000), "old lodge save: the difference once");
+            Assert.Equal(0L, WakingPolicies.TreasurySupplement(true, true, false, 450000, 500000), "supplement already applied (reload)");
+            Assert.Equal(0L, WakingPolicies.TreasurySupplement(true, false, true, 450000, 500000), "the expedition has left");
+            Assert.Equal(0L, WakingPolicies.TreasurySupplement(false, false, false, 450000, 500000), "no old grant: the new game gets the full amount instead");
         }
 
         public static void TestRecruitStartingGoldIsRefunded()

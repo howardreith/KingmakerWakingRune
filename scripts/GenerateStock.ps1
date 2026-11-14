@@ -55,11 +55,11 @@ $total = ($rows | Measure-Object Count -Sum).Sum
 $md = New-Object System.Text.StringBuilder
 [void]$md.AppendLine('# Quartermaster catalogue')
 [void]$md.AppendLine()
-[void]$md.AppendLine("Stock of the Society Quartermaster in the Magnimar Lodge: $($rows.Count) lines, $total items. Generated from ``data/quartermaster.csv`` against installed game data (2.1.7b).")
+[void]$md.AppendLine("The CSV catalogue of the Society Quartermaster in the Magnimar Lodge: $($rows.Count) lines, $total items, generated from ``data/quartermaster.csv`` against installed game data (2.1.7b). In game the shop also stocks a scroll of every Wizard spell of levels 0-6 (99 each) and, when it is enabled, the optional Tabletop Rules Expansion lines; see ``docs/WR-PLAYTEST-01-STOCK.md`` for the full in-game audit.")
 [void]$md.AppendLine()
-[void]$md.AppendLine("**Pricing:** native vendor rules with no price overrides. Buying costs each item's ``Cost`` (listed below). Selling pays ``Cost x BlueprintRoot.Vendors.SellModifier``, so buying then re-selling always loses money. An item sold to the vendor joins its stock. Stock lives in the save (``Player.SharedVendorTables``) and is not refilled by loading or by talking to the Quartermaster.")
+[void]$md.AppendLine("**Pricing:** native vendor rules with no price overrides. Buying costs each item's ``Cost`` (listed below). Selling pays ``Cost x BlueprintRoot.Vendors.SellModifier``, so buying then re-selling always loses money. An item sold to the vendor joins its stock. Stock lives in the save (``Player.SharedVendorTables``); a catalogue change reaches a visited shop once, by the native difference (new lines arrive, a removed retail line leaves, sold goods stay). **Resupply:** when the shop opens, any line whose shelf count is below its catalogue count is topped up to it with new merchant stock; nothing above it changes.")
 [void]$md.AppendLine()
-[void]$md.AppendLine("**Deliberate omissions:** named or quest items, artifacts, kingdom rewards and developer copies; inherent-bonus tomes and manuals; gear above +3 (the one exception is the +4 composite longbow, because the game has no +2/+3 composite longbow blueprint); +6 stat items; greater metamagic rods; ammunition quivers. Tabletop items absent from Kingmaker are not added.")
+[void]$md.AppendLine("**Deliberate omissions:** named or quest items, artifacts, kingdom rewards and developer copies; inherent-bonus tomes and manuals; weapons and armor above +3 (the one exception is the +4 composite longbow, because the game has no +2/+3 composite longbow blueprint); +6 stat items; greater metamagic rods and the normal Quicken rod; Gloves of Dexterity (owner policy, WR-PLAYTEST-01). Tabletop items absent from Kingmaker are not added. **Quantities:** at least 12 of every equipment line, 99 of every potion and scroll, 24 of every wand, 999 diamond dust.")
 [void]$md.AppendLine()
 foreach ($g in $rows | Group-Object Section) {
     [void]$md.AppendLine("## $($g.Name)")
