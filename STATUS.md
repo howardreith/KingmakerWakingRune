@@ -1,27 +1,25 @@
 # Status: The Waking Rune
 
-**Milestone:** WR-PLAYTEST-01 on `feature/wr-playtest-01` (from `main` at `dc5de41`), draft PR for owner review.
-Candidate **0.10.0**: commit `77d68a7`, zip `artifacts\KingmakerWakingRune-0.10.0.zip`
-(`d6fc231b2699de025f91b0087bedb90971ce9d0e594369b8a4f25403ae9d2def`), DLL
-`9784da6fddba635c3f0b8d47d953a2f0f07e41eb84b7e926912f9297659ef5d2`; 242 unit tests pass. Installed; 0.9.30 backed up in
-`runtime-backups\wrplay-p1\mod-existing`.
+**Milestone:** WR-PLAYTEST-01 on `feature/wr-playtest-01` (from `main` at `dc5de41`), draft PR #9 for owner review,
+after the owner's review of 0.10.0. Candidate **0.10.13**: commit `53a2cdd`, zip
+`artifacts\KingmakerWakingRune-0.10.13.zip` (`f7639a7b52d9a45f6f160c6b13e0ccc1de6e4eb4f7b63badbe38d8078f065834`), DLL
+`9cead25f4280e96074257c9ad60f59f77bab14cd7046f1449684da5a89e26460`; 249 unit tests pass. Installed; the reviewed 0.10.0
+is backed up in `runtime-backups\wrplay-p2\mod-existing`.
 
 ## WR-PLAYTEST-01 (the owner's first playthrough)
-Report and acceptance table: `docs/WR-PLAYTEST-01.md`; stock audit: `docs/WR-PLAYTEST-01-STOCK.md`.
-- **Portraits:** embedded in the DLL; all five lodge speakers seen on a clean install; the nod and handover stage
-  directions carry the masked figure's portrait (not seen in a new game yet).
-- **Shop:** 500,000 gp (old lodge saves +50,000 once); 12+ of each equipment line, 99 potions and scrolls, every Wizard
-  scroll 0-6 (audited), mixed belts, phylacteries, skill gear, Gloves of Dexterity removed, resupply on opening; optional
-  Tabletop Rules Expansion stock (51 lines).
-- **Departure:** one use of the token readies the expedition (no clock advance, buffs kept, consumables untouched) and
-  leaves; once per departure.
-- **Statues and runner:** survival resolved before the body is anyone's enemy; door legs end on the door seen open; the
-  turn-based door loop is gone.
-- **Runes:** progress, disable notice, flare and sound; hover "(disabled)", ash and status-first inspection.
-- **Controlled Fireball:** rune plates were never its targets; now included for the party's damaging spells (maximized:
-  52/35, Armor disabled).
-- **Open:** a new-game check (grant, nod cue), the Reliable firearm fired by real input, item effects in play, scroll
-  learning and casting, the UI token routes and failed transfer, turn-based Alacrity, unmarked and controlled runners.
+Report, review pass and acceptance tables: `docs/WR-PLAYTEST-01.md`; stock audit: `docs/WR-PLAYTEST-01-STOCK.md`.
+- **Review fix (departure):** the record lists each readied member and prepared choice; a retry or checkpoint reload
+  readies only a new member, a changed or re-prepared slot, or what a level-up added.
+- **Real-use tests (runs `wrplay-p2`, `wrplay-p3`):** both token routes, failure and retry, a recruit, two level-ups,
+  checkpoint reload, sanctum load; a new game (500,000 gp, nod cue); scrolls learned and cast (cantrip, 6th level,
+  variant choice); belt, skill gloves and the lesser positive phylactery in effect; a Reliable pistol bought, loaded
+  with a paper cartridge and fired; wand buyback; uninterrupted, seen, unmarked, controlled and restarted reporters;
+  turn-based Alacrity; Controlled Fireball ally and outside-sanctum controls; a rear-facing disabled plate.
+- **Defects found by those tests and fixed:** same-spell re-preparation (0.10.2); an unseen reporter stuck at a door
+  (0.10.3); an unmarked reporter that never resumed (0.10.4); a seen reporter blocked by the A2 proxy (0.10.5); ward
+  fixtures recreated at every load (0.10.6); uncastable variant-spell scrolls (0.10.7-0.10.8, now per-variant scrolls);
+  a stale scenario description (0.10.10); a sold wand losing its charges (0.10.11-0.10.13).
+- **Not run:** the normal and negative channeling phylacteries; turn-based reporter flight after this pass's fixes.
 
 The sections below are earlier milestones, kept for history.
 

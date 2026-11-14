@@ -8,8 +8,9 @@ Pathfinder: Kingmaker 2.1.7 with Unity Mod Manager. Extract the zip into `<Kingm
 UMM installer) and enable it; Ctrl+F10 in game shows the version. No other mods are needed. The portraits are inside
 the mod's DLL, so nothing else needs copying. Optional: with Mr. Bard's Tabletop Rules Expansion (KingmakerGunslinger)
 enabled, the Quartermaster also sells its firearms (Reliable ones included), loading supplies, eastern weapons and
-branched spears. **Once you open the Quartermaster's shop with that mod enabled, that save refers to its items (even
-if you buy nothing) and should not be loaded without it.**
+branched spears. Its firearms need firearm proficiency (a Gunslinger level, or its proficiency feat), as that mod
+rules. **Once you open the Quartermaster's shop with that mod enabled, that save refers to its items (even if you buy
+nothing) and should not be loaded without it.**
 
 ## Starting
 Main Menu → **New Game** → **The Waking Rune** → difficulty → create your hero (or take a pregen). You begin in the
@@ -20,8 +21,10 @@ Magnimar lodge.
 - **The Society Coordinator** recruits adventurers for free; build a party of six. Everyone can reach level 11 here.
 - **The Quartermaster** sells equipment from a shared purse of 500,000 gp at normal prices: at least 12 of every piece
   of equipment, 99 of every potion and scroll (including a scroll of every Wizard spell up to 6th level), and plenty of
-  diamond dust. Lines you buy out are restocked the next time the shop opens; things you sell are bought at the usual
-  lower price. He also offers a night's rest.
+  diamond dust. A spell with versions (Resist Energy, Dispel Magic, the summonings) comes as one scroll per version,
+  as in the base game; any of them teaches the whole spell. Lines you buy out are restocked the next time the shop
+  opens; things you sell are bought at the usual lower price, and a part-used wand you sell stays as used as it was.
+  He also offers a night's rest.
 - When ready, **break the Refuge Token** once (from the belt or inventory). The expedition sets out ready: wounds are
   tended and each caster's chosen spells and daily abilities are ready, while protective spells you have already cast
   keep their remaining time. Scrolls, potions, wand charges and other consumables stay as they are, and empty prepared
