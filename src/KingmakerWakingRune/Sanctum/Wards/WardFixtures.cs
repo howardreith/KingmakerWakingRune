@@ -180,6 +180,13 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 {
                     renderer.enabled = false;
                 }
+                // A proxy is not a body in the way. In real-time combat the native pathfinder routes every path around
+                // standing units, and the A2 door's proxy stands in its doorway: a fleeing cultist (or anyone) seen in
+                // combat could not pass the open door (WR-PLAYTEST-01 review).
+                if (unit.View.AgentASP != null)
+                {
+                    unit.View.AgentASP.AvoidanceDisabled = true;
+                }
             }
         }
 

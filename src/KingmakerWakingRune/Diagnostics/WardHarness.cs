@@ -604,8 +604,16 @@ namespace KingmakerWakingRune.Diagnostics
                         return missing;
                     }
                     var sb = new StringBuilder($"READ commands of {unit.CharacterName}: handsBusy={unit.AreHandsBusyWithAnimation} canAct={unit.Descriptor.State.CanAct} moving={unit.View?.IsMoving()} inCombat={unit.IsInCombat} visible={unit.IsVisibleForPlayer} inFog={unit.IsInFogOfWar} animator={(unit.View?.Animator == null ? "none" : unit.View.Animator.enabled + "/" + unit.View.Animator.cullingMode + "/visible=" + unit.View.Animator.isActiveAndEnabled)} rendererVisible={unit.View?.GetComponentsInChildren<Renderer>().Any(r => r.isVisible)}\n");
+                    Kingmaker.View.UnitMovementAgent agent = unit.View?.AgentASP;
+                    if (agent != null)
+                    {
+                        object Field(string name) => Harmony12.Traverse.Create(agent).Field(name).GetValue();
+                        var requested = Harmony12.Traverse.Create(agent).Property("RequestedPath").GetValue() as Pathfinding.Path;
+                        sb.AppendLine($"  agent: wantsToMove={agent.WantsToMove} reallyMoving={agent.IsReallyMoving} destination={Field("m_Destination")} noPath={Field("m_NoPathDestination")} requested={(requested == null ? "none" : requested.CompleteState + "/" + requested.errorLog)} path={(agent.Path == null ? "none" : agent.Path.vectorPath.Count + " points")} repath={agent.RepathNeeded} warmup={Field("m_WarmupTime")} pathFrame={Field("m_PathFrame")} frame={Time.frameCount} hold={unit.HoldState} getUp={unit.View.IsGetUp} rigidbody={(unit.View.RigidbodyController != null && unit.View.RigidbodyController.IsControllingRigidbody)} moveCooldown={unit.CombatState.Cooldown.MoveAction:0.0} standardCooldown={unit.CombatState.Cooldown.StandardAction:0.0} canMove={unit.Descriptor.State.CanMove}");
+                    }
                     foreach (Kingmaker.UnitLogic.Commands.Base.UnitCommand c in unit.Commands.Raw.Where(c => c != null))
                     {
+                        sb.AppendLine($"  next approach {c.NextApproachTime.TotalSeconds:0.0} now {Game.Instance.TimeController.GameTime.TotalSeconds:0.0}");
                         sb.AppendLine($"  {c.GetType().Name} started={c.IsStarted} acted={c.IsActed} result={c.Result} running={c.IsRunning} close={c.IsUnitEnoughClose} shouldApproach={c.ShouldUnitApproach} moveUnit={c.IsMoveUnit} finishedApproaching={c.FinishedApproaching} canStart={c.CanStart} t={c.TimeSinceStart:0.0} anim={(c.Animation == null ? "none" : c.Animation.IsActed + "/" + c.Animation.IsFinished)} approach={c.ApproachPoint} radius={c.ApproachRadius} at={unit.Position} dist={Vector3.Distance(c.ApproachPoint, unit.Position):0.00}");
                     }
                     return sb.ToString();
