@@ -15,7 +15,7 @@ namespace KingmakerWakingRune.Tests
         private const string Fly = "f7ec0cbc5d2b9d3459ba4be8fd5a42e6";
         private const string Sorc = "b3db3766a4b605040b366265e2af0e50";
 
-        private static DepartureSnapshot Wizard(string slot0, int slots = 2)
+        private static DepartureSnapshot Wizard(string slot0, int slots = 2, string unit = "wiz")
         {
             var entries = new Dictionary<string, string>
             {
@@ -27,7 +27,7 @@ namespace KingmakerWakingRune.Tests
                 entries[DepartureSnapshot.SlotKey(Book, 3, 0, 2)] = "";
                 entries[DepartureSnapshot.SlotKey(Book, 4, 0, 0)] = Fly;
             }
-            return new DepartureSnapshot("wiz", entries);
+            return new DepartureSnapshot(unit, entries);
         }
 
         private static DepartureSnapshot Sorcerer(int perDay)
@@ -67,9 +67,23 @@ namespace KingmakerWakingRune.Tests
         public static void TestSlotPreparedAgainIsReadied()
         {
             string payload = DepartureRecord.Ready(100, new[] { Wizard(Fly) });
-            var prepared = new List<string> { DepartureSnapshot.SlotKey(Book, 3, 0, 1) };
+            var prepared = new List<string> { DepartureSnapshot.PreparedKey("wiz", DepartureSnapshot.SlotKey(Book, 3, 0, 1)) };
             List<DepartureAction> changes = DepartureRecord.Reconcile(DepartureRecord.Parse(payload), new[] { Wizard(Fly) }, prepared).Where(a => !a.Nothing).ToList();
             Assert.Equal(DepartureSnapshot.SlotKey(Book, 3, 0, 1), changes.Single().Slots.Single(), "the same spell prepared again is readied");
+        }
+
+        public static void TestSlotPreparedAgainBelongsToItsCaster()
+        {
+            // Two wizards with the same book and slot coordinates; A prepares slot 3/0/1 again, B spent its own and changed nothing.
+            string slot = DepartureSnapshot.SlotKey(Book, 3, 0, 1);
+            string payload = DepartureRecord.Ready(100, new[] { Wizard(Fly, unit: "wizA"), Wizard(Fly, unit: "wizB") });
+            var prepared = new List<string> { DepartureSnapshot.PreparedKey("wizA", slot) };
+            Dictionary<string, DepartureSnapshot> saved = DepartureRecord.Parse(payload);
+            Assert.Equal(2, saved.Count, "both casters round-trip through the saved record");
+            List<DepartureAction> changes = DepartureRecord.Reconcile(saved, new[] { Wizard(Fly, unit: "wizA"), Wizard(Fly, unit: "wizB") }, prepared).Where(a => !a.Nothing).ToList();
+            Assert.Equal("wizA", changes.Single().Unit, "only the caster who prepared again");
+            Assert.Equal(slot, changes.Single().Slots.Single(), "only that slot");
+            Assert.Equal(0, DepartureRecord.Reconcile(saved, new[] { Wizard(Fly, unit: "wizA"), Wizard(Fly, unit: "wizB") }, new List<string> { slot }).Count(a => !a.Nothing), "an entry without an owner (an earlier candidate's) readies nobody");
         }
 
         public static void TestNewRecruitIsReadied()

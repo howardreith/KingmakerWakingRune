@@ -43,6 +43,12 @@ namespace KingmakerWakingRune.Sanctum
         {
             return $"d:{book}/{level}";
         }
+
+        /// <summary>A slot one member prepared since the readiness: the member's identity and the slot's key (two casters can share a book and slot).</summary>
+        public static string PreparedKey(string unit, string slotKey)
+        {
+            return unit + "#" + slotKey;
+        }
     }
 
     /// <summary>What a reconciliation does for one member: everything (not readied before), or only what changed.</summary>
@@ -124,7 +130,11 @@ namespace KingmakerWakingRune.Sanctum
             return members;
         }
 
-        /// <summary>What to ready now; <paramref name="preparedSince"/> lists slots the player prepared after the record was written.</summary>
+        /// <summary>
+        /// What to ready now; <paramref name="preparedSince"/> lists slots the player prepared after the record was written,
+        /// each with its owner (<see cref="DepartureSnapshot.PreparedKey"/>), and a member consults only its own. An entry
+        /// without an owner (written by a 0.10.2-0.10.13 candidate) names nobody.
+        /// </summary>
         public static List<DepartureAction> Reconcile(Dictionary<string, DepartureSnapshot> readied, IEnumerable<DepartureSnapshot> current, ICollection<string> preparedSince = null)
         {
             var actions = new List<DepartureAction>();
@@ -142,7 +152,7 @@ namespace KingmakerWakingRune.Sanctum
                     before.Entries.TryGetValue(entry.Key, out string was);
                     if (entry.Key.StartsWith("s:", StringComparison.Ordinal))
                     {
-                        if (entry.Value.Length > 0 && (entry.Value != was || (preparedSince != null && preparedSince.Contains(entry.Key))))
+                        if (entry.Value.Length > 0 && (entry.Value != was || (preparedSince != null && preparedSince.Contains(DepartureSnapshot.PreparedKey(member.Unit, entry.Key)))))
                         {
                             action.Slots.Add(entry.Key);
                         }

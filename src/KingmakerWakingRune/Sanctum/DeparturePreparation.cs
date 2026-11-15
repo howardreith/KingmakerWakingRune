@@ -26,7 +26,7 @@ namespace KingmakerWakingRune.Sanctum
         [JsonProperty]
         public string Payload;
 
-        /// <summary>Slots prepared since the record was written (see <see cref="DeparturePreparation.NotePrepared"/>).</summary>
+        /// <summary>Slots prepared since the record was written, each with its owner (see <see cref="DeparturePreparation.NotePrepared"/>).</summary>
         [JsonProperty]
         public List<string> Prepared = new List<string>();
     }
@@ -78,7 +78,7 @@ namespace KingmakerWakingRune.Sanctum
             }
             foreach (SpellSlot slot in slots)
             {
-                string key = SlotKey(book, slot);
+                string key = DepartureSnapshot.PreparedKey(book.Owner.Unit.UniqueId, SlotKey(book, slot));
                 if (!record.Prepared.Contains(key))
                 {
                     record.Prepared.Add(key);
