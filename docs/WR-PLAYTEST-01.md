@@ -1,20 +1,53 @@
 # WR-PLAYTEST-01: owner playtest repairs and preparation improvements
 
-Branch `feature/wr-playtest-01` from `main` at `dc5de41` (PR #8 merged). Candidate **0.10.13** (after the owner's review
-of 0.10.0; see "Review pass").
+Branch `feature/wr-playtest-01` from `main` at `dc5de41` (PR #8 merged). Candidate **0.10.14** (after the owner's second review;
+see "Second review" and "Review pass").
 
 | | |
 |---|---|
-| Code commit | `53a2cdd` |
-| Package | `artifacts\KingmakerWakingRune-0.10.13.zip`, SHA-256 `f7639a7b52d9a45f6f160c6b13e0ccc1de6e4eb4f7b63badbe38d8078f065834` |
-| DLL | `9cead25f4280e96074257c9ad60f59f77bab14cd7046f1449684da5a89e26460` (portraits and token icon embedded; the package holds only `Info.json` and the DLL) |
-| Unit tests | 249 pass |
+| Code commit | `a5cbe78` |
+| Package | `artifacts\KingmakerWakingRune-0.10.14.zip`, SHA-256 `2558da026560862c6187853ac5b1f56153f3853400aa96cdb274bd1ac0518b07` |
+| DLL | `54cdb65ef80caf0f09602955aa2827db66105b7929177f79e5a69a27d32b11f6` (portraits and token icon embedded; the package holds only `Info.json` and the DLL) |
+| Unit tests | 250 pass |
 | Game, loader | Pathfinder: Kingmaker 2.1.7b, Unity Mod Manager 0.28.2 |
 | Optional provider tested | Mr. Bard's Tabletop Rules Expansion (UMM id `KingmakerGunslinger`) **0.0.188**, release zip `KingmakerGunslinger-0.0.188-umm-0311-minimum.zip` (SHA-256 `64d83955…d412`, matches its `SHA256SUMS.txt`); no `FeatureModules.json`, so every module on (its default) |
-| Runtime runs | `wrplay-p1` (0.10.0), `wrplay-p2` (0.10.1-0.10.11), `wrplay-p3` (0.10.12-0.10.13), each a guarded transaction (evidence `runtime-evidence\<run>`) |
+| Runtime runs | `wrplay-p1` (0.10.0), `wrplay-p2` (0.10.1-0.10.11), `wrplay-p3` (0.10.12-0.10.13), `wrplay-p4` (0.10.14), each a guarded transaction (evidence `runtime-evidence\<run>`) |
 
 Labels as before: **PLAYER** (real input), **PARTY AI**, **HARNESS-COMMANDED** (an order or callback issued by the
 harness, not UI input), **SETUP/INJECTED** (a fixture: a granted spell or item, a forced roll, a position).
+
+## Second review (0.10.14)
+
+The owner review of PR #9 at `ec8b60e` found one ownership error in the 0.10.2 re-preparation record and asked for a
+short turn-based reporter run on the final candidate; the normal and negative phylacteries were grouped with it. Run
+`wrplay-p4` (0.10.14 only; evidence `runtime-evidence\wrplay-p4`).
+
+### Fix: a re-preparation belongs to its caster
+- **What was wrong:** a slot prepared again after the readiness was recorded by spellbook blueprint and slot only, in one
+  list shared by the whole party. Two casters with the same book (two clerics, two wizards) have the same keys, so one
+  caster preparing a slot again made the other's matching slot ready at the next use of the token, even when it had
+  been spent since and its preparation had not changed. Found from the source by the review.
+- **Now:** each entry carries the caster's identity (`unit#s:book/level/type/index`), and a member consults only its own
+  entries. An entry without an owner (written by 0.10.2-0.10.13, unreleased candidates) names nobody. The record's
+  format, the one use, the absence of prompts and the unmoved clock are unchanged.
+- **Unit test** (`TestSlotPreparedAgainBelongsToItsCaster`): two wizards with the same book and slot coordinates both
+  round-trip through the saved record; A's slot prepared again readies A's slot only; B, unchanged, gets nothing; an
+  owner-less entry readies nobody. 250 tests pass.
+
+### In the game (0.10.14)
+
+| Check | Result | Label and evidence (`runtime-evidence\wrplay-p4`) |
+|---|---|---|
+| Two casters with the same book | **Passed.** From the recruit seed (Ned recruited, not readied): the token readied "Ned readied" and the arrival committed. The checkpoint that departure wrote held both clerics (Yadmila 32 entries, Ned 30; both `ClericSpellbook`). After loading it: Ned cast Bless from his book, spending L1 slot 2; Yadmila removed Bless from her L1 slot 2 and put Bless back (the slot shows "Rest to restore spells"), noted as `bfd147d5-…#s:4673d19a…/1/0/2`. The token then readied "Yadmila: 1 newly prepared slot (Bless)" and nothing for Ned; on arrival Yadmila's slot 2 was ready and Ned's slot 2 was still spent | token (inventory route) and the spellbook remove/drag PLAYER; Ned's cast HARNESS-COMMANDED (native spend); `125907-p4-book-reprepared`, `130012-p4-dep-notice` |
+| Turn-based reporter flight | **Passed.** Turn-based mode on (SETUP, the rook button's handler), party and pet AI off (HARNESS-COMMANDED), forced survival (SETUP), Orin placed in sight of A2 (INJECTED; he set off the stair alarm on arrival). Runner turns: (1) moved toward A2; (2) reached it, "could not make its door action this turn; its turn ends"; (3) one A2 order, A2 opened with its own brand, crossed, legs 2-3, moved on; (4) moved toward the east door. Out of sight, the combat ended, and in real time it opened the east door and reported to Vandiana. Every party turn ended with the End Turn button (32 clicks). Single frames of 159-272 ms at the combat start and on the runner's turns; the combat-start auto-pause as set | End Turn PLAYER; `130553-tb-runner-seen.mp4`, `tb-tb-runner-seen.txt` |
+| Turn-based, unwatched | **Passed.** Same, without the watcher: two runner turns (the second ended at the unaffordable A2), then the combat ended out of sight and it opened A2, crossed and reported in real time; one cluster of 154-230 ms frames (about 2 s) around that real-time A2 opening, and single frames up to 204 ms elsewhere | `130241-tb-runner-final.mp4`, `tb-tb-runner-final.txt` |
+| Phylactery of Positive Channeling | **Passed.** On Yadmila (in place of her Wisdom headband): Channel Energy caster level 11 → 15, rank bonus +4, dice 6 → 8 (the item's +2d6) | item SETUP (given, not bought; buying was shown with the lesser one); equipped PLAYER (drag); parameters READ; `131237-p4-phyl-pos-on` |
+| Phylactery of Negative Channeling | **Control only.** On the same slot: positive Channel Energy back to 6 dice, rank bonus 0. No one in the test party channels negative energy, so its own effect was not exercised in use | item SETUP; equipped PLAYER; READ; `131317-p4-phyl-neg-on2` |
+
+Native errors in this run: the same three signatures as before (the bug-report canvas at start-up, the obstacle group
+while an area unloads, three times at loads from the sanctum, and the inventory doll at exit); see "Observed, not
+changed". Transaction ended: profile 15 differences and Steam mirror 3 reverted, registry restored; 0.10.14 kept
+installed, 0.10.13 backed up in `runtime-backups\wrplay-p4\mod-existing`. No quicksave or quickload.
 
 ## Review pass (0.10.1 to 0.10.13)
 
@@ -33,7 +66,7 @@ build it ran on. Diagnostic builds (marked `-diag`) were used only to read state
 | 0.10.4 | Found in play: an unmarked reporter that turned on an intruder at the latched A2 never resumed its flight once the door opened. | When A2 becomes passable it breaks off and flees on. |
 | 0.10.5 | Found in play: a reporter **seen** in real-time combat could not pass the open A2 door: the native combat pathfinder routes around standing units, and the door's invisible proxy stands in the doorway. | Ward fixtures (invisible proxies) are not obstacles to unit avoidance. |
 | 0.10.6 | Found in play: ward fixtures out of the game (alarm, glyph, hound, a destroyed door or gem) were recreated at every load. | Fixtures are indexed from every unit the save holds; earlier surplus copies are kept out of the game (one line in the log). |
-| 0.10.7-0.10.8 | Found in play: a wrapper scroll of a spell **with variants** (Resist Energy, Dispel Magic, the summonings) went straight to targeting from a belt or the inventory: an item's button has no variant choice. | Such spells are stocked as the game stocks them, one scroll per variant (native where one exists, now 113 native variant scrolls; a wrapper on the variant otherwise), each learned as the parent spell. The earlier parent wrappers stay registered so saves holding one load. Only 9 cantrip wrappers remain (no provider). |
+| 0.10.7-0.10.8 | Found in play: a wrapper scroll of a spell **with variants** (Resist Energy, Dispel Magic, the summonings) went straight to targeting from a belt or the inventory: an item's button has no variant choice. | Such spells are stocked as the game stocks them, one scroll per variant (native where one exists, now 113 native variant scrolls; a wrapper on the variant otherwise), each learned as the parent spell. The earlier parent wrappers stay registered only so that saves holding one load; such a wrapper is not repaired (from a belt or the inventory it still has no variant choice). Only 9 cantrip wrappers remain (no provider). |
 | 0.10.10 | The scenario description still said the runelord's chamber was "not yet playable". | Text corrected. |
 | 0.10.11-0.10.13 | Found in play: a part-spent wand sold to the Quartermaster merged into the merchant's full stack (the native vendor table stacks everything), and after a save the native table keeps only blueprint and count, so it came back full. | On the Quartermaster's shelf only, charged items merge only with equal charges; their charges are saved with the game and given back when the shelf is rebuilt from a save. |
 
@@ -55,11 +88,11 @@ build it ran on. Diagnostic builds (marked `-diag`) were used only to read state
 | | 6th-level scroll | **Passed** (0.10.8): Scroll of Summon Huge Earth Elemental bought, copied (Orin's book), prepared, rested (the Quartermaster's native rest), cast through the spellbook's variant choice: a Summoned Huge Earth Elemental appeared, slot spent | PLAYER; `113959-huge-cast` |
 | | Variant-selection scroll | **Defect found** (0.10.6, see table); after the fix (0.10.8): Scroll of Dispel Magic (Target) learned as Dispel Magic, prepared, cast through the variant choice on Orin: his Mage Armor dispelled, slot spent. A variant scroll cast from the belt applied its buff (Protection from Fire) | PLAYER; `114027-dm-variants` |
 | | Mixed belt and skill items | **Passed** (0.10.8): Belt of Physical Might +2 on Bryn: Strength shows "Enhancement +2 [Belt of Physical Might +2]", Constitution raised; Trapspringer's Gloves: Trickery 8 = Dex 3 + "Competence +5 [Trapspringer's Gloves]" | PLAYER; `120203-bryn-str`, `115137-bryn-trickery` |
-| | Channeling phylacteries | **Passed for the Lesser Phylactery of Positive Channeling** (0.10.9): Yadmila's Channel Energy caster level 11 → 13, rank bonus +2, dice 6 → 7 (native parameters); channels healed 19 and 29 (single rolls). Not exercised: the normal phylactery and the negative ones | PLAYER channel; parameters READ (`params`) |
+| | Channeling phylacteries | **Passed for the Lesser Phylactery of Positive Channeling** (0.10.9): Yadmila's Channel Energy caster level 11 → 13, rank bonus +2, dice 6 → 7 (native parameters); channels healed 19 and 29 (single rolls). The normal positive and the negative phylactery: see "Second review" | PLAYER channel; parameters READ (`params`) |
 | | Reliable firearm | **Passed** (0.10.10, provider 0.0.188): Reliable Pistol +1 and 10 paper cartridges bought; a character without firearm proficiency cannot equip it (native "Can't be equipped"); Bryn took a Gunslinger level and equipped it; Use Paper Cartridges; Reload Firearm loaded one (cartridges 10 → 9; powder and ball untouched); fired at a wolf: hit for 4 (misfire range 1); reloaded in combat; fired again: hit for 3 | PLAYER; experience SETUP; wolf SETUP; provider log `ability.loaded`, `attack.round-consumed`; `122535-gun-fire.mp4` |
 | | Charged-item buyback | **Defect found and fixed** (0.10.11-0.10.13); on 0.10.13: a 29-charge Wand of Cure Light Wounds sold (108 gp) with 24 retail wands on the shelf stays its own entry (×1, 29 charges, 435 gp) beside the retail ×24 (31 charges, 465 gp), and is still that after a save and load | PLAYER; `wrplay-p3\125346-p3-sold`, `125933-p3b-reload`, `125937-p3b-r2` |
 | | Gloves of Dexterity on a visited shop | **Passed** (0.10.6): the retail line is gone from the old save's shop; a pair given to the party (SETUP) stayed owned, sold for 1,000 gp, and stayed on the shelf through a save, load and resupply | PLAYER sale; READ stock |
-| Cultists | Uninterrupted real-time flight | **Passed after fixes** (0.10.3, 0.10.5): party and pet AI off (the portrait setting, HARNESS-COMMANDED), the marked reporter crossed A2 and the east door and reported to Vandiana, also with Orin in sight of A2. Hitches: one cluster of 150-210 ms frames around the A2 opening and the combat start (the owner's auto-pause pauses once at combat start, as set) | `101937-runner-rt-n1-fixed.mp4`, `105828-runner-seen-a2.mp4` |
+| Cultists | Uninterrupted real-time flight | **Passed after fixes** (0.10.3, 0.10.5): party and pet AI off (the portrait setting, HARNESS-COMMANDED), the marked reporter crossed A2 and the east door and reported to Vandiana, also with Orin in sight of A2. The recurring interruption is gone; what remains is one cluster of 150-210 ms frames around the A2 opening and the combat start, and the owner's auto-pause once at combat start, as set (not a route without any visible pause or hitch) | `101937-runner-rt-n1-fixed.mp4`, `105828-runner-seen-a2.mp4` |
 | | Unmarked reporter at a latched door | **Passed after fix** (0.10.4): N3 waited at the latched A2 (turning on the nearest intruder); when a marked runner opened it, N3 broke off and fled on to Vandiana | `102252-unmarked-n3.mp4` |
 | | Controlled reporter | **Passed:** under Orin's Dominate Person the reporter stood with no commands of its own ("under other control; its flight is suspended"); when it threw the domination off it resumed its route | spell SETUP grant, cast HARNESS-COMMANDED (native save); `110119-controlled-n1-dominate3.mp4` |
 | | Mid-route restart | **Passed:** saved after leg 3 (past A2), loaded: the runner continued from leg 4 (east door, report) with no A2 action or alarm repeated | SETUP named save |
@@ -72,14 +105,15 @@ build it ran on. Diagnostic builds (marked `-diag`) were used only to read state
   scroll is stocked for each: 884 lines instead of 566 (`docs\WR-PLAYTEST-01-STOCK.md`).
 - **Firearms need firearm proficiency** (the provider's rule): an ordinary party cannot use the shop's guns without a
   Gunslinger level or the proficiency feat.
-- **Native errors seen**, none from this mod's code: an obstacle-group exception while an area unloads (also in
-  `wrfinal-p5`, `wrfinal-p6`, `wrplay-p1`), a bug-report canvas error at start-up, and an inventory doll error at game
-  exit.
+- **Native errors seen** (stack traces in engine code only; recorded, not investigated further): a null reference in
+  `ObstaclesHelper.TryConnectUnits` while an area unloads (also in `wrfinal-p5`, `wrfinal-p6`, `wrplay-p1`, and in
+  `wrplay-p4`), one in `BugReportCanvas.OnEnable` at start-up, and one in `DollRoom.SetFogOfWarEnabled` at game exit. A
+  native trace and an earlier occurrence do not by themselves rule out a state the mod contributes to; no failure was
+  seen with them.
 
 ### Not run in this pass
-- The normal and negative channeling phylacteries (the lesser positive one was).
-- Turn-based reporter flight was not re-run here (it was in `wrplay-p1`); the reporter fixes of this pass were
-  exercised in real time.
+- The normal and negative channeling phylacteries, and turn-based reporter flight: run on 0.10.14 (see "Second
+  review"); the negative phylactery only as a control.
 - A complete journey or a fresh six-character party (not requested).
 
 ## Owner notes and results (first pass, 0.10.0)

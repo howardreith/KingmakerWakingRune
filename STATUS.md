@@ -1,13 +1,16 @@
 # Status: The Waking Rune
 
 **Milestone:** WR-PLAYTEST-01 on `feature/wr-playtest-01` (from `main` at `dc5de41`), draft PR #9 for owner review,
-after the owner's review of 0.10.0. Candidate **0.10.13**: commit `53a2cdd`, zip
-`artifacts\KingmakerWakingRune-0.10.13.zip` (`f7639a7b52d9a45f6f160c6b13e0ccc1de6e4eb4f7b63badbe38d8078f065834`), DLL
-`9cead25f4280e96074257c9ad60f59f77bab14cd7046f1449684da5a89e26460`; 249 unit tests pass. Installed; the reviewed 0.10.0
-is backed up in `runtime-backups\wrplay-p2\mod-existing`.
+after the owner's second review. Candidate **0.10.14**: commit `a5cbe78`, zip
+`artifacts\KingmakerWakingRune-0.10.14.zip` (`2558da026560862c6187853ac5b1f56153f3853400aa96cdb274bd1ac0518b07`), DLL
+`54cdb65ef80caf0f09602955aa2827db66105b7929177f79e5a69a27d32b11f6`; 250 unit tests pass. Installed; 0.10.13 is backed up in
+`runtime-backups\wrplay-p4\mod-existing` (the reviewed 0.10.0 in `runtime-backups\wrplay-p2\mod-existing`).
 
 ## WR-PLAYTEST-01 (the owner's first playthrough)
 Report, review pass and acceptance tables: `docs/WR-PLAYTEST-01.md`; stock audit: `docs/WR-PLAYTEST-01-STOCK.md`.
+- **Second review fix (0.10.14):** a slot prepared again after the readiness is recorded with its caster, so two
+  casters sharing a spellbook no longer ready each other's spent slots. Run `wrplay-p4`: two clerics in game, turn-based
+  reporter flight, the normal positive phylactery (and the negative one as a control).
 - **Review fix (departure):** the record lists each readied member and prepared choice; a retry or checkpoint reload
   readies only a new member, a changed or re-prepared slot, or what a level-up added.
 - **Real-use tests (runs `wrplay-p2`, `wrplay-p3`):** both token routes, failure and retry, a recruit, two level-ups,
@@ -19,7 +22,7 @@ Report, review pass and acceptance tables: `docs/WR-PLAYTEST-01.md`; stock audit
   (0.10.3); an unmarked reporter that never resumed (0.10.4); a seen reporter blocked by the A2 proxy (0.10.5); ward
   fixtures recreated at every load (0.10.6); uncastable variant-spell scrolls (0.10.7-0.10.8, now per-variant scrolls);
   a stale scenario description (0.10.10); a sold wand losing its charges (0.10.11-0.10.13).
-- **Not run:** the normal and negative channeling phylacteries; turn-based reporter flight after this pass's fixes.
+- **Not exercised in use:** the negative phylactery's own effect (no negative channeler in the test party).
 
 The sections below are earlier milestones, kept for history.
 

@@ -1,13 +1,13 @@
 # WR-FINAL: installation and restoration report
 
 ## Installed now
-- **Mod:** The Waking Rune 0.10.13 (WR-PLAYTEST-01 after review), from `artifacts\KingmakerWakingRune-0.10.13.zip`
-  (`f7639a7b52d9a45f6f160c6b13e0ccc1de6e4eb4f7b63badbe38d8078f065834`), commit `53a2cdd` on `feature/wr-playtest-01`.
-  Installed DLL `9cead25f4280e96074257c9ad60f59f77bab14cd7046f1449684da5a89e26460` (verified after the transaction). The
+- **Mod:** The Waking Rune 0.10.14 (WR-PLAYTEST-01 after the second review), from
+  `artifacts\KingmakerWakingRune-0.10.14.zip` (`2558da026560862c6187853ac5b1f56153f3853400aa96cdb274bd1ac0518b07`), commit `a5cbe78` on
+  `feature/wr-playtest-01`. Installed DLL `54cdb65ef80caf0f09602955aa2827db66105b7929177f79e5a69a27d32b11f6` (verified after the transaction). The
   install is the DLL and `Info.json` only: the portraits and icon are inside the DLL.
 - **Location:** `<Kingmaker>\Mods\KingmakerWakingRune` (Unity Mod Manager 0.28.2, game 2.1.7).
-- **Prior version backed up:** the reviewed candidate 0.10.0 in
-  `C:\Dev\KingmakerWakingRuneLab\runtime-backups\wrplay-p2\mod-existing` (0.10.11 in `runtime-backups\wrplay-p3\mod-existing`,
+- **Prior version backed up:** 0.10.13 in `C:\Dev\KingmakerWakingRuneLab\runtime-backups\wrplay-p4\mod-existing` (the
+  reviewed 0.10.0 in `runtime-backups\wrplay-p2\mod-existing`, 0.10.11 in `runtime-backups\wrplay-p3\mod-existing`,
   0.9.30 in `runtime-backups\wrplay-p1\mod-existing`, earlier builds in the earlier runs' folders).
 
 ## The test transactions
@@ -26,6 +26,7 @@ folder, and runs only its own game process.
 | `wrplay-p1` | 0.10.0 diagnostic builds and the candidate | 2026-11-14 02:45 | profile: 23 differences reverted (test saves quarantined in `runtime-backups\wrplay-p1\quarantine`); Steam mirror: 6 reverted; registry restored; `Params.xml` and Mods verified; the optional provider (Tabletop Rules Expansion 0.0.188) was installed only inside the run and removed before it ended; 0.10.0 kept installed. No quicksave or quickload |
 | `wrplay-p2` | 0.10.1-0.10.11 (and diagnostic builds) | 2026-11-14 12:47 | profile: 28 differences reverted (test saves quarantined in `runtime-backups\wrplay-p2\quarantine`); Steam mirror: 11 reverted; registry restored; `Params.xml` and Mods verified; the optional provider (Tabletop Rules Expansion 0.0.188, zip hash checked against its `SHA256SUMS.txt`) was installed only inside the run and removed before it ended; 0.10.11 kept installed. No quicksave or quickload; test saves were named harness saves and the game's own checkpoint and rest autosave |
 | `wrplay-p3` | 0.10.12-0.10.13 | 2026-11-14 12:59 | profile: 13 differences reverted (quarantined in `runtime-backups\wrplay-p3\quarantine`); Steam mirror: 3 reverted; registry restored; `Params.xml` and Mods verified; 0.10.13 kept installed. No quicksave or quickload |
+| `wrplay-p4` | 0.10.14 | 2026-11-15 13:13 | profile: 15 differences reverted (quarantined in `runtime-backups\wrplay-p4\quarantine`); Steam mirror: 3 reverted; registry restored (including the turn-based setting the run switched on); `Params.xml` and Mods verified; 0.10.14 kept installed. No quicksave or quickload |
 
 No owner save was opened: tests used disposable seeds only. One owner save file was overwritten during `wrfinal-p5`
 (an in-game quicksave reused the quick slot `Quick_432`); the transaction's end restored it from the snapshot, and its
