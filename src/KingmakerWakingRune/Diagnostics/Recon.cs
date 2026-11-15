@@ -12,6 +12,7 @@ using Kingmaker.Blueprints.Items.Armors;
 using Kingmaker.Blueprints.Items.Equipment;
 using Kingmaker.Blueprints.Items.Shields;
 using Kingmaker.Blueprints.Items.Weapons;
+using Kingmaker.Blueprints.Items.Ecnchantments;
 using Kingmaker.View;
 using Kingmaker.Visual.LocalMap;
 using KingmakerWakingRune.Blueprints;
@@ -87,6 +88,45 @@ namespace KingmakerWakingRune.Diagnostics
                     sb.AppendLine($"{i.GetType().Name}|{i.AssetGuid}|{i.name}|{SafeItemName(i)}|cost={i.Cost}|wt={i.Weight}|notable={i.IsNotable}|{ItemDetail(i)}");
                 }
             });
+            // The catalogue audit reads effects, not names: every stat or skill bonus an item's enchantments actually grant.
+            Write("itemeffects.txt", sb =>
+            {
+                foreach (BlueprintItem i in library.GetAllBlueprints().OfType<BlueprintItem>().Where(i => !(i is BlueprintItemEquipmentUsable)).OrderBy(i => i.GetType().Name).ThenBy(i => i.name))
+                {
+                    sb.AppendLine($"{i.GetType().Name}|{i.AssetGuid}|{i.name}|{SafeItemName(i)}|cost={i.Cost}|{ItemEffects(i)}");
+                }
+            });
+        }
+
+        private static string ItemEffects(BlueprintItem i)
+        {
+            try
+            {
+                var stats = new List<string>();
+                var others = new List<string>();
+                foreach (BlueprintItemEnchantment e in i.Enchantments.Where(e => e != null))
+                {
+                    foreach (BlueprintComponent c in e.ComponentsArray.Where(c => c != null))
+                    {
+                        var statField = c.GetType().GetField("Stat");
+                        var valueField = c.GetType().GetField("Value");
+                        if (statField != null && valueField != null && valueField.FieldType == typeof(int))
+                        {
+                            var descriptor = c.GetType().GetField("Descriptor")?.GetValue(c);
+                            stats.Add($"{statField.GetValue(c)}{(int)valueField.GetValue(c):+#;-#;0}{(descriptor != null ? "(" + descriptor + ")" : "")}");
+                        }
+                        else
+                        {
+                            others.Add(c.GetType().Name);
+                        }
+                    }
+                }
+                return $"stats=[{string.Join(",", stats.ToArray())}]|other=[{string.Join(",", others.Distinct().ToArray())}]|ench=[{string.Join(",", i.Enchantments.Where(e => e != null).Select(e => e.name).ToArray())}]";
+            }
+            catch (Exception ex)
+            {
+                return "err=" + ex.GetType().Name;
+            }
         }
 
         private static string SafeItemName(BlueprintItem i)

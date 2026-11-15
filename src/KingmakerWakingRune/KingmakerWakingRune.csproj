@@ -29,6 +29,15 @@
   <ItemGroup>
     <Compile Include="**\*.cs" Exclude="obj\**;bin\**" />
   </ItemGroup>
+  <!-- The approved portraits and icons ship inside the DLL, so an install never depends on loose files. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\assets\portraits\*\*.png">
+      <LogicalName>KWR/Portraits/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\assets\icons\*.png">
+      <LogicalName>KWR/Icons/%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />

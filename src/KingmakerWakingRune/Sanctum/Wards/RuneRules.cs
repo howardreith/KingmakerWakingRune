@@ -119,6 +119,13 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public bool Disabled;
         public RuneRoute? Route;
         public bool Pending;
+
+        /// <summary>A qualifying sustained condition began to be held on the plate (reported once, as it starts).</summary>
+        public bool SustainBegun;
+
+        /// <summary>A held condition ended before its required rounds (reported once, as it is found ended).</summary>
+        public bool SustainBroken;
+
         public readonly List<string> FailedActors = new List<string>();
         public string Detail = string.Empty;
 
@@ -393,6 +400,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 double started = appliedAt >= 0d && appliedAt <= now ? appliedAt : now;
                 state.Sustains.Add(new RuneSustain { Condition = condition, StartedAt = started, Actor = actor, LastSeenActiveAt = now });
                 outcome.Pending = true;
+                outcome.SustainBegun = true;
                 outcome.Detail = $"{condition} begun at {started:0.00}.";
                 return outcome;
             }
@@ -419,6 +427,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             if (!active)
             {
                 state.Sustains.Remove(sustain);
+                outcome.SustainBroken = true;
                 outcome.FailedActors.Add(sustain.Actor);
                 outcome.Detail = $"{condition} last observed on after {observed / WardProfile.RoundSeconds:0.0} of {required} rounds; found ended at {(now - sustain.StartedAt) / WardProfile.RoundSeconds:0.0}.";
             }

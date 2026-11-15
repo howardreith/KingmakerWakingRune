@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
   Builds the mod (Release), runs the focused tests, and packages an installable UMM zip.
-  Output: artifacts\KingmakerWakingRune-<version>.zip containing KingmakerWakingRune\{Info.json,KingmakerWakingRune.dll}.
+  Output: artifacts\KingmakerWakingRune-<version>.zip containing KingmakerWakingRune/{Info.json,KingmakerWakingRune.dll}
+  (portraits and icons are embedded in the DLL).
 #>
 [CmdletBinding()]
 param([switch] $SkipTests, [switch] $ReplacePackage)
@@ -30,8 +31,26 @@ Remove-Item -LiteralPath (Join-Path $Root 'artifacts\stage') -Recurse -Force -Er
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 Copy-Item (Join-Path $Root 'Info.json') $stage
 Copy-Item (Join-Path $Root 'bin\Release\KingmakerWakingRune.dll') $stage
-Copy-Item (Join-Path $Root 'assets\portraits') (Join-Path $stage 'Portraits') -Recurse
-Copy-Item (Join-Path $Root 'assets\icons') (Join-Path $stage 'Icons') -Recurse
+# The approved art is embedded in the DLL (no loose Portraits or Icons folders): every expected image must be present
+# and decode, or the package is refused.
+Add-Type -AssemblyName System.Drawing
+$dllBytes = [IO.File]::ReadAllBytes((Join-Path $stage 'KingmakerWakingRune.dll'))
+$assembly = [Reflection.Assembly]::Load($dllBytes)
+$resources = @{}
+foreach ($name in $assembly.GetManifestResourceNames()) { $resources[$name.Replace([char]92, [char]47)] = $name }
+$expected = @('Icons/RefugeToken.png')
+foreach ($id in 'SheilaHeidmarch', 'AmbrusValsin', 'DecemvirateMember', 'Quartermaster', 'SocietyCoordinator', 'RunelordKrune') {
+    foreach ($file in 'Small.png', 'Medium.png', 'Fulllength.png') { $expected += "Portraits/$id/$file" }
+}
+foreach ($path in $expected) {
+    if (-not $resources.ContainsKey("KWR/$path")) { throw "Embedded image $path is missing from the DLL." }
+    $stream = $assembly.GetManifestResourceStream($resources["KWR/$path"])
+    try { $image = [Drawing.Image]::FromStream($stream); $size = "$($image.Width)x$($image.Height)"; $image.Dispose() }
+    catch { throw "Embedded image $path does not decode: $_" }
+    finally { $stream.Dispose() }
+    if ($size -eq '0x0') { throw "Embedded image $path is empty." }
+}
+Write-Host "Embedded art verified: $($expected.Count) images."
 $commit = (& git -C $Root rev-parse HEAD).Trim()
 $dirty = [bool](& git -C $Root status --porcelain)
 # A working-tree build never replaces a version's package: it goes to its own -dirty file, so a tested zip survives.
@@ -41,7 +60,17 @@ if (-not $dirty -and (Test-Path -LiteralPath $zip) -and -not $ReplacePackage) {
     throw "$zip already exists and may be a tested candidate; bump the version, or pass -ReplacePackage only with the owner's authorization."
 }
 Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
-Compress-Archive -Path $stage -DestinationPath $zip
+# Entries are written with forward slashes (the zip standard): Compress-Archive in Windows PowerShell 5.1 writes
+# backslashes, which some extractors turn into flat file names instead of folders.
+Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+$archive = [IO.Compression.ZipFile]::Open($zip, [IO.Compression.ZipArchiveMode]::Create)
+try {
+    foreach ($file in Get-ChildItem -LiteralPath $stage -Recurse -File) {
+        $entry = 'KingmakerWakingRune/' + $file.FullName.Substring($stage.Length + 1).Replace([char]92, [char]47)
+        [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $file.FullName, $entry, [IO.Compression.CompressionLevel]::Optimal)
+    }
+}
+finally { $archive.Dispose() }
 [ordered]@{
     commit = $commit
     dirty = $dirty

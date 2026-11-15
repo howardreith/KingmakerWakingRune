@@ -296,6 +296,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 {
                     light.enabled = !disabled;
                 }
+                RuneFeedback.ApplyHoverName(focus, disabled);
             }
         }
 
@@ -514,12 +515,20 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 SanctumState state = State;
                 state.RecomputeMask();
                 ApplyRuneVisuals(state);
-                Say($"The {focus.Kind} rune ({focus.Id}) gutters and goes dark.");
+                RuneFeedback.Disabled(focus);
                 Log.Info($"RUNE {focus.Id} DISABLED by {outcome.Route}: {what}; {outcome.Detail}; mask now {state.RuneMask}.");
                 WardKrune.Refresh(state, Now);
                 // A woken Krune's still-linked benefits follow the rune at once; his revival snapshot does not.
                 Krune.KruneAwakening.SyncLinks(state, Now);
                 return;
+            }
+            if (outcome.SustainBegun)
+            {
+                RuneFeedback.Begun(focus);
+            }
+            if (outcome.SustainBroken)
+            {
+                RuneFeedback.Broken(focus);
             }
             if (outcome.FailedActors.Count > 0 || outcome.Detail.Length > 0)
             {

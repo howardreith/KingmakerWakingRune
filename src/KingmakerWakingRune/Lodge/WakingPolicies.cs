@@ -45,6 +45,15 @@ namespace KingmakerWakingRune.Lodge
             return target - currentMoney;
         }
 
+        /// <summary>
+        /// The one-time credit for a lodge save that received the earlier, smaller grant: the difference, never a reset to
+        /// the new amount, and nothing once the expedition has left (a returned party gets no second allowance).
+        /// </summary>
+        public static long TreasurySupplement(bool oldGrantReceived, bool supplementApplied, bool departed, long previousGrant, long currentGrant)
+        {
+            return oldGrantReceived && !supplementApplied && !departed && currentGrant > previousGrant ? currentGrant - previousGrant : 0;
+        }
+
         /// <summary>Native custom-companion creation grants class starting gold; recruitment must not change the treasury.</summary>
         public static long RecruitGoldRefund(long moneyBefore, long moneyAfter)
         {

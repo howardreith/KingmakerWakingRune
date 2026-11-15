@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Kingmaker;
 using Kingmaker.EntitySystem.Entities;
@@ -8,67 +9,87 @@ using Kingmaker.GameModes;
 using Kingmaker.PubSubSystem;
 using Kingmaker.UI;
 using Kingmaker.UnitLogic;
+using Kingmaker.UnitLogic.Abilities;
+using Kingmaker.Controllers.Rest;
+using Kingmaker.EntitySystem.Stats;
+using Kingmaker.RuleSystem;
+using Kingmaker.RuleSystem.Rules;
+using Kingmaker.RuleSystem.Rules.Damage;
 using Newtonsoft.Json;
 using UnityEngine;
 
 namespace KingmakerWakingRune.Sanctum
 {
-    /// <summary>The departure rest's record, saved on the main character while the party prepares in the lodge.</summary>
+    /// <summary>The departure's record (see <see cref="DepartureRecord"/>), saved on the main character until the arrival is committed.</summary>
     public sealed class DepartureRecordPart : UnitPart
     {
         [JsonProperty]
         public string Payload;
+
+        /// <summary>Slots prepared since the record was written, each with its owner (see <see cref="DeparturePreparation.NotePrepared"/>).</summary>
+        [JsonProperty]
+        public List<string> Prepared = new List<string>();
     }
 
     /// <summary>
-    /// The lodge side of a departure, in two uses of the token. The first: the party is told that leaving begins with a
-    /// night's rest, reviews its spellbooks, is warned about any prepared slot left empty, and takes the native scripted rest;
-    /// then control returns in the lodge for final preparation (protective spells, potions), which stays spent. The second:
-    /// an explicit confirmation, and the party departs as it stands, with no second rest. The rest readies what each caster
-    /// chose; it never chooses for them, and a sanctum load never reaches this code.
+    /// The lodge side of a departure, in one use of the token (WR-PLAYTEST-01, the owner's decision; it supersedes the
+    /// two-use review, rest and confirmation). The expedition is readied once, as preparation finished before leaving, not as
+    /// a night spent in the running scenario: the native per-unit rest (RestController.ApplyRest) readies each caster's chosen
+    /// spells, refills spontaneous slots and rest-recovered abilities and item powers, clears what a native rest clears, and
+    /// wounds are healed; the game clock does not move, so protective spells already cast keep their remaining time, and
+    /// nothing consumed (scrolls, potions, wand charges, ammunition, components) comes back. Empty prepared slots are noted
+    /// quietly and never filled. Then the existing checkpoint and transfer run unchanged. The saved record lists each member
+    /// and each prepared choice as readied, and stays until the arrival is committed: a retry after a failed transfer, or a
+    /// reload of the checkpoint, reconciles against it (see <see cref="DepartureRecord"/>), so an unchanged expedition is
+    /// never refreshed twice, while a new member, a changed preparation or a level-up is readied before leaving. A sanctum
+    /// load never reaches this code.
     /// </summary>
     internal sealed class DeparturePreparation
     {
-        private const float WindowOpenSeconds = 3f;
-        private const float RestStartSeconds = 5f;
-
-        private enum Stage
-        {
-            Idle,
-            Confirming,
-            OpeningBook,
-            Reviewing,
-            Warning,
-            StartingRest,
-            Resting,
-        }
-
         private readonly Action m_Depart;
-        private readonly Action<string> m_Cancel;
-        private Stage m_Stage;
-        private float m_Deadline;
-        private bool m_SawRest;
-        private float m_Now;
 
         public DeparturePreparation(Action depart, Action<string> cancel)
         {
             m_Depart = depart;
-            m_Cancel = cancel;
         }
 
-        public bool InProgress => m_Stage != Stage.Idle;
+        /// <summary>Synchronous: nothing waits between the token's use and the transfer's own stages.</summary>
+        public bool InProgress => false;
+
+        /// <summary>Whether this save holds a readied departure (a retry or a reload of the checkpoint can follow).</summary>
+        public static bool Recorded => DepartureRecord.Classify(Game.Instance.Player.MainCharacter.Value?.Descriptor.Get<DepartureRecordPart>()?.Payload) == DepartureReadiness.Reconcile;
+
+        /// <summary>Every slot of a prepared book.</summary>
+        public static IEnumerable<SpellSlot> SlotsOf(Spellbook book)
+        {
+            return book.Blueprint.Spontaneous ? Enumerable.Empty<SpellSlot>() : Enumerable.Range(1, book.MaxSpellLevel).SelectMany(book.GetMemorizedSpellSlots).ToList();
+        }
 
         /// <summary>
-        /// The rest's record, as the loaded game carries it: a save made in the lodge after the rest keeps it, so a reload
-        /// can still depart without resting. A completed arrival removes it.
+        /// Slots the player prepared after the readiness was recorded; the next use of the token readies them, even when a
+        /// slot holds the same spell it held before (the native preparation leaves it unready until a rest).
         /// </summary>
-        private static Dictionary<string, string> RestedAs
+        public static void NotePrepared(Spellbook book, IEnumerable<SpellSlot> slots)
         {
-            get
+            DepartureRecordPart record = Game.Instance.Player.MainCharacter.Value?.Descriptor.Get<DepartureRecordPart>();
+            if (record == null)
             {
-                string payload = Game.Instance.Player.MainCharacter.Value?.Descriptor.Get<DepartureRecordPart>()?.Payload;
-                return payload == null ? null : DepartureRecord.Read(payload);
+                return;
             }
+            foreach (SpellSlot slot in slots)
+            {
+                string key = DepartureSnapshot.PreparedKey(book.Owner.Unit.UniqueId, SlotKey(book, slot));
+                if (!record.Prepared.Contains(key))
+                {
+                    record.Prepared.Add(key);
+                    Log.Info($"Departure: {book.Owner.CharacterName} prepared {slot.Spell?.Name} after the readiness ({key}); the next use of the token readies it.");
+                }
+            }
+        }
+
+        private static string SlotKey(Spellbook book, SpellSlot slot)
+        {
+            return DepartureSnapshot.SlotKey(book.Blueprint.AssetGuid, slot.SpellLevel, (int)slot.Type, slot.Index);
         }
 
         public static void Forget(string reason)
@@ -77,202 +98,206 @@ namespace KingmakerWakingRune.Sanctum
             if (main?.Descriptor.Get<DepartureRecordPart>() != null)
             {
                 main.Descriptor.Remove<DepartureRecordPart>();
-                Log.Info($"Departure rest record removed: {reason}.");
-            }
-        }
-
-        private static void Remember()
-        {
-            UnitEntityData main = Game.Instance.Player.MainCharacter.Value;
-            if (main != null)
-            {
-                main.Descriptor.Ensure<DepartureRecordPart>().Payload = DepartureRecord.Write(Game.Instance.Player.Party.ToDictionary(u => u.UniqueId, Selections));
+                Log.Info($"Departure record removed: {reason}.");
             }
         }
 
         public void Begin()
         {
-            Dictionary<string, string> rested = RestedAs;
-            if (rested != null)
+            UnitEntityData main = Game.Instance.Player.MainCharacter.Value;
+            string payload = main?.Descriptor.Get<DepartureRecordPart>()?.Payload;
+            switch (DepartureRecord.Classify(payload))
             {
-                Dictionary<string, string> now = Game.Instance.Player.Party.ToDictionary(u => u.UniqueId, Selections);
-                List<string> changed = DepartureRecord.Changes(rested, now, id => Game.Instance.Player.Party.FirstOrDefault(u => u.UniqueId == id)?.CharacterName ?? "a member");
-                m_Stage = Stage.Confirming;
-                if (changed.Count == 0)
-                {
-                    Log.Info("Departure: the party rested for this journey and its selections are unchanged; asking to depart without a second rest.");
-                    Ask("The party has rested for this journey. Spells cast and items used since then stay spent, and nothing is restored.\n\nDepart for the Sanctum of Sloth now?", yes =>
-                    {
-                        if (yes)
-                        {
-                            Go("explicit departure after the rest");
-                        }
-                        else
-                        {
-                            Stop("Departure put off. Make any further preparations, then use the Refuge Token again.");
-                        }
-                    });
-                    return;
-                }
-                string list = string.Join("; ", changed.ToArray());
-                Log.Info($"Departure: since the departure rest: {list}.");
-                Ask("Since the party's rest: " + list + ". Spells chosen since then are not ready.\n\nDepart now as the party stands? (Choose Cancel to rest again instead.)", yes =>
-                {
-                    if (yes)
-                    {
-                        Go("explicit departure without resting again, after changes: " + list);
-                        return;
-                    }
-                    Ask("Rest again before departing? Spells and effects cast since the last rest will run out during the night; spent spell slots and abilities return with the rest.", rest =>
-                    {
-                        if (rest)
-                        {
-                            OpenBook();
-                        }
-                        else
-                        {
-                            Stop("Departure put off. Nothing was spent.");
-                        }
-                    });
-                });
-                return;
+                case DepartureReadiness.Reconcile:
+                    Reconcile(main, payload);
+                    break;
+                case DepartureReadiness.Legacy:
+                    Forget("a record of the earlier two-use departure, migrated without its dialogues");
+                    Ready(main);
+                    break;
+                default:
+                    Ready(main);
+                    break;
             }
-            m_Stage = Stage.Confirming;
-            Ask("Before the token carries you away, the party takes a full night's rest here in the lodge and prepares its spells. Spells and effects already cast will run out during the night. Spent scrolls, potions and wand charges are not restored. Spells you choose in the spellbook become ready with the rest.\n\nAfter the rest you stay in the lodge to make final preparations, and use the token again to depart.\n\nReview your spellbooks now, then rest?", yes =>
-            {
-                if (!yes)
-                {
-                    Stop("Departure put off before the rest. Nothing was spent.");
-                    return;
-                }
-                OpenBook();
-            });
-        }
-
-        private void Go(string why)
-        {
-            m_Stage = Stage.Idle;
-            Log.Info($"Departure: {why}; party as it stands: {string.Join("; ", Game.Instance.Player.Party.Select(Readiness).ToArray())}.");
             m_Depart();
         }
 
         public void Cancel(string reason)
         {
-            if (m_Stage != Stage.Idle)
-            {
-                Log.Info($"Departure preparation cancelled: {reason}.");
-                m_Stage = Stage.Idle;
-            }
         }
 
         public void Tick(float now)
         {
-            switch (m_Stage)
+        }
+
+        /// <summary>Every living member and companion of the party, recruits and animal companions included.</summary>
+        private static List<UnitEntityData> Members()
+        {
+            var members = new List<UnitEntityData>();
+            foreach (UnitEntityData unit in Game.Instance.Player.Party)
             {
-                case Stage.OpeningBook:
-                    if (BookShown)
-                    {
-                        m_Stage = Stage.Reviewing;
-                    }
-                    else if (now >= m_Deadline)
-                    {
-                        // No window to wait on (no caster, or the UI refused): the slots are still checked before resting.
-                        Log.Info("Departure: the spellbook did not open; checking preparation directly.");
-                        Review();
-                    }
-                    break;
-                case Stage.Reviewing:
-                    if (!BookShown && !Game.Instance.IsModeActive(GameModeType.FullScreenUi))
-                    {
-                        Review();
-                    }
-                    break;
-                case Stage.StartingRest:
-                    if (Game.Instance.CurrentMode == GameModeType.Rest)
-                    {
-                        m_SawRest = true;
-                        m_Stage = Stage.Resting;
-                    }
-                    else if (now >= m_Deadline)
-                    {
-                        Stop("The party could not settle to rest, so the token was not used. Nothing was spent.");
-                    }
-                    break;
-                case Stage.Resting:
-                    // The native rest ends with its own autosave; the departure checkpoint waits for that to be committed.
-                    if (m_SawRest && Game.Instance.CurrentMode == GameModeType.Default && !LoadingProcess.Instance.IsLoadingInProcess && !LoadingProcess.Instance.IsLoadingScreenActive && !Game.Instance.SaveManager.CommitInProgress)
-                    {
-                        Remember();
-                        m_Stage = Stage.Idle;
-                        Log.Info($"Departure rest complete; control returns in the lodge for final preparation: {string.Join("; ", Game.Instance.Player.Party.Select(Readiness).ToArray())}.");
-                        EventBus.RaiseEvent(delegate(IDialogMessageBoxUIHandler h)
-                        {
-                            h.HandleOpen("The party has rested and its chosen spells are ready.\n\nMake your final preparations here: cast protective spells, drink potions, ready your gear. What you spend stays spent.\n\nWhen you are ready, use the Refuge Token again to depart. The party will not rest again.", DialogMessageBoxBase.BoxType.Message, button => { });
-                        });
-                    }
-                    break;
+                members.Add(unit);
+                UnitEntityData pet = unit.Descriptor.Pet;
+                if (pet != null && !members.Contains(pet))
+                {
+                    members.Add(pet);
+                }
             }
-            m_Now = now;
+            return members.Where(u => !u.Descriptor.State.IsDead).ToList();
         }
 
-        private static bool BookShown => Game.Instance.UI.ServiceWindow?.WindowTabs != null && Game.Instance.UI.ServiceWindow.WindowTabs.IsShow;
-
-        private void OpenBook()
+        private static void Ready(UnitEntityData main)
         {
-            m_Stage = Stage.OpeningBook;
-            m_Deadline = m_Now + WindowOpenSeconds;
-            EventBus.RaiseEvent(delegate(IServiceWindowUIHandler h) { h.HandleOpenSpellbook(); });
-        }
-
-        private void Review()
-        {
-            List<string> empty = Game.Instance.Player.Party.Select(EmptySlots).Where(s => s != null).ToList();
-            if (empty.Count == 0)
+            List<UnitEntityData> members = Members();
+            Log.Info($"Departure readiness, before: {string.Join("; ", members.Select(Readiness).ToArray())}.");
+            foreach (UnitEntityData unit in members)
             {
-                Rest();
+                ReadyUnit(unit);
+            }
+            Record(main, members);
+            Log.Info($"Departure readiness, after: {string.Join("; ", members.Select(Readiness).ToArray())}.");
+            Announce("The expedition is rested and ready.", "The expedition is rested and ready.");
+        }
+
+        /// <summary>
+        /// A retry or a checkpoint reload: what was readied stays as it stands (spent since is spent); a member who was not
+        /// readied is readied in full; a slot prepared with a different spell since, or added by a level-up, and spontaneous
+        /// spells a level-up added, are made ready. The record then describes the expedition as it leaves.
+        /// </summary>
+        private static void Reconcile(UnitEntityData main, string payload)
+        {
+            List<UnitEntityData> members = Members();
+            List<string> prepared = main.Descriptor.Get<DepartureRecordPart>().Prepared ?? new List<string>();
+            List<DepartureAction> actions = DepartureRecord.Reconcile(DepartureRecord.Parse(payload), members.Select(Snapshot), prepared).Where(a => !a.Nothing).ToList();
+            if (actions.Count == 0)
+            {
+                Log.Info($"Departure: this expedition was already readied and is unchanged ({payload.Split('|')[0]}); departing as it stands: {string.Join("; ", members.Select(Readiness).ToArray())}.");
                 return;
             }
-            m_Stage = Stage.Warning;
-            Log.Info($"Departure: empty prepared slots: {string.Join("; ", empty.ToArray())}.");
-            Ask("Some prepared spell slots are still empty, and resting will not fill them:\n\n" + string.Join("\n", empty.ToArray()) + "\n\nRest anyway? Choose Cancel to return to the spellbooks.", yes =>
+            Log.Info($"Departure reconciliation, before: {string.Join("; ", members.Select(Readiness).ToArray())}.");
+            var notes = new List<string>();
+            foreach (DepartureAction action in actions)
             {
-                if (yes)
+                UnitEntityData unit = members.First(u => u.UniqueId == action.Unit);
+                if (action.Full)
                 {
-                    Rest();
+                    ReadyUnit(unit);
+                    notes.Add($"{unit.CharacterName} readied");
+                    continue;
                 }
-                else
+                Dictionary<string, SpellSlot> slots = PreparedSlots(unit);
+                foreach (string key in action.Slots)
                 {
-                    OpenBook();
+                    slots[key].Available = true;
                 }
-            });
-        }
-
-        private void Rest()
-        {
-            if (Game.Instance.Player.IsInCombat)
-            {
-                Stop("The party cannot rest while in combat. Nothing was spent.");
-                return;
+                foreach (KeyValuePair<string, int> daily in action.Daily)
+                {
+                    string[] parts = daily.Key.Substring(2).Split('/');
+                    Spellbook book = unit.Descriptor.Spellbooks.First(b => b.Blueprint.AssetGuid == parts[0]);
+                    book.RestoreSpontaneousSlots(int.Parse(parts[1], CultureInfo.InvariantCulture), daily.Value);
+                }
+                var what = new List<string>();
+                if (action.Slots.Count > 0)
+                {
+                    string spells = string.Join(", ", action.Slots.Select(k => slots[k].Spell.Name).Distinct().ToArray());
+                    what.Add($"{action.Slots.Count} newly prepared slot{(action.Slots.Count == 1 ? "" : "s")} ({spells})");
+                }
+                int gained = action.Daily.Values.Sum();
+                if (gained > 0)
+                {
+                    what.Add($"{gained} spontaneous spell{(gained == 1 ? "" : "s")} gained by level");
+                }
+                notes.Add($"{unit.CharacterName}: {string.Join(" and ", what.ToArray())}");
             }
-            m_Stage = Stage.StartingRest;
-            m_SawRest = false;
-            m_Deadline = m_Now + RestStartSeconds;
-            Log.Info($"Departure rest: native scripted party rest started; before: {string.Join("; ", Game.Instance.Player.Party.Select(Readiness).ToArray())}.");
-            Game.Instance.RestController.StartScripted(immediate: false);
+            Record(main, members);
+            Log.Info($"Departure reconciliation: {string.Join("; ", notes.ToArray())}. After: {string.Join("; ", members.Select(Readiness).ToArray())}.");
+            Announce("Readied since the last preparation: " + string.Join("; ", notes.ToArray()) + ".", "Changes since the last preparation are readied.");
         }
 
-        private void Stop(string text)
+        private static void ReadyUnit(UnitEntityData unit)
         {
-            m_Stage = Stage.Idle;
-            m_Cancel(text);
-        }
-
-        private static void Ask(string text, Action<bool> answer)
-        {
-            EventBus.RaiseEvent(delegate(IDialogMessageBoxUIHandler h)
+            var info = new UnitRestInfo(unit.Descriptor, new RestStatus());
+            if (unit.Damage > 0)
             {
-                h.HandleOpen(text, DialogMessageBoxBase.BoxType.Dialog, button => answer(button == DialogMessageBoxBase.BoxButton.Yes));
-            });
+                Rulebook.Trigger(new RuleHealDamage(unit, unit, unit.Damage));
+            }
+            foreach (StatType stat in StatTypeHelper.Attributes)
+            {
+                if (info.HealedStatDamage > 0)
+                {
+                    Rulebook.Trigger(new RuleHealStatDamage(unit, unit, stat, info.HealedStatDamage));
+                }
+            }
+            RestController.ApplyRest(unit.Descriptor);
+            unit.Descriptor.LastRestTime = Game.Instance.TimeController.GameTime;
+        }
+
+        private static void Record(UnitEntityData main, List<UnitEntityData> members)
+        {
+            if (main != null)
+            {
+                DepartureRecordPart record = main.Descriptor.Ensure<DepartureRecordPart>();
+                record.Payload = DepartureRecord.Ready(Game.Instance.TimeController.GameTime.TotalSeconds, members.Select(Snapshot));
+                record.Prepared = new List<string>();
+            }
+        }
+
+        private static void Announce(string line, string warning)
+        {
+            List<string> empty = Game.Instance.Player.Party.Select(EmptySlots).Where(e => e != null).ToList();
+            if (empty.Count > 0)
+            {
+                Log.Info($"Departure: empty prepared slots, left empty: {string.Join("; ", empty.ToArray())}.");
+                line += " Unfilled prepared slots: " + string.Join("; ", empty.ToArray()) + ".";
+            }
+            if (line != warning)
+            {
+                // The warning notice is also written to the log; a longer line adds its details.
+                Game.Instance.UI.BattleLogManager?.HandleOnDialogHistory(line);
+            }
+            EventBus.RaiseEvent(delegate(IWarningNotificationUIHandler h) { h.HandleWarning(warning); });
+        }
+
+        /// <summary>Each slot of a member's prepared books, by its record key.</summary>
+        private static Dictionary<string, SpellSlot> PreparedSlots(UnitEntityData unit)
+        {
+            var slots = new Dictionary<string, SpellSlot>();
+            foreach (Spellbook book in unit.Descriptor.Spellbooks.Where(b => !b.Blueprint.Spontaneous))
+            {
+                book.UpdateAllSlotsSize();
+                for (int level = 1; level <= book.MaxSpellLevel; level++)
+                {
+                    foreach (SpellSlot slot in book.GetMemorizedSpellSlots(level))
+                    {
+                        slots[SlotKey(book, slot)] = slot;
+                    }
+                }
+            }
+            return slots;
+        }
+
+        /// <summary>A member's preparation for the record: each prepared slot's chosen spell, and each spontaneous level's spells per day.</summary>
+        private static DepartureSnapshot Snapshot(UnitEntityData unit)
+        {
+            var entries = new Dictionary<string, string>();
+            foreach (KeyValuePair<string, SpellSlot> slot in PreparedSlots(unit))
+            {
+                AbilityData spell = slot.Value.Spell;
+                string value = spell == null ? "" : spell.Blueprint.AssetGuid;
+                if (spell?.MetamagicData != null && spell.MetamagicData.NotEmpty)
+                {
+                    value += "+" + ((int)spell.MetamagicData.MetamagicMask).ToString(CultureInfo.InvariantCulture);
+                }
+                entries[slot.Key] = value;
+            }
+            foreach (Spellbook book in unit.Descriptor.Spellbooks.Where(b => b.Blueprint.Spontaneous))
+            {
+                for (int level = 1; level <= book.MaxSpellLevel; level++)
+                {
+                    entries[DepartureSnapshot.DailyKey(book.Blueprint.AssetGuid, level)] = book.GetSpellsPerDay(level).ToString(CultureInfo.InvariantCulture);
+                }
+            }
+            return new DepartureSnapshot(unit.UniqueId, entries);
         }
 
         /// <summary>One character's empty prepared slots by level, or null when every slot holds a chosen spell.</summary>
@@ -296,32 +321,6 @@ namespace KingmakerWakingRune.Sanctum
                 }
             }
             return parts.Count == 0 ? null : $"{unit.CharacterName}: {string.Join(", ", parts.ToArray())}";
-        }
-
-        /// <summary>
-        /// What a rest would make ready, for one member: spellbooks, caster levels, daily slot counts, and each prepared slot's
-        /// chosen spell. Not whether a slot or resource has been spent, nor wounds: those are the party's preparation, and
-        /// stay as they are.
-        /// </summary>
-        private static string Selections(UnitEntityData unit)
-        {
-            var sb = new System.Text.StringBuilder();
-            foreach (Spellbook book in unit.Descriptor.Spellbooks)
-            {
-                sb.Append($"| {book.Blueprint.AssetGuid} cl {book.CasterLevel}");
-                for (int level = 0; level <= book.MaxSpellLevel; level++)
-                {
-                    if (book.Blueprint.Spontaneous)
-                    {
-                        sb.Append($" {level}:{book.GetSpellsPerDay(level)}");
-                    }
-                    else
-                    {
-                        sb.Append($" {level}:[{string.Join(",", book.GetMemorizedSpellSlots(level).Select(s => s.Spell?.Blueprint.AssetGuid ?? "-").ToArray())}]");
-                    }
-                }
-            }
-            return sb.ToString();
         }
 
         /// <summary>For the log: each prepared book's ready and total slots at its highest level, and current hit points.</summary>

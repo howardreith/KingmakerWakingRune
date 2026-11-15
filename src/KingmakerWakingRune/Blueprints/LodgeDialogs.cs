@@ -76,9 +76,7 @@ namespace KingmakerWakingRune.Blueprints
             questions.Answers = hub;
             BlueprintCue plans = Cue("ambrus.plans", ambrus, "Over the past year, we've received increasingly concerning reports from this region that the Lissalans have plans in motion to revive Krune, the Runelord of Sloth and one of the most powerful wizards of ancient Thassilon. We have set our own plans in motion to keep him in check if the Lissalans succeed, but Sheila Heidmarch has an ambitious plan regarding this threat.");
             Continue(plans, questions);
-            BlueprintCue nods = Cue("stage.nods", null, "The masked figure listens and nods silently.");
-            nods.Speaker = new DialogSpeaker { NoSpeaker = true, MoveCamera = false };
-            nods.TurnSpeaker = false;
+            BlueprintCue nods = StageDirection("stage.nods", masked, "The masked figure listens and nods silently.");
             nods.OnShow = Actions(Callback("Focus the masked figure", BriefingService.FocusMaskedFigure));
             Continue(nods, plans);
             BlueprintCue opening = Cue("ambrus.opening", ambrus, "My fellow Pathfinders, as you can see, the task that lies ahead transcends the interests of Magnimar's increasingly esteemed lodge; it's a mission that will affect the entire Pathfinder Society and merits the direct attention of the Decemvirate.");
@@ -128,7 +126,7 @@ namespace KingmakerWakingRune.Blueprints
             BlueprintCue s1 = Cue("debrief.success.ambrus", ambrus, "You are back, all of you that could be, and I can read it in your faces before you say a word. Krune is dead?");
             BlueprintCue s2 = Cue("debrief.success.sheila", sheila, "Slain in his own sanctum, before he could take back the full weight of his power. Varisia will never know how close it came, and that is as it should be. The Society owes you more than it will ever say aloud.");
             BlueprintCue s3 = Cue("debrief.success.masked", masked, "The spear and the rod. Give them to me. They will not stay in Magnimar.");
-            BlueprintCue s4 = Cue("debrief.success.handover", null, "The masked figure takes the dragon-tooth spear and the rune-carved rod, speaks a single word, and is gone.");
+            BlueprintCue s4 = StageDirection("debrief.success.handover", masked, "The masked figure takes the dragon-tooth spear and the rune-carved rod, speaks a single word, and is gone.");
             BlueprintCue s5 = Cue("debrief.success.rest", ambrus, "Rest now; you have earned it. The Lissalans have lost their high priest and their runelord in a single night. Whatever comes next can wait for another day.");
             Continue(s1, s2);
             Continue(s2, s3);
@@ -165,6 +163,18 @@ namespace KingmakerWakingRune.Blueprints
             cue.OnShow = new ActionList();
             cue.OnStop = new ActionList();
             cue.Continue = new CueSelection();
+            return cue;
+        }
+
+        /// <summary>
+        /// Narration about one character: nobody speaks (no speaker entity, no turn or camera move), but the panel shows
+        /// that character's portrait through the cue's native SpeakerPortrait, and the text is in the narrator's colour.
+        /// </summary>
+        private static BlueprintCue StageDirection(string id, BlueprintUnit subject, string text)
+        {
+            BlueprintCue cue = Cue(id, null, "{n}" + text + "{/n}");
+            cue.Speaker = new DialogSpeaker { NoSpeaker = true, MoveCamera = false, SpeakerPortrait = subject };
+            cue.TurnSpeaker = false;
             return cue;
         }
 

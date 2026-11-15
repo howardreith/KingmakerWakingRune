@@ -26,7 +26,7 @@ namespace KingmakerWakingRune.Blueprints
         public static BlueprintItemEquipmentUsable Create(Action<BlueprintScriptableObject> register)
         {
             LocalizedText.Define("kwr.token.name", "Refuge Token");
-            LocalizedText.Define("kwr.token.description", "Break this rune-marked token to transport your active party from Magnimar Lodge to the Sanctum of Sloth. Consumed on successful use.");
+            LocalizedText.Define("kwr.token.description", "Break this rune-marked token to transport your active party from Magnimar Lodge to the Sanctum of Sloth. The expedition sets out ready: wounds are tended and each caster's chosen spells and daily abilities are ready, while protective spells already cast keep their remaining time. Scrolls, potions, wand charges and other consumables stay as they are. Consumed on successful use.");
             LocalizedText.Define("kwr.token.action", "Break Refuge Token");
 
             Sprite icon = LoadIcon();
@@ -96,14 +96,7 @@ namespace KingmakerWakingRune.Blueprints
 
         private static Sprite LoadIcon()
         {
-            string path = Path.Combine(Path.Combine(Main.Mod.Path, "Icons"), "RefugeToken.png");
-            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
-            if (!File.Exists(path) || !ImageConversion.LoadImage(texture, File.ReadAllBytes(path)))
-            {
-                Log.Error($"Refuge Token icon missing or unreadable at {path}.");
-                return null;
-            }
-            return Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), NativeIconPixelsPerUnit);
+            return PackagedAssets.Sprite("Icons/RefugeToken.png", NativeIconPixelsPerUnit);
         }
     }
 }

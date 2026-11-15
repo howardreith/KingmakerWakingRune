@@ -514,6 +514,67 @@ namespace KingmakerWakingRune.Diagnostics
                     return $"HARNESS-COMMANDED move order: {Member(args[1]).CharacterName} to ({args[2]},{args[3]}).";
                 case "stock":
                     return Stock();
+                case "stockaudit":
+                    return StockAudit.Write(args[1]);
+                case "deep":
+                {
+                    BlueprintScriptableObject bp = ResourcesLibrary.LibraryObject.BlueprintsByAssetId.Values.FirstOrDefault(b => b.name == args[1]);
+                    if (bp == null)
+                    {
+                        return $"no blueprint named {args[1]}";
+                    }
+                    var deep = new StringBuilder($"READ deep {bp.name} ({bp.GetType().Name}, {bp.AssetGuid})\n");
+                    foreach (BlueprintComponent c in bp.ComponentsArray)
+                    {
+                        Deep(deep, c, 1, new System.Collections.Generic.HashSet<object>());
+                    }
+                    return deep.ToString();
+                }
+                case "addknown":
+                {
+                    // SETUP: a spell added to a member's spellbook at the given level (as copying its scroll would).
+                    UnitEntityData member = Member(args[1]);
+                    BlueprintAbility spell = ResourcesLibrary.GetBlueprints<BlueprintAbility>().FirstOrDefault(a => a.name == args[2]);
+                    Spellbook book = member.Descriptor.Spellbooks.FirstOrDefault(b => !b.Blueprint.Spontaneous);
+                    if (spell == null || book == null)
+                    {
+                        return $"no spell {args[2]} or no prepared spellbook";
+                    }
+                    book.AddKnown(int.Parse(args[3]), spell);
+                    return $"SETUP {member.CharacterName} knows {spell.name} at level {args[3]}.";
+                }
+                case "rodon":
+                {
+                    // HARNESS-COMMANDED: a carried rod into a free quick slot, and its native metamagic toggle switched on.
+                    UnitEntityData member = Member(args[1]);
+                    Kingmaker.Items.ItemEntity rod = Game.Instance.Player.Inventory.FirstOrDefault(i => i.Blueprint.name == args[2]);
+                    var slot = member.Body.QuickSlots.FirstOrDefault(s => !s.HasItem && s.CanInsertItem(rod));
+                    if (rod == null || slot == null)
+                    {
+                        return $"no {args[2]} carried or no free quick slot";
+                    }
+                    slot.InsertItem(rod);
+                    var toggle = member.Descriptor.ActivatableAbilities.Enumerable.FirstOrDefault(a => a.Blueprint == ((Kingmaker.Blueprints.Items.Equipment.BlueprintItemEquipment)rod.Blueprint).ActivatableAbility);
+                    if (toggle == null)
+                    {
+                        return $"HARNESS-COMMANDED {rod.Name} in a quick slot, but no toggle was granted";
+                    }
+                    toggle.IsOn = true;
+                    return $"HARNESS-COMMANDED {member.CharacterName} readies {rod.Name}: toggle {toggle.Blueprint.name} on={toggle.IsOn}, charges {rod.Charges}.";
+                }
+                case "entity":
+                {
+                    // Read only: a unit by id prefix among all units the state holds, in game or not.
+                    var found = Game.Instance.State.Units.All.Where(u => u.UniqueId.StartsWith(args[1], StringComparison.Ordinal)).ToList();
+                    if (found.Count == 0)
+                    {
+                        return $"READ entity {args[1]}: not held by the state at all";
+                    }
+                    return string.Join("\n", found.Select(u => $"READ entity {u.UniqueId} '{u.CharacterName}' inGame={u.IsInGame} dead={u.Descriptor.State.IsDead} view={(u.View != null)} viewActive={(u.View != null && u.View.gameObject.activeInHierarchy)} pos=({u.Position.x:0.0},{u.Position.y:0.0},{u.Position.z:0.0}) faction={u.Descriptor.Faction?.name} brain={u.IsBrainActive} commands=[{string.Join(",", u.Commands.Raw.Where(c => c != null).Select(c => c.GetType().Name).ToArray())}] part={(u.Get<WardRestoredPart>() != null)}").ToArray());
+                }
+                case "statuesave":
+                    WardStatues.ForcedSurvival = args[1] == "pass";
+                    return $"SETUP the next Stone to Flesh survival save is forced to {(WardStatues.ForcedSurvival.Value ? "pass" : "fail")} (once; the roll is still made and logged).";
                 case "slots":
                     return Slots(Member(args[1]));
                 case "known":
@@ -534,6 +595,53 @@ namespace KingmakerWakingRune.Diagnostics
                     return Cursor();
                 case "spell":
                     return SpellFromBook(Member(args[1]), args[2], args.Skip(3).ToArray());
+                case "cmd":
+                {
+                    // READ: why a unit's queued command has or has not started (the native start conditions), and its view.
+                    string missing = Resolve(args[1], out UnitEntityData unit);
+                    if (missing != null)
+                    {
+                        return missing;
+                    }
+                    var sb = new StringBuilder($"READ commands of {unit.CharacterName}: handsBusy={unit.AreHandsBusyWithAnimation} canAct={unit.Descriptor.State.CanAct} moving={unit.View?.IsMoving()} inCombat={unit.IsInCombat} visible={unit.IsVisibleForPlayer} inFog={unit.IsInFogOfWar} animator={(unit.View?.Animator == null ? "none" : unit.View.Animator.enabled + "/" + unit.View.Animator.cullingMode + "/visible=" + unit.View.Animator.isActiveAndEnabled)} rendererVisible={unit.View?.GetComponentsInChildren<Renderer>().Any(r => r.isVisible)}\n");
+                    Kingmaker.View.UnitMovementAgent agent = unit.View?.AgentASP;
+                    if (agent != null)
+                    {
+                        object Field(string name) => Harmony12.Traverse.Create(agent).Field(name).GetValue();
+                        var requested = Harmony12.Traverse.Create(agent).Property("RequestedPath").GetValue() as Pathfinding.Path;
+                        sb.AppendLine($"  agent: wantsToMove={agent.WantsToMove} reallyMoving={agent.IsReallyMoving} destination={Field("m_Destination")} noPath={Field("m_NoPathDestination")} requested={(requested == null ? "none" : requested.CompleteState + "/" + requested.errorLog)} path={(agent.Path == null ? "none" : agent.Path.vectorPath.Count + " points")} repath={agent.RepathNeeded} warmup={Field("m_WarmupTime")} pathFrame={Field("m_PathFrame")} frame={Time.frameCount} hold={unit.HoldState} getUp={unit.View.IsGetUp} rigidbody={(unit.View.RigidbodyController != null && unit.View.RigidbodyController.IsControllingRigidbody)} moveCooldown={unit.CombatState.Cooldown.MoveAction:0.0} standardCooldown={unit.CombatState.Cooldown.StandardAction:0.0} canMove={unit.Descriptor.State.CanMove}");
+                    }
+                    foreach (Kingmaker.UnitLogic.Commands.Base.UnitCommand c in unit.Commands.Raw.Where(c => c != null))
+                    {
+                        sb.AppendLine($"  next approach {c.NextApproachTime.TotalSeconds:0.0} now {Game.Instance.TimeController.GameTime.TotalSeconds:0.0}");
+                        sb.AppendLine($"  {c.GetType().Name} started={c.IsStarted} acted={c.IsActed} result={c.Result} running={c.IsRunning} close={c.IsUnitEnoughClose} shouldApproach={c.ShouldUnitApproach} moveUnit={c.IsMoveUnit} finishedApproaching={c.FinishedApproaching} canStart={c.CanStart} t={c.TimeSinceStart:0.0} anim={(c.Animation == null ? "none" : c.Animation.IsActed + "/" + c.Animation.IsFinished)} approach={c.ApproachPoint} radius={c.ApproachRadius} at={unit.Position} dist={Vector3.Distance(c.ApproachPoint, unit.Position):0.00}");
+                    }
+                    return sb.ToString();
+                }
+                case "params":
+                {
+                    // READ: the native ability parameters of a member's own ability (as its next use would compute them) and
+                    // each rank its effects would use: how equipment such as a phylactery changes it. Nothing is cast.
+                    UnitEntityData member = Member(args[1]);
+                    Kingmaker.UnitLogic.Abilities.Ability fact = member.Descriptor.Abilities.RawFacts.OfType<Kingmaker.UnitLogic.Abilities.Ability>().FirstOrDefault(a => a.Blueprint.name == args[2]);
+                    if (fact == null)
+                    {
+                        return $"{member.CharacterName} has no ability {args[2]}";
+                    }
+                    var data = new AbilityData(fact);
+                    Kingmaker.UnitLogic.Abilities.AbilityParams values = data.CalculateParams();
+                    var context = new Kingmaker.UnitLogic.Abilities.AbilityExecutionContext(data, values, member);
+                    string ranks = string.Join(", ", data.Blueprint.GetComponents<Kingmaker.UnitLogic.Mechanics.Components.ContextRankConfig>().Select(r => $"{r.Type}={r.GetValue(context)}").ToArray());
+                    return $"READ params of {member.CharacterName}'s {args[2]}: caster level {values.CasterLevel}, rank bonus {values.RankBonus}; ranks [{ranks}].";
+                }
+                case "departure":
+                {
+                    // READ: the saved departure record (members and number of recorded choices) and the token count.
+                    string payload = Game.Instance.Player.MainCharacter.Value?.Descriptor.Get<KingmakerWakingRune.Sanctum.DepartureRecordPart>()?.Payload;
+                    string members = payload == null ? "none" : string.Join(", ", KingmakerWakingRune.Sanctum.DepartureRecord.Parse(payload).Values.Select(m => $"{Game.Instance.State.Units.All.FirstOrDefault(u => u.UniqueId == m.Unit)?.CharacterName ?? m.Unit} ({m.Entries.Count})").ToArray());
+                    int tokens = Game.Instance.Player.Inventory.Where(i => i.Blueprint.name.Contains("RefugeToken")).Sum(i => i.Count);
+                    return $"Departure record: {(payload == null ? "none" : payload.Split('|')[0])}; members: {members}; tokens in inventory: {tokens}.";
+                }
                 case "token":
                     // The Refuge Token ability's own callback, for when the action bar cannot be clicked.
                     KingmakerWakingRune.Sanctum.RefugeTransit.Request();
@@ -561,7 +669,11 @@ namespace KingmakerWakingRune.Diagnostics
                 case "answer":
                     return AnswerBox(args[1] == "yes");
                 case "memorize":
-                    return Memorize(Member(args[1]), args[2], int.Parse(args[3]));
+                    return Memorize(Member(args[1]), args[2], int.Parse(args[3]), args.Length > 4 && args[4] == "pending");
+                case "xp":
+                    // SETUP: experience granted to a member (the level-up itself is then the player's, through the native screen).
+                    Member(args[1]).Descriptor.Progression.GainExperience(int.Parse(args[2]));
+                    return $"SETUP {args[2]} experience granted to {Member(args[1]).CharacterName}: now {Member(args[1]).Descriptor.Progression.Experience} (level {Member(args[1]).Descriptor.Progression.CharacterLevel}).";
                 case "cantarget":
                     return CanTarget(Member(args[1]), args[2], args[3]);
                 case "screen":
@@ -964,6 +1076,54 @@ namespace KingmakerWakingRune.Diagnostics
             return sb.ToString();
         }
 
+        /// <summary>Read only: a component or action and every serialized field beneath it (actions, conditions), as an indented tree.</summary>
+        private static void Deep(StringBuilder sb, object value, int depth, System.Collections.Generic.HashSet<object> seen)
+        {
+            if (value == null || depth > 9 || !seen.Add(value))
+            {
+                return;
+            }
+            string pad = new string(' ', depth * 2);
+            sb.Append(pad).Append('[').Append(value.GetType().Name).Append(']');
+            var nested = new System.Collections.Generic.List<object>();
+            for (Type t = value.GetType(); t != null && t != typeof(object) && t != typeof(UnityEngine.Object) && t != typeof(ScriptableObject); t = t.BaseType)
+            {
+                foreach (System.Reflection.FieldInfo f in t.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.DeclaredOnly))
+                {
+                    object v = f.GetValue(value);
+                    if (v is Kingmaker.ElementsSystem.ActionList list)
+                    {
+                        sb.Append($" {f.Name}=<{list.Actions?.Length ?? 0} actions>");
+                        nested.AddRange(list.Actions ?? new Kingmaker.ElementsSystem.GameAction[0]);
+                    }
+                    else if (v is Kingmaker.ElementsSystem.ConditionsChecker check)
+                    {
+                        sb.Append($" {f.Name}=<{check.Operation} of {check.Conditions?.Length ?? 0}>");
+                        nested.AddRange(check.Conditions ?? new Kingmaker.ElementsSystem.Condition[0]);
+                    }
+                    else if (v is Kingmaker.ElementsSystem.GameAction || v is Kingmaker.ElementsSystem.Condition)
+                    {
+                        sb.Append($" {f.Name}=<nested>");
+                        nested.Add(v);
+                    }
+                    else if (v is UnityEngine.Object o)
+                    {
+                        sb.Append($" {f.Name}={(o ? o.name : "null")}");
+                    }
+                    else if (v != null && (f.FieldType.IsPrimitive || f.FieldType.IsEnum || v is string || f.FieldType.Namespace?.StartsWith("Kingmaker") == true))
+                    {
+                        string text = v is System.Collections.IEnumerable e && !(v is string) ? "[" + string.Join(",", e.Cast<object>().Select(x => x?.ToString()).ToArray()) + "]" : v.ToString();
+                        sb.Append($" {f.Name}={text}");
+                    }
+                }
+            }
+            sb.Append('\n');
+            foreach (object n in nested)
+            {
+                Deep(sb, n, depth + 1, seen);
+            }
+        }
+
         /// <summary>Read only: which native cursor the game is drawing now (screenshots do not capture it), and over what.</summary>
         private static string Cursor()
         {
@@ -1251,16 +1411,36 @@ namespace KingmakerWakingRune.Diagnostics
         }
 
         /// <summary>Prepares a known spell into an empty slot of its level, as dragging it into the spellbook would.</summary>
-        private static string Memorize(UnitEntityData unit, string name, int level)
+        private static string Memorize(UnitEntityData unit, string name, int level, bool pending = false)
         {
             foreach (Spellbook book in unit.Descriptor.Spellbooks.Where(b => !b.Blueprint.Spontaneous))
             {
                 AbilityData spell = book.GetKnownSpells(level).FirstOrDefault(s => s.Blueprint.name == name);
-                SpellSlot empty = book.GetMemorizedSpellSlots(level).FirstOrDefault(s => s.Spell == null);
-                if (spell != null && empty != null)
+                if (spell == null)
                 {
-                    bool done = book.Memorize(spell, empty);
-                    return $"SETUP memorize {name} at level {level} for {unit.CharacterName}: {done}; ready now={empty.Available}.";
+                    continue;
+                }
+                // An empty slot if there is one, else each slot in turn is overwritten until the native rules accept one
+                // (SETUP only); the prepared slots are then marked ready, as the next rest would. "pending" leaves them as the
+                // spellbook screen does, chosen but not ready until a rest (HARNESS-COMMANDED, the native Memorize call).
+                foreach (SpellSlot slot in book.GetMemorizedSpellSlots(level).OrderBy(s => s.Spell == null ? 0 : 1).ToList())
+                {
+                    if (slot.Spell != null)
+                    {
+                        book.ForgetMemorized(slot);
+                    }
+                    if (book.Memorize(spell, slot))
+                    {
+                        if (pending)
+                        {
+                            return $"HARNESS-COMMANDED memorize {name} at level {level} for {unit.CharacterName}: chosen, not ready until a rest.";
+                        }
+                        foreach (SpellSlot linked in slot.LinkedSlots ?? new[] { slot })
+                        {
+                            linked.Available = true;
+                        }
+                        return $"SETUP memorize {name} at level {level} for {unit.CharacterName}: prepared and ready.";
+                    }
                 }
             }
             return $"{unit.CharacterName} cannot prepare {name} at level {level} into an empty slot";

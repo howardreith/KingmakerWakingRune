@@ -555,6 +555,20 @@ namespace KingmakerWakingRune.Sanctum
                 Vector3 direction = u * Mathf.Cos(angle * Mathf.Deg2Rad) + v * Mathf.Sin(angle * Mathf.Deg2Rad);
                 broken.Strip(s_Palette.Basalt, surface + direction * 0.1f, surface + direction * (PlateRadius * 0.82f), normal, 0.03f);
             }
+            // Fallen flakes of the dead inlay around the plate's foot: seen from the overhead camera whichever way the face
+            // points (WR-PLAYTEST-01: rear-facing plates showed no change).
+            float floor = SanctumPlan.HeightAt(plate.Position.X, plate.Position.Y) ?? center.y - 1f;
+            Vector3 foot = new Vector3(center.x, floor + 0.015f, center.z);
+            Vector3 front = new Vector3(normal.x, 0f, normal.z).sqrMagnitude > 0.01f ? new Vector3(normal.x, 0f, normal.z).normalized : Vector3.forward;
+            Vector3 across = Vector3.Cross(Vector3.up, front);
+            for (int i = 0; i < 14; i++)
+            {
+                // Pale ash, clear of the stand: most of it spilled in front of the face, some behind it.
+                float side = (i % 7 - 3) * 0.24f + (i % 2) * 0.07f;
+                float ahead = i < 10 ? 1.05f + (i % 3) * 0.22f : -0.75f - (i % 2) * 0.2f;
+                Vector3 at = foot + front * ahead + across * side;
+                broken.Box(s_Palette.Vellum, at, new Vector3(0.16f + (i % 3) * 0.06f, 0.02f, 0.1f + (i % 2) * 0.05f), Quaternion.Euler(0f, i * 37f, 0f));
+            }
             string name = BrokenRunePrefix + plate.Id;
             broken.Instantiate(s_Root, name);
             GameObject[] parts = s_Root.GetComponentsInChildren<Transform>(true).Where(t => t.name.StartsWith(name)).Select(t => t.gameObject).ToArray();

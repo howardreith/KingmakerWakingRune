@@ -103,6 +103,7 @@ namespace KingmakerWakingRune.Lodge
             if (inLodge)
             {
                 EnsureCast();
+                Blueprints.QuartermasterStock.EnsureAssembled();
                 StartingGrants.ApplyOnce();
                 RefugeToken.EnsureGranted();
                 BriefingService.ArmIfPending();
@@ -127,6 +128,9 @@ namespace KingmakerWakingRune.Lodge
                             Log.Error($"Cast member {member.Id} could not be spawned; setup stays unrecorded.");
                             return;
                         }
+                        break;
+                    case WakingPolicies.CastAction.Report when present == 0 && member.Id == "masked" && DebriefService.HandoverRecorded:
+                        // He took the artifacts and left (DebriefService.ApplyDeparture); his absence is the recorded outcome.
                         break;
                     case WakingPolicies.CastAction.Report:
                         Log.Error($"Cast member {member.Id} has {present} instances but setup recorded={recorded}; not changed.");

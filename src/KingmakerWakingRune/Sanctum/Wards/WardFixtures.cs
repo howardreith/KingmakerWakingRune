@@ -86,13 +86,37 @@ namespace KingmakerWakingRune.Sanctum.Wards
             Live.Clear();
             bool vandianaRetired = VandianaRetired();
             bool kruneRetired = KruneReceiverRetired();
-            foreach (UnitEntityData unit in Game.Instance.State.Units)
+            // The whole pool: a ward taken out of the game while inactive (the alarm, glyph, hound, a destroyed door or gem, a
+            // freed statue's proxy) is still the fixture, and indexing only units in the game made a new one at every load.
+            var surplus = new List<UnitEntityData>();
+            foreach (UnitEntityData unit in Game.Instance.State.Units.All)
             {
                 string id = IdOf(unit);
-                if (id != null && !(id == VandianaId && vandianaRetired) && !(id == KruneId && kruneRetired))
+                if (id == null || (id == VandianaId && vandianaRetired) || (id == KruneId && kruneRetired))
+                {
+                    continue;
+                }
+                if (!Live.TryGetValue(id, out UnitEntityData known))
                 {
                     Live[id] = unit;
                 }
+                else if (!known.IsInGame && unit.IsInGame)
+                {
+                    surplus.Add(known);
+                    Live[id] = unit;
+                }
+                else
+                {
+                    surplus.Add(unit);
+                }
+            }
+            if (surplus.Count > 0)
+            {
+                foreach (UnitEntityData copy in surplus)
+                {
+                    copy.IsInGame = false;
+                }
+                Log.Info($"Ward fixtures: {surplus.Count} surplus copies in this save (made at load by earlier builds) are kept out of the game.");
             }
             foreach (RuneFocus focus in KruneProjection.Foci)
             {
@@ -179,6 +203,13 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 foreach (Renderer renderer in unit.View.GetComponentsInChildren<Renderer>(true))
                 {
                     renderer.enabled = false;
+                }
+                // A proxy is not a body in the way. In real-time combat the native pathfinder routes every path around
+                // standing units, and the A2 door's proxy stands in its doorway: a fleeing cultist (or anyone) seen in
+                // combat could not pass the open door (WR-PLAYTEST-01 review).
+                if (unit.View.AgentASP != null)
+                {
+                    unit.View.AgentASP.AvoidanceDisabled = true;
                 }
             }
         }

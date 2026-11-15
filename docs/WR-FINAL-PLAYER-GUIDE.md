@@ -5,7 +5,12 @@ Kingmaker. Spoiler-light: it says how to start, what the lodge offers, and how t
 
 ## Installing
 Pathfinder: Kingmaker 2.1.7 with Unity Mod Manager. Extract the zip into `<Kingmaker>\Mods\` (or install it through the
-UMM installer) and enable it; Ctrl+F10 in game shows the version. No other mods are needed.
+UMM installer) and enable it; Ctrl+F10 in game shows the version. No other mods are needed. The portraits are inside
+the mod's DLL, so nothing else needs copying. Optional: with Mr. Bard's Tabletop Rules Expansion (KingmakerGunslinger)
+enabled, the Quartermaster also sells its firearms (Reliable ones included), loading supplies, eastern weapons and
+branched spears. Its firearms need firearm proficiency (a Gunslinger level, or its proficiency feat), as that mod
+rules. **Once you open the Quartermaster's shop with that mod enabled, that save refers to its items (even if you buy
+nothing) and should not be loaded without it.**
 
 ## Starting
 Main Menu → **New Game** → **The Waking Rune** → difficulty → create your hero (or take a pregen). You begin in the
@@ -14,10 +19,16 @@ Magnimar lodge.
 ## The lodge
 - **Venture-Captain Sheila Heidmarch** briefs you. Listen to the end: the briefing sets your mission.
 - **The Society Coordinator** recruits adventurers for free; build a party of six. Everyone can reach level 11 here.
-- **The Quartermaster** sells equipment from a shared purse of 450,000 gp (stock is not refilled), and offers a night's
-  rest.
-- Rest before you leave.
-- When ready, **break the Refuge Token** (use it from the belt or inventory). There is no way back by the token.
+- **The Quartermaster** sells equipment from a shared purse of 500,000 gp at normal prices: at least 12 of every piece
+  of equipment, 99 of every potion and scroll (including a scroll of every Wizard spell up to 6th level), and plenty of
+  diamond dust. A spell with versions (Resist Energy, Dispel Magic, the summonings) comes as one scroll per version,
+  as in the base game; any of them teaches the whole spell. Lines you buy out are restocked the next time the shop
+  opens; things you sell are bought at the usual lower price, and a part-used wand you sell stays as used as it was.
+  He also offers a night's rest.
+- When ready, **break the Refuge Token** once (from the belt or inventory). The expedition sets out ready: wounds are
+  tended and each caster's chosen spells and daily abilities are ready, while protective spells you have already cast
+  keep their remaining time. Scrolls, potions, wand charges and other consumables stay as they are, and empty prepared
+  slots stay empty. There is no way back by the token.
 
 ## The sanctum
 You arrive in a frozen chamber. Explore, read what you find, and think about the wards before forcing them: runes,
@@ -50,8 +61,13 @@ party quickly.
 ## Controls worth knowing
 - **The token, the pedestal and other special objects** use the game's own interactions: right-click an item in the
   inventory for Use; click an object in the world to examine or use it.
-- **Leaving for the sanctum** first rests the party once in the lodge (spells chosen in the spellbook become ready),
-  then lets you make final preparations; use the token again to go.
+- **Leaving for the sanctum** takes one use of the token: prepare (choose spells, cast protections, drink potions),
+  then break it. The readiness happens once per departure: if the departure is retried (after a failed transfer, or
+  by loading the save made just before leaving), only what changed since is readied: a new companion, a slot
+  prepared with a different spell, or what a level-up added.
+- **Runes:** while a qualifying hold works on a rune you see "The rune's motion falters. Keep it bound."; when a rune
+  is disabled it flares, goes dark with a sound, and the log says so. A disabled plate shows "(disabled)" when you
+  point at it, pale ash lies around it, and examining it starts with its state.
 - **Turn-based mode** works throughout (the rook button by the hourglass).
 
 ## Preparation hints (no spoilers beyond the first room)

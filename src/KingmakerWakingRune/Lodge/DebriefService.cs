@@ -24,6 +24,8 @@ namespace KingmakerWakingRune.Lodge
     {
         public static ConclusionState Conclusion => WardStore.Existing?.Conclusion;
 
+        public static bool HandoverRecorded => Conclusion != null && Conclusion.HandoverAt >= 0d;
+
         /// <summary>The masked figure took the artifacts and teleported away: once the handover is recorded it is gone, on every load.</summary>
         public static void ApplyDeparture()
         {

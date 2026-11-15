@@ -96,6 +96,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
             return body != null && body.Descriptor.State.IsDead;
         }
 
+        /// <summary>Harness SETUP only: forces the next survival save's outcome (once), so each branch can be shown on demand.</summary>
+        internal static bool? ForcedSurvival;
+
         public static void OnRestored(string statueId, UnitEntityData caster)
         {
             SanctumState state = WardRuntime.State;
@@ -124,32 +127,50 @@ namespace KingmakerWakingRune.Sanctum.Wards
             BearerRole role = BearerManifest.Roles[id];
             BlueprintUnit blueprint = WardBlueprints.Cultists[id];
             UnitEntityData cultist = Game.Instance.EntityCreator.SpawnUnit(blueprint, placed, Quaternion.identity, Game.Instance.State.LoadedAreaState.MainState);
+            // The survival save is resolved before the body is anyone's enemy: it stands neutral and inert while the
+            // transformation either takes or fails, so a body that dies never joins initiative, awareness or an attack.
+            cultist.IsBrainActive = false;
+            SetFaction(cultist, Game.Instance.BlueprintRoot.SystemMechanics.FactionNeutrals);
             LogStats(id, cultist, "spawned");
             cultist.Descriptor.Ensure<WardRestoredPart>().StatueId = id;
-            if (role == BearerRole.Report)
-            {
-                // A reporter flees from its first moment: its AI never gets a turn to choose a fight.
-                cultist.IsBrainActive = false;
-                statue.HostileSettled = true;
-            }
             statue.EntityId = cultist.UniqueId;
             statue.Credentialed = CredentialRules.IsMarked(id);
             statue.RouteLeg = 0;
             LogStats(id, cultist, "before survival save");
             RuleSavingThrow save = Rulebook.Trigger(new RuleSavingThrow(cultist, SavingThrowType.Fortitude, WardProfile.StoneToFleshSurvivalDC));
-            Log.Info($"Stone to Flesh on {id}: survival Fortitude {save.RollResult} vs {WardProfile.StoneToFleshSurvivalDC}: {(save.IsPassed ? "survived" : "failed")}; role {role}; credential {statue.Credentialed}.");
-            if (save.IsPassed)
+            bool survived = ForcedSurvival ?? save.IsPassed;
+            Log.Info($"Stone to Flesh on {id}: survival Fortitude {save.RollResult} vs {WardProfile.StoneToFleshSurvivalDC}: {(save.IsPassed ? "survived" : "failed")}" +
+                     (ForcedSurvival.HasValue ? $"; SETUP forced {(survived ? "survival" : "failure")}" : "") + $"; role {role}; credential {statue.Credentialed}.");
+            ForcedSurvival = null;
+            if (survived)
             {
                 statue.Outcome = StatueOutcome.Living;
+                statue.HostileSettled = true;
+                SetFaction(cultist, Game.Instance.BlueprintRoot.SystemMechanics.FactionMobs);
+                // An attacker's own AI takes over; a reporter flees from its first moment, its AI never choosing a fight.
+                cultist.IsBrainActive = role != BearerRole.Report;
                 WardRuntime.Say("Stone softens to flesh; a cultist stumbles free of the support.");
             }
             else
             {
                 statue.Outcome = StatueOutcome.Corpse;
                 cultist.Descriptor.State.MarkedForDeath = true;
-                WardRuntime.Say("Stone softens to flesh, but the body beneath is already gone.");
+                WardRuntime.Say("Flesh returns, but the cultist cannot survive the transformation and collapses.");
             }
             ApplyVisual(id, statue, WardRuntime.Now);
+        }
+
+        /// <summary>A native faction change, with the group's cached factions rebuilt (the unit keeps its own group).</summary>
+        private static void SetFaction(UnitEntityData unit, BlueprintFaction faction)
+        {
+            if (unit.Descriptor.Faction == faction)
+            {
+                return;
+            }
+            unit.Descriptor.SwitchFactions(faction, true);
+            unit.Group.UpdateAttackFactionsCache();
+            unit.Group.ResetFactionSet();
+            Kingmaker.PubSubSystem.EventBus.RaiseEvent(delegate(Kingmaker.PubSubSystem.IUnitFactionHandler h) { h.HandleFactionChanged(unit); });
         }
 
         /// <summary>
@@ -355,7 +376,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                     {
                         Advance(statue, runner);
                     }
-                    else if (runner.Commands.Empty)
+                    else if (runner.Commands.Empty && MayOrder(statue, runner, now))
                     {
                         Move(runner, point);
                     }
@@ -363,6 +384,13 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 case RunnerStep.OpenA2:
                     if (WardRuntime.State.Door.Destroyed || (WardDoor.A2 != null && WardDoor.A2.IsOpen))
                     {
+                        // Passage is open: an unmarked cultist that turned on an intruder while the door held breaks off and
+                        // flees on (its only attacks are the door's; a reporter's own AI is off).
+                        if (runner.Commands.Attack != null)
+                        {
+                            runner.Commands.InterruptAll(c => c is UnitAttack);
+                            Log.Info($"Runner {statue.Id} ({runner.CharacterName}): A2 is passable; it breaks off its attack and flees on.");
+                        }
                         Advance(statue, runner);
                     }
                     else if (WardRuntime.State.Door.Latched && !runner.Descriptor.HasFact(WardBlueprints.SihedronBrand))
@@ -374,14 +402,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
                             runner.Commands.Run(UnitAttack.CreateAttackCommand(runner, nearest));
                         }
                     }
-                    else if (runner.Commands.Empty)
+                    else if (runner.Commands.Empty && MayOrder(statue, runner, now, door: true))
                     {
-                        // The cultist's own brand, through the real door interaction at arm's length.
-                        WardDoor.Order(runner, "open A2 with its own brand", u => !WardRuntime.State.Door.Destroyed, u =>
-                        {
-                            WardDoor.PresentOwnBrand(u, statue.Id);
-                            Advance(statue, u);
-                        });
+                        // The cultist's own brand, through the real door interaction at arm's length. The leg ends only when
+                        // the door is seen open (above), never on the request itself.
+                        WardDoor.Order(runner, "open A2 with its own brand", u => !WardRuntime.State.Door.Destroyed && !(WardDoor.A2 != null && WardDoor.A2.IsOpen), u => WardDoor.PresentOwnBrand(u, statue.Id));
                     }
                     break;
                 case RunnerStep.OpenEast:
@@ -390,19 +415,16 @@ namespace KingmakerWakingRune.Sanctum.Wards
                     {
                         Advance(statue, runner);
                     }
-                    else if (runner.Commands.Empty)
+                    else if (runner.Commands.Empty && MayOrder(statue, runner, now, door: true))
                     {
-                        KwrFixtureCommand.Issue(runner, KwrFixtureCommand.AtPoint(east.transform.position, east.ProximityRadius, "open the east door", false, u => !east.IsOpen, u =>
-                        {
-                            east.Toggle(u);
-                            Advance(statue, u);
-                        }));
+                        // Opens it only while it is still closed; the leg ends when the door is seen open.
+                        KwrFixtureCommand.Issue(runner, KwrFixtureCommand.AtPoint(east.transform.position, east.ProximityRadius, "open the east door", false, u => !east.IsOpen, u => east.Toggle(u)));
                     }
                     break;
                 case RunnerStep.Report:
                     if (!arrived)
                     {
-                        if (runner.Commands.Empty)
+                        if (runner.Commands.Empty && MayOrder(statue, runner, now))
                         {
                             Move(runner, point);
                         }
@@ -418,6 +440,45 @@ namespace KingmakerWakingRune.Sanctum.Wards
                     WardRitual.Raise(AwarenessCause.Messenger, runner.CharacterName + " reached Vandiana and reported");
                     break;
             }
+        }
+
+        /// <summary>Real-time retry bound: a move or door order that ended without progress is re-issued after a second of game time.</summary>
+        private const double RetrySeconds = 1.0;
+
+        private static readonly System.Collections.Generic.Dictionary<string, double> s_LastOrderAt = new System.Collections.Generic.Dictionary<string, double>();
+
+        private static readonly System.Collections.Generic.Dictionary<string, object> s_DoorTurn = new System.Collections.Generic.Dictionary<string, object>();
+
+        /// <summary>
+        /// Whether the runner may be given a new order now. In real time, one order per second of game time at most (game time
+        /// stands still while paused); in turn-based combat its own turn paces it, and a failed action ends that turn instead.
+        /// </summary>
+        private static bool MayOrder(StatueState statue, UnitEntityData runner, double now, bool door = false)
+        {
+            if (TurnBased.Controllers.CombatController.IsInTurnBasedCombat())
+            {
+                if (!door)
+                {
+                    return true;
+                }
+                // One door action per turn: if it could not be made (no action left this turn), the turn ends instead of
+                // the action being ordered again on every tick.
+                TurnBased.Controllers.TurnController turn = Game.Instance.TurnBasedCombatController.CurrentTurn;
+                if (s_DoorTurn.TryGetValue(statue.Id, out object ordered) && ReferenceEquals(ordered, turn))
+                {
+                    Log.Info($"Runner {runner.CharacterName} could not make its door action this turn; its turn ends.");
+                    turn?.ForceToEnd();
+                    return false;
+                }
+                s_DoorTurn[statue.Id] = turn;
+                return true;
+            }
+            if (s_LastOrderAt.TryGetValue(statue.Id, out double last) && now >= last && now - last < RetrySeconds)
+            {
+                return false;
+            }
+            s_LastOrderAt[statue.Id] = now;
+            return true;
         }
 
         private static void Advance(StatueState statue, UnitEntityData runner)
@@ -471,6 +532,20 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 UnitEntityData unit = command?.Executor;
                 if (unit == null || !TurnBased.Controllers.CombatController.IsInTurnBasedCombat() || TurnBased.Controllers.CombatController.CurrentUnit != unit || unit.IsBrainActive)
                 {
+                    return;
+                }
+                if (command is KwrFixtureCommand && command.Result != Kingmaker.UnitLogic.Commands.Base.UnitCommand.ResultType.Success)
+                {
+                    // A door action that could not be made this turn (no action left, or out of reach) ends the turn
+                    // rather than being ordered again and again within it.
+                    Log.Info($"Runner {unit.CharacterName} could not complete its door action this turn; its turn ends.");
+                    Game.Instance.ScheduleAction(() =>
+                    {
+                        if (TurnBased.Controllers.CombatController.CurrentUnit == unit)
+                        {
+                            Game.Instance.TurnBasedCombatController.CurrentTurn?.ForceToEnd();
+                        }
+                    });
                     return;
                 }
                 if (command is UnitMoveTo && s_TurnMoveFrom.TryGetValue(unit.UniqueId, out Vector3 from))
@@ -565,14 +640,25 @@ namespace KingmakerWakingRune.Sanctum.Wards
             return turn != null && turn.Unit == runner && turn.IsActing && runner.Commands.Empty && turn.GetRemainingMovementRange(total: true, singleActionMove: false) > 0f;
         }
 
+        private static int s_MoveOrders;
+        private static float s_MoveLoggedAt;
+
         /// <summary>A real move; in turn-based combat it follows a precomputed path, ending where the turn's movement runs out.</summary>
         private static void Move(UnitEntityData runner, Vector3 point)
         {
             var move = new UnitMoveTo(point, 0.3f);
+            s_MoveOrders++;
+            if (Time.unscaledTime - s_MoveLoggedAt > 1f)
+            {
+                s_MoveLoggedAt = Time.unscaledTime;
+                Log.Info($"Runner {runner.CharacterName} move order #{s_MoveOrders} toward ({point.x:0.0},{point.z:0.0}) from ({runner.Position.x:0.0},{runner.Position.z:0.0}).");
+            }
             if (TurnBased.Controllers.CombatController.IsInTurnBasedCombat())
             {
                 Pathfinding.Path path = runner.View.AgentASP.FindPath(move.ApproachPoint, delegate { }, move.ApproachRadius);
+                var watch = System.Diagnostics.Stopwatch.StartNew();
                 AstarPath.WaitForPath(path);
+                Log.Info($"Runner {runner.CharacterName} synchronous path wait {watch.ElapsedMilliseconds} ms.");
                 if (path.error)
                 {
                     Log.Info($"Runner {runner.CharacterName} has no path this turn; the turn ends.");
