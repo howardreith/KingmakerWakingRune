@@ -1,6 +1,6 @@
 # Quartermaster catalogue
 
-The CSV catalogue of the Society Quartermaster in the Magnimar Lodge: 323 lines, 10836 items, generated from `data/quartermaster.csv` against installed game data (2.1.7b). In game the shop also stocks a scroll of every Wizard spell of levels 0-6 (99 each) and, when it is enabled, the optional Tabletop Rules Expansion lines; see `docs/WR-PLAYTEST-01-STOCK.md` for the full in-game audit.
+The CSV catalogue of the Society Quartermaster in the Magnimar Lodge: 395 lines, 11700 items, generated from `data/quartermaster.csv` against installed game data (2.1.7b). In game the shop also stocks a scroll of every Wizard spell of levels 0-6 (99 each) and, when it is enabled, the optional Tabletop Rules Expansion lines; see `docs/WR-PLAYTEST-01-STOCK.md` for the full in-game audit.
 
 **Pricing:** native vendor rules with no price overrides. Buying costs each item's `Cost` (listed below). Selling pays `Cost x BlueprintRoot.Vendors.SellModifier`, so buying then re-selling always loses money. An item sold to the vendor joins its stock. Stock lives in the save (`Player.SharedVendorTables`); a catalogue change reaches a visited shop once, by the native difference (new lines arrive, a removed retail line leaves, sold goods stay). **Resupply:** when the shop opens, any line whose shelf count is below its catalogue count is topped up to it with new merchant stock; nothing above it changes.
 
@@ -443,4 +443,86 @@ The CSV catalogue of the Society Quartermaster in the Magnimar Lodge: 323 lines,
 | Potion of Aid | 99 | 300 | `3bcbf79b01e4db044a6f06d86cec9117` |
 | Potion of Protection from Evil | 99 | 50 | `de000ebb9b86c8f48b77576965303183` |
 | Potion of Feather Step | 99 | 50 | `a05bfdfe2df01204ab8e367c2c0b72ce` |
+
+## Dueling gloves (WR-PLAYTEST-02: native items; Weapon Training rank +1 lesser, +2 normal)
+
+| Item | Stock | Price (gp) | Blueprint |
+|---|---:|---:|---|
+| Lesser Gloves of Dueling | 12 | 4,000 | `c33129949c59ee044900e741691a64d3` |
+| Gloves of Dueling | 12 | 15,000 | `c8f949c03b92f714b83edd610f3e9348` |
+
+## Adamantine armor (WR-PLAYTEST-02: every native armor carrying the adamantine material enchantment, DR 1/2/3 by weight class; Armag's duplicate breastplate excluded)
+
+| Item | Stock | Price (gp) | Blueprint |
+|---|---:|---:|---|
+| Adamantine Chainshirt | 12 | 4,000 | `9dc76ea1dfc5d7d4b907288e2a6485c0` |
+| Adamantine Chainshirt +1 | 12 | 6,250 | `31e5cfe1c81fba44291f0d78fc89b7a7` |
+| Adamantine Chainshirt +2 | 12 | 9,250 | `33bd5baef9240cb40afdaba9d71a2daa` |
+| Adamantine Chainshirt +3 | 12 | 14,000 | `2aa4f59d22182db4883e592596bf160f` |
+| Adamantine Chainshirt +4 | 12 | 21,000 | `b4ecbf5393473e949a7b01ab52a17cdf` |
+| Adamantine Chainshirt +5 | 12 | 30,000 | `3b5b1f3da5704f34eb33e84557e9319f` |
+| Leather Armor | 12 | 7,000 | `cb390f2ae6df5724c9ec586842169ba4` |
+| Leather Armor | 12 | 18,000 | `e1616329aa7c05845b538d0f28bcc7c8` |
+| Leather Armor | 12 | 22,000 | `3885106d163f4ea4083887fdaa23aec6` |
+| Leather Armor | 12 | 30,000 | `59fc699b1d7aff14f969919c7e6daca1` |
+| Leather Armor | 12 | 50,000 | `99f57eda92fdc0d49be16ee2b4634d2d` |
+| Leather Armor | 12 | 80,000 | `de03b0e4e279b304c95aee8a5439b7bf` |
+| Padded Armor | 12 | 7,000 | `8e9417ea0c1aa884d9615a11dbd5c2b0` |
+| Padded Armor | 12 | 18,000 | `dc75ee756a1d73740b5a1b0be4cc37f6` |
+| Padded Armor | 12 | 22,000 | `2f64aed9afb8937499f520ced8f4987e` |
+| Padded Armor | 12 | 30,000 | `7ca49db1cde980d489b6aa5112f8319f` |
+| Padded Armor | 12 | 50,000 | `9c7327c0221f04a4482f3860a6302a48` |
+| Padded Armor | 12 | 80,000 | `a057d77b4f780e6459229cabead9e7be` |
+| Studded Leather | 12 | 7,000 | `ff4117b74c2f3d34f90a306f6fbcdf08` |
+| Studded Leather | 12 | 18,000 | `3fab8986c64d16c4d811eefa972572cc` |
+| Studded Leather | 12 | 22,000 | `d629b83aaba78c247a37423bb2da6fcf` |
+| Studded Leather | 12 | 30,000 | `0aea4beb2c17f8a4caa6779074c5bb74` |
+| Studded Leather | 12 | 50,000 | `d8bd56780dae4d946a2890ff6c86207a` |
+| Studded Leather | 12 | 80,000 | `2eee42d5f094af649affbdabf0c653b7` |
+| Hide Armor | 12 | 7,000 | `bea0adc2ebc043c4cbcd5f910b0516c2` |
+| Hide Armor | 12 | 18,000 | `c7d722804ea31e14fad47f257ca1f271` |
+| Hide Armor | 12 | 2,000 | `1e27aa1665f0ba34bbb8cfbc534bdf9d` |
+| Hide Armor | 12 | 30,000 | `4a3ae924f673e6e42b4047306f718fdd` |
+| Hide Armor | 12 | 50,000 | `bae8f2593ea154445a4cf5ab85ff65df` |
+| Hide Armor | 12 | 80,000 | `5906be44cc0cee84b9a35f2df2e2868d` |
+| Adamantine Scalemail | 12 | 5,000 | `406d54885c5bac643b480ec775bd5cd0` |
+| Adamantine Scalemail +1 | 12 | 10,200 | `eca09c3357123ce4fa45e1b717df8b5d` |
+| Adamantine Scalemail +2 | 12 | 13,200 | `d7107904c47d8994987c612fa462bfb1` |
+| Adamantine Scalemail +3 | 12 | 18,000 | `c5646b825ace09744ab2f9927c614efc` |
+| Adamantine Scalemail +4 | 12 | 25,000 | `fc1b904f361f742419f18634034c1945` |
+| Adamantine Scalemail +5 | 12 | 80,000 | `749edb2a6e483be4d971d2698ddc5e78` |
+| Adamantine Chainmail | 12 | 6,000 | `cdffad69c7081b24eae8e2bb8ee70394` |
+| Adamantine Chainmail +1 | 12 | 11,300 | `12f0f9a858ab4c74c931fcd0cffaf264` |
+| Adamantine Chainmail +2 | 12 | 14,300 | `5a61b70b4d413c64e882353d61edd31c` |
+| Adamantine Chainmail +3 | 12 | 19,000 | `6495fe239fe8cdd4b9ff01c3c09e4756` |
+| Adamantine Chainmail +4 | 12 | 26,000 | `00f40bc591e6a39498614f793a2e1503` |
+| Adamantine Chainmail +5 | 12 | 35,000 | `c031c8a4c74020e41b6610be97d50797` |
+| Adamantine Breastplate | 12 | 7,000 | `94386ea872981864b99a383ba133f0aa` |
+| Adamantine Breastplate +1 | 12 | 12,350 | `d884f3cdce5ce064d81f11a729ea9890` |
+| Adamantine Breastplate +2 | 12 | 15,350 | `5326c95949313484c80af1fae2673acc` |
+| Adamantine Breastplate +3 | 12 | 22,000 | `8b4085ffcf2c1984fa7500f9da06214a` |
+| Adamantine Breastplate +4 | 12 | 28,000 | `8865a1ccef15029439e041f020493d52` |
+| Adamantine Breastplate +5 | 12 | 37,000 | `bafb44ecda0ac85468856cec6510810b` |
+| Adamantine Banded Mail | 12 | 8,000 | `ed04d2a914a93e046aadee8cc3109f65` |
+| Adamantine Banded Mail +1 | 12 | 15,400 | `de21042fc1a39864dbcec28763ad2f45` |
+| Adamantine Banded Mail +2 | 12 | 18,000 | `1cee090860de51b40bc1170b4e87ad22` |
+| Adamantine Banded Mail +3 | 12 | 23,000 | `07830c760d8028e47986d929e0e48cbc` |
+| Adamantine Banded Mail +4 | 12 | 30,000 | `b3e6341e19b2e274695b54ebf0c0ed3a` |
+| Adamantine Banded Mail +5 | 12 | 39,000 | `a28443ab2393b624186bd249df43bb62` |
+| Adamantine Half-plate | 12 | 9,000 | `76eaf90831b52634582f488ef41c63e4` |
+| Adamantine Half-plate +1 | 12 | 16,750 | `b94131f88a4f9934fae216f27ccc7aad` |
+| Adamantine Half-plate +2 | 12 | 19,750 | `f77ba5fbf2f3f554ca459ddace21db31` |
+| Adamantine Half-plate +3 | 12 | 25,000 | `0ba22b150266b604cb6b98443e09bfc0` |
+| Adamantine Half-plate +4 | 12 | 30,000 | `c496ac4c996ab254baeee37ee3a7414c` |
+| Adamantine Half-plate +5 | 12 | 40,000 | `cc64816a11d79e247a2f93cb4d975267` |
+| Adamantine Full Plate | 12 | 12,000 | `4a72801171b0cca44b1989b4622b5820` |
+| Adamantine Full Plate +1 | 12 | 18,650 | `6287c31b1ab7049469030c247868e7a2` |
+| Adamantine Full Plate +2 | 12 | 21,650 | `b067c338ede1bfc45be97d2d9ab934e8` |
+| Adamantine Full Plate +3 | 12 | 27,000 | `9404338472b5b8b4c9013cb8dcf74b7e` |
+| Adamantine Full Plate +4 | 12 | 34,000 | `0dab0f3855529264aa53e748735cdd0a` |
+| Adamantine Full Plate +5 | 12 | 43,000 | `000213dc917b821498a0d5f80138d3a9` |
+| Ravena's Embrace | 12 | 50,000 | `615de12de63abcb42a606686354459cc` |
+| Stainless Chainshirt | 12 | 11,000 | `dc9742ba2fdbeed46acd3682c9244f02` |
+| Assassin's Chainshirt | 12 | 43,000 | `fd54ed3702d98a24283a400bd76c6b03` |
+| Void Mirror | 12 | 23,100 | `21dedb7862f249248b7c959d8b4d615f` |
 
