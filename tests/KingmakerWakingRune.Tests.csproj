@@ -31,6 +31,7 @@
     <Compile Include="KurshuRulesTests.cs" />
     <Compile Include="DepartureRecordTests.cs" />
     <Compile Include="CheckpointRulesTests.cs" />
+    <Compile Include="RetrainingRulesTests.cs" />
     <Compile Include="LashmistressRulesTests.cs" />
     <Compile Include="KruneAwakeningTests.cs" />
     <Compile Include="KruneBookTests.cs" />
@@ -66,6 +67,7 @@
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\ZigguratMasonry.cs" Link="Linked\ZigguratMasonry.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\RefugeTransferFlow.cs" Link="Linked\RefugeTransferFlow.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\CheckpointRules.cs" Link="Linked\CheckpointRules.cs" />
+    <Compile Include="..\src\KingmakerWakingRune\Party\RetrainingRules.cs" Link="Linked\RetrainingRules.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\DepartureRecord.cs" Link="Linked\DepartureRecord.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\SanctumBuildGate.cs" Link="Linked\SanctumBuildGate.cs" />
     <Compile Include="..\src\KingmakerWakingRune\Sanctum\StatueManifest.cs" Link="Linked\StatueManifest.cs" />

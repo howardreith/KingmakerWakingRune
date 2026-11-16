@@ -106,6 +106,8 @@ namespace KingmakerWakingRune.Blueprints
             {
                 Answer("coordinator.recruit", "I need to recruit a new adventurer.", null, Callback("Open native recruitment", Recruitment.RequestRecruit)),
                 Answer("coordinator.party", "I need to change who goes with me.", null, Callback("Open native party selection", Recruitment.RequestPartySelection)),
+                Answer("coordinator.retrain.self", "I want to retrain myself. (Free: rebuild from level 1 to my current experience.)", null, Callback("Open free retraining of the protagonist", Retraining.RequestProtagonist)),
+                Answer("coordinator.retrain.companion", "I want one of my companions retrained. (Free: choose who, then rebuild from level 1.)", null, Callback("Open free retraining of a chosen companion", Retraining.RequestCompanion)),
                 Answer("coordinator.leave", "Nothing for now.", null),
             };
             AddInteraction(coordinator, Dialog("coordinator", recruitPrompt, new ActionList()), new ConditionsChecker());

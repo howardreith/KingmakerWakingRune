@@ -120,5 +120,34 @@ namespace KingmakerWakingRune.Tests
         {
             Assert.Equal(DepartureReadiness.Legacy, DepartureRecord.Classify("a=| wiz cl 11 3:[fly,-]"), "the old selections record is dropped, not replayed");
         }
+    
+        /// <summary>
+        /// WR-PLAYTEST-02: a retrained character is dropped from the record even though its identity and some slot keys are
+        /// unchanged, so it is readied in full; the other caster with the same book keeps its spent state and its own
+        /// re-preparation, through the saved-record round trip.
+        /// </summary>
+        public static void TestRetrainedMemberIsReadiedInFullAndOnlyThem()
+        {
+            string slot = DepartureSnapshot.SlotKey(Book, 3, 0, 1);
+            string payload = DepartureRecord.Ready(100, new[] { Wizard(Fly, unit: "wizA"), Wizard(Fly, unit: "wizB") });
+            var prepared = new List<string> { DepartureSnapshot.PreparedKey("wizA", slot), DepartureSnapshot.PreparedKey("wizB", slot) };
+            string after = DepartureRecord.Without(payload, "wizA", prepared);
+            Assert.Equal(true, after.StartsWith("ready:100|"), "still a readied record");
+            Dictionary<string, DepartureSnapshot> saved = DepartureRecord.Parse(after);
+            Assert.Equal(false, saved.ContainsKey("wizA"), "the retrained member is gone from the record");
+            Assert.Equal(true, saved.ContainsKey("wizB"), "the other member stays");
+            Assert.Equal(1, prepared.Count, "only the retrained member's re-preparation is dropped");
+            List<DepartureAction> changes = DepartureRecord.Reconcile(saved, new[] { Wizard(Fly, unit: "wizA"), Wizard(Fly, unit: "wizB") }, new List<string>()).Where(a => !a.Nothing).ToList();
+            Assert.Equal("wizA", changes.Single().Unit, "only the retrained member is readied");
+            Assert.Equal(true, changes.Single().Full, "in full");
+        }
+
+        public static void TestWithoutLeavesOtherPayloadsAlone()
+        {
+            Assert.Equal(null, DepartureRecord.Without(null, "wiz", null), "no record stays no record");
+            Assert.Equal("a=| wiz", DepartureRecord.Without("a=| wiz", "wiz", null), "an earlier flow's record is not rewritten");
+            string payload = DepartureRecord.Ready(5, new[] { Wizard(Fly, unit: "wiz") });
+            Assert.Equal(payload, DepartureRecord.Without(payload, "wizard", null), "a prefix of another identity does not match");
+        }
     }
 }

@@ -131,6 +131,22 @@ namespace KingmakerWakingRune.Sanctum
         }
 
         /// <summary>
+        /// The record without one member (WR-PLAYTEST-02: a character rebuilt by retraining), so the next use of the token
+        /// readies that member in full while every other member's record, spent slots included, stays as it was. Its
+        /// re-preparation entries are dropped too. A payload that is not a readied record is returned unchanged.
+        /// </summary>
+        public static string Without(string payload, string unit, List<string> preparedSince)
+        {
+            preparedSince?.RemoveAll(k => k.StartsWith(unit + "#", StringComparison.Ordinal));
+            if (Classify(payload) != DepartureReadiness.Reconcile)
+            {
+                return payload;
+            }
+            string[] parts = payload.Split('|');
+            return string.Join("|", parts.Where((part, i) => i == 0 || !part.StartsWith(unit + "#", StringComparison.Ordinal)).ToArray());
+        }
+
+        /// <summary>
         /// What to ready now; <paramref name="preparedSince"/> lists slots the player prepared after the record was written,
         /// each with its owner (<see cref="DepartureSnapshot.PreparedKey"/>), and a member consults only its own. An entry
         /// without an owner (written by a 0.10.2-0.10.13 candidate) names nobody.
