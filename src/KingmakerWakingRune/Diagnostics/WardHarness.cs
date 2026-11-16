@@ -516,6 +516,30 @@ namespace KingmakerWakingRune.Diagnostics
                     return Stock();
                 case "stockaudit":
                     return StockAudit.Write(args[1]);
+                case "weaponstats":
+                {
+                    // READ: a member's primary weapon as the native rules compute it now (attack bonus without a target, weapon
+                    // damage), with the member's Weapon Training rank for it. Nothing is attacked or changed.
+                    UnitEntityData member = Member(args[1]);
+                    Kingmaker.Items.ItemEntityWeapon weapon = member.Body.PrimaryHand.MaybeWeapon;
+                    if (weapon == null)
+                    {
+                        return $"{member.CharacterName} holds no weapon";
+                    }
+                    var attack = Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.RuleCalculateAttackBonusWithoutTarget(member, weapon, 0));
+                    var stats = Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.RuleCalculateWeaponStats(member, weapon));
+                    var damage = stats.DamageDescription.FirstOrDefault();
+                    int rank = member.Get<Kingmaker.UnitLogic.Parts.UnitPartWeaponTraining>()?.GetWeaponRank(weapon) ?? 0;
+                    string gloves = member.Body.Gloves.MaybeItem?.Blueprint.name ?? "none";
+                    string trainings = string.Join(",", (member.Get<Kingmaker.UnitLogic.Parts.UnitPartWeaponTraining>()?.WeaponTrainings ?? new System.Collections.Generic.List<Kingmaker.Blueprints.Facts.Fact>()).Select(f => $"{f.Blueprint.name}:{f.GetRank()}").ToArray());
+                    return $"READ {member.CharacterName} {weapon.Blueprint.name}: attack +{attack.Result}, damage {damage?.Dice}+{damage?.Bonus}, weapon training rank {rank} [{trainings}], gloves {gloves}, CMD vs disarm {Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.RuleCalculateCMD(member, member, Kingmaker.RuleSystem.Rules.CombatManeuver.Disarm)).Result}.";
+                }
+                case "gearaudit":
+                    return GearAudit.Write(args[1]);
+                case "lineup":
+                    return Lineup(args[1].Split(','), args.Length > 2 ? float.Parse(args[2]) : 1.6f);
+                case "unlineup":
+                    return Unlineup();
                 case "deep":
                 {
                     BlueprintScriptableObject bp = ResourcesLibrary.LibraryObject.BlueprintsByAssetId.Values.FirstOrDefault(b => b.name == args[1]);
@@ -772,6 +796,49 @@ namespace KingmakerWakingRune.Diagnostics
         }
 
         /// <summary>One stock hostile beside the party, for a combat in any area; the fight itself is entirely native.</summary>
+        private static readonly System.Collections.Generic.List<UnitEntityData> s_Lineup = new System.Collections.Generic.List<UnitEntityData>();
+
+        /// <summary>
+        /// SETUP, visual recon only (WR-PLAYTEST-02 NPC appearance): presentation clones of the given donor units (no
+        /// components, facts or dialogue; neutral) in a row across the camera's focus point, facing the camera, left to right
+        /// on screen in the given order. Never saved: remove them with "unlineup" before any save.
+        /// </summary>
+        private static string Lineup(string[] guids, float spacing)
+        {
+            Unlineup();
+            Transform camera = Camera.main.transform;
+            Vector3 center = Game.Instance.UI.GetCameraRig().transform.position;
+            Vector3 toCamera = Vector3.ProjectOnPlane(camera.position - center, Vector3.up).normalized;
+            Vector3 right = Vector3.ProjectOnPlane(camera.right, Vector3.up).normalized;
+            var names = new System.Collections.Generic.List<string>();
+            for (int i = 0; i < guids.Length; i++)
+            {
+                BlueprintUnit donor = ResourcesLibrary.TryGetBlueprint<BlueprintUnit>(guids[i]);
+                if (donor == null)
+                {
+                    names.Add($"{guids[i]}=missing");
+                    continue;
+                }
+                BlueprintUnit clone = KingmakerWakingRune.Blueprints.LodgeCast.CloneUnit(donor, Game.Instance.BlueprintRoot, "KWR_Lineup_" + i, System.Guid.NewGuid().ToString("N"), "kwr.npc.agent", null);
+                Vector3 at = center + right * ((i - (guids.Length - 1) / 2f) * spacing);
+                UnitEntityData unit = Game.Instance.EntityCreator.SpawnUnit(clone, at, Quaternion.LookRotation(toCamera), Game.Instance.State.LoadedAreaState.MainState);
+                s_Lineup.Add(unit);
+                names.Add($"{i}:{donor.name}");
+            }
+            return $"SETUP lineup (not saved) of {s_Lineup.Count}, left to right on screen: {string.Join(", ", names.ToArray())}.";
+        }
+
+        private static string Unlineup()
+        {
+            int count = s_Lineup.Count;
+            foreach (UnitEntityData unit in s_Lineup)
+            {
+                unit.Destroy();
+            }
+            s_Lineup.Clear();
+            return $"SETUP lineup removed ({count}).";
+        }
+
         private static string SpawnFoe(string guid, float meters)
         {
             BlueprintUnit blueprint = ResourcesLibrary.TryGetBlueprint<BlueprintUnit>(guid);
@@ -1077,7 +1144,7 @@ namespace KingmakerWakingRune.Diagnostics
         }
 
         /// <summary>Read only: a component or action and every serialized field beneath it (actions, conditions), as an indented tree.</summary>
-        private static void Deep(StringBuilder sb, object value, int depth, System.Collections.Generic.HashSet<object> seen)
+        internal static void Deep(StringBuilder sb, object value, int depth, System.Collections.Generic.HashSet<object> seen)
         {
             if (value == null || depth > 9 || !seen.Add(value))
             {
