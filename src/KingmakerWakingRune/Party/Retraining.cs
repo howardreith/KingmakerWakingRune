@@ -9,6 +9,7 @@ using Kingmaker.EntitySystem.Persistence;
 using Kingmaker.Items;
 using Kingmaker.Items.Slots;
 using Kingmaker.PubSubSystem;
+using Kingmaker.UnitLogic;
 using KingmakerWakingRune.Blueprints;
 using KingmakerWakingRune.Lodge;
 using KingmakerWakingRune.Sanctum;
@@ -32,6 +33,9 @@ namespace KingmakerWakingRune.Party
     /// are taken back, so the treasury changes only by the native refund for scrolls a caster had copied (the rebuilt
     /// spellbook loses them), and nothing is gained by retraining. As the build window opens, the character's current
     /// gender, race, portrait, name, alignment and voice are preselected; each can still be changed there.
+    /// The native rebuild repopulates the unit from a fresh one, which drops every part the scenario keeps on it (on the
+    /// protagonist: the departure record, the Quartermaster's sold-charges record and the sanctum's state with the
+    /// expedition's outcome). Those part objects are carried across the rebuild unchanged.
     /// </summary>
     internal static class Retraining
     {
@@ -60,6 +64,7 @@ namespace KingmakerWakingRune.Party
             public Gender Gender;
             public Kingmaker.Blueprints.Classes.BlueprintRace Race;
             public bool Prefilled;
+            public List<UnitPart> Kept;
             public int ShownFrame;
             public float Armed;
             public bool SelectorClosed;
@@ -160,6 +165,7 @@ namespace KingmakerWakingRune.Party
             op.Gender = unit.Descriptor.Gender;
             op.Race = unit.Descriptor.Progression.Race;
             op.Pet = unit.Descriptor.Pet;
+            op.Kept = Parts(unit.Descriptor).Values.Where(p => p.GetType().Assembly == typeof(Retraining).Assembly).ToList();
             op.Equipped = unit.Body.EquipmentSlots.Select((slot, index) => new KeyValuePair<int, ItemEntity>(index, slot.MaybeItem)).Where(p => p.Value != null).ToList();
             Log.Info($"Retraining started for {Describe(unit)}: xp {op.Experience}, treasury {op.Money} gp (native refund for copied scrolls {op.ScrollRefund} gp), {op.Equipped.Count} equipped items, pet {op.Pet?.CharacterName ?? "none"}.");
         }
@@ -213,6 +219,7 @@ namespace KingmakerWakingRune.Party
                 return;
             }
             UnitEntityData unit = op.Target;
+            string carried = Restore(unit, op.Kept);
             try
             {
                 var kept = new List<string>();
@@ -236,7 +243,7 @@ namespace KingmakerWakingRune.Party
                 DeparturePreparation.ForgetMember(unit, "retrained");
                 Log.Info($"Retraining succeeded for {Describe(unit)}: level {unit.Descriptor.Progression.CharacterLevel} of xp {unit.Descriptor.Progression.Experience} (was {op.Experience}); " +
                          $"treasury {Game.Instance.Player.Money} gp (was {op.Money}; native refund for copied scrolls {op.ScrollRefund} gp); {kit}; inventory {Game.Instance.Player.Inventory.Items.Count} entries (was {op.Items}); " +
-                         $"re-equipped [{string.Join(", ", kept.ToArray())}]; left in the shared inventory [{string.Join(", ", stored.ToArray())}]; pet {unit.Descriptor.Pet?.CharacterName ?? "none"} (was {op.Pet?.CharacterName ?? "none"}).");
+                         $"re-equipped [{string.Join(", ", kept.ToArray())}]; left in the shared inventory [{string.Join(", ", stored.ToArray())}]; pet {unit.Descriptor.Pet?.CharacterName ?? "none"} (was {op.Pet?.CharacterName ?? "none"}); scenario records carried across [{carried}].");
                 if (stored.Count > 0)
                 {
                     Warn($"{unit.CharacterName} is retrained. Items that could not be put back on are in the shared inventory: {string.Join(", ", stored.ToArray())}.");
@@ -246,6 +253,39 @@ namespace KingmakerWakingRune.Party
             {
                 Log.Error($"Retraining of {unit.CharacterName} succeeded natively; restoring its equipment failed, so the items stay in the shared inventory.", ex);
             }
+        }
+
+        private static readonly System.Reflection.FieldInfo PartsField = Harmony12.AccessTools.Field(typeof(UnitPartsManager), "m_Parts");
+        private static readonly System.Reflection.FieldInfo ManagerField = Harmony12.AccessTools.Field(typeof(UnitDescriptor), "m_Parts");
+
+        private static Dictionary<Type, UnitPart> Parts(UnitDescriptor descriptor)
+        {
+            return (Dictionary<Type, UnitPart>)PartsField.GetValue(ManagerField.GetValue(descriptor));
+        }
+
+        /// <summary>Puts the scenario's own parts back on the rebuilt unit, as the same objects, where the rebuild dropped them.</summary>
+        private static string Restore(UnitEntityData unit, List<UnitPart> kept)
+        {
+            var names = new List<string>();
+            try
+            {
+                Dictionary<Type, UnitPart> parts = Parts(unit.Descriptor);
+                foreach (UnitPart part in kept ?? new List<UnitPart>())
+                {
+                    if (!parts.ContainsKey(part.GetType()))
+                    {
+                        part.SetOwner(unit.Descriptor);
+                        parts.Add(part.GetType(), part);
+                        EventBus.Subscribe(part);
+                    }
+                    names.Add(part.GetType().Name);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Retraining of {unit.CharacterName}: the scenario's records could not all be carried across the rebuild.", ex);
+            }
+            return string.Join(", ", names.ToArray());
         }
 
         /// <summary>
