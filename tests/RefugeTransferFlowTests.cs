@@ -17,6 +17,8 @@ namespace KingmakerWakingRune.Tests
             public int Commits, Loads, FadeIns, FadeOuts, Saves;
             public readonly List<string> Warnings = new List<string>();
             public readonly List<string> Stranded = new List<string>();
+            public readonly List<string> Abandoned = new List<string>();
+            public string TimeoutMessage;
 
             public float Now => Clock;
             public float FadeSeconds => 0.3f;
@@ -41,6 +43,12 @@ namespace KingmakerWakingRune.Tests
                 }
                 failure = Progress == CheckpointProgress.Failed ? "save failed" : null;
                 return Progress;
+            }
+
+            public string AbandonCheckpoint(string reason)
+            {
+                Abandoned.Add(reason);
+                return TimeoutMessage;
             }
 
             public void FadeOut() => FadeOuts++;
@@ -136,6 +144,32 @@ namespace KingmakerWakingRune.Tests
             AssertNothingSpent(flow, host);
             Assert.Equal(0, host.Loads, "no load after timing out");
             Assert.Equal(RefugeTransferFlow.CheckpointUnconfirmed, host.Warnings[0], "explains the timeout");
+            Assert.Equal(1, host.Abandoned.Count, "the checkpoint is given up, so a late result cannot lead to travel");
+        }
+
+        public static void TestTimeoutSaysWhatTheHostReports()
+        {
+            var host = new Host { Progress = CheckpointProgress.Running, TimeoutMessage = "the save did not finish in time" };
+            var flow = new RefugeTransferFlow(host);
+            flow.Begin();
+            Run(flow, host, RefugeTransferFlow.CheckpointSeconds + 5f, 0.5f);
+            Assert.Equal("the save did not finish in time", host.Warnings[0], "the host's own words");
+        }
+
+        /// <summary>WR-PLAYTEST-02: a save another mod holds back is pending, however long it takes within the backstop; it departs once, after it is verified.</summary>
+        public static void TestDelayedCheckpointDepartsOnceWhenVerified()
+        {
+            var host = new Host { Progress = CheckpointProgress.Running };
+            var flow = new RefugeTransferFlow(host);
+            flow.Begin();
+            Run(flow, host, 40f, 0.5f);
+            Assert.Equal(0, host.FadeOuts, "the lodge stays while the save is pending");
+            Assert.Equal(0, host.Warnings.Count, "a pending save is not a failure");
+            host.Progress = CheckpointProgress.Succeeded;
+            Run(flow, host, 1.5f);
+            Assert.Equal(1, host.Loads, "departs once");
+            Assert.Equal(1, host.Saves, "one checkpoint");
+            Assert.Equal(0, host.Abandoned.Count, "nothing given up");
         }
 
         public static void TestExceptionDuringCheckpointRestoresControl()
@@ -204,6 +238,7 @@ namespace KingmakerWakingRune.Tests
             flow.Cancel("save load");
             AssertNothingSpent(flow, host);
             Assert.Equal(1, host.FadeIns, "screen restored");
+            Assert.Equal("save load", host.Abandoned[0], "the pending checkpoint is given up with the journey");
             flow.OnArrived(true, false, null);
             Assert.Equal(0, host.Commits, "a late arrival does not commit");
         }

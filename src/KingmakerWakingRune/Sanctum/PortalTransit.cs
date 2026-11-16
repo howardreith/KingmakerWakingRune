@@ -26,12 +26,11 @@ namespace KingmakerWakingRune.Sanctum
         public const string PreReturnSaveName = "Before the portal home";
         private const string SaveDisallowed = "The portal will not open while the game cannot save here. Nothing has changed.";
         private const string SaveBusy = "The portal will not open while the game is still saving. Try again in a moment.";
-        private const string SaveFailed = "The save before stepping through failed. Nothing has changed; check the disk and try again.";
         private const string IronmanSave = "This game keeps a single save, so no separate one can be made before the portal. Nothing has changed.";
 
         private static PortalTransit s_Instance;
         private RefugeTransferFlow m_Flow;
-        private SaveInfo m_Requested;
+        private CheckpointOperation m_Operation;
         private SaveInfo m_Checkpoint;
         private float m_NextEscape;
 
@@ -58,6 +57,10 @@ namespace KingmakerWakingRune.Sanctum
             {
                 return "The passage is already opening.";
             }
+            if (CheckpointOperation.AnyPending)
+            {
+                return SaveBusy;
+            }
             return null;
         }
 
@@ -77,7 +80,7 @@ namespace KingmakerWakingRune.Sanctum
                 s_Instance = host.AddComponent<PortalTransit>();
                 s_Instance.m_Flow = new RefugeTransferFlow(s_Instance);
             }
-            s_Instance.m_Requested = null;
+            s_Instance.m_Operation = null;
             s_Instance.m_Checkpoint = null;
             Log.Info("Portal home: the expedition steps through.");
             s_Instance.m_Flow.Begin();
@@ -127,64 +130,47 @@ namespace KingmakerWakingRune.Sanctum
 
         public string StartCheckpoint()
         {
-            SaveManager saves = Game.Instance.SaveManager;
-            if (SettingsRoot.Instance.OnlyOneSave.CurrentValue)
-            {
-                return IronmanSave;
-            }
-            if (!saves.IsSaveAllowed())
-            {
-                return SaveDisallowed;
-            }
-            if (LoadingProcess.Instance.IsLoadingInProcess || saves.CommitInProgress)
-            {
-                return SaveBusy;
-            }
-            m_Requested = saves.CreateNewSave(PreReturnSaveName);
             m_Checkpoint = null;
-            LoadingProcess.Instance.StartLoadingProcess(saves.SaveRoutine(m_Requested), null, LoadingProcessTag.Save);
-            return null;
+            m_Operation = CheckpointOperation.Start(PreReturnSaveName, out CheckpointRefusal refusal);
+            switch (refusal)
+            {
+                case CheckpointRefusal.Disallowed:
+                    return SaveDisallowed;
+                case CheckpointRefusal.SingleSave:
+                    return IronmanSave;
+                case CheckpointRefusal.Busy:
+                    return SaveBusy;
+                default:
+                    return null;
+            }
         }
 
+        /// <summary>Success is this return's own checkpoint, committed and read back (see <see cref="CheckpointOperation"/>).</summary>
         public CheckpointProgress PollCheckpoint(out string failure)
         {
             failure = null;
-            if (m_Requested == null)
+            CheckpointProgress progress = m_Operation.Poll();
+            if (progress == CheckpointProgress.Failed)
             {
-                return CheckpointProgress.Running;
+                failure = $"The portal stays shut: {CheckpointRules.Describe(m_Operation.Failure, "before stepping through")}. Nothing has changed; try again.";
             }
-            SaveManager saves = Game.Instance.SaveManager;
-            if (LoadingProcess.Instance.IsLoadingInProcess || saves.CommitInProgress)
+            else if (progress == CheckpointProgress.Succeeded)
             {
-                return CheckpointProgress.Running;
+                m_Checkpoint = m_Operation.Checkpoint;
+                Log.Info($"Pre-return save verified: {m_Checkpoint.Name}.");
             }
-            SaveInfo written = saves.FirstOrDefault(s => s != m_Requested && s.Name == m_Requested.Name && s.Type == m_Requested.Type && s.GameId == Game.Instance.Player.GameId);
-            if (written == null)
+            return progress;
+        }
+
+        public string AbandonCheckpoint(string reason)
+        {
+            if (m_Operation == null)
             {
-                failure = SaveFailed;
-                return CheckpointProgress.Failed;
+                return null;
             }
-            if (written.OperationState != SaveInfo.StateType.None)
-            {
-                return CheckpointProgress.Running;
-            }
-            try
-            {
-                if (!written.IsActuallySaved || !File.Exists(written.FolderName) || new FileInfo(written.FolderName).Length == 0 || string.IsNullOrEmpty(written.Saver?.ReadHeader()))
-                {
-                    failure = SaveFailed;
-                    return CheckpointProgress.Failed;
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error("Pre-return save could not be read back.", ex);
-                failure = SaveFailed;
-                return CheckpointProgress.Failed;
-            }
-            m_Checkpoint = written;
-            Log.Info($"Pre-return save verified: {written.Name}.");
-            return CheckpointProgress.Succeeded;
+            Log.Error($"Pre-return save given up: {m_Operation.Status}; {reason}.");
+            m_Operation.Abandon(reason);
+            return $"The portal stays shut: {CheckpointRules.Describe(CheckpointFailure.TimedOut, "before stepping through")}. Nothing has changed; try again in a moment.";
         }
 
         public void FadeOut()
