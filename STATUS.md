@@ -1,13 +1,20 @@
 # Status: The Waking Rune
 
 **Milestone:** WR-PLAYTEST-02 on `feature/wr-playtest-02` (from `main` at `bd4fbad`, release 0.10.14), draft PR for
-owner review. Candidate **0.11.1**: commit `80587b7`, zip `artifacts\KingmakerWakingRune-0.11.1.zip`
-(`0446807b2a9161120d83640c87e7c0c2695d1ee31c2ba2f50a253e295e69f535`), DLL
-`39ad4570ea7c9ad0b27975eb1cfce8d2d1b61233d6d17b042f16006cb9e9a929`; 265 unit tests pass. Installed; 0.10.14 is backed up
-in `runtime-backups\wrplay2-r1\mod-existing` (0.11.0 in `runtime-backups\wrplay2-r2\mod-existing`).
+owner review, after the owner's review of PR #10. Candidate **0.11.3**: commit `17c3a69`, zip
+`artifacts\KingmakerWakingRune-0.11.3.zip` (`2e591004cec2c9b0403943d3f83646e62d75234973e78dae0b77a551ea738251`), DLL
+`7933788dcc6cf6e34fd5c7c168601caa637601e4ea825a7080c46ef51be63cc4`; 266 unit tests pass. Installed; the released 0.10.14 is
+backed up in `runtime-backups\wrplay2-r1\mod-existing` (0.11.1 in `runtime-backups\wrplay2-r3\mod-existing`).
 
 ## WR-PLAYTEST-02 (the owner's second report)
 Report with evidence: `docs/WR-PLAYTEST-02.md`.
+- **Review fixes (0.11.2-0.11.3):**
+  - a given-up checkpoint releases the save guard however it ends;
+  - a shelf saved with the retired provider lines keeps every copy and never restocks them;
+  - every native respec, not only the Coordinator's, keeps the scenario's records;
+  - a former pet's gear is kept when the rebuild retires it later.
+  Run `wrplay2-r3`: the late-failure guard, the old shelf through a restart, a new game with its briefing and shop, an
+  equipped bear rebuilt, a respec outside the Coordinator, and a mounted departure reloaded.
 - **Departure save:** Mounted Combat 0.2.11's deferred save made the loading queue read idle while it waited, so 0.10.14
   gave up on a save that then completed. A checkpoint is now its own queued operation, followed to a verified end and
   satisfied only by its own record. Distinct failures, no disk blame, give-up on load or timeout, no second save beside
@@ -18,10 +25,13 @@ Report with evidence: `docs/WR-PLAYTEST-02.md`.
   kit and gold are taken back; gear is re-equipped where it fits; pets' gear is kept; the scenario's records are
   carried across; only the retrained character is readied in full by the token.
 - **Quartermaster:** provider weapons magical only (16 lines retired, magic checked per item); Gloves of Dueling
-  (lesser and normal); 70 native adamantine armors. No haramaki exists to stock.
-- **Defect found by these tests and fixed:** retraining the protagonist dropped the scenario's records on that
-  character (0.11.0 → 0.11.1).
-- **Not run:** the owner's affected save and full profile; an active mount; a new game; Eddic's respec.
+  (lesser and normal); 70 native adamantine armors. No haramaki in the game, Call of the Wild or the provider.
+- **Defects found by these tests and fixed:**
+  - retraining the protagonist dropped the scenario's records on that character (0.11.0 → 0.11.1);
+  - an equipped pet lost its gear when replaced at a later level-up (0.11.2 → 0.11.3).
+- **Not run:** the owner's affected save and full profile (UMM 0.33.0); Eddic's respec (its source was read).
+- **Observed, not changed:** with Mounted Combat, mounting can be refused in the same session as a rider's
+  retraining; it works after a save and reload.
 
 The sections below are earlier milestones, kept for history.
 

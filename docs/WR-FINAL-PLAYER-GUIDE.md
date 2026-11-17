@@ -8,7 +8,8 @@ Pathfinder: Kingmaker 2.1.7 with Unity Mod Manager. Extract the zip into `<Kingm
 UMM installer) and enable it; Ctrl+F10 in game shows the version. No other mods are needed. The portraits are inside
 the mod's DLL, so nothing else needs copying. Optional: with Mr. Bard's Tabletop Rules Expansion (KingmakerGunslinger)
 enabled, the Quartermaster also sells its magical firearms (+1 to +3 and Reliable), loading supplies, magical eastern
-weapons and magical branched spears (the plain, masterwork and cold iron ones are left out). Its firearms need firearm proficiency (a Gunslinger level, or its proficiency feat), as that mod
+weapons and magical branched spears (the plain, masterwork and cold iron ones are no longer stocked; a shop you
+already opened keeps whatever copies it had, without restocking them). Its firearms need firearm proficiency (a Gunslinger level, or its proficiency feat), as that mod
 rules. **Once you open the Quartermaster's shop with that mod enabled, that save refers to its items (even if you buy
 nothing) and should not be loaded without it.**
 
@@ -22,12 +23,15 @@ Magnimar lodge.
   He also **retrains** for free, as often as you like: "retrain myself" for your own character, or "one of my
   companions" to pick a recruited companion. The character is rebuilt in the game's own character window from level 1
   to the experience they have, keeping their name, portrait, experience and everything they carry; their current
-  race, gender, portrait, name and alignment are already chosen there, and you can change any of them. Closing the
-  window at any step changes nothing. Gear the new build can still use is put back on; anything else (and anything
-  in the quick slots) goes to the shared stash. A caster's spells learned from scrolls are lost with the old
-  spellbook and refunded at the game's usual rate. An animal companion is rebuilt with its owner: if the new build has
-  no companion, the old one leaves and its gear goes to the stash. The class's starting gold and starting kit are not
-  given again. A retrained character is readied in full by the next use of the token; nobody else is.
+  race, gender, portrait, name and alignment are already chosen there, and you can change any of them. Canceling
+  before you confirm the rebuild leaves the character unchanged; once you confirm it, the character is rebuilt and
+  takes their remaining earned levels as ordinary level-ups. Gear the new build can still use is put back on; anything
+  else (and anything in the quick slots) goes to the shared stash. A caster's spells learned from scrolls are lost with
+  the old spellbook and refunded at the game's usual rate. Ability scores are chosen again by point buy, including with
+  a rolled-stats mod. An animal companion is rebuilt with its owner: when the old companion leaves, its gear goes to
+  the stash. The class's starting gold and starting kit are not given again. A retrained character is readied in full
+  by the next use of the token; nobody else is. With Mounted Combat, save and reload after retraining a rider before
+  mounting.
 - **The Quartermaster** sells equipment from a shared purse of 500,000 gp at normal prices: at least 12 of every piece
   of equipment (now including Gloves of Dueling, lesser and normal, and every adamantine armor in the game), 99 of every potion and scroll (including a scroll of every Wizard spell up to 6th level), and plenty of
   diamond dust. A spell with versions (Resist Energy, Dispel Magic, the summonings) comes as one scroll per version,
