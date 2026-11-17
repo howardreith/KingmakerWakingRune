@@ -87,9 +87,10 @@ namespace KingmakerWakingRune.Blueprints
 
         /// <summary>
         /// Lines stocked until 0.10.14 and retired in WR-PLAYTEST-02 (owner's request): the plain, masterwork and cold iron
-        /// weapons, which have no enhancement bonus. A visited shop drops their retail stock once, by the native catalogue
-        /// difference; copies the party sold back beyond that stock, and every owned copy, stay. Never deleted from the
-        /// library, so old saves and owned weapons still resolve.
+        /// weapons, which have no enhancement bonus. A shop first opened from now on never has them; a shop saved with them
+        /// keeps every copy on its shelf, since the save cannot tell retail from sold-back copies, and never restocks them
+        /// (<see cref="QuartermasterStock.PreserveRetiredLines"/>). Never deleted from the library, so old saves and owned
+        /// weapons still resolve.
         /// </summary>
         public static readonly string[] Retired =
         {
