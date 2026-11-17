@@ -8,8 +8,13 @@ namespace KingmakerWakingRune.Blueprints
     /// <summary>Resolves installed donor blueprints by verified identity; never mutates them.</summary>
     internal static class DonorSelection
     {
-        /// <summary>Human female NPC whose model represents Sheila (verified in-game; see docs/RECON.md).</summary>
-        public const string SheilaDonorGuid = "";
+        /// <summary>
+        /// Human female NPC whose model represents Sheila: Natala Surtova's (CityGatesHub_NatalaSurtova), an upright adult
+        /// woman with dark hair in a long green gown, chosen against the approved portrait in a side-by-side lineup in the
+        /// lodge (WR-PLAYTEST-02, docs/WR-PLAYTEST-02.md). Until 0.10.14 the bootstrap's first match by name, AdventurerRanger,
+        /// a hooded, crouching ranger, stood in.
+        /// </summary>
+        public const string SheilaDonorGuid = "b12f2eb80731e2743a122ffc796a9a40";
 
         public static BlueprintAreaPart FindAreaDonor(List<BlueprintScriptableObject> all)
         {

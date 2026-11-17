@@ -328,6 +328,78 @@ namespace KingmakerWakingRune.Blueprints
             new CatalogueEntry("3bcbf79b01e4db044a6f06d86cec9117", 99), // Potion of Aid
             new CatalogueEntry("de000ebb9b86c8f48b77576965303183", 99), // Potion of Protection from Evil
             new CatalogueEntry("a05bfdfe2df01204ab8e367c2c0b72ce", 99), // Potion of Feather Step
+            new CatalogueEntry("c33129949c59ee044900e741691a64d3", 12), // Lesser Gloves of Dueling
+            new CatalogueEntry("c8f949c03b92f714b83edd610f3e9348", 12), // Gloves of Dueling
+            new CatalogueEntry("9dc76ea1dfc5d7d4b907288e2a6485c0", 12), // Adamantine Chainshirt
+            new CatalogueEntry("31e5cfe1c81fba44291f0d78fc89b7a7", 12), // Adamantine Chainshirt +1
+            new CatalogueEntry("33bd5baef9240cb40afdaba9d71a2daa", 12), // Adamantine Chainshirt +2
+            new CatalogueEntry("2aa4f59d22182db4883e592596bf160f", 12), // Adamantine Chainshirt +3
+            new CatalogueEntry("b4ecbf5393473e949a7b01ab52a17cdf", 12), // Adamantine Chainshirt +4
+            new CatalogueEntry("3b5b1f3da5704f34eb33e84557e9319f", 12), // Adamantine Chainshirt +5
+            new CatalogueEntry("cb390f2ae6df5724c9ec586842169ba4", 12), // Leather Armor
+            new CatalogueEntry("e1616329aa7c05845b538d0f28bcc7c8", 12), // Leather Armor
+            new CatalogueEntry("3885106d163f4ea4083887fdaa23aec6", 12), // Leather Armor
+            new CatalogueEntry("59fc699b1d7aff14f969919c7e6daca1", 12), // Leather Armor
+            new CatalogueEntry("99f57eda92fdc0d49be16ee2b4634d2d", 12), // Leather Armor
+            new CatalogueEntry("de03b0e4e279b304c95aee8a5439b7bf", 12), // Leather Armor
+            new CatalogueEntry("8e9417ea0c1aa884d9615a11dbd5c2b0", 12), // Padded Armor
+            new CatalogueEntry("dc75ee756a1d73740b5a1b0be4cc37f6", 12), // Padded Armor
+            new CatalogueEntry("2f64aed9afb8937499f520ced8f4987e", 12), // Padded Armor
+            new CatalogueEntry("7ca49db1cde980d489b6aa5112f8319f", 12), // Padded Armor
+            new CatalogueEntry("9c7327c0221f04a4482f3860a6302a48", 12), // Padded Armor
+            new CatalogueEntry("a057d77b4f780e6459229cabead9e7be", 12), // Padded Armor
+            new CatalogueEntry("ff4117b74c2f3d34f90a306f6fbcdf08", 12), // Studded Leather
+            new CatalogueEntry("3fab8986c64d16c4d811eefa972572cc", 12), // Studded Leather
+            new CatalogueEntry("d629b83aaba78c247a37423bb2da6fcf", 12), // Studded Leather
+            new CatalogueEntry("0aea4beb2c17f8a4caa6779074c5bb74", 12), // Studded Leather
+            new CatalogueEntry("d8bd56780dae4d946a2890ff6c86207a", 12), // Studded Leather
+            new CatalogueEntry("2eee42d5f094af649affbdabf0c653b7", 12), // Studded Leather
+            new CatalogueEntry("bea0adc2ebc043c4cbcd5f910b0516c2", 12), // Hide Armor
+            new CatalogueEntry("c7d722804ea31e14fad47f257ca1f271", 12), // Hide Armor
+            new CatalogueEntry("1e27aa1665f0ba34bbb8cfbc534bdf9d", 12), // Hide Armor
+            new CatalogueEntry("4a3ae924f673e6e42b4047306f718fdd", 12), // Hide Armor
+            new CatalogueEntry("bae8f2593ea154445a4cf5ab85ff65df", 12), // Hide Armor
+            new CatalogueEntry("5906be44cc0cee84b9a35f2df2e2868d", 12), // Hide Armor
+            new CatalogueEntry("406d54885c5bac643b480ec775bd5cd0", 12), // Adamantine Scalemail
+            new CatalogueEntry("eca09c3357123ce4fa45e1b717df8b5d", 12), // Adamantine Scalemail +1
+            new CatalogueEntry("d7107904c47d8994987c612fa462bfb1", 12), // Adamantine Scalemail +2
+            new CatalogueEntry("c5646b825ace09744ab2f9927c614efc", 12), // Adamantine Scalemail +3
+            new CatalogueEntry("fc1b904f361f742419f18634034c1945", 12), // Adamantine Scalemail +4
+            new CatalogueEntry("749edb2a6e483be4d971d2698ddc5e78", 12), // Adamantine Scalemail +5
+            new CatalogueEntry("cdffad69c7081b24eae8e2bb8ee70394", 12), // Adamantine Chainmail
+            new CatalogueEntry("12f0f9a858ab4c74c931fcd0cffaf264", 12), // Adamantine Chainmail +1
+            new CatalogueEntry("5a61b70b4d413c64e882353d61edd31c", 12), // Adamantine Chainmail +2
+            new CatalogueEntry("6495fe239fe8cdd4b9ff01c3c09e4756", 12), // Adamantine Chainmail +3
+            new CatalogueEntry("00f40bc591e6a39498614f793a2e1503", 12), // Adamantine Chainmail +4
+            new CatalogueEntry("c031c8a4c74020e41b6610be97d50797", 12), // Adamantine Chainmail +5
+            new CatalogueEntry("94386ea872981864b99a383ba133f0aa", 12), // Adamantine Breastplate
+            new CatalogueEntry("d884f3cdce5ce064d81f11a729ea9890", 12), // Adamantine Breastplate +1
+            new CatalogueEntry("5326c95949313484c80af1fae2673acc", 12), // Adamantine Breastplate +2
+            new CatalogueEntry("8b4085ffcf2c1984fa7500f9da06214a", 12), // Adamantine Breastplate +3
+            new CatalogueEntry("8865a1ccef15029439e041f020493d52", 12), // Adamantine Breastplate +4
+            new CatalogueEntry("bafb44ecda0ac85468856cec6510810b", 12), // Adamantine Breastplate +5
+            new CatalogueEntry("ed04d2a914a93e046aadee8cc3109f65", 12), // Adamantine Banded Mail
+            new CatalogueEntry("de21042fc1a39864dbcec28763ad2f45", 12), // Adamantine Banded Mail +1
+            new CatalogueEntry("1cee090860de51b40bc1170b4e87ad22", 12), // Adamantine Banded Mail +2
+            new CatalogueEntry("07830c760d8028e47986d929e0e48cbc", 12), // Adamantine Banded Mail +3
+            new CatalogueEntry("b3e6341e19b2e274695b54ebf0c0ed3a", 12), // Adamantine Banded Mail +4
+            new CatalogueEntry("a28443ab2393b624186bd249df43bb62", 12), // Adamantine Banded Mail +5
+            new CatalogueEntry("76eaf90831b52634582f488ef41c63e4", 12), // Adamantine Half-plate
+            new CatalogueEntry("b94131f88a4f9934fae216f27ccc7aad", 12), // Adamantine Half-plate +1
+            new CatalogueEntry("f77ba5fbf2f3f554ca459ddace21db31", 12), // Adamantine Half-plate +2
+            new CatalogueEntry("0ba22b150266b604cb6b98443e09bfc0", 12), // Adamantine Half-plate +3
+            new CatalogueEntry("c496ac4c996ab254baeee37ee3a7414c", 12), // Adamantine Half-plate +4
+            new CatalogueEntry("cc64816a11d79e247a2f93cb4d975267", 12), // Adamantine Half-plate +5
+            new CatalogueEntry("4a72801171b0cca44b1989b4622b5820", 12), // Adamantine Full Plate
+            new CatalogueEntry("6287c31b1ab7049469030c247868e7a2", 12), // Adamantine Full Plate +1
+            new CatalogueEntry("b067c338ede1bfc45be97d2d9ab934e8", 12), // Adamantine Full Plate +2
+            new CatalogueEntry("9404338472b5b8b4c9013cb8dcf74b7e", 12), // Adamantine Full Plate +3
+            new CatalogueEntry("0dab0f3855529264aa53e748735cdd0a", 12), // Adamantine Full Plate +4
+            new CatalogueEntry("000213dc917b821498a0d5f80138d3a9", 12), // Adamantine Full Plate +5
+            new CatalogueEntry("615de12de63abcb42a606686354459cc", 12), // Ravena's Embrace
+            new CatalogueEntry("dc9742ba2fdbeed46acd3682c9244f02", 12), // Stainless Chainshirt
+            new CatalogueEntry("fd54ed3702d98a24283a400bd76c6b03", 12), // Assassin's Chainshirt
+            new CatalogueEntry("21dedb7862f249248b7c959d8b4d615f", 12), // Void Mirror
         };
     }
 }

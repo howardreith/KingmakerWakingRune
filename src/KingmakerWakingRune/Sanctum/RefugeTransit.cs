@@ -22,17 +22,19 @@ namespace KingmakerWakingRune.Sanctum
     {
         public const string PreDepartureSaveName = "Before the Sanctum of Sloth";
         private const float EscapePressSeconds = 0.25f;
+        private const float PendingNoticeSeconds = 2f;
         private const string SaveDisallowed = "The token's magic falters: the game cannot save here, and the Sanctum has no way back. Nothing was spent.";
         private const string SaveBusy = "The token's magic falters: the game is still saving. Nothing was spent; try again in a moment.";
-        private const string SaveFailed = "The token's magic falters: the save before leaving failed. Nothing was spent; check the disk and try again.";
         private const string IronmanSave = "The token's magic falters: this game keeps a single save, so no separate one can be made before leaving. Nothing was spent.";
 
         private static RefugeTransit s_Instance;
 
         private RefugeTransferFlow m_Flow;
         private DeparturePreparation m_Preparation;
-        private SaveInfo m_Requested;
+        private CheckpointOperation m_Operation;
         private SaveInfo m_Checkpoint;
+        private string m_Party;
+        private bool m_PendingNoticed;
         private float m_NextEscape;
 
         public static bool InProgress => s_Instance != null && (s_Instance.m_Flow.InProgress || s_Instance.m_Preparation.InProgress);
@@ -51,6 +53,13 @@ namespace KingmakerWakingRune.Sanctum
                 flags.IsUnlocked(ScenarioBlueprints.SanctumEnteredFlag),
                 InProgress,
                 ScenarioBlueprints.SanctumEnter != null);
+            if (rejection == TravelRejection.None && CheckpointOperation.AnyPending)
+            {
+                // A save given up earlier is still in the native queue: no second one starts beside it.
+                Log.Info("Refuge Token use rejected: an earlier checkpoint is still being written.");
+                EventBus.RaiseEvent(delegate(IWarningNotificationUIHandler h) { h.HandleWarning(SaveBusy); });
+                return;
+            }
             if (rejection != TravelRejection.None)
             {
                 Log.Info($"Refuge Token use rejected: {rejection}.");
@@ -76,8 +85,9 @@ namespace KingmakerWakingRune.Sanctum
         /// <summary>The prepared party leaves: checkpoint, fade and transfer, exactly as before preparation existed.</summary>
         private void Depart()
         {
-            m_Requested = null;
+            m_Operation = null;
             m_Checkpoint = null;
+            m_Party = PartyIds();
             Log.Info("Party prepared; beginning transfer.");
             m_Flow.Begin();
         }
@@ -142,90 +152,68 @@ namespace KingmakerWakingRune.Sanctum
 
         public string StartCheckpoint()
         {
-            SaveManager saves = Game.Instance.SaveManager;
-            if (FaultInjection.Take("save-refused"))
-            {
-                Log.Info("INJECTED FAULT save-refused: reporting saving as disallowed.");
-                return SaveDisallowed;
-            }
-            if (SettingsRoot.Instance.OnlyOneSave.CurrentValue)
-            {
-                return IronmanSave;
-            }
-            if (!saves.IsSaveAllowed())
-            {
-                return SaveDisallowed;
-            }
-            if (LoadingProcess.Instance.IsLoadingInProcess || saves.CommitInProgress)
-            {
-                return SaveBusy;
-            }
-            m_Requested = saves.CreateNewSave(PreDepartureSaveName);
             m_Checkpoint = null;
-            if (FaultInjection.Take("save-failed"))
+            m_PendingNoticed = false;
+            m_Operation = CheckpointOperation.Start(PreDepartureSaveName, out CheckpointRefusal refusal);
+            switch (refusal)
             {
-                Log.Info("INJECTED FAULT save-failed: no save is written and the poll will find none.");
-                return null;
+                case CheckpointRefusal.Disallowed:
+                    return SaveDisallowed;
+                case CheckpointRefusal.SingleSave:
+                    return IronmanSave;
+                case CheckpointRefusal.Busy:
+                    return SaveBusy;
+                default:
+                    return null;
             }
-            if (FaultInjection.Take("save-timeout"))
-            {
-                Log.Info("INJECTED FAULT save-timeout: the poll will keep reporting a running save.");
-                m_Requested = null;
-                return null;
-            }
-            LoadingProcess.Instance.StartLoadingProcess(saves.SaveRoutine(m_Requested), null, LoadingProcessTag.Save);
-            return null;
         }
 
         /// <summary>
-        /// The routine replaces the requested record with a new one, can end while the file is still being committed, and
-        /// removes the record if the write fails. So success is only that record, fully committed, with a readable file behind it.
+        /// Success is this departure's own checkpoint, committed and read back (see <see cref="CheckpointOperation"/>), with the
+        /// party that was readied still the party; a save another mod holds back before writing is simply still pending.
         /// </summary>
         public CheckpointProgress PollCheckpoint(out string failure)
         {
             failure = null;
-            if (m_Requested == null)
+            switch (m_Operation.Poll())
             {
-                return CheckpointProgress.Running;
+                case CheckpointProgress.Failed:
+                    failure = $"The token's magic falters: {CheckpointRules.Describe(m_Operation.Failure, "before leaving")}. Nothing was spent; try again.";
+                    return CheckpointProgress.Failed;
+                case CheckpointProgress.Running:
+                    if (!m_PendingNoticed && m_Operation.Age >= PendingNoticeSeconds)
+                    {
+                        m_PendingNoticed = true;
+                        Warn("The token waits for the save before leaving to finish.");
+                    }
+                    return CheckpointProgress.Running;
             }
-            SaveManager saves = Game.Instance.SaveManager;
-            if (LoadingProcess.Instance.IsLoadingInProcess || saves.CommitInProgress)
+            string party = PartyIds();
+            if (party != m_Party)
             {
-                return CheckpointProgress.Running;
-            }
-            SaveInfo written = saves.FirstOrDefault(s => s != m_Requested && s.Name == m_Requested.Name && s.Type == m_Requested.Type && s.GameId == Game.Instance.Player.GameId);
-            if (written == null)
-            {
-                Log.Error($"Pre-departure save '{m_Requested.Name}' has no record after its routine ended.");
-                failure = SaveFailed;
+                Log.Error($"The party changed while the pre-departure save was written (readied [{m_Party}], now [{party}]); not departing.");
+                failure = "The token's magic falters: the party changed while the save before leaving was written. Nothing was spent; use the token again.";
                 return CheckpointProgress.Failed;
             }
-            if (written.OperationState != SaveInfo.StateType.None)
-            {
-                return CheckpointProgress.Running;
-            }
-            if (!IsReadable(written))
-            {
-                Log.Error($"Pre-departure save '{written.Name}' could not be read back from '{written.FolderName}'.");
-                failure = SaveFailed;
-                return CheckpointProgress.Failed;
-            }
-            m_Checkpoint = written;
-            Log.Info($"Pre-departure save verified: {written.Name} ({Path.GetFileName(written.FolderName)}, {new FileInfo(written.FolderName).Length} bytes).");
+            m_Checkpoint = m_Operation.Checkpoint;
+            Log.Info($"Pre-departure save verified: {m_Checkpoint.Name} ({Path.GetFileName(m_Checkpoint.FolderName)}, {new FileInfo(m_Checkpoint.FolderName).Length} bytes).");
             return CheckpointProgress.Succeeded;
         }
 
-        private static bool IsReadable(SaveInfo save)
+        public string AbandonCheckpoint(string reason)
         {
-            try
+            if (m_Operation == null)
             {
-                return save.IsActuallySaved && File.Exists(save.FolderName) && new FileInfo(save.FolderName).Length > 0 && !string.IsNullOrEmpty(save.Saver?.ReadHeader());
+                return null;
             }
-            catch (Exception ex)
-            {
-                Log.Error("Pre-departure save could not be read back.", ex);
-                return false;
-            }
+            Log.Error($"Pre-departure save given up: {m_Operation.Status}; {reason}.");
+            m_Operation.Abandon(reason);
+            return $"The token's magic falters: {CheckpointRules.Describe(CheckpointFailure.TimedOut, "before leaving")}. Nothing was spent; try again in a moment.";
+        }
+
+        private static string PartyIds()
+        {
+            return string.Join(",", Game.Instance.Player.Party.Select(u => u.UniqueId).ToArray());
         }
 
         public void FadeOut()

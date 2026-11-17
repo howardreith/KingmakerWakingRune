@@ -68,6 +68,7 @@ namespace KingmakerWakingRune.Patches
             StartFlow.Clear("save load");
             Sanctum.RefugeTransit.Reset("save load");
             Sanctum.PortalTransit.Reset("save load");
+            Party.Retraining.Reset("save load");
             Log.Info($"Loading save '{saveInfo?.Name}' area={saveInfo?.Area?.name}/{saveInfo?.Area?.AssetGuid}");
         }
     }
@@ -80,6 +81,7 @@ namespace KingmakerWakingRune.Patches
             StartFlow.OnNewGameStarting(preset);
             Sanctum.RefugeTransit.Reset("new game");
             Sanctum.PortalTransit.Reset("new game");
+            Party.Retraining.Reset("new game");
         }
     }
 }

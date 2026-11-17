@@ -38,6 +38,12 @@ namespace KingmakerWakingRune.Patches
     [HarmonyPatch(typeof(SharedVendorTables), nameof(SharedVendorTables.GetTable))]
     internal static class QuartermasterChargesLoadPatch
     {
+        /// <summary>A saved shelf keeps whatever it holds of a retired provider line (see <see cref="QuartermasterStock.PreserveRetiredLines"/>).</summary>
+        private static void Prefix(SharedVendorTables __instance, BlueprintSharedVendorTable blueprint)
+        {
+            QuartermasterStock.PreserveRetiredLines(__instance, blueprint);
+        }
+
         private static void Postfix(BlueprintSharedVendorTable blueprint, ItemsCollection __result)
         {
             if (blueprint != null && blueprint == QuartermasterStock.Table)

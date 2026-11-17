@@ -26,6 +26,9 @@ namespace KingmakerWakingRune.Blueprints
         public string DonorGuid;
         public string PortraitId;
         public CastRole Role;
+
+        /// <summary>The lodge's leaders and staff carry no weapon: the donor's hand items are left off (agents keep theirs).</summary>
+        public bool Unarmed => Role != CastRole.Agent;
         public Vector3 Position;
         public float Yaw;
         public BlueprintUnit Unit;
@@ -34,15 +37,18 @@ namespace KingmakerWakingRune.Blueprints
     /// <summary>
     /// The eleven scenario-authored NPCs. Each is a presentation-only clone of a verified base-game
     /// unit (see docs/RECON.md); donors are never mutated. Sheila is registered by ScenarioBlueprints.
+    /// WR-PLAYTEST-02 (owner's request: the dolls should resemble their portraits): the Masked Figure, the Quartermaster and
+    /// the Coordinator take new donors chosen against their portraits in a side-by-side lineup in the lodge; Ambrus keeps
+    /// his, already the closest. Blueprint identities are unchanged, so existing saves show the new models at their next load.
     /// </summary>
     internal static class LodgeCast
     {
         public static readonly List<CastMember> Members = new List<CastMember>
         {
             new CastMember { Id = "ambrus", NameKey = "kwr.npc.ambrus", NameText = "Ambrus Valsin", DonorGuid = "bfae523688f555541b5318f8c709f452", PortraitId = "AmbrusValsin", Role = CastRole.Leader, Position = LodgeLayout.Ambrus, Yaw = LodgeLayout.LeaderYaw },
-            new CastMember { Id = "masked", NameKey = "kwr.npc.masked", NameText = "Masked Figure", DonorGuid = "4a91f844d4c422f46b9aa17f3c5550c5", PortraitId = "DecemvirateMember", Role = CastRole.Leader, Position = LodgeLayout.Masked, Yaw = LodgeLayout.LeaderYaw },
-            new CastMember { Id = "quartermaster", NameKey = "kwr.npc.quartermaster", NameText = "Quartermaster", DonorGuid = "b4864c5800dd7664d889f934195586ac", PortraitId = "Quartermaster", Role = CastRole.Service, Position = LodgeLayout.Quartermaster, Yaw = LodgeLayout.ServiceYaw },
-            new CastMember { Id = "coordinator", NameKey = "kwr.npc.coordinator", NameText = "Society Coordinator", DonorGuid = "59e29674e188f7b4ca06a020e500fc58", PortraitId = "SocietyCoordinator", Role = CastRole.Service, Position = LodgeLayout.Coordinator, Yaw = LodgeLayout.ServiceYaw },
+            new CastMember { Id = "masked", NameKey = "kwr.npc.masked", NameText = "Masked Figure", DonorGuid = "2a842f99acd10834f9c8016ee11a0141", PortraitId = "DecemvirateMember", Role = CastRole.Leader, Position = LodgeLayout.Masked, Yaw = LodgeLayout.LeaderYaw },
+            new CastMember { Id = "quartermaster", NameKey = "kwr.npc.quartermaster", NameText = "Quartermaster", DonorGuid = "a6d9da12672a1bc4ebb0f7a027b95d58", PortraitId = "Quartermaster", Role = CastRole.Service, Position = LodgeLayout.Quartermaster, Yaw = LodgeLayout.ServiceYaw },
+            new CastMember { Id = "coordinator", NameKey = "kwr.npc.coordinator", NameText = "Society Coordinator", DonorGuid = "2ea2114e81009db4ba4356f338973224", PortraitId = "SocietyCoordinator", Role = CastRole.Service, Position = LodgeLayout.Coordinator, Yaw = LodgeLayout.ServiceYaw },
             Agent(1, "a4649b63dff330b49afffad1ec3d7052", LodgeLayout.NorthAgents[0], LodgeLayout.NorthAgentYaw),
             Agent(2, "685baae218ee68e41890342f197a9156", LodgeLayout.NorthAgents[1], LodgeLayout.NorthAgentYaw),
             Agent(3, "62fb33b0803bf094ebbf9c21719477ce", LodgeLayout.NorthAgents[2], LodgeLayout.NorthAgentYaw),
@@ -85,16 +91,20 @@ namespace KingmakerWakingRune.Blueprints
                         register(portrait);
                     }
                 }
-                member.Unit = CloneUnit(donor, root, "KWR_" + member.Id, ScenarioIds.Derive("unit." + member.Id), member.NameKey, portrait);
+                member.Unit = CloneUnit(donor, root, "KWR_" + member.Id, ScenarioIds.Derive("unit." + member.Id), member.NameKey, portrait, member.Unarmed);
                 register(member.Unit);
             }
             return true;
         }
 
-        /// <summary>Presentation-only clone: no components, facts, dialog or companion role carried over.</summary>
-        public static BlueprintUnit CloneUnit(BlueprintUnit donor, BlueprintRoot root, string name, string guid, string nameKey, BlueprintPortrait portrait)
+        /// <summary>Presentation-only clone: no components, facts, dialog or companion role carried over; optionally no weapons.</summary>
+        public static BlueprintUnit CloneUnit(BlueprintUnit donor, BlueprintRoot root, string name, string guid, string nameKey, BlueprintPortrait portrait, bool unarmed = false)
         {
             var unit = UnityEngine.Object.Instantiate(donor);
+            if (unarmed)
+            {
+                unit.Body = WithoutHands(donor.Body);
+            }
             unit.name = name;
             unit.AssetGuid = guid;
             unit.ComponentsArray = new BlueprintComponent[0];
@@ -110,6 +120,21 @@ namespace KingmakerWakingRune.Blueprints
                 AccessTools.Field(typeof(BlueprintUnit), "m_Portrait").SetValue(unit, portrait);
             }
             return unit;
+        }
+
+        /// <summary>A copy of a donor's body with nothing in its hands; the donor's own body is not touched.</summary>
+        private static BlueprintUnit.UnitBody WithoutHands(BlueprintUnit.UnitBody body)
+        {
+            var copy = (BlueprintUnit.UnitBody)typeof(object).GetMethod("MemberwiseClone", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).Invoke(body, null);
+            copy.PrimaryHand = null;
+            copy.SecondaryHand = null;
+            copy.PrimaryHandAlternative1 = null;
+            copy.SecondaryHandAlternative1 = null;
+            copy.PrimaryHandAlternative2 = null;
+            copy.SecondaryHandAlternative2 = null;
+            copy.PrimaryHandAlternative3 = null;
+            copy.SecondaryHandAlternative3 = null;
+            return copy;
         }
     }
 }

@@ -30,6 +30,7 @@ namespace KingmakerWakingRune.Lodge
             }
             s_Instance = new LodgeSession();
             EventBus.Subscribe(s_Instance);
+            Patches.RetrainingRespecEvents.Subscribe();
         }
 
         public void OnAreaBeginUnloading()
@@ -103,6 +104,7 @@ namespace KingmakerWakingRune.Lodge
             if (inLodge)
             {
                 EnsureCast();
+                Unarm();
                 Blueprints.QuartermasterStock.EnsureAssembled();
                 StartingGrants.ApplyOnce();
                 RefugeToken.EnsureGranted();
@@ -141,6 +143,36 @@ namespace KingmakerWakingRune.Lodge
             {
                 flags.Unlock(ScenarioBlueprints.CastSetupFlag);
                 Log.Info($"Lodge cast setup recorded: {LodgeCast.Members.Count} NPCs plus Sheila.");
+            }
+        }
+
+        /// <summary>
+        /// The lodge's leaders and staff hold no weapons (WR-PLAYTEST-02). A save made before their donors changed keeps the
+        /// weapons their earlier donors spawned with; those are taken out of their hands, on these NPCs only and idempotently.
+        /// The unit itself, its identity, position, dialogue and portrait are untouched.
+        /// </summary>
+        private static void Unarm()
+        {
+            var staff = new HashSet<Kingmaker.Blueprints.BlueprintUnit>(LodgeCast.Members.Where(m => m.Unarmed).Select(m => m.Unit)) { ScenarioBlueprints.Sheila };
+            foreach (UnitEntityData unit in Game.Instance.State.Units.Where(u => staff.Contains(u.Blueprint)))
+            {
+                var removed = new List<string>();
+                foreach (Kingmaker.Items.HandsEquipmentSet set in unit.Body.HandsEquipmentSets)
+                {
+                    foreach (Kingmaker.Items.Slots.ItemSlot slot in new Kingmaker.Items.Slots.ItemSlot[] { set.PrimaryHand, set.SecondaryHand })
+                    {
+                        Kingmaker.Items.ItemEntity item = slot.MaybeItem;
+                        if (item != null && slot.RemoveItem())
+                        {
+                            item.Collection?.Remove(item);
+                            removed.Add(item.Blueprint.name);
+                        }
+                    }
+                }
+                if (removed.Count > 0)
+                {
+                    Log.Info($"Lodge cast: {unit.CharacterName} ({unit.Blueprint.name}) no longer holds [{string.Join(", ", removed.ToArray())}] from an earlier donor.");
+                }
             }
         }
 

@@ -92,6 +92,26 @@ namespace KingmakerWakingRune.Sanctum
             return DepartureSnapshot.SlotKey(book.Blueprint.AssetGuid, slot.SpellLevel, (int)slot.Type, slot.Index);
         }
 
+        /// <summary>
+        /// One member's part of a readied record is dropped (WR-PLAYTEST-02: the member was rebuilt by retraining, so its
+        /// spellbooks and slots no longer describe what was readied, even where its identity and some keys are unchanged).
+        /// The next use of the token readies that member in full; the others reconcile as before.
+        /// </summary>
+        public static void ForgetMember(UnitEntityData unit, string reason)
+        {
+            DepartureRecordPart record = Game.Instance.Player.MainCharacter.Value?.Descriptor.Get<DepartureRecordPart>();
+            if (record == null || record.Payload == null)
+            {
+                return;
+            }
+            string before = record.Payload;
+            record.Payload = DepartureRecord.Without(record.Payload, unit.UniqueId, record.Prepared);
+            if (record.Payload != before)
+            {
+                Log.Info($"Departure record: {unit.CharacterName} ({unit.UniqueId}) removed ({reason}); the next use of the token readies them in full.");
+            }
+        }
+
         public static void Forget(string reason)
         {
             UnitEntityData main = Game.Instance.Player.MainCharacter.Value;

@@ -253,7 +253,7 @@ namespace KingmakerWakingRune.Blueprints
 
         private static BlueprintUnit CreateSheila(BlueprintUnit donor, BlueprintRoot root)
         {
-            return LodgeCast.CloneUnit(donor, root, "KWR_SheilaHeidmarch", ScenarioIds.SheilaUnitGuid, LocalizedText.SheilaName, null);
+            return LodgeCast.CloneUnit(donor, root, "KWR_SheilaHeidmarch", ScenarioIds.SheilaUnitGuid, LocalizedText.SheilaName, null, unarmed: true);
         }
 
         private static BlueprintAreaPreset CreatePreset(BlueprintRoot root)

@@ -7,8 +7,9 @@ Kingmaker. Spoiler-light: it says how to start, what the lodge offers, and how t
 Pathfinder: Kingmaker 2.1.7 with Unity Mod Manager. Extract the zip into `<Kingmaker>\Mods\` (or install it through the
 UMM installer) and enable it; Ctrl+F10 in game shows the version. No other mods are needed. The portraits are inside
 the mod's DLL, so nothing else needs copying. Optional: with Mr. Bard's Tabletop Rules Expansion (KingmakerGunslinger)
-enabled, the Quartermaster also sells its firearms (Reliable ones included), loading supplies, eastern weapons and
-branched spears. Its firearms need firearm proficiency (a Gunslinger level, or its proficiency feat), as that mod
+enabled, the Quartermaster also sells its magical firearms (+1 to +3 and Reliable), loading supplies, magical eastern
+weapons and magical branched spears (the plain, masterwork and cold iron ones are no longer stocked; a shop you
+already opened keeps whatever copies it had, without restocking them). Its firearms need firearm proficiency (a Gunslinger level, or its proficiency feat), as that mod
 rules. **Once you open the Quartermaster's shop with that mod enabled, that save refers to its items (even if you buy
 nothing) and should not be loaded without it.**
 
@@ -19,8 +20,20 @@ Magnimar lodge.
 ## The lodge
 - **Venture-Captain Sheila Heidmarch** briefs you. Listen to the end: the briefing sets your mission.
 - **The Society Coordinator** recruits adventurers for free; build a party of six. Everyone can reach level 11 here.
+  He also **retrains** for free, as often as you like: "retrain myself" for your own character, or "one of my
+  companions" to pick a recruited companion. The character is rebuilt in the game's own character window from level 1
+  to the experience they have, keeping their name, portrait, experience and everything they carry; their current
+  race, gender, portrait, name and alignment are already chosen there, and you can change any of them. Canceling
+  before you confirm the rebuild leaves the character unchanged; once you confirm it, the character is rebuilt and
+  takes their remaining earned levels as ordinary level-ups. Gear the new build can still use is put back on; anything
+  else (and anything in the quick slots) goes to the shared stash. A caster's spells learned from scrolls are lost with
+  the old spellbook and refunded at the game's usual rate. Ability scores are chosen again by point buy, including with
+  a rolled-stats mod. An animal companion is rebuilt with its owner: when the old companion leaves, its gear goes to
+  the stash. The class's starting gold and starting kit are not given again. A retrained character is readied in full
+  by the next use of the token; nobody else is. With Mounted Combat, save and reload after retraining a rider before
+  mounting.
 - **The Quartermaster** sells equipment from a shared purse of 500,000 gp at normal prices: at least 12 of every piece
-  of equipment, 99 of every potion and scroll (including a scroll of every Wizard spell up to 6th level), and plenty of
+  of equipment (now including Gloves of Dueling, lesser and normal, and every adamantine armor in the game), 99 of every potion and scroll (including a scroll of every Wizard spell up to 6th level), and plenty of
   diamond dust. A spell with versions (Resist Energy, Dispel Magic, the summonings) comes as one scroll per version,
   as in the base game; any of them teaches the whole spell. Lines you buy out are restocked the next time the shop
   opens; things you sell are bought at the usual lower price, and a part-used wand you sell stays as used as it was.
@@ -28,7 +41,10 @@ Magnimar lodge.
 - When ready, **break the Refuge Token** once (from the belt or inventory). The expedition sets out ready: wounds are
   tended and each caster's chosen spells and daily abilities are ready, while protective spells you have already cast
   keep their remaining time. Scrolls, potions, wand charges and other consumables stay as they are, and empty prepared
-  slots stay empty. There is no way back by the token.
+  slots stay empty. There is no way back by the token. The game saves first ("Before the Sanctum of Sloth"); if
+  another mod holds that save back for a moment (Mounted Combat waits for running actions to finish), the token waits
+  for it, and you leave once it is written and checked. If the save cannot be made, you stay in the lodge with the
+  token and nothing spent, and the message says what happened.
 
 ## The sanctum
 You arrive in a frozen chamber. Explore, read what you find, and think about the wards before forcing them: runes,

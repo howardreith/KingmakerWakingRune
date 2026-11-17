@@ -10,6 +10,7 @@ using Kingmaker.Items;
 using Kingmaker.Utility;
 using Kingmaker.Blueprints.Loot;
 using Kingmaker.UnitLogic.FactLogic;
+using Kingmaker.UnitLogic.Parts;
 using UnityEngine;
 
 namespace KingmakerWakingRune.Blueprints
@@ -139,6 +140,48 @@ namespace KingmakerWakingRune.Blueprints
             if (added > 0)
             {
                 Log.Info($"Quartermaster resupply: {lines} lines topped up with {added} new items.");
+            }
+        }
+
+        /// <summary>
+        /// Before a saved shelf is rebuilt (SharedVendorTables.GetTable prefix): a retired provider line the saved table
+        /// still knows from an earlier catalogue is forgotten from that knowledge, so the native catalogue difference does
+        /// not subtract its old retail count from the shelf. The save keeps only blueprint and count, so on an old shelf
+        /// retail copies and copies the party sold back cannot be told apart; every copy on the shelf is kept as it is,
+        /// and the line is never restocked (it is not in the catalogue). New shelves never have these lines. Runs once per
+        /// shelf build and only for this shop's table; nothing is added or removed.
+        /// </summary>
+        public static void PreserveRetiredLines(SharedVendorTables tables, BlueprintSharedVendorTable blueprint)
+        {
+            if (blueprint == null || blueprint != Table)
+            {
+                return;
+            }
+            var built = Traverse.Create(tables).Field("m_Dictionary").GetValue<Dictionary<BlueprintSharedVendorTable, ItemsCollection>>();
+            if (built != null && built.ContainsKey(blueprint))
+            {
+                return;
+            }
+            var saved = Traverse.Create(tables).Field("m_PersistentTables").GetValue<System.Collections.IList>();
+            foreach (object data in saved ?? new object[0])
+            {
+                var table = Traverse.Create(data);
+                if (table.Field("Table").GetValue<BlueprintSharedVendorTable>() != blueprint)
+                {
+                    continue;
+                }
+                var known = table.Field("KnownItems").GetValue<Dictionary<BlueprintItem, int>>();
+                var entries = table.Field("Entries").GetValue<List<LootEntry>>();
+                var kept = new List<string>();
+                foreach (BlueprintItem item in (known?.Keys ?? Enumerable.Empty<BlueprintItem>()).Where(k => k != null && ProviderStock.Retired.Contains(k.AssetGuid)).ToList())
+                {
+                    known.Remove(item);
+                    kept.Add($"{item.name} x{entries?.Where(e => e.Item == item).Sum(e => e.Count) ?? 0}");
+                }
+                if (kept.Count > 0)
+                {
+                    Log.Info($"Quartermaster: retired provider lines kept on this saved shelf as they are, not restocked (retail and sold-back copies cannot be told apart in the save): {string.Join(", ", kept.ToArray())}.");
+                }
             }
         }
 

@@ -25,6 +25,12 @@ namespace KingmakerWakingRune.Sanctum
         string StartCheckpoint();
 
         CheckpointProgress PollCheckpoint(out string failure);
+
+        /// <summary>
+        /// The checkpoint is given up (a timeout, a load, an error in the journey): it can never lead to travel, and a save the
+        /// native queue still holds is left to finish untouched. Returns what to tell the player about a timeout.
+        /// </summary>
+        string AbandonCheckpoint(string reason);
         void FadeOut();
         void LoadDestination();
         void CommitArrival();
@@ -107,6 +113,7 @@ namespace KingmakerWakingRune.Sanctum
                 }
                 else
                 {
+                    GiveUpCheckpoint("an error in the journey");
                     Abandon(CheckpointUnconfirmed);
                 }
             }
@@ -141,10 +148,11 @@ namespace KingmakerWakingRune.Sanctum
                             Abandon(failure ?? CheckpointUnconfirmed);
                             break;
                         default:
-                            // The native save is left to finish on its own; it is never interrupted and no load starts over it.
+                            // A backstop only: the save itself decides when it is done. It is never interrupted, no load
+                            // starts over it, and once given up it can no longer lead to travel.
                             if (m_Host.Now >= m_Deadline)
                             {
-                                Abandon(CheckpointUnconfirmed);
+                                Abandon(m_Host.AbandonCheckpoint($"no result within {CheckpointSeconds:0} s") ?? CheckpointUnconfirmed);
                             }
                             break;
                     }
@@ -240,8 +248,17 @@ namespace KingmakerWakingRune.Sanctum
                 return;
             }
             m_Host.Info($"Refuge transfer state cleared: {reason}.");
+            GiveUpCheckpoint(reason);
             m_Stage = Stage.Idle;
             m_Host.FadeIn();
+        }
+
+        private void GiveUpCheckpoint(string reason)
+        {
+            if (m_Stage == Stage.Checkpointing)
+            {
+                m_Host.AbandonCheckpoint(reason);
+            }
         }
 
         /// <summary>Nothing has left the lodge: the party simply stays and may try again.</summary>
