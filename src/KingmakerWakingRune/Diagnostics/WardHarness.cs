@@ -534,6 +534,81 @@ namespace KingmakerWakingRune.Diagnostics
                     string trainings = string.Join(",", (member.Get<Kingmaker.UnitLogic.Parts.UnitPartWeaponTraining>()?.WeaponTrainings ?? new System.Collections.Generic.List<Kingmaker.Blueprints.Facts.Fact>()).Select(f => $"{f.Blueprint.name}:{f.GetRank()}").ToArray());
                     return $"READ {member.CharacterName} {weapon.Blueprint.name}: attack +{attack.Result}, damage {damage?.Dice}+{damage?.Bonus}, weapon training rank {rank} [{trainings}], gloves {gloves}, CMD vs disarm {Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.RuleCalculateCMD(member, member, Kingmaker.RuleSystem.Rules.CombatManeuver.Disarm)).Result}.";
                 }
+                case "viewinfo":
+                {
+                    // READ: where a unit's view sits in the scene hierarchy (parent, scene, sibling index, scene roots).
+                    string missing = Resolve(args[1], out UnitEntityData viewed);
+                    if (missing != null || viewed.View == null)
+                    {
+                        return missing ?? "no view";
+                    }
+                    Transform t = viewed.View.transform;
+                    UnityEngine.SceneManagement.Scene scene = t.gameObject.scene;
+                    return $"READ view of {viewed.CharacterName}: parent={(t.parent != null ? t.parent.name : "none")} scene={scene.name} valid={scene.IsValid()} loaded={scene.isLoaded} sibling={t.GetSiblingIndex()} roots={scene.rootCount} hideFlags={t.gameObject.hideFlags}";
+                }
+                case "wear":
+                {
+                    // SETUP: a new item of the named blueprint put into a named equipment slot of any unit (pets included), for the
+                    // retraining pet-gear check; and READ of that unit's worn items with "wear <target> list".
+                    string missing = Resolve(args[1], out UnitEntityData wearer);
+                    if (missing != null)
+                    {
+                        return missing;
+                    }
+                    var body = wearer.Body;
+                    var slots = new System.Collections.Generic.Dictionary<string, Kingmaker.Items.Slots.ItemSlot>
+                    {
+                        ["neck"] = body.Neck, ["armor"] = body.Armor, ["belt"] = body.Belt, ["head"] = body.Head, ["feet"] = body.Feet,
+                        ["gloves"] = body.Gloves, ["ring1"] = body.Ring1, ["ring2"] = body.Ring2, ["wrist"] = body.Wrist, ["shoulders"] = body.Shoulders,
+                    };
+                    if (args[2] == "list")
+                    {
+                        return $"READ {wearer.CharacterName} ({wearer.UniqueId}) wears: " + string.Join(", ", slots.Where(p => p.Value.HasItem).Select(p => $"{p.Key}={p.Value.Item.Blueprint.name}").ToArray());
+                    }
+                    var blueprint = ResourcesLibrary.GetBlueprints<Kingmaker.Blueprints.Items.BlueprintItem>().FirstOrDefault(b => b.name == args[3]);
+                    if (blueprint == null || !slots.TryGetValue(args[2], out Kingmaker.Items.Slots.ItemSlot slot))
+                    {
+                        return $"no item {args[3]} or no slot {args[2]}";
+                    }
+                    Kingmaker.Items.ItemEntity item = Game.Instance.Player.Inventory.Add(blueprint);
+                    bool ok = slot.CanInsertItem(item);
+                    if (ok)
+                    {
+                        slot.InsertItem(item);
+                    }
+                    return $"SETUP {wearer.CharacterName} {args[2]} <- {blueprint.name}: {ok}.";
+                }
+                case "siblingprobe":
+                {
+                    // READ (diagnosis only): Mounted Combat's rider-slot reservation step, replayed on a throwaway object next to
+                    // the unit's view, then removed: is the reservation placed right after the view, and does the view keep its index?
+                    string missing = Resolve(args[1], out UnitEntityData probed);
+                    if (missing != null || probed.View == null)
+                    {
+                        return missing ?? "no view";
+                    }
+                    Transform t = probed.View.transform;
+                    Transform parent = t.parent;
+                    int index = t.GetSiblingIndex();
+                    var slot = new GameObject("KWR_SiblingProbe");
+                    slot.hideFlags = HideFlags.HideAndDontSave;
+                    slot.SetActive(false);
+                    slot.transform.SetParent(parent, true);
+                    int placedAt = slot.transform.GetSiblingIndex();
+                    slot.transform.SetSiblingIndex(index + 1);
+                    string result = $"READ sibling probe for {probed.CharacterName}: parent={parent?.name} children={parent?.childCount} view index {index} -> {t.GetSiblingIndex()}; slot placed at {placedAt}, then set to {index + 1}, now {slot.transform.GetSiblingIndex()}; slot parent ok={slot.transform.parent == parent}";
+                    var names = new System.Collections.Generic.List<string>();
+                    if (parent != null)
+                    {
+                        for (int i = 0; i < parent.childCount; i++)
+                        {
+                            Transform c = parent.GetChild(i);
+                            names.Add($"{i}:{c.name}{(c.gameObject.activeSelf ? "" : "(off)")}");
+                        }
+                    }
+                    UnityEngine.Object.DestroyImmediate(slot);
+                    return result + "; children: " + string.Join(", ", names.ToArray());
+                }
                 case "respecnative":
                     // HARNESS-COMMANDED: the native rebuild started directly, as the stock character selector and other respec
                     // mods (Eddic's F2 selector) start it after their choice; the build window that opens is the player's.
