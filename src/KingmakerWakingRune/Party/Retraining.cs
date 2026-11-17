@@ -244,6 +244,13 @@ namespace KingmakerWakingRune.Party
                     }
                 }
                 string kit = TakeBackStartingKit(unit, op);
+                // The native rebuild retires a former pet either at once (BeforePetRetired, through the Destroy hook) or,
+                // when its owner's new build spawns a fresh companion, at a later level-up, after this retraining has
+                // ended. A former pet still standing here gives its gear to the shared stash now, so neither path loses it.
+                if (op.Pet != null && op.Pet != unit.Descriptor.Pet && Game.Instance.State.Units.Contains(op.Pet))
+                {
+                    BeforePetRetired(op.Pet);
+                }
                 Log.Info($"Retraining succeeded for {Describe(unit)}: level {unit.Descriptor.Progression.CharacterLevel} of xp {unit.Descriptor.Progression.Experience} (was {op.Experience}); " +
                          $"treasury {Game.Instance.Player.Money} gp (was {op.Money}; native refund for copied scrolls {op.ScrollRefund} gp); {kit}; inventory {Game.Instance.Player.Inventory.Items.Count} entries (was {op.Items}); " +
                          $"re-equipped [{string.Join(", ", kept.ToArray())}]; left in the shared inventory [{string.Join(", ", stored.ToArray())}]; pet {unit.Descriptor.Pet?.CharacterName ?? "none"} (was {op.Pet?.CharacterName ?? "none"}); scenario records carried across [{carried}].");
@@ -368,7 +375,7 @@ namespace KingmakerWakingRune.Party
                     moved.Add(name);
                 }
             }
-            Log.Info($"Retraining: the former pet {pet.CharacterName} is retired by the native rebuild; its gear went to the shared inventory [{string.Join(", ", moved.ToArray())}].");
+            Log.Info($"Retraining: the former pet {pet.CharacterName} ({pet.UniqueId}) is no longer its owner's companion; its gear went to the shared inventory [{string.Join(", ", moved.ToArray())}].");
         }
 
         /// <summary>A load or new game ends whatever was open; nothing of it applies to the new world.</summary>
