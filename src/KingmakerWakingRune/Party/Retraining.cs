@@ -35,13 +35,18 @@ namespace KingmakerWakingRune.Party
     /// gender, race, portrait, name, alignment and voice are preselected; each can still be changed there.
     /// The native rebuild repopulates the unit from a fresh one, which drops every part the scenario keeps on it (on the
     /// protagonist: the departure record, the Quartermaster's sold-charges record and the sanctum's state with the
-    /// expedition's outcome). Those part objects are carried across the rebuild unchanged.
+    /// expedition's outcome). Those part objects are carried across the rebuild unchanged, and the character's departure
+    /// entry is dropped, for every native respec of a party member, not only the Coordinator's: the native selector, or
+    /// another mod's respec (Eddic's F2 selector) that calls the same native rebuild, is covered too.
     /// </summary>
     internal static class Retraining
     {
         private const float StartSeconds = 5f;
 
         private static Operation s_Active;
+
+        /// <summary>The scenario's parts of each unit whose native rebuild has started and not yet finished, whoever started it.</summary>
+        private static readonly Dictionary<UnitEntityData, List<UnitPart>> s_Carry = new Dictionary<UnitEntityData, List<UnitPart>>();
 
         private sealed class Operation
         {
@@ -64,7 +69,6 @@ namespace KingmakerWakingRune.Party
             public Gender Gender;
             public Kingmaker.Blueprints.Classes.BlueprintRace Race;
             public bool Prefilled;
-            public List<UnitPart> Kept;
             public int ShownFrame;
             public float Armed;
             public bool SelectorClosed;
@@ -147,6 +151,7 @@ namespace KingmakerWakingRune.Party
         /// </summary>
         public static void BeforeRespec(UnitEntityData unit)
         {
+            s_Carry[unit] = Parts(unit.Descriptor).Values.Where(p => p.GetType().Assembly == typeof(Retraining).Assembly).ToList();
             Operation op = s_Active;
             if (op == null || op.Target != null || !op.Allowed.Contains(unit) || (op.Expected != null && op.Expected != unit))
             {
@@ -165,7 +170,6 @@ namespace KingmakerWakingRune.Party
             op.Gender = unit.Descriptor.Gender;
             op.Race = unit.Descriptor.Progression.Race;
             op.Pet = unit.Descriptor.Pet;
-            op.Kept = Parts(unit.Descriptor).Values.Where(p => p.GetType().Assembly == typeof(Retraining).Assembly).ToList();
             op.Equipped = unit.Body.EquipmentSlots.Select((slot, index) => new KeyValuePair<int, ItemEntity>(index, slot.MaybeItem)).Where(p => p.Value != null).ToList();
             Log.Info($"Retraining started for {Describe(unit)}: xp {op.Experience}, treasury {op.Money} gp (native refund for copied scrolls {op.ScrollRefund} gp), {op.Equipped.Count} equipped items, pet {op.Pet?.CharacterName ?? "none"}.");
         }
@@ -219,7 +223,7 @@ namespace KingmakerWakingRune.Party
                 return;
             }
             UnitEntityData unit = op.Target;
-            string carried = Restore(unit, op.Kept);
+            string carried = CarryAcross(unit);
             try
             {
                 var kept = new List<string>();
@@ -240,7 +244,6 @@ namespace KingmakerWakingRune.Party
                     }
                 }
                 string kit = TakeBackStartingKit(unit, op);
-                DeparturePreparation.ForgetMember(unit, "retrained");
                 Log.Info($"Retraining succeeded for {Describe(unit)}: level {unit.Descriptor.Progression.CharacterLevel} of xp {unit.Descriptor.Progression.Experience} (was {op.Experience}); " +
                          $"treasury {Game.Instance.Player.Money} gp (was {op.Money}; native refund for copied scrolls {op.ScrollRefund} gp); {kit}; inventory {Game.Instance.Player.Inventory.Items.Count} entries (was {op.Items}); " +
                          $"re-equipped [{string.Join(", ", kept.ToArray())}]; left in the shared inventory [{string.Join(", ", stored.ToArray())}]; pet {unit.Descriptor.Pet?.CharacterName ?? "none"} (was {op.Pet?.CharacterName ?? "none"}); scenario records carried across [{carried}].");
@@ -261,6 +264,34 @@ namespace KingmakerWakingRune.Party
         private static Dictionary<Type, UnitPart> Parts(UnitDescriptor descriptor)
         {
             return (Dictionary<Type, UnitPart>)PartsField.GetValue(ManagerField.GetValue(descriptor));
+        }
+
+        /// <summary>
+        /// The native rebuild finished (IUnitChangedAfterRespecHandler, raised by every native respec after its success
+        /// callback): a rebuild nobody here started gets the same protection as the Coordinator's.
+        /// </summary>
+        public static void AfterAnyRespec(UnitEntityData unit)
+        {
+            if (unit != null && s_Carry.ContainsKey(unit))
+            {
+                Log.Info($"Respec of {Describe(unit)} outside the Coordinator finished; scenario records carried across [{CarryAcross(unit)}].");
+            }
+        }
+
+        /// <summary>
+        /// Once per finished rebuild: puts the scenario's own parts back on the rebuilt unit, as the same objects, where the
+        /// rebuild dropped them, then drops the character's entry from a readied departure.
+        /// </summary>
+        private static string CarryAcross(UnitEntityData unit)
+        {
+            if (!s_Carry.TryGetValue(unit, out List<UnitPart> kept))
+            {
+                return "";
+            }
+            s_Carry.Remove(unit);
+            string names = Restore(unit, kept);
+            DeparturePreparation.ForgetMember(unit, "retrained");
+            return names;
         }
 
         /// <summary>Puts the scenario's own parts back on the rebuilt unit, as the same objects, where the rebuild dropped them.</summary>
@@ -343,6 +374,7 @@ namespace KingmakerWakingRune.Party
         /// <summary>A load or new game ends whatever was open; nothing of it applies to the new world.</summary>
         public static void Reset(string reason)
         {
+            s_Carry.Clear();
             if (s_Active != null)
             {
                 Log.Info($"Retraining ({s_Active.Option}) cleared: {reason}; nothing was changed.");

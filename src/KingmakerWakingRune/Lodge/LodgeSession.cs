@@ -30,6 +30,7 @@ namespace KingmakerWakingRune.Lodge
             }
             s_Instance = new LodgeSession();
             EventBus.Subscribe(s_Instance);
+            Patches.RetrainingRespecEvents.Subscribe();
         }
 
         public void OnAreaBeginUnloading()

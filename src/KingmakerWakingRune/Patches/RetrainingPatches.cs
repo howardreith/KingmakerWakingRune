@@ -18,6 +18,33 @@ namespace KingmakerWakingRune.Patches
         }
     }
 
+    /// <summary>Every finished native respec (the Coordinator's or any other): the scenario's records are carried across.</summary>
+    internal sealed class RetrainingRespecEvents : Kingmaker.PubSubSystem.IUnitChangedAfterRespecHandler
+    {
+        private static RetrainingRespecEvents s_Instance;
+
+        public static void Subscribe()
+        {
+            if (s_Instance == null)
+            {
+                s_Instance = new RetrainingRespecEvents();
+                Kingmaker.PubSubSystem.EventBus.Subscribe(s_Instance);
+            }
+        }
+
+        public void HandleUnitChangedAfterRespec(UnitEntityData unit)
+        {
+            try
+            {
+                Retraining.AfterAnyRespec(unit);
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Respec of {unit?.CharacterName}: the scenario's records could not be carried across.", ex);
+            }
+        }
+    }
+
     /// <summary>The native character selector closing (with or without a choice); an open retraining checks which.</summary>
     [HarmonyPatch(typeof(CharSelectWindow), "CloseWindow")]
     internal static class RetrainingSelectorPatch

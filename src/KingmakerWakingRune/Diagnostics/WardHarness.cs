@@ -534,6 +534,11 @@ namespace KingmakerWakingRune.Diagnostics
                     string trainings = string.Join(",", (member.Get<Kingmaker.UnitLogic.Parts.UnitPartWeaponTraining>()?.WeaponTrainings ?? new System.Collections.Generic.List<Kingmaker.Blueprints.Facts.Fact>()).Select(f => $"{f.Blueprint.name}:{f.GetRank()}").ToArray());
                     return $"READ {member.CharacterName} {weapon.Blueprint.name}: attack +{attack.Result}, damage {damage?.Dice}+{damage?.Bonus}, weapon training rank {rank} [{trainings}], gloves {gloves}, CMD vs disarm {Kingmaker.RuleSystem.Rulebook.Trigger(new Kingmaker.RuleSystem.Rules.RuleCalculateCMD(member, member, Kingmaker.RuleSystem.Rules.CombatManeuver.Disarm)).Result}.";
                 }
+                case "respecnative":
+                    // HARNESS-COMMANDED: the native rebuild started directly, as the stock character selector and other respec
+                    // mods (Eddic's F2 selector) start it after their choice; the build window that opens is the player's.
+                    Game.Instance.Player.RespecCompanion(Member(args[1]));
+                    return $"HARNESS-COMMANDED native respec started for {Member(args[1]).CharacterName}, outside the Coordinator.";
                 case "gearaudit":
                     return GearAudit.Write(args[1]);
                 case "lineup":
