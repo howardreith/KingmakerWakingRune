@@ -111,6 +111,16 @@ namespace KingmakerWakingRune.Sanctum
             return CheckpointStage.Written;
         }
 
+        /// <summary>
+        /// Whether an operation still holds the one-save-at-a-time guard: while the native queue holds it, or its record is
+        /// still being written. Once both are over it releases the guard whatever its result (success, rejection, write
+        /// failure), including an operation that was given up; given up, it never leads to travel either way.
+        /// </summary>
+        public static bool HoldsSaveGuard(bool owned, bool recordCommitting)
+        {
+            return owned || recordCommitting;
+        }
+
         /// <summary>A stage that can still change by itself.</summary>
         public static bool Pending(CheckpointStage stage)
         {

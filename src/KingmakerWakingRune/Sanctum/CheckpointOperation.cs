@@ -123,9 +123,12 @@ namespace KingmakerWakingRune.Sanctum
             }
             else
             {
-                operation.m_InjectWriteError = FaultInjection.Take("save-write-error");
+                // save-delay-write-error: the delay and the write error together, so the operation can be given up while it is
+                // still queued and then fail without its completion callback.
+                bool delayThenFail = FaultInjection.Take("save-delay-write-error");
+                operation.m_InjectWriteError = delayThenFail || FaultInjection.Take("save-write-error");
                 operation.m_InjectReadBack = FaultInjection.Take("save-readback");
-                if (FaultInjection.Take("save-delay"))
+                if (delayThenFail || FaultInjection.Take("save-delay"))
                 {
                     // A controlled delayed completion: a five-second operation is queued ahead of the save.
                     Log.Info($"INJECTED FAULT save-delay: checkpoint #{operation.Id} queued behind a 5 s operation.");
@@ -227,10 +230,7 @@ namespace KingmakerWakingRune.Sanctum
             }
             m_Abandoned = reason;
             Log.Info($"{Status}: given up ({reason}); it cannot lead to travel.");
-            if (m_Stage == CheckpointStage.Failed)
-            {
-                s_Live.Remove(this);
-            }
+            Sweep();
         }
 
         private void Fail(CheckpointFailure failure)
@@ -270,13 +270,30 @@ namespace KingmakerWakingRune.Sanctum
             return facts;
         }
 
-        /// <summary>Drops operations that have reached an end and that the native queue no longer holds.</summary>
+        /// <summary>
+        /// Releases the guard of every operation the native queue no longer holds and whose record is no longer being
+        /// written (<see cref="CheckpointRules.HoldsSaveGuard"/>), however it ended. This does not depend on anyone still
+        /// polling it: a given-up operation that the queue later retires without its completion callback (a rejected or
+        /// failed save) is released here too, and is logged as such.
+        /// </summary>
         private static void Sweep()
         {
             IEnumerator current = CurrentProcess();
             List<IEnumerator> queued = Queued();
-            s_Live.RemoveAll(o => (o.m_Completed || o.m_Stage == CheckpointStage.Failed) && !ReferenceEquals(o.m_Process, current) && !queued.Contains(o.m_Process)
-                && (o.m_Record == null || o.m_Record.OperationState == SaveInfo.StateType.None));
+            foreach (CheckpointOperation o in s_Live.ToList())
+            {
+                bool owned = ReferenceEquals(o.m_Process, current) || queued.Contains(o.m_Process);
+                bool committing = o.m_Record != null && o.m_Record.OperationState != SaveInfo.StateType.None;
+                if (CheckpointRules.HoldsSaveGuard(owned, committing))
+                {
+                    continue;
+                }
+                s_Live.Remove(o);
+                if (o.m_Abandoned != null && !o.m_Completed)
+                {
+                    Log.Info($"Checkpoint #{o.Id} '{o.Requested}' left the loading queue without finishing, after it was given up ({o.m_Abandoned}); its guard is released and nothing follows from it.");
+                }
+            }
         }
 
         private bool IsReadable(SaveInfo save)

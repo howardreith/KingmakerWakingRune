@@ -118,6 +118,24 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(false, CheckpointRules.Describe(CheckpointFailure.ReadBack, "x") == CheckpointRules.Describe(CheckpointFailure.WriteFailed, "x"), "read-back and write failure are told apart");
         }
 
+        /// <summary>
+        /// WR-PLAYTEST-02 review: the one-save guard is held while the queue holds the operation or its record is being
+        /// written, and released once both are over, however it ended. A given-up operation that the queue later retires
+        /// without its completion callback (rejected, or a failed write) must release it too, or every later departure,
+        /// portal use and retraining is refused for the rest of the session.
+        /// </summary>
+        public static void TestTheGuardIsReleasedByAnyEnd()
+        {
+            Assert.Equal(true, CheckpointRules.HoldsSaveGuard(true, false), "queued or current: held");
+            Assert.Equal(true, CheckpointRules.HoldsSaveGuard(false, true), "routine over, archive still being written: held");
+            Assert.Equal(false, CheckpointRules.HoldsSaveGuard(false, false), "left the queue, nothing writing: released");
+            // The given-up operation that was rejected: not owned, never completed, no record. Its assessment is a failure
+            // (so it cannot lead to travel), and it no longer holds the guard.
+            CheckpointFacts rejected = Live();
+            Assert.Equal(CheckpointFailure.Rejected, Fail(rejected), "rejected");
+            Assert.Equal(false, CheckpointRules.HoldsSaveGuard(rejected.Owned, rejected.Committing), "and released");
+        }
+
         private static CheckpointFailure Fail(CheckpointFacts facts)
         {
             Assert.Equal(CheckpointStage.Failed, CheckpointRules.Assess(facts, out CheckpointFailure failure), "failed");
