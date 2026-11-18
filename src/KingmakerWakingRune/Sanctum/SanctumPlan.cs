@@ -206,6 +206,7 @@ namespace KingmakerWakingRune.Sanctum
         public static readonly GridPoint[] BrazierSouth = Octagon(15.62f, 10.1f, 0.22f);
         public static readonly GridPoint[] Pedestal = Octagon(19.7f, 10.9f, 0.27f);
         public static readonly GridPoint[] SarcophagusShadow = Rect(8.07f, 8.98f, 9.67f, 9.94f);
+        private static readonly GridPoint[][] Furniture = { Altar, BrazierNorth, BrazierSouth, Pedestal, SarcophagusShadow };
 
         public static readonly GridPoint PortalRecess = new GridPoint(20.6f, 9.65f);
         public static readonly GridPoint SarcophagusCenter = new GridPoint(8.87f, 9.46f);
@@ -253,6 +254,62 @@ namespace KingmakerWakingRune.Sanctum
 
         /// <summary>The runs that stop sight: the drawn walls, with the core following <see cref="CoreSight"/>.</summary>
         public static readonly List<WallRun> SightLines = BuildSightLines();
+
+        public static GridPoint SavedPoint(float worldX, float worldZ, bool previousLayout)
+        {
+            float scale = previousLayout ? PrintedSquareMeters : MetersPerSquare;
+            return new GridPoint(OriginX + worldX / scale, OriginY - worldZ / scale);
+        }
+
+        public static bool FitsMigration(GridPoint old, GridPoint point, float height, float radius, DoorPlan[] closed)
+        {
+            var space = SpaceAt(old.X, old.Y);
+            if (space == SanctumSpace.None || space != SpaceAt(point.X, point.Y) || !IsValidGround(point.X, point.Y, height)) return false;
+            foreach (var door in Doors)
+            {
+                if (closed.Contains(door))
+                {
+                    if (!SameDoorSide(door, old, point) || DoorwayOverlap(door, point.X, point.Y, height, radius)) return false;
+                }
+                else if (height <= DoorLeafHeight)
+                {
+                    double a = door.OpenDegrees * Math.PI / 180;
+                    float dx = door.Latch.X - door.Hinge.X, dy = door.Latch.Y - door.Hinge.Y;
+                    var tip = new GridPoint(door.Hinge.X + (float)(dx * Math.Cos(a) - dy * Math.Sin(a)),
+                        door.Hinge.Y + (float)(dx * Math.Sin(a) + dy * Math.Cos(a)));
+                    if (DistanceToSegment(point.X, point.Y, door.Hinge, tip) <= radius + 0.06f) return false;
+                }
+            }
+            foreach (var wall in Walls)
+            {
+                int count = wall.Points.Length;
+                for (int i = 0; i < (wall.Closed ? count : count - 1); i++)
+                    if (!wall.Openings.Contains(i) && DistanceToSegment(point.X, point.Y, wall.Points[i], wall.Points[(i + 1) % count]) <= radius) return false;
+            }
+            if (space == SanctumSpace.Atrium)
+            {
+                // Each chain pier is engaged with the room wall; allow for its stone base.
+                foreach (var pier in ChainAnchors)
+                {
+                    float dx = point.X - pier.X, dy = point.Y - pier.Y;
+                    float clearance = radius + 0.5f / MetersPerSquare;
+                    if (dx*dx + dy*dy <= clearance*clearance) return false;
+                }
+                foreach (var obstacle in Furniture)
+                    for (int i = 0; i < obstacle.Length; i++)
+                        if (DistanceToSegment(point.X, point.Y, obstacle[i], obstacle[(i + 1) % obstacle.Length]) <= radius) return false;
+            }
+            return true;
+        }
+
+        public static GridPoint? NearestMigrationPoint(float savedX, float savedZ, bool previousLayout, Func<GridPoint, bool> legal)
+        {
+            GridPoint old = SavedPoint(savedX, savedZ, previousLayout);
+            if (legal(old)) return old;
+            foreach (var candidate in RingsAround(old.X, old.Y))
+                if (legal(candidate)) return candidate;
+            return null;
+        }
 
         public static float ToWorldX(float gridX)
         {

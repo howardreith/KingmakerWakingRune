@@ -1675,9 +1675,8 @@ namespace KingmakerWakingRune.Diagnostics
             {
                 return $"no check {key} on {fixtureId}";
             }
-            WardSkill skill = skillName != null ? (WardSkill)Enum.Parse(typeof(WardSkill), skillName) : check.Skills[0];
-            WardInteract.Study(fixtureId, check, skill);
-            return $"SETUP studied {key} on {fixtureId} with {skill}.";
+            WardInteract.Study(fixtureId, check);
+            return $"HARNESS-COMMANDED study of {key} on {fixtureId} using party eligibility.";
         }
 
         private static string Items()

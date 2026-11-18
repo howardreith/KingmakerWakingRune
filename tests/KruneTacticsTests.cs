@@ -60,20 +60,127 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(false, KruneTactics.MayUseHeldSpear(false, false, true), "standard already spent");
         }
 
-        public static void TestRejectedSwiftSummonCannotStarveStandardAtFrozenGameTime()
+        public static void TestRejectedQuickenedSummonReleasesOfferAndDispatchesStandard()
+        {
+            var failed = new FailedKrunePlans();
+            object turn = new object(), spell = new object();
+            failed.Observe(turn, 0, "frost giant");
+            foreach (var stage in new[] { CastStage.Constructed, CastStage.Initialized, CastStage.Started })
+            {
+                var command = new DirectedCastLifecycle(spell);
+                bool extendReserved = true;
+                if (stage != CastStage.Constructed) command.Initialize();
+                if (stage == CastStage.Started) command.Start();
+                int slots = 1, actions = 1, charges = 9;
+                object rule = new object();
+                command.BeginRule(spell, rule);
+                command.ResolveRule(spell, rule, false, () => { slots--; actions--; charges--; });
+                command.End(stage == CastStage.Started ? CastResult.Interrupted : CastResult.Rejected, false, reason =>
+                {
+                    extendReserved = false;
+                    failed.Reject("summon/quickened", "giant", reason);
+                }, () =>
+                {
+                    Assert.Equal(false, extendReserved, "reservation released before native end subscribers");
+                    Assert.Equal(CastStage.Ended, command.Stage, "reentrant native end sees terminal state");
+                    for (int i = 0; i < 1000; i++)
+                        Assert.Equal(false, failed.Allows("summon/quickened", "second point"), "broad rejection blocks re-dispatch");
+                    Assert.Equal(true, failed.Allows("summon/standard", "giant"), "distinct standard plan is dispatchable");
+                });
+                Assert.Equal(1, slots, "no commit spend"); Assert.Equal(1, actions, "no action callback");
+                Assert.Equal(9, charges, "no Extend charge");
+                turn = new object();
+                failed.Observe(turn, 0, "frost giant");
+                Assert.Equal(true, failed.Allows("summon/quickened", "giant"), "next actual turn");
+            }
+        }
+
+        public static void TestFailedSwiftFallsThroughTacticalListToCommittedStandard()
+        {
+            var view = new KruneView { SummonsAlive = 1 };
+            view.Ready["Quickened Summon Monster V"] = 1;
+            view.Ready["Foresight"] = 1;
+            var exclusions = new FailedKrunePlans();
+            exclusions.Observe(new object(), 0, "living frost giant");
+            KruneChoice Choose() => KruneTactics.SwiftOptions(view).Concat(KruneTactics.StandardOptions(view))
+                .FirstOrDefault(c => exclusions.Allows(c.Key, c.Aim.ToString()));
+
+            var summon = Choose();
+            Assert.Equal("Quickened Summon Monster V", summon.Key, "first native order");
+            var rejected = new DirectedCastLifecycle(summon);
+            rejected.Initialize();
+            rejected.End(CastResult.Rejected, false, reason => exclusions.Reject(summon.Key, summon.Aim.ToString(), reason), () => { });
+            var defense = Choose();
+            Assert.Equal("Foresight", defense.Key, "same turn chooses a different standard action");
+            var fallback = new DirectedCastLifecycle(defense);
+            fallback.Initialize();
+            fallback.Start();
+            var rule = new object();
+            fallback.BeginRule(defense, rule);
+            fallback.ResolveRule(defense, rule, true, () => view.Ready[defense.Key]--);
+            fallback.End(CastResult.NativeFailure, false, result => { }, () => { });
+            Assert.Equal(CastResult.Committed, fallback.Result, "fallback resolves");
+            Assert.Equal(0, view.Ready[defense.Key], "one committed standard slot");
+            Assert.Equal(1, view.Ready[summon.Key], "rejected swift slot remains prepared");
+            Assert.Equal(null, Choose(), "no immediate duplicate order");
+        }
+
+        public static void TestCommitNeedsExactRuleAndRelocationNeedsDelivery()
+        {
+            foreach (bool relocate in new[] { false, true })
+            foreach (bool delivered in new[] { false, true })
+            foreach (bool offerAccepted in new[] { false, true })
+            {
+                var spell = new object();
+                var nativeRule = new object();
+                var cast = new DirectedCastLifecycle(spell);
+                cast.Initialize(); cast.Start(); cast.BeginRule(spell, nativeRule);
+                Assert.Equal(false, cast.ResolveRule(new object(), nativeRule, true), "different AbilityData");
+                Assert.Equal(false, cast.ResolveRule(spell, new object(), true), "different rule");
+                int charges = 9;
+                var extend = RodRules.Apply(new[] { "Extend" }, new[] { "Extend" }, new string[0], offerAccepted ? charges : 0);
+                Assert.Equal(true, cast.ResolveRule(spell, nativeRule, true, () => charges -= extend.Sum(o => o.Cost)), "unmodified spell also commits");
+                Assert.Equal(false, cast.ResolveRule(spell, nativeRule, true), "duplicate rule cannot pay twice");
+                if (relocate && delivered) cast.Delivered();
+                cast.End(CastResult.NativeFailure, relocate, result => { }, () => { });
+                Assert.Equal(relocate ? (delivered ? CastResult.Delivered : CastResult.DeliveryFailed) : CastResult.Committed,
+                    cast.Result, "successful rule and actual delivery are separate");
+                Assert.Equal(offerAccepted ? 8 : 9, charges, "payment only for accepted offer");
+            }
+        }
+
+        public static void TestInterruptedCommittedCommandKeepsSpendButNeverReportsDelivery()
+        {
+            object spell = new object(), rule = new object();
+            var cast = new DirectedCastLifecycle(spell);
+            cast.Initialize(); cast.Start(); cast.BeginRule(spell, rule);
+            cast.ResolveRule(spell, rule, true);
+            int nativeEnds = 0;
+            try
+            {
+                cast.End(CastResult.Interrupted, true, result => { throw new InvalidOperationException(); }, () => nativeEnds++);
+            }
+            catch (InvalidOperationException) { }
+            Assert.Equal(CastResult.InterruptedAfterCommit, cast.Result, "no retreat after interrupt");
+            Assert.Equal(true, cast.Committed, "native spend remains authoritative");
+            cast.End(CastResult.Interrupted, true, result => { }, () => nativeEnds++);
+            Assert.Equal(1, nativeEnds, "teardown once even when the observer throws");
+        }
+
+        public static void TestFailureEpochTracksBudgetAndTargetInsteadOfGameTime()
         {
             var plans = new FailedKrunePlans();
-            const string summon = "SummonMonsterVSingle/Quicken/point/Swift";
-            plans.BeginRound(1);
-            plans.Reject(summon);
-            for (int retry = 0; retry < 1000; retry++)
-            {
-                plans.BeginRound(1);
-                Assert.Equal(false, plans.Allows(summon), "same turn, same command");
-            }
-            Assert.Equal(true, plans.Allows("SummonMonsterVSingle/point/Standard"), "standard remains available");
-            plans.BeginRound(2);
-            Assert.Equal(true, plans.Allows(summon), "next round can reconsider");
+            plans.Observe(null, 0, "unchanged");
+            plans.Reject("swift", "giant", CastResult.NativeFailure);
+            plans.Observe(null, 0, "unchanged"); // 5.99 -> 6.01 game seconds
+            Assert.Equal(false, plans.Allows("swift", "empty"), "a clock boundary renews nothing");
+            plans.Observe(null, 1, "unchanged");
+            Assert.Equal(false, plans.Allows("swift", "empty"), "spending a standard is not renewal");
+            plans.Observe(null, 0, "unchanged");
+            Assert.Equal(true, plans.Allows("swift", "giant"), "observed a renewed budget");
+            plans.Reject("swift", "giant", CastResult.RangeInvalid);
+            Assert.Equal(false, plans.Allows("swift", "giant"), "invalid landing");
+            Assert.Equal(true, plans.Allows("swift", "empty"), "different legal landing");
         }
 
         public static void TestAWallOfStoneIsARealBreakableObstacle()
@@ -122,7 +229,7 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(true, KruneTactics.Standard(v).Spell != "Phase Door", "an open phase door is not cast again");
             Assert.Equal(true, KruneTactics.CanRelocate(v), "an open passage is a way out");
             v.HasPhaseDoor = false;
-            Assert.Equal(KrunePhase.Recover, KruneTactics.NextPhase(v), "withdrawn");
+            Assert.Equal(KrunePhase.Fight, KruneTactics.NextPhase(v), "a planned relocation has not yet delivered");
             v.Phase = KrunePhase.Recover;
             v.HitPointFraction = 1d;
             v.AdjacentFoes = 3;

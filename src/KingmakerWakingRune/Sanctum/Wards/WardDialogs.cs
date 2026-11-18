@@ -144,21 +144,15 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 cue.OnShow = new ActionList();
                 cue.OnStop = new ActionList();
                 cue.Continue = new CueSelection();
-                cue.Answers = new List<BlueprintAnswerBase> { Answer(key, "Continue", next, null, null) };
+                GameAction acknowledged = next == null ? Callback("Acknowledge Kurshu", () =>
+                    Encounter.KurshuRules.AcknowledgeNotice(WardRuntime.State?.Kurshu, spoken)) : null;
+                cue.Answers = new List<BlueprintAnswerBase> { Answer(key, "Continue", next, acknowledged, null) };
                 next = cue;
             }
             var dialog = Create<BlueprintDialog>("KWR_KurshuDialog_" + id);
             dialog.TurnFirstSpeaker = dialog.TurnPlayer = false;
             dialog.FirstCue = new CueSelection { Cues = new List<BlueprintCueBase> { next } };
-            dialog.StartActions = Actions(Callback("Kurshu's message displayed", () =>
-            {
-                if (spoken) WardRuntime.State.Kurshu.WoundDialoguePending = false;
-                else
-                {
-                    WardRuntime.State.Kurshu.BloodDialoguePending = false;
-                    WardRuntime.State.Kurshu.BloodMessageShown = true;
-                }
-            }));
+            dialog.StartActions = new ActionList();
             dialog.FinishActions = new ActionList();
             dialog.ReplaceActions = new ActionList();
             return dialog;
@@ -189,10 +183,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
             var answers = new List<BlueprintAnswerBase>();
             foreach (InspectCheck check in def.Checks)
             {
-                foreach (WardSkill skill in check.Skills)
-                {
-                    answers.Add(CheckAnswer(def, check, skill, cue));
-                }
+                answers.Add(CheckAnswer(def, check, check.Skills[0], cue));
+                // Saved dialogue history may still reference an old per-skill answer blueprint.
+                foreach (var former in check.Skills.Skip(1)) CheckAnswer(def, check, former, cue);
             }
             foreach (WardAction action in WardActions.For(def.Id))
             {
@@ -209,12 +202,12 @@ namespace KingmakerWakingRune.Sanctum.Wards
             return dialog;
         }
 
-        private static BlueprintAnswer CheckAnswer(InspectDef def, InspectCheck check, WardSkill skill, BlueprintCue cue)
+        private static BlueprintAnswer CheckAnswer(InspectDef def, InspectCheck check, WardSkill identity, BlueprintCue cue)
         {
-            string id = $"{def.Id}.{check.Key}.{skill}";
-            GameAction roll = Callback($"Roll {skill} at {def.Id}", () => WardInteract.Study(def.Id, check, skill));
-            string label = $"[{SkillLabels[skill]}] {check.Label}";
-            return Answer(id, label, cue, roll, () => WardInteract.CanStudy(check, skill));
+            string id = $"{def.Id}.{check.Key}.{identity}";
+            GameAction roll = Callback($"Study {check.Key}", () => WardInteract.Study(def.Id, check));
+            string subjects = string.Join(" / ", check.Skills.Select(s => SkillLabels[s]));
+            return Answer(id, $"[{subjects}] {check.Label}", cue, roll, () => WardInteract.CanStudy(check));
         }
 
         private static BlueprintAnswer ActionAnswer(InspectDef def, WardAction action, BlueprintCue cue)
@@ -272,51 +265,6 @@ namespace KingmakerWakingRune.Sanctum.Wards
             blueprint.AssetGuid = ScenarioIds.Derive("warddialog." + name);
             s_Register(blueprint);
             return blueprint;
-        }
-    }
-    // Dialog mode still ticks movement and unit actions. Acknowledging these two panels
-    // must preserve the command queues, including attacks already in their animation.
-    [Harmony12.HarmonyPatch(typeof(Kingmaker.Controllers.Units.UnitActionController), "TickOnUnit")]
-    internal static class KurshuDialogCommands
-    {
-        internal static bool Prefix() => !WardDialogs.IsCombatStory(Kingmaker.Game.Instance.DialogController.Dialog);
-    }
-
-    [Harmony12.HarmonyPatch(typeof(Kingmaker.Controllers.Units.UnitMoveController), "Tick")]
-    internal static class KurshuDialogMovement
-    {
-        private static bool Prefix() => KurshuDialogCommands.Prefix();
-    }
-
-    [Harmony12.HarmonyPatch(typeof(Kingmaker.Controllers.TimeController), "Tick")]
-    internal static class KurshuDialogClock
-    {
-        private static void Postfix(Kingmaker.Controllers.TimeController __instance)
-        {
-            if (!WardDialogs.IsCombatStory(Kingmaker.Game.Instance.DialogController.Dialog)) return;
-            __instance.SetDeltaTime(0f);
-            Time.timeScale = 0f;
-        }
-    }
-
-    // Ordinary conversations dismiss combat commands. These two notices only open the reader.
-    [Harmony12.HarmonyPatch(typeof(Kingmaker.Controllers.Dialog.DialogController), "Start")]
-    internal static class KurshuDialogStart
-    {
-        private static bool Prefix(Kingmaker.Controllers.Dialog.DialogController __instance)
-        {
-            if (!WardDialogs.IsCombatStory(__instance.Dialog)) return true;
-            Kingmaker.PubSubSystem.EventBus.RaiseEvent<Kingmaker.PubSubSystem.IDialogStartHandler>(h => h.HandleDialogStarted());
-            return false;
-        }
-    }
-
-    [Harmony12.HarmonyPatch(typeof(Kingmaker.Controllers.Dialog.DialogController), "AddInvolvedUnit")]
-    internal static class KurshuDialogInvolved
-    {
-        private static bool Prefix(Kingmaker.Controllers.Dialog.DialogController __instance)
-        {
-            return !WardDialogs.IsCombatStory(__instance.Dialog);
         }
     }
 }

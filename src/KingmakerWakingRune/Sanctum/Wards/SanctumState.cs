@@ -143,6 +143,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public bool LegacyNoticeShown;
 
         public double Clock;
+        // Rank opportunities considered for a party check. Only the actual roller enters Knowledge.
+        public Dictionary<string, int> StudyRanks = new Dictionary<string, int>();
         public List<KnowledgeEntry> Knowledge = new List<KnowledgeEntry>();
         public Dictionary<string, RuneFocusState> Foci = new Dictionary<string, RuneFocusState>();
         public int RuneMask;
@@ -281,6 +283,20 @@ namespace KingmakerWakingRune.Sanctum.Wards
     /// <summary>One roll per character, skill and rank, preserved through saves; a higher rank or new character earns a fresh attempt.</summary>
     internal static class InspectionRules
     {
+        // Rank everyone once. A used winning combination cannot expose a lower-ranked retry button.
+        public static Tuple<T, WardSkill> BestStudy<T>(IEnumerable<T> party, InspectCheck check, Func<T, WardSkill, int> modifier,
+            Func<T, WardSkill, bool> eligible = null)
+        {
+            return (from member in party from skill in check.Skills
+                    where eligible == null || eligible(member, skill)
+                    orderby modifier(member, skill) descending select Tuple.Create(member, skill)).FirstOrDefault();
+        }
+
+        internal static string Opportunity(string key, string member, WardSkill skill) => key + "/" + member + "/" + skill;
+
+        internal static bool RankAvailable(Dictionary<string, int> ranks, string key, int rank)
+            => !ranks.TryGetValue(key, out int prior) || rank > prior;
+
         public static bool CanAttempt(IEnumerable<KnowledgeEntry> ledger, string key, string actor, string skill, int rank)
         {
             return !ledger.Any(e => e.Key == key && e.Actor == actor && e.Skill == skill && e.Rank >= rank);
@@ -311,7 +327,21 @@ namespace KingmakerWakingRune.Sanctum.Wards
         Deceive,
     }
 
-    /// <summary>The authored per-slot response of the ten restored bearers: fixed by identity.</summary>
+    /// <summary>Identifies restored survivors exposed when the party placed a harmful area.</summary>
+    internal sealed class SurvivorExposure
+    {
+        private readonly Dictionary<object, HashSet<string>> placed = new Dictionary<object, HashSet<string>>();
+        public void Place(object area, IEnumerable<string> subjects) => placed[area] = new HashSet<string>(subjects);
+        public void Remove(object area) => placed.Remove(area);
+        public void Clear() => placed.Clear();
+
+        public bool Provokes(bool partyCast, bool harmful, object area, string subject)
+        {
+            return partyCast && harmful && (area == null || placed.TryGetValue(area, out var occupants) && occupants.Contains(subject));
+        }
+    }
+
+    /// <summary>The authored per-slot response of the ten restored bearers, fixed by identity.</summary>
     internal static class BearerManifest
     {
         public static readonly IReadOnlyDictionary<string, BearerRole> Roles = new Dictionary<string, BearerRole>

@@ -34,6 +34,7 @@ namespace KingmakerWakingRune.Sanctum
 
         public void OnAreaBeginUnloading()
         {
+            Wards.KurshuNotice.Release();
             Krune.KruneSession.Reset("area unloading");
             if (SanctumScope.IsSanctumLoaded)
             {

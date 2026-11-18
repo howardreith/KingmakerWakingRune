@@ -79,6 +79,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
         private static KrunePlan s_Cached;
         private static string s_CachedFor = string.Empty;
         private static KwrDirectedCast s_Active;
+        internal static KwrDirectedCast Executing { get; set; }
         internal static bool ProbeSummonRejection;
         private static FailedKrunePlans s_Failed = new FailedKrunePlans();
         private static int s_CachedFrame;
@@ -93,6 +94,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             s_Cached = null;
             s_CachedFor = string.Empty;
             s_Active = null;
+            Executing = null;
             ProbeSummonRejection = false;
             s_FreeSince = -1f;
             s_WatchNext = 0f;
@@ -121,6 +123,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             if (time < s_WatchNext) return;
             s_WatchNext = time + 0.5f;
             var unit = KruneAwakening.Actor;
+            ObserveBudget(unit);
             bool tb = TurnBased.Controllers.CombatController.IsInTurnBasedCombat();
             if (unit == null || !Live(unit) || !Free(unit) || Game.Instance.IsPaused || Game.Instance.CurrentMode != Kingmaker.GameModes.GameModeType.Default
                 || (tb && TurnBased.Controllers.CombatController.CurrentUnit != unit)
@@ -132,7 +135,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
             if (s_FreeSince < 0f) s_FreeSince = time;
             if (time - s_FreeSince < 2f) return;
-            if (s_Active != null) Ended(s_Active, "native queue discarded the command", false);
+            if (s_Active != null) s_Active.Abandoned();
             var plan = Plan(unit);
             if (plan != null)
             {
@@ -175,15 +178,14 @@ namespace KingmakerWakingRune.Sanctum.Krune
             {
                 return null;
             }
-            int round = turnBased ? Game.Instance.TurnBasedCombatController.RoundNumber : (int)((now - WardRuntime.State.Krune.CombatStartedAt) / 6d);
-            s_Failed.BeginRound(turnBased ? -round - 1 : round);
+            ObserveBudget(krune);
             if (s_Active != null)
             {
                 // The brain may construct a candidate and discard it before Init or OnEnded.
                 // A full round without acceptance is a terminal rejection for this decision.
                 if (s_Active.Executor == null && now - s_Active.CreatedAt >= 6d)
                 {
-                    Ended(s_Active, "rejected before start (never accepted by native queue)", false);
+                    s_Active.Abandoned();
                 }
                 else
                 {
@@ -582,29 +584,44 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return Kingmaker.Visual.FogOfWar.LineOfSightGeometry.Instance == null || !Kingmaker.Visual.FogOfWar.LineOfSightGeometry.Instance.HasObstacle(krune.EyePosition, to);
         }
 
-        private static string Combination(KrunePlan plan)
+        private static void ObserveBudget(UnitEntityData krune)
+        {
+            if (krune == null || !Live(krune)) return;
+            int spent = (krune.CombatState.HasCooldownForCommand(UnitCommand.CommandType.Standard) ? 1 : 0)
+                | (krune.CombatState.HasCooldownForCommand(UnitCommand.CommandType.Swift) ? 2 : 0)
+                | (krune.CombatState.HasCooldownForCommand(UnitCommand.CommandType.Move) ? 4 : 0);
+            var turn = TurnBased.Controllers.CombatController.IsInTurnBasedCombat() ? Game.Instance.TurnBasedCombatController.CurrentTurn : null;
+            var state = WardRuntime.State.Krune;
+            string tacticalState = krune.HPLeft + "/" + krune.Memory.Enemies.Count + "/" + state.DirectorPhase
+                + "/" + state.RodCharges + "/" + KruneSpellbook.Ready(krune).Count();
+            s_Failed.Observe(turn, spent, tacticalState);
+        }
+
+        private static string PlanKey(KrunePlan plan) => plan.Ability.Blueprint.AssetGuid + "/" + Metamagic(plan.Ability) + "/" + plan.Ability.RuntimeActionType;
+
+        private static string TargetKey(KrunePlan plan)
         {
             Vector3 point = plan.Target.Point;
             string target = plan.Target.IsUnit ? plan.Target.Unit.UniqueId
                 : Mathf.RoundToInt(point.x) + "/" + Mathf.RoundToInt(point.y) + "/" + Mathf.RoundToInt(point.z);
-            return plan.Ability.Blueprint.AssetGuid + "/" + Metamagic(plan.Ability) + "/" + plan.Ability.RuntimeActionType + "/" + target;
+            return target;
         }
 
         private static KrunePlan Eligible(KrunePlan plan)
         {
             var actor = plan.Ability.Caster.Unit;
             return !actor.CombatState.HasCooldownForCommand(plan.Ability.RuntimeActionType)
-                && s_Failed.Allows(Combination(plan)) ? plan : null;
+                && s_Failed.Allows(PlanKey(plan), TargetKey(plan)) ? plan : null;
         }
 
-        internal static void Ended(KwrDirectedCast command, string reason, bool committed)
+        internal static void Ended(KwrDirectedCast command, CastResult reason)
         {
             RuneRod.CommandEnded(command);
             if (command != s_Active)
             {
                 return;
             }
-            if (committed && command.Relocation && WardRuntime.State != null)
+            if (reason == CastResult.Delivered && command.Relocation && WardRuntime.State != null)
             {
                 var state = WardRuntime.State.Krune;
                 state.HasRetreat = state.Pursuing = true;
@@ -612,7 +629,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 state.RetreatY = KruneMoves.GridY(command.Target.Point);
                 state.DirectorPhase = KrunePhase.Recover;
             }
-            if (committed && command.Spell.Blueprint == KruneBlueprints.DimensionDoorFx && command.Executor != null)
+            if (reason == CastResult.Delivered && command.Spell.Blueprint == KruneBlueprints.DimensionDoorFx && command.Executor != null)
             {
                 // Dimension door ends the caster's actions even when quickened. The native teleport delivery
                 // moves the unit and plays its effects. Leave cooldown expiry and turn advancement to the engine.
@@ -621,9 +638,9 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 cooldown.MoveAction = Math.Max(cooldown.MoveAction, 3f);
                 cooldown.SwiftAction = Math.Max(cooldown.SwiftAction, 6f);
             }
-            if (!committed)
+            if (reason != CastResult.Committed && reason != CastResult.Delivered)
             {
-                s_Failed.Reject(command.Combination);
+                s_Failed.Reject(command.PlanKey, command.TargetKey, reason);
             }
             s_Active = null;
             s_Cached = null;
@@ -830,7 +847,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 return null;
             }
             s_Cached = null;
-            var command = new KwrDirectedCast(plan.Ability, plan.Target, Combination(plan), plan.Aim == KruneAim.Retreat);
+            var command = new KwrDirectedCast(plan.Ability, plan.Target, PlanKey(plan), TargetKey(plan), plan.Aim == KruneAim.Retreat);
             s_Active = command;
             string rod = RuneRod.Offer(krune, plan.Ability, RodRequest(plan), command);
             if (ProbeSummonRejection && plan.Key == "Quickened Summon Monster V" && rod == "Extend"
@@ -940,15 +957,20 @@ namespace KingmakerWakingRune.Sanctum.Krune
     {
         private readonly TimeSpan m_Created = Game.Instance.TimeController.GameTime;
 
-        internal readonly string Combination;
+        internal readonly string PlanKey, TargetKey;
+        internal string Combination => PlanKey + "@" + TargetKey;
+        internal readonly DirectedCastLifecycle Lifecycle;
+        private Vector3 m_StartPosition;
         internal readonly bool Relocation;
         internal bool RejectForProbe;
         internal double CreatedAt => m_Created.TotalSeconds;
 
-        public KwrDirectedCast(AbilityData spell, TargetWrapper target, string combination, bool relocation)
+        public KwrDirectedCast(AbilityData spell, TargetWrapper target, string planKey, string targetKey, bool relocation)
             : base(spell, target)
         {
-            Combination = combination;
+            PlanKey = planKey;
+            TargetKey = targetKey;
+            Lifecycle = new DirectedCastLifecycle(spell);
             Relocation = relocation;
             // His long-distance teleports and phase passage can target unseen sanctum floor.
             if (KruneDirector.ThroughStone(spell))
@@ -959,6 +981,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
 
         public override void Init(UnitEntityData executor)
         {
+            Lifecycle.Initialize();
             base.Init(executor);
             if (Spell.Blueprint == KruneBlueprints.DimensionDoorFx) ApproachRadius = float.MaxValue;
             if (RejectForProbe && !IsFinished)
@@ -966,6 +989,26 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 KruneAwakening.Note("SETUP/INJECTED: rejecting the quickened summon after native Init and the Extend offer, before Start.");
                 Interrupt();
             }
+        }
+
+        protected override void OnStart()
+        {
+            Lifecycle.Start();
+            m_StartPosition = Executor.Position;
+            base.OnStart();
+        }
+
+        protected override ResultType OnAction()
+        {
+            var outer = KruneDirector.Executing;
+            KruneDirector.Executing = this;
+            try { return base.OnAction(); }
+            finally { KruneDirector.Executing = outer; }
+        }
+
+        internal void Abandoned()
+        {
+            if (!IsFinished) Interrupt(raiseEvent: Executor != null);
         }
 
         public override bool AiCanInterrupt
@@ -983,22 +1026,33 @@ namespace KingmakerWakingRune.Sanctum.Krune
         /// <summary>Cast, interrupted or replaced: a rod order made for this command ends with it.</summary>
         protected override void OnEnded(bool raiseEvent = true)
         {
-            bool cast = ExecutionProcess != null || Result == ResultType.Success;
-            string reason = cast ? "cast" : Executor == null ? "rejected before start"
-                : !Spell.CanTarget(Target) ? "target invalid"
-                : !IsStarted && !IsUnitEnoughClose ? "range or line of effect invalid"
-                : !IsActed && Executor.CombatState.HasCooldownForCommand(this) ? "action unavailable"
-                : !Spell.IsAvailable ? "resource unavailable"
-                : !IsStarted ? "rejected before start"
-                : Result == ResultType.Interrupt ? "interrupted" : "native command failure";
-            try
-            {
-                KruneDirector.Ended(this, reason, cast);
-            }
+            var terminal = CastResult.NativeFailure;
+            try { terminal = Classify(); }
             finally
             {
-                base.OnEnded(raiseEvent);
+                Lifecycle.End(terminal, Relocation, result => KruneDirector.Ended(this, result), () => base.OnEnded(raiseEvent));
             }
+        }
+
+        private CastResult Classify()
+        {
+            var failure = Result == ResultType.Interrupt ? CastResult.Interrupted : CastResult.NativeFailure;
+            if (Executor == null) failure = CastResult.Rejected;
+            else if (!Lifecycle.Committed)
+            {
+                if (IsStarted && Result == ResultType.Interrupt) failure = CastResult.Interrupted;
+                else if (!Spell.CanTarget(Target)) failure = CastResult.TargetInvalid;
+                else if (!IsStarted && !IsUnitEnoughClose) failure = CastResult.RangeInvalid;
+                else if (!IsActed && Executor.CombatState.HasCooldownForCommand(this)) failure = CastResult.ActionUnavailable;
+                else if (!Spell.IsAvailable) failure = CastResult.ResourceUnavailable;
+                else if (!IsStarted) failure = CastResult.Rejected;
+            }
+            else if (Relocation && Result == ResultType.Success && Vector3.Distance(Executor.Position, Target.Point) <= 0.8f
+                && Vector3.Distance(m_StartPosition, Executor.Position) > 1f && KruneMoves.LegalDestination(Executor.Position, Executor))
+            {
+                Lifecycle.Delivered();
+            }
+            return failure;
         }
     }
 }

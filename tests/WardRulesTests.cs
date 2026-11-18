@@ -10,6 +10,52 @@ namespace KingmakerWakingRune.Tests
     /// <summary>Exercises the production WR-04 rule code. Native delivery, targeting and combat results are proven in the running game.</summary>
     public static class WardRulesTests
     {
+        public static void TestStudySelectsOneBestLegalMemberAndSkill()
+        {
+            var check = new InspectCheck { Key = "A3a", Skills = new[] { WardSkill.Arcana, WardSkill.Religion } };
+            var party = new[] { "wizard", "cleric" };
+            var winner = InspectionRules.BestStudy(party, check, (member, skill) =>
+                member == "cleric" && skill == WardSkill.Religion ? 18 : member == "wizard" && skill == WardSkill.Arcana ? 15 : 1);
+            Assert.Equal("cleric", winner.Item1, "actor across disciplines");
+            Assert.Equal(WardSkill.Religion, winner.Item2, "winning skill");
+            var ranks = party.SelectMany(m => check.Skills.Select(skill => InspectionRules.Opportunity(check.Key, m, skill))).ToDictionary(k => k, k => 7);
+            var again = InspectionRules.BestStudy(party, check, (m, skill) => 15, (m, skill) =>
+                InspectionRules.RankAvailable(ranks, InspectionRules.Opportunity(check.Key, m, skill), 7));
+            Assert.Equal(null, again, "no skill or scholar fishing");
+            Assert.Equal(true, InspectionRules.RankAvailable(ranks, InspectionRules.Opportunity(check.Key, "new member", WardSkill.Arcana), 3), "new participant");
+            Assert.Equal(true, InspectionRules.RankAvailable(ranks, InspectionRules.Opportunity(check.Key, "wizard", WardSkill.Arcana), 8), "changed rank");
+            var ledger = new List<KnowledgeEntry>();
+            InspectionRules.Record(ledger, check.Key, winner.Item1, winner.Item2.ToString(), 7, 10);
+            Assert.Equal(false, InspectionRules.CanAttempt(ledger, check.Key, winner.Item1, winner.Item2.ToString(), 7), "no lower-skill reroll");
+            Assert.Equal(true, InspectionRules.CanAttempt(ledger, check.Key, winner.Item1, winner.Item2.ToString(), 8), "new rank qualifies");
+        }
+
+        public static void TestEmeraldFailedApproachesNeverRollAndOnlyOneContactCanResolve()
+        {
+            var action = new EmeraldApproach();
+            Assert.Equal(true, action.Unreachable(0), "strongest has no route");
+            Assert.Equal(false, action.Contact(0), "late path callback cannot roll");
+            Assert.Equal(true, action.Unreachable(1), "second route became blocked before contact");
+            Assert.Equal(true, action.Contact(2), "third actor reached the altar");
+            Assert.Equal(false, action.Contact(2), "one Strength check");
+            Assert.Equal(false, action.Unreachable(2), "no fallback after the check, even on failed Strength");
+        }
+
+        public static void TestHarmfulPartySpellProvokesOnlyItsSubject()
+        {
+            var effects = new SurvivorExposure();
+            var grease = new object();
+            effects.Place(grease, new[] { "reporter" });
+            Assert.Equal(true, effects.Provokes(true, true, null, "reporter"), "direct hold");
+            Assert.Equal(true, effects.Provokes(true, true, grease, "reporter"), "reporter caught in fresh grease");
+            Assert.Equal(false, effects.Provokes(true, true, grease, "fugitive"), "later entrant");
+            Assert.Equal(false, effects.Provokes(true, true, new object(), "reporter"), "older unrelated area");
+            Assert.Equal(false, effects.Provokes(false, true, null, "reporter"), "environmental effect");
+            Assert.Equal(false, effects.Provokes(true, false, null, "reporter"), "helpful spell");
+            effects.Remove(grease);
+            Assert.Equal(false, effects.Provokes(true, true, grease, "reporter"), "expired area");
+        }
+
         private static RuneFocus Life => KruneProjection.Focus("A3a");
         private static RuneFocus Alacrity => KruneProjection.Focus("A3b");
         private static RuneFocus Defense => KruneProjection.Focus("A3c");

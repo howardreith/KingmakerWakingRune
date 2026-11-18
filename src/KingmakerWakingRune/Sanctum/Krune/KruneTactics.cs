@@ -69,29 +69,82 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public Dictionary<string, int> Ready = new Dictionary<string, int>();
     }
 
+    internal enum CastStage { Constructed, Initialized, Started, Committed, Delivered, Ended }
+    internal enum CastResult { Rejected, Interrupted, TargetInvalid, RangeInvalid, ActionUnavailable, ResourceUnavailable, NativeFailure, Committed, Delivered, DeliveryFailed, InterruptedAfterCommit }
+
+    // The command owns its rule identity. Preview rules, another command's event and duplicate callbacks are inert.
+    internal sealed class DirectedCastLifecycle
+    {
+        private readonly object ability;
+        private object rule;
+        public CastStage Stage { get; private set; }
+        public CastResult Result { get; private set; }
+        public bool Committed { get; private set; }
+
+        public DirectedCastLifecycle(object ability) { this.ability = ability; }
+        public void Initialize() { if (Stage == CastStage.Constructed) Stage = CastStage.Initialized; }
+        public void Start() { if (Stage == CastStage.Initialized) Stage = CastStage.Started; }
+        public void BeginRule(object spell, object cast)
+        {
+            if (Stage == CastStage.Started && rule == null && ReferenceEquals(spell, ability)) rule = cast;
+        }
+
+        public bool ResolveRule(object spell, object cast, bool success, System.Action onCommit = null)
+        {
+            if (!success || Stage != CastStage.Started || cast == null || !ReferenceEquals(rule, cast) || !ReferenceEquals(ability, spell)) return false;
+            Stage = CastStage.Committed;
+            Committed = true;
+            onCommit?.Invoke();
+            return true;
+        }
+
+        public void Delivered()
+        {
+            if (Stage == CastStage.Committed) Stage = CastStage.Delivered;
+        }
+
+        public void End(CastResult failure, bool requiresDelivery, System.Action<CastResult> terminal, System.Action nativeEnd)
+        {
+            // Retire the decision and release its reservation before native end subscribers can re-enter planning.
+            // Always finish native teardown, including when diagnostics or a subscriber throws.
+            if (Stage == CastStage.Ended) return;
+            try
+            {
+                Result = !Committed ? failure : failure == CastResult.Interrupted ? CastResult.InterruptedAfterCommit : Stage == CastStage.Delivered ? CastResult.Delivered :
+                    requiresDelivery ? CastResult.DeliveryFailed : CastResult.Committed;
+                Stage = CastStage.Ended;
+                terminal(Result);
+            }
+            finally { nativeEnd(); }
+        }
+    }
+
     internal sealed class FailedKrunePlans
     {
-        private int round = int.MinValue;
         private readonly HashSet<string> failed = new HashSet<string>();
+        private object turn;
+        private bool observed;
+        private int lastSpent;
+        private string lastState;
 
-        public void BeginRound(int next)
+        public void Observe(object activeTurn, int spentActions, string tacticalState)
         {
-            if (next != round)
-            {
-                failed.Clear();
-                round = next;
-            }
+            // TurnController is a fresh object for an actual turn. In RT, an observed spent action
+            // becoming available again is a renewed budget. Elapsed wall or game seconds are irrelevant.
+            if (!ReferenceEquals(turn, activeTurn) || (activeTurn == null && observed &&
+                ((lastSpent & ~spentActions) != 0 || lastState != tacticalState))) failed.Clear();
+            observed = true;
+            lastSpent = spentActions;
+            turn = activeTurn;
+            lastState = tacticalState;
         }
 
-        public void Reject(string combination)
+        public void Reject(string plan, string target, CastResult reason)
         {
-            failed.Add(combination);
+            failed.Add(reason == CastResult.TargetInvalid || reason == CastResult.RangeInvalid ? plan + "@" + target : plan);
         }
 
-        public bool Allows(string combination)
-        {
-            return !failed.Contains(combination);
-        }
+        public bool Allows(string plan, string target) => !failed.Contains(plan) && !failed.Contains(plan + "@" + target);
     }
 
     /// <summary>
@@ -128,14 +181,12 @@ namespace KingmakerWakingRune.Sanctum.Krune
         /// </summary>
         public static KrunePhase NextPhase(KruneView v)
         {
-            if (Overwhelmed(v) && CanRelocate(v))
-            {
-                return KrunePhase.Recover;
-            }
+            // Planning a retreat leaves the saved phase alone until the command delivers the move.
             if (v.Phase == KrunePhase.Fight)
             {
                 return KrunePhase.Fight;
             }
+            if (Overwhelmed(v) && CanRelocate(v)) return KrunePhase.Recover;
             return v.HitPointFraction >= RecoveredHitPoints || v.AdjacentFoes > 0 || v.SummonsAlive >= 3 ? KrunePhase.Fight : KrunePhase.Recover;
         }
 

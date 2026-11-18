@@ -97,6 +97,11 @@
       <HintPath>$(KingmakerManagedDir)\Newtonsoft.Json.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <!-- The installed Harmony12 adapter itself references 0Harmony. Use its finalizers for dialog exception cleanup. -->
+    <Reference Include="0Harmony">
+      <HintPath>$(UnityModManagerDir)\0Harmony.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="0Harmony12">
       <HintPath>$(UnityModManagerDir)\0Harmony12.dll</HintPath>
       <Private>False</Private>

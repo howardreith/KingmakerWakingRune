@@ -243,26 +243,42 @@ namespace KingmakerWakingRune.Sanctum
                 Log.Info($"INJECTED FAULT position-invalid: {party[0].CharacterName} moved to {party[0].Position}.");
             }
             DoorPlan[] closed = SanctumDoors.ClosedPlans();
+            var state = Wards.WardStore.Existing;
+            var stoneFigures = SanctumDressing.StatueFeet.Where(kv => state == null ||
+                !state.Statues.TryGetValue(kv.Key, out var statue) || statue.Outcome == Wards.StatueOutcome.Stone)
+                .Select(kv => kv.Value).ToList();
             foreach (UnitEntityData unit in party)
             {
                 if (migrated != null && migrated.Contains(unit.UniqueId)) continue;
                 Vector3 from = unit.Position;
-                float oldX = previousLayout ? from.x / SanctumPlan.PrintedSquareMeters + SanctumPlan.OriginX : GridX(from);
-                float oldY = previousLayout ? SanctumPlan.OriginY - from.z / SanctumPlan.PrintedSquareMeters : GridY(from);
-                SanctumSpace space = SanctumPlan.SpaceAt(oldX, oldY);
-                GridPoint old = new GridPoint(oldX, oldY);
+                GridPoint old = SanctumPlan.SavedPoint(from.x, from.z, previousLayout);
+                float radius = unit.Corpulence / SanctumPlan.MetersPerSquare;
                 bool Permitted(Vector3 p)
                 {
-                    var after = new GridPoint(GridX(p), GridY(p));
-                    return closed.All(d => SanctumPlan.SameDoorSide(d, old, after)
-                        && !SanctumPlan.DoorwayOverlap(d, after.X, after.Y, p.y, unit.Corpulence / SanctumPlan.MetersPerSquare));
+                    var point = new GridPoint(GridX(p), GridY(p));
+                    if (!SanctumPlan.FitsMigration(old, point, p.y, radius, closed) || !IsOnNavmesh(p)) return false;
+                    if (stoneFigures.Any(foot => Mathf.Abs(foot.y - p.y) < SanctumPlan.GroundTolerance &&
+                        Vector2.Distance(new Vector2(foot.x, foot.z), new Vector2(p.x, p.z)) < 0.3f + unit.Corpulence)) return false;
+                    return party.All(other => other == unit || Mathf.Abs(other.Position.y - p.y) > SanctumPlan.GroundTolerance
+                        || Vector2.Distance(new Vector2(other.Position.x, other.Position.z), new Vector2(p.x, p.z)) >= other.Corpulence + unit.Corpulence);
                 }
-                if (IsStandingValidly(from) && (!previousLayout || space == SanctumPlan.SpaceAt(GridX(from), GridY(from))) && Permitted(from))
+                if (previousLayout ? Permitted(from) : IsStandingValidly(from))
                 {
                     migrated?.Add(unit.UniqueId);
                     continue;
                 }
-                Vector3? ground = FindGround(GridX(from), GridY(from), space, unit, party, Permitted);
+                Vector3? ground = null;
+                SanctumPlan.NearestMigrationPoint(from.x, from.z, previousLayout, point =>
+                {
+                    float? y = SanctumPlan.HeightAt(point.X, point.Y);
+                    if (!y.HasValue) return false;
+                    var p = new Vector3(SanctumPlan.ToWorldX(point.X), y.Value, SanctumPlan.ToWorldZ(point.Y));
+                    if (!Permitted(p)) return false;
+                    // Keep the tested X/Z. A coarse nearest-node snap could put the body across a wall.
+                    if ((ObstacleAnalyzer.GetNearestNode(p).clampedPosition - p).sqrMagnitude > 0.03f * 0.03f) return false;
+                    ground = p;
+                    return true;
+                });
                 if (ground == null)
                 {
                     Log.Error($"No safe ground found near {unit.CharacterName} at {from}; left in place.");
@@ -271,7 +287,7 @@ namespace KingmakerWakingRune.Sanctum
                 }
                 unit.Position = ground.Value;
                 migrated?.Add(unit.UniqueId);
-                Log.Info($"Restored position corrected: {unit.CharacterName} {from} -> {ground.Value} in {space}.");
+                Log.Info($"Restored position corrected: {unit.CharacterName} {from} -> {ground.Value} in {SanctumPlan.SpaceAt(old.X, old.Y)}.");
             }
             return complete;
         }
@@ -286,29 +302,6 @@ namespace KingmakerWakingRune.Sanctum
             NNInfo nearest = ObstacleAnalyzer.GetNearestNode(p);
             Vector3 clamped = nearest.clampedPosition;
             return nearest.node != null && nearest.node.Walkable && new Vector2(clamped.x - p.x, clamped.z - p.z).sqrMagnitude <= NavmeshReach * NavmeshReach && Mathf.Abs(clamped.y - p.y) <= SanctumPlan.GroundTolerance;
-        }
-
-        private static Vector3? FindGround(float x, float y, SanctumSpace space, UnitEntityData unit, List<UnitEntityData> party, Func<Vector3, bool> permitted)
-        {
-            foreach (GridPoint candidate in SanctumPlan.RingsAround(x, y))
-            {
-                float? height = SanctumPlan.HeightAt(candidate.X, candidate.Y);
-                if (!height.HasValue || (space != SanctumSpace.None && SanctumPlan.SpaceAt(candidate.X, candidate.Y) != space))
-                {
-                    continue;
-                }
-                var point = new Vector3(SanctumPlan.ToWorldX(candidate.X), height.Value, SanctumPlan.ToWorldZ(candidate.Y));
-                if (!IsOnNavmesh(point))
-                {
-                    continue;
-                }
-                Vector3 placed = ObstacleAnalyzer.GetNearestNode(point).clampedPosition;
-                if (permitted(placed) && (space == SanctumSpace.None || SanctumPlan.SpaceAt(GridX(placed), GridY(placed)) == space) && party.All(other => other == unit || new Vector2(other.Position.x - placed.x, other.Position.z - placed.z).magnitude >= other.View.Corpulence + unit.View.Corpulence))
-                {
-                    return placed;
-                }
-            }
-            return null;
         }
 
         public static SanctumMaterials HarvestMaterials(Scene statics)

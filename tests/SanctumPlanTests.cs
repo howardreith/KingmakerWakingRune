@@ -285,6 +285,42 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(1, SanctumPlan.Walls.Single(w => w.Name == "A4A5").Openings.Count, "A4 mouth");
         }
 
+        public static void TestOldWorldCoordinatesPickNearestLegalOldGridCandidateInEveryRegion()
+        {
+            var cases = new[]
+            {
+                new { Label = "A1 Large pet beside an actor", X = 14.6f, Y = 14.8f, Radius = 0.54f },
+                new { Label = "A3 north wall", X = 13f, Y = 1.12f, Radius = 0.4f },
+                new { Label = "A3 east wall", X = 23.9f, Y = 11f, Radius = 0.36f },
+                new { Label = "A3 south", X = 13f, Y = 28.7f, Radius = 0.4f },
+                new { Label = "A3 west wall", X = 2.1f, Y = 12f, Radius = 0.4f },
+                new { Label = "A4 altar", X = 14.8f, Y = 9.6f, Radius = 0.38f },
+                new { Label = "A5 Large humanoid at coffin", X = 8.87f, Y = 9.46f, Radius = 0.60f },
+                new { Label = "closed east door leaf", X = 21.12f, Y = 14.65f, Radius = 0.4f },
+            };
+            foreach (var c in cases)
+            {
+                float worldX = (c.X - SanctumPlan.OriginX) * SanctumPlan.PrintedSquareMeters;
+                float worldZ = (SanctumPlan.OriginY - c.Y) * SanctumPlan.PrintedSquareMeters;
+                var old = SanctumPlan.SavedPoint(worldX, worldZ, true);
+                Assert.Equal(true, Math.Abs(old.X-c.X) + Math.Abs(old.Y-c.Y) < 0.0001f, c.Label + " old world decode");
+                double Distance(GridPoint p, GridPoint q) => Math.Sqrt((p.X-q.X)*(p.X-q.X) + (p.Y-q.Y)*(p.Y-q.Y));
+                bool Legal(GridPoint p)
+                {
+                    float? height = SanctumPlan.HeightAt(p.X, p.Y);
+                    return height.HasValue && SanctumPlan.FitsMigration(old, p, height.Value, c.Radius, SanctumPlan.Doors)
+                        && Distance(old, p) > c.Radius + 0.013f; // occupied by a stationary actor
+                }
+                var selected = SanctumPlan.NearestMigrationPoint(worldX, worldZ, true, Legal);
+                Assert.Equal(true, selected.HasValue, c.Label + " has valid landing");
+                var eligible = SanctumPlan.RingsAround(c.X, c.Y).Where(Legal).ToList();
+                Assert.Equal(true, Math.Abs(eligible.Min(p => Distance(p, old)) - Distance(selected.Value, old)) < 0.001, c.Label + " nearest eligible radius");
+                var wrong = SanctumPlan.NearestMigrationPoint(worldX, worldZ, false, Legal);
+                Assert.Equal(true, !wrong.HasValue || Distance(wrong.Value, selected.Value) > 0.02, c.Label + " rejects compressed search origin");
+                Assert.Equal(SanctumPlan.SpaceAt(old.X, old.Y), SanctumPlan.SpaceAt(selected.Value.X, selected.Value.Y), c.Label + " same room");
+            }
+        }
+
         public static void TestMigrationCannotCrossEitherClosedDoor()
         {
             foreach (var door in SanctumPlan.Doors)

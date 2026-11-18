@@ -291,18 +291,52 @@ namespace KingmakerWakingRune.Sanctum.Wards
     /// <summary>The soul emerald's physical route: hardness 20, 40 hit points, break DC 40, and awakening if it is destroyed.</summary>
     internal static class WardGem
     {
+        private static int s_Request;
+
         public static void Order()
         {
-            UnitEntityData proxy = WardFixtures.Gem;
-            UnitEntityData actor = proxy == null ? null : WardActions.Participants()
-                .Where(u => u.Descriptor.State.CanMove || u.DistanceTo(proxy) <= WardProfile.ContactReachMeters)
-                .OrderByDescending(u => u.Stats.Strength.Bonus).ThenBy(u => u.DistanceTo(proxy)).FirstOrDefault();
-            if (actor == null)
+            int request = ++s_Request;
+            var approach = new EmeraldApproach();
+            var state = WardRuntime.State;
+            var gem = WardFixtures.Gem;
+            if (gem == null) { WardRuntime.Say("The emerald cannot be reached."); return; }
+            var candidates = WardActions.Participants().Where(u => u.Descriptor.Progression.Race != null).OrderByDescending(u => u.Stats.Strength.Bonus)
+                .ThenBy(u => u.DistanceTo(gem)).ToList();
+            const float reach = WardProfile.ContactReachMeters;
+            bool Current() => request == s_Request && state != null && state == WardRuntime.State &&
+                gem != null && gem == WardFixtures.Gem && gem.IsInGame && !state.Gem.Destroyed;
+            void TryMember(int index)
             {
-                WardRuntime.Say("No one in the party can reach and force the emerald.");
-                return;
+                if (!Current() || !approach.Current(index)) return;
+                if (index == candidates.Count)
+                {
+                    WardRuntime.Say("No one in the party can reach and force the emerald.");
+                    return;
+                }
+                var actor = candidates[index];
+                bool Eligible() => Current() && approach.Current(index) && WardActions.Participants().Contains(actor);
+                void Next() { if (approach.Unreachable(index)) TryMember(index + 1); }
+                void Issue()
+                {
+                    KwrFixtureCommand.Issue(actor, KwrFixtureCommand.AtUnit(gem, reach, "force the emerald",
+                        false, u => Eligible() && UnityEngine.Vector3.Distance(u.Position, gem.Position) <= reach + 0.05f,
+                        u => { if (approach.Contact(index)) Force(u); }, Next));
+                }
+                if (Eligible() && UnityEngine.Vector3.Distance(actor.Position, gem.Position) <= reach) { Issue(); return; }
+                var agent = actor.View?.AgentASP;
+                if (!Eligible() || !actor.Descriptor.State.CanMove || agent == null) { Next(); return; }
+                // One asynchronous native path query per candidate. A partial path outside contact cannot authorize a roll.
+                var path = agent.FindPath(gem.Position, p =>
+                {
+                    if (!Current()) return;
+                    if (Eligible() && (p.CompleteState == PathCompleteState.Complete || p.CompleteState == PathCompleteState.Partial) &&
+                        p.vectorPath != null && p.vectorPath.Count > 0 && UnityEngine.Vector3.Distance(p.vectorPath[p.vectorPath.Count - 1], gem.Position) <= reach + 0.05f)
+                        Issue();
+                    else Next();
+                }, reach);
+                if (path == null) Next();
             }
-            KwrFixtureCommand.Issue(actor, KwrFixtureCommand.AtUnit(proxy, WardProfile.ContactReachMeters, "force the emerald", false, u => !WardRuntime.State.Gem.Destroyed && WardActions.Participants().Contains(u), Force));
+            TryMember(0);
         }
 
         private static void Force(UnitEntityData user)

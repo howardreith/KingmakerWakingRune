@@ -215,7 +215,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         public static void Tick()
         {
-            if (!SanctumScope.IsSanctumLoaded || LoadingProcess.Instance.IsLoadingInProcess)
+            if (KurshuNotice.Active || !SanctumScope.IsSanctumLoaded || LoadingProcess.Instance.IsLoadingInProcess)
             {
                 return;
             }
@@ -690,6 +690,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         public static void OnLeavingSanctum()
         {
+            s_Observer.ForgetAreas();
             foreach (UnitEntityData unit in Game.Instance.Player.Party)
             {
                 unit.Descriptor.RemoveFact(WardBlueprints.WakeAlly);

@@ -11,6 +11,8 @@ using Kingmaker.RuleSystem.Rules.Abilities;
 using Kingmaker.RuleSystem.Rules.Damage;
 using Kingmaker.UnitLogic.Abilities;
 using Kingmaker.UnitLogic.Parts;
+using Kingmaker.UnitLogic.Abilities.Blueprints;
+using Kingmaker.UnitLogic.Mechanics;
 
 namespace KingmakerWakingRune.Sanctum.Wards
 {
@@ -19,7 +21,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
     /// reads is what actually happened, never an ability's name. Only events aimed at a fixture proxy matter here.
     /// </summary>
     internal sealed class WardObserver :
-        IUnitLifeStateChanged,
+        IUnitLifeStateChanged, IApplyAbilityEffectHandler,
+        IGlobalRulebookHandler<RuleApplyBuff>, IGlobalRulebookHandler<RuleSavingThrow>, IAreaEffectHandler,
         IGlobalRulebookHandler<RuleAttackWithWeapon>,
         IGlobalRulebookHandler<RuleDealDamage>,
         IGlobalRulebookHandler<RuleDrainEnergy>,
@@ -48,9 +51,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
             Guard(() => HandleDamage(evt));
         }
 
-        private static void HandleDamage(RuleDealDamage evt)
+        private void HandleDamage(RuleDealDamage evt)
         {
-            WardStatues.Provoke(evt.Initiator, evt.Target);
+            if (evt.Reason?.Context == null)
+                WardStatues.Provoke(evt.Initiator, evt.Target);
+            else HostileEffect(evt.Reason?.Context, evt.Target);
             string fixtureId = WardFixtures.IdOf(evt.Target);
             if (fixtureId == WardText.DoorId || fixtureId == WardText.GemId || Krune.KruneWalls.IsWall(fixtureId))
             {
@@ -157,13 +162,60 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         public void OnEventAboutToTrigger(RuleCastSpell evt)
         {
-            if (evt.Spell.Blueprint.EffectOnEnemy == Kingmaker.UnitLogic.Abilities.Blueprints.AbilityEffectOnUnit.Harmful)
+            Krune.KruneDirector.Executing?.Lifecycle.BeginRule(evt.Spell, evt);
+            if (evt.Spell.Blueprint.EffectOnEnemy == AbilityEffectOnUnit.Harmful)
                 WardStatues.Provoke(evt.Initiator, evt.SpellTarget.Unit);
         }
 
         public void OnEventDidTrigger(RuleCastSpell evt)
         {
+            Krune.KruneDirector.Executing?.Lifecycle.ResolveRule(evt.Spell, evt, evt.Success,
+                () => Krune.RuneRod.KruneCast(evt.Initiator, evt));
             Guard(() => HandleCast(evt));
+        }
+
+        // A later entrant into a persistent hazard was not targeted when the party placed it.
+        private readonly SurvivorExposure m_Exposure = new SurvivorExposure();
+        public void HandleAreaEffectSpawned(AreaEffectEntityData area)
+        {
+            var cast = area.Context?.SourceAbilityContext;
+            if (!SanctumScope.IsSanctumLoaded || cast?.MaybeCaster?.IsPlayerFaction != true || area.View?.Shape == null ||
+                cast.AbilityBlueprint.EffectOnEnemy != AbilityEffectOnUnit.Harmful) return;
+            var exposed = Kingmaker.Game.Instance.State.Units.Where(u => u.IsInGame && u.Get<WardRestoredPart>() != null &&
+                area.View.Shape.Contains(u.Position, u.Corpulence)).Select(u => u.UniqueId);
+            m_Exposure.Place(area.Context, exposed);
+        }
+
+        internal void ForgetAreas() => m_Exposure.Clear();
+
+        public void HandleAreaEffectDestroyed(AreaEffectEntityData area) => m_Exposure.Remove(area.Context);
+        public void OnEventAboutToTrigger(RuleSavingThrow evt) => HostileEffect(evt.Reason?.Context, evt.Initiator);
+        public void OnEventDidTrigger(RuleSavingThrow evt) { }
+
+        public void OnAbilityEffectApplied(AbilityExecutionContext context) { }
+        public void OnTryToApplyAbilityEffect(AbilityExecutionContext context, Kingmaker.Utility.TargetWrapper target)
+        {
+            HostileEffect(context, target.Unit);
+        }
+        public void OnAbilityEffectAppliedToTarget(AbilityExecutionContext context, Kingmaker.Utility.TargetWrapper target) { }
+        public void OnEventAboutToTrigger(RuleApplyBuff evt) { }
+        public void OnEventDidTrigger(RuleApplyBuff evt)
+        {
+            HostileEffect(evt.Context, evt.Initiator);
+        }
+
+        private void HostileEffect(MechanicsContext context, UnitEntityData victim)
+        {
+            if (victim?.Get<WardRestoredPart>() == null) return;
+            var cast = context?.SourceAbilityContext;
+            if (cast == null) return;
+            bool harmful = cast.AbilityBlueprint.EffectOnEnemy == AbilityEffectOnUnit.Harmful;
+            var area = Kingmaker.ElementsSystem.ElementsContext.GetData<Kingmaker.UnitLogic.Abilities.Components.AreaEffects.AreaEffectContextData>()?.Entity;
+            var origin = area?.Context;
+            for (var parent = context; origin == null && parent != null; parent = parent.ParentContext)
+                if (parent.AssociatedBlueprint is BlueprintAbilityAreaEffect) origin = parent;
+            if (m_Exposure.Provokes(cast.MaybeCaster?.IsPlayerFaction == true, harmful, origin, victim.UniqueId))
+                WardStatues.Provoke(cast.MaybeCaster, victim);
         }
 
         private static void HandleCast(RuleCastSpell evt)

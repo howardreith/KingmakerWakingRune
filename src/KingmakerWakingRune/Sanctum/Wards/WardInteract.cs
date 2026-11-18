@@ -285,41 +285,54 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
         }
 
-        public static bool CanStudy(InspectCheck check, WardSkill skill)
+        private static Tuple<UnitEntityData, WardSkill> StudyChoice(InspectCheck check)
         {
             SanctumState state = WardRuntime.State;
             if (InspectionRules.BestResult(state.Knowledge, check.Key) >= check.DC && !IsRuneCheck(check))
             {
-                return false;
+                return null;
             }
-            StatType stat = Stats[skill];
             if (BearerManifest.IsBearer(check.Key) && state.Statue(check.Key).Outcome != StatueOutcome.Stone)
             {
-                return false;
+                return null;
             }
             if (check.Key == WardText.MistId && !WardRuntime.HasBeenExposedToMist())
             {
-                return false;
+                return null;
             }
-            return WardActions.Participants().Any(u => InspectionRules.CanAttempt(state.Knowledge, check.Key, u.UniqueId, skill.ToString(), u.Stats.GetStat(stat).BaseValue));
+            var best = InspectionRules.BestStudy(WardActions.Participants(), check, (u, skill) => u.Stats.GetStat(Stats[skill]).ModifiedValue,
+                (u, skill) => InspectionRules.RankAvailable(state.StudyRanks, InspectionRules.Opportunity(check.Key, u.UniqueId, skill),
+                    u.Stats.GetStat(Stats[skill]).BaseValue));
+            if (best == null) return null;
+            var actor = best.Item1;
+            var skillChosen = best.Item2;
+            return InspectionRules.CanAttempt(state.Knowledge, check.Key, actor.UniqueId, skillChosen.ToString(),
+                actor.Stats.GetStat(Stats[skillChosen]).BaseValue) ? best : null;
         }
+
+        internal static bool CanStudy(InspectCheck check) => StudyChoice(check) != null;
 
         /// <summary>
         /// One native roll by the best eligible character, kept out of the battle log: the cue shows only what was earned, and
         /// a neutral line when nothing new was. A repeat click cannot reroll at the same rank. Diagnostics keep the numbers.
         /// </summary>
-        public static void Study(string id, InspectCheck check, WardSkill skill)
+        public static void Study(string id, InspectCheck check)
         {
-            SanctumState state = WardRuntime.State;
-            StatType stat = Stats[skill];
-            UnitEntityData actor = WardActions.BestParticipant(stat, u =>
-                InspectionRules.CanAttempt(state.Knowledge, check.Key, u.UniqueId, skill.ToString(), u.Stats.GetStat(stat).BaseValue));
-            if (actor == null)
-            {
-                return;
-            }
+            var choice = StudyChoice(check);
+            if (choice == null) return;
+            var state = WardRuntime.State;
+            var actor = choice.Item1;
+            var skill = choice.Item2;
+            var stat = Stats[skill];
             int before = Learned(check, InspectionRules.BestResult(state.Knowledge, check.Key));
             RuleSkillCheck roll = Rulebook.Trigger(new RuleSkillCheck(actor, stat, check.DC) { Silent = true });
+            foreach (var member in WardActions.Participants())
+            foreach (var subject in check.Skills)
+            {
+                string key = InspectionRules.Opportunity(check.Key, member.UniqueId, subject);
+                int rank = member.Stats.GetStat(Stats[subject]).BaseValue;
+                if (InspectionRules.RankAvailable(state.StudyRanks, key, rank)) state.StudyRanks[key] = rank;
+            }
             InspectionRules.Record(state.Knowledge, check.Key, actor.UniqueId, skill.ToString(), actor.Stats.GetStat(stat).BaseValue, roll.RollResult);
             Log.Info($"Study {check.Key}: {actor.CharacterName} {skill} modifier {actor.Stats.GetStat(stat).ModifiedValue}, d20 {roll.D20}, total {roll.RollResult} against DC {check.DC}.");
             if (Learned(check, InspectionRules.BestResult(state.Knowledge, check.Key)) <= before)
