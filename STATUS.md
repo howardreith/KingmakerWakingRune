@@ -1,5 +1,13 @@
 # Status: The Waking Rune
 
+## WR-PLAYTEST-03 — PARTIAL
+
+Candidate **0.12.0** was built from `be99fe0fe1df8fcdd27b08a0c5783dfaad5118bc`. All **270 offline tests passed**.
+Native qualification and candidate installation are **NOT RUN**. Automatic approval review rejected the guarded Waking Rune runtime transaction.
+The live installation is **0.11.3**. The owner profile, log timestamps, candidate hashes and outstanding gameplay checks are in [the playtest report](docs/WR-PLAYTEST-03.md).
+
+## Previous candidate
+
 **Milestone:** WR-PLAYTEST-02 on `feature/wr-playtest-02` (from `main` at `bd4fbad`, release 0.10.14), draft PR for
 owner review, after the owner's review of PR #10. Candidate **0.11.3**: commit `17c3a69`, zip
 `artifacts\KingmakerWakingRune-0.11.3.zip` (`2e591004cec2c9b0403943d3f83646e62d75234973e78dae0b77a551ea738251`), DLL
