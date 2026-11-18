@@ -2,10 +2,9 @@
 
 ## WR-PLAYTEST-03
 
-Candidate 0.12.0 was packaged locally and its archive was verified. Automatic approval review rejected the Waking Rune
-harness's request to begin a transaction on the live Mods directory. No game session, backup, install or restore ran
-for this candidate. A read of the installed DLL after packaging still gave the 0.11.3 digest below. Candidate hashes and the
-qualification record are in [WR-PLAYTEST-03](WR-PLAYTEST-03.md).
+Candidates 0.12.0 and 0.12.1 were packaged locally. Both archives and their contained DLLs were verified. The live Mods directory still contains only Waking Rune. A read after packaging 0.12.1 confirmed the installed 0.11.3 DLL SHA-256 below.
+
+Automatic approval review previously rejected the Waking Rune harness's request to open a live transaction. For 0.12.1, installation, runtime backup and restoration are **NOT RUN**. Neither candidate changed owner saves, the Steam mirror, registry, settings or mod configurations. The exact guarded transaction request and immutable candidate hashes are in [WR-PLAYTEST-03](WR-PLAYTEST-03.md).
 
 ## Installed now
 - **Mod:** The Waking Rune 0.11.3 (WR-PLAYTEST-02 after the owner's review), from `artifacts\KingmakerWakingRune-0.11.3.zip`

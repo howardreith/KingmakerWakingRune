@@ -1,5 +1,47 @@
 # WR-PLAYTEST-03 — owner playtest follow-up
 
+**PARTIAL — 0.12.1 is ready for native qualification.** The Release build and the complete offline suite passed, with 280 tests and zero failures. The draft PR is open for owner review. The installed game still has 0.11.3.
+
+| 0.12.1 candidate | Verified value |
+|---|---|
+| Reviewed PR head used as base | `0acf8e558c75cc9d24b58e988d73939c10d417ab` |
+| Clean source commit | `3c7781e566c952d28b4cc829922ca76b9e5b0dc7` |
+| Installable local package | `artifacts/KingmakerWakingRune-0.12.1.zip` |
+| ZIP SHA-256 | `b587869a9d340d28500cf62a2f6a0ef315fad0905ebd414a58f76573efdf8ee4` |
+| Packaged DLL SHA-256 | `60d1b6d70c3aa4cac576c7717252752c820bd29be724072a304e8939885d03c6` |
+| Packaging | PASS. The build repeated all 280 tests and decoded 19 embedded images. Independent inspection verified the two archive entries and the archived DLL digest. The 0.12.0 ZIP and its archived DLL still match their recorded digests. |
+
+## Owner review findings for 0.12.1
+
+| Owner finding | Result in the reviewed source and offline suite | Native result |
+|---|---|---|
+| Kurshu's panel bypassed the native start and could leave time frozen | PASS for the acknowledgement and clock state tests. Both panels run native start, cue selection, camera, answers, finish and teardown. Only the last Continue acknowledges a notice. Defeat commits the deadline independently. A malformed start leaves the notice pending. The reader protects live queues, projectiles, area effects and the turn wait, holds simulation for both sides and restores the prior pause and time scale on exit. | NOT RUN for actual panel, pause/resume, speed, initiative, queued actions, replacement and unload |
+| Old saves searched from a compressed coordinate | PASS for old-world samples in A1, north/east/south/west A3, A4 and A5. Invalid positions search nearest-first from the original logical coordinate. The tests compare the chosen radius with all legal sampled alternatives, including a Large humanoid and a Large pet. Ground height, footprint, closed-door side and leaves, fixtures, bodies and navmesh constrain runtime placement. Per-actor completion allows an unresolved actor to retry. | NOT RUN for old saves, traversal and full restart |
+| Started casts counted as committed | PASS for the command lifecycle. Only the matching successful RuleCastSpell on the executing command's exact AbilityData commits. Relocation also requires a successful command end and measured arrival on legal ground within 0.8 m of its intended destination. Only delivery records retreat and applies the Dimension Door restriction. The command classifies, releases its rod offer and retires the plan before notifying native end subscribers. Native teardown runs in a finally block. | NOT RUN for native slots, action costs, rod charges, actual teleport and interrupted delivery |
+| A six-second boundary reopened rejected spells | PASS. Turn-based exclusion follows the native turn object. Real time observes an expended action becoming ready or a material state change in HP, enemies, phase, rod charges or ready slots. Target and range failures exclude that target. Other failures exclude the spell, metamagic and action across targets. | NOT RUN for native cooldown and turn transitions |
+| Rejection test only exercised a set | PASS. The adapter exercises pre-Init and post-Init rejection, pre-rule interruption, wrong ability/rule, commit, delivery failure, post-commit interruption, rod acceptance/decline and end notification ordering. A rejected quickened summon falls through the tactical lists to a committed standard Foresight in the same turn. Repeated decisions cannot redispatch the rejected order in that state. | NOT RUN for `krunerejectsummon` with a living summoned Frost Giant and Extend offered |
+| Multiple skill buttons allowed fishing | PASS for selecting the best eligible member and skill, one roll, new ranks and new participants. Each clue has one Study choice. The actual roller enters the knowledge ledger. The other participants' considered ranks close the same opportunity. Legacy answer blueprint identities remain available to saves. | NOT RUN for dialogue choices, hidden totals and saved ledgers in game |
+| Emerald selected an actor before establishing reach | PASS for ordered fallback and exactly one contact. The native path request considers one adventurer at a time in current Strength bonus, distance and party order. An approach that ends outside contact falls through before any roll. A Strength failure ends the interaction. | NOT RUN for a blocked strongest character followed by a reachable second character |
+| Non-damaging spells or persistent areas could provoke the wrong survivor | PASS for exposure to a direct harmful party spell and a survivor caught in a freshly placed harmful area. The tests also cover helpful spells, environmental effects, later entrants and expired areas. Runtime observes the targeted cast, effect application, saving throw or buff, and tracks exposed survivors by area context. | NOT RUN for neutral targeting, charm, immobilization and reload |
+
+The information-check audit covered the seven rune plates and their figures, A2 metal and inscription, flail, apex mark, gem, altar tools, ritual light, pedestal, mist, revival, Kurshu's ambush and cultist deception. Rune identification compares Knowledge (Arcana) and Lore (Religion). The adaptation represents printed Spellcraft with Arcana. Kingmaker exposes no independent Linguistics or Spellcraft stat, so the printed Linguistics route is unavailable. The A2 metal clue compares Arcana and Nature. Revival uses Arcana, while ambush and deception use Perception. Personal Trickery, UMD, combat and A2 door-force actions retain their acting character.
+
+After the complete offline run, the second static review compared the source diff against the installed dialogue, game-mode, command, pathfinder, rule and teleport implementations. It checked the pause-stack IL branch, the scheduled-dialog local, both queue interruption sites, projectile cleanup, state persistence and cast/end callback order. The build uses the Harmony assembly already referenced by the installed Harmony12 adapter for exception finalizers. The package contains the mod DLL and its UMM manifest.
+
+## Owner authorization checkpoint
+
+**Native matrix — NOT RUN.** The previous automatic approval review rejected the Waking Rune guarded transaction because machine policy reserves live Kingmaker Mods transactions for the Mounted Combat guarded tooling. The 0.12.1 pass did not start a transaction. The owner profile below is evidence from the supplied log. This lab's live Mods directory contains only Waking Rune.
+
+The exact request is to permit the repository's guarded Waking Rune transaction under the machine policy, temporarily stage the verified 0.12.1 package, run the matrix using disposable named saves, collect the evidence and finish with `End` to restore the existing installation. The requested entry command from the repository root is
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/KwrRuntime.ps1 Begin -RunId wrplay3-0121-native -PackagePath artifacts/KingmakerWakingRune-0.12.1.zip
+```
+
+The owner-profile summon reproduction requires the logged compatibility profile to be available for guarded staging. No software installation is authorized. Outstanding native evidence includes both Kurshu modes and simulation resumption, the Frost Giant/Extend fault and ordinary cast accounting, relocation and pursuit, ten rounds or terminal combat in each mode, a legal post-A4 victory, old-layout saves, enlarged traversal, the seven-plate mouse matrix, wall views and cutaway video, comparative Stone to Flesh timings and stock-campaign isolation.
+
+## Immutable 0.12.0 record
+
 **PARTIAL.** The 0.12.0 Release build passed 270 offline tests. The candidate has no native qualification or installation. The standing installation is 0.11.3.
 
 | Candidate record | Value |
@@ -25,11 +67,11 @@
 
 In 0.11.3 the native command's end callback closed the rod order. The director learned that a cast had failed by comparing time since issue with a four-second threshold. Its next decision could select the same ready swift slot and overwrite that timestamp before the threshold elapsed. The log also shows the base summon name at dispatch. It does not record the engine's first rejection reason. Target occupancy, variant replacement and the rod must therefore be tested separately before attributing that rejection to any one of them.
 
-The candidate binds a directed plan and rod offer to the actual command. Its end callback records a cast, rejection, interruption, lost action, invalid target or range, unavailable resource, or native failure based on the execution state available there. It releases the matching rod offer and excludes a failed ability, metamagic, action type and unit or rounded landing point for that round. This lets a failed swift plan fall through to another option. A declined rod offer still permits the spell. Slots and actions are spent by native execution. Summon selection resolves the child ability and checks the landing footprint. The watchdog checks twice per real second and rechecks an empty actionable queue after two unpaused seconds on Krune's turn. It can dispatch a different plan, pursue a previously seen position or finish a turn.
+The 0.12.0 candidate binds a directed plan and rod offer to the actual command. Its end callback records a cast, rejection, interruption, lost action, invalid target or range, unavailable resource, or native failure based on the execution state available there. It releases the matching rod offer and excludes a failed ability, metamagic, action type and unit or rounded landing point for that round. This lets a failed swift plan fall through to another option. A declined rod offer still permits the spell. Slots and actions are spent by native execution. Summon selection resolves the child ability and checks the landing footprint. The watchdog checks twice per real second and rechecks an empty actionable queue after two unpaused seconds on Krune's turn. It can dispatch a different plan, pursue a previously seen position or finish a turn.
 
 The offline regression queries the same rejected swift plan 1,000 times without advancing the round, checks that a standard plan stays available, then advances the round and checks reconsideration. The harness command `krunerejectsummon` arms a **SETUP/INJECTED** rejection after native Init and before Start, only when the quickened V summon has an Extend offer and a living summoned Frost Giant is present. No run of that fixture is recorded. It exercises recovery even if the original profile-specific rejection no longer happens naturally.
 
-## Owner notes and results
+## Original owner notes and 0.12.0 results
 
 | Owner observation or requirement | Candidate change and offline evidence | Native status |
 |---|---|---|
@@ -65,7 +107,7 @@ The horizontal unit changes from 1.524 m to 1.7526 m per plan square. Ceiling he
 
 On an old sanctum load the migration interprets each saved actor’s position in the old grid, validates its current location against the new floor and closed doors, and searches outward in the same mapped space if repair is necessary. Completed actor IDs are retained if another actor cannot be placed. An unresolved body stays where it was and the layout upgrade can retry. Authored fixtures rebind by identity. Native save round trips are outstanding, including dynamic bodies around the A5 sarcophagus.
 
-| Restoration timing | 0.11.3 owner log | 0.12.0 |
+| Restoration timing | 0.11.3 owner log | 0.12.0 and 0.12.1 |
 |---|---|---|
 | A1 cultist | Lines 11525 and 11536 record successful Fortitude saves. No frame duration accompanies either. | NOT RUN |
 | A3 dead husk | No attributable frame timing | NOT RUN |
@@ -75,7 +117,7 @@ The owner log has zero harness frame-stall markers. A frame-time delta or a clai
 
 ## Runtime profile and installation
 
-**READ** from the owner’s baseline, Kingmaker 2.1.7b and UMM 0.33.0.0. The log reports the following mods loading. The candidate was built against the installed game references. No mod profile was exercised with 0.12.0.
+**READ** from the owner’s baseline, Kingmaker 2.1.7b and UMM 0.33.0.0. The log reports the following mods loading. The candidate was built against the installed game references. No mod profile was exercised with either offline candidate.
 
 | Mod | Version | Mod | Version |
 |---|---|---|---|

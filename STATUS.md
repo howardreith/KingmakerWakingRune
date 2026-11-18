@@ -2,9 +2,9 @@
 
 ## WR-PLAYTEST-03 — PARTIAL
 
-Candidate **0.12.0** was built from `be99fe0fe1df8fcdd27b08a0c5783dfaad5118bc`. All **270 offline tests passed**.
-Native qualification and candidate installation are **NOT RUN**. Automatic approval review rejected the guarded Waking Rune runtime transaction.
-The live installation is **0.11.3**. The owner profile, log timestamps, candidate hashes and outstanding gameplay checks are in [the playtest report](docs/WR-PLAYTEST-03.md).
+Candidate **0.12.1** was built from `3c7781e566c952d28b4cc829922ca76b9e5b0dc7` after the eight PR #11 review findings were addressed. The Release build, all **280 offline tests**, and the archive integrity check passed. The immutable 0.12.0 package still matches its original SHA-256.
+
+**Native qualification — NOT RUN.** The previous automatic approval review rejected the guarded Waking Rune transaction. The installed 0.11.3 DLL digest was verified again. The review table, candidate digests, outstanding native matrix and exact authorization request are in [the playtest report](docs/WR-PLAYTEST-03.md).
 
 ## Previous candidate
 
