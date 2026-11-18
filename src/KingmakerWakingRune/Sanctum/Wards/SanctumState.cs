@@ -84,6 +84,12 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public StatueOutcome Outcome = StatueOutcome.Stone;
         /// <summary>The entity that replaced this figure, so a reload re-binds rather than duplicates it.</summary>
         public string EntityId = string.Empty;
+        public BearerRole? Role;
+        public bool Provoked;
+        public bool DeceptionChecked;
+        public bool DeceptionDetected;
+        public string Conversation = string.Empty;
+        public int Refuge;
         public double CrumbleStartedAt = -1d;
         public bool Reported;
         public double ReportedAt = -1d;
@@ -125,6 +131,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public const int CurrentVersion = 6;
 
         public int Version = CurrentVersion;
+        public int LayoutVersion;
+        public HashSet<string> MigratedActorIds = new HashSet<string>();
         public string ProfileSubtier = WardProfile.Subtier;
         public int ProfilePartyBaseline = WardProfile.PartyBaseline;
         public bool ProfileExtraChallenge = WardProfile.ExtraChallenge;
@@ -299,9 +307,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
     {
         Attack,
         Report,
+        Flee,
+        Deceive,
     }
 
-    /// <summary>The authored per-slot response of the ten restored bearers: a balanced five and five, and fixed in this manifest.</summary>
+    /// <summary>The authored per-slot response of the ten restored bearers: fixed by identity.</summary>
     internal static class BearerManifest
     {
         public static readonly IReadOnlyDictionary<string, BearerRole> Roles = new Dictionary<string, BearerRole>
@@ -312,10 +322,10 @@ namespace KingmakerWakingRune.Sanctum.Wards
             { "Support-N4", BearerRole.Attack },
             { "Support-T1", BearerRole.Report },
             { "Support-T2", BearerRole.Attack },
-            { "Support-W1", BearerRole.Attack },
+            { "Support-W1", BearerRole.Flee },
             { "Support-E1", BearerRole.Report },
-            { "Support-W2", BearerRole.Report },
-            { "Support-E2", BearerRole.Attack },
+            { "Support-W2", BearerRole.Flee },
+            { "Support-E2", BearerRole.Deceive },
         };
 
         public static bool IsBearer(string statueId)

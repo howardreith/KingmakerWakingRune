@@ -52,7 +52,8 @@ namespace KingmakerWakingRune.Tests
 
         public static void TestScaleIsFiveFootSquaresOnNorthUpAxes()
         {
-            Assert.Equal(1.524f, SanctumPlan.MetersPerSquare, "metres per square");
+            Assert.Equal(1.524f, SanctumPlan.PrintedSquareMeters, "printed five-foot square");
+            Assert.Equal(1.524f * 1.15f, SanctumPlan.MetersPerSquare, "horizontal traversal allowance");
             Assert.Equal(true, SanctumPlan.ToWorldZ(1f) > SanctumPlan.ToWorldZ(30f), "north is +Z");
             Assert.Equal(true, SanctumPlan.ToWorldX(24f) > SanctumPlan.ToWorldX(2f), "east is +X");
         }
@@ -282,6 +283,18 @@ namespace KingmakerWakingRune.Tests
             WallRun core = SanctumPlan.Walls.Single(w => w.Name == "A3Core");
             Assert.Equal(2, core.Openings.Count, "A3 core openings");
             Assert.Equal(1, SanctumPlan.Walls.Single(w => w.Name == "A4A5").Openings.Count, "A4 mouth");
+        }
+
+        public static void TestMigrationCannotCrossEitherClosedDoor()
+        {
+            foreach (var door in SanctumPlan.Doors)
+            {
+                bool horizontal = door.Hinge.Y == door.Latch.Y;
+                var before = new GridPoint(door.Center.X - (horizontal ? 0 : 1), door.Center.Y - (horizontal ? 1 : 0));
+                var across = new GridPoint(2 * door.Center.X - before.X, 2 * door.Center.Y - before.Y);
+                Assert.Equal(false, SanctumPlan.SameDoorSide(door, before, across), door.Id);
+                Assert.Equal(true, SanctumPlan.SameDoorSide(door, before, before), "stationary");
+            }
         }
 
         public static void TestCutawayNeverHidesTheArrivalFloor()

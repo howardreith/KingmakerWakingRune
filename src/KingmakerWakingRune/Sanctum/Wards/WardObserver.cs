@@ -19,12 +19,26 @@ namespace KingmakerWakingRune.Sanctum.Wards
     /// reads is what actually happened, never an ability's name. Only events aimed at a fixture proxy matter here.
     /// </summary>
     internal sealed class WardObserver :
+        IUnitLifeStateChanged,
+        IGlobalRulebookHandler<RuleAttackWithWeapon>,
         IGlobalRulebookHandler<RuleDealDamage>,
         IGlobalRulebookHandler<RuleDrainEnergy>,
         IGlobalRulebookHandler<RuleDealStatDamage>,
         IGlobalRulebookHandler<RuleDispelMagic>,
         IGlobalRulebookHandler<RuleCastSpell>
     {
+        public void HandleUnitLifeStateChanged(UnitEntityData unit, Kingmaker.UnitLogic.UnitLifeState previous)
+        {
+            Encounter.KurshuEncounter.ObserveHealthChange(unit);
+        }
+
+        public void OnEventAboutToTrigger(RuleAttackWithWeapon evt)
+        {
+            WardStatues.Provoke(evt.Initiator, evt.Target);
+        }
+
+        public void OnEventDidTrigger(RuleAttackWithWeapon evt) { }
+
         public void OnEventAboutToTrigger(RuleDealDamage evt)
         {
         }
@@ -36,6 +50,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         private static void HandleDamage(RuleDealDamage evt)
         {
+            WardStatues.Provoke(evt.Initiator, evt.Target);
             string fixtureId = WardFixtures.IdOf(evt.Target);
             if (fixtureId == WardText.DoorId || fixtureId == WardText.GemId || Krune.KruneWalls.IsWall(fixtureId))
             {
@@ -142,6 +157,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         public void OnEventAboutToTrigger(RuleCastSpell evt)
         {
+            if (evt.Spell.Blueprint.EffectOnEnemy == Kingmaker.UnitLogic.Abilities.Blueprints.AbilityEffectOnUnit.Harmful)
+                WardStatues.Provoke(evt.Initiator, evt.SpellTarget.Unit);
         }
 
         public void OnEventDidTrigger(RuleCastSpell evt)

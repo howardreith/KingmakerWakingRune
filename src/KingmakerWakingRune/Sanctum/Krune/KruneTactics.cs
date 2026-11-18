@@ -61,13 +61,37 @@ namespace KingmakerWakingRune.Sanctum.Krune
         /// <summary>His phase door's passages are open (the passage itself is taken by the director before any spell).</summary>
         public bool HasPhaseDoor;
         public bool WallStanding;
-        public bool TentaclesActive;
         public bool CloudActive;
         public bool FoeHasStrongBuffs;
         public int RoundsInCombat;
         public KrunePhase Phase = KrunePhase.Fight;
         /// <summary>Ready slots by key (see <see cref="KruneTactics.Key"/>) with how many are left.</summary>
         public Dictionary<string, int> Ready = new Dictionary<string, int>();
+    }
+
+    internal sealed class FailedKrunePlans
+    {
+        private int round = int.MinValue;
+        private readonly HashSet<string> failed = new HashSet<string>();
+
+        public void BeginRound(int next)
+        {
+            if (next != round)
+            {
+                failed.Clear();
+                round = next;
+            }
+        }
+
+        public void Reject(string combination)
+        {
+            failed.Add(combination);
+        }
+
+        public bool Allows(string combination)
+        {
+            return !failed.Contains(combination);
+        }
     }
 
     /// <summary>
@@ -80,6 +104,11 @@ namespace KingmakerWakingRune.Sanctum.Krune
     /// </summary>
     internal static class KruneTactics
     {
+        internal static bool MayUseHeldSpear(bool standardReady, bool hasMagicPlan, bool targetInReach)
+        {
+            return standardReady && !hasMagicPlan && targetInReach;
+        }
+
         public const double OverwhelmedHitPoints = 0.35d;
         public const double RecoveredHitPoints = 0.6d;
 
@@ -137,10 +166,6 @@ namespace KingmakerWakingRune.Sanctum.Krune
             {
                 options.Add(C("Glitterdust", "Quickened", KruneAim.UnseenFoe, "reveal an unseen foe"));
             }
-            if (!v.TentaclesActive && v.BestCluster >= 2 && Has(v, "Quickened Black Tentacles"))
-            {
-                options.Add(C("Black Tentacles", "Quickened", KruneAim.FoeCluster, "pin a cluster of foes"));
-            }
             if (v.SummonsAlive < 4 && Has(v, "Quickened Summon Monster V"))
             {
                 options.Add(C("Summon Monster V", "Quickened", KruneAim.SummonPoint, "summons to divide the party"));
@@ -172,27 +197,26 @@ namespace KingmakerWakingRune.Sanctum.Krune
             var options = new List<KruneChoice>();
             if (Overwhelmed(v))
             {
-                options.AddRange(new[] { Relocate(v) }.Where(c => c != null));
+                options.AddRange(Relocations(v));
             }
             options.AddRange(Defenses(v).Concat(Summons(v)).Concat(Offense(v)).Where(c => c != null));
             return options;
         }
 
-        private static KruneChoice Relocate(KruneView v)
+        private static IEnumerable<KruneChoice> Relocations(KruneView v)
         {
             if (!v.HasPhaseDoor && Has(v, "Phase Door"))
             {
-                return C("Phase Door", string.Empty, KruneAim.Self, "overwhelmed: an ethereal passage through the stone, to step through at once");
+                yield return C("Phase Door", string.Empty, KruneAim.Self, "overwhelmed: an ethereal passage through the stone, to step through at once");
             }
             if (Has(v, "Greater Teleport"))
             {
-                return C("Greater Teleport", string.Empty, KruneAim.Retreat, "overwhelmed: elsewhere in the sanctum");
+                yield return C("Greater Teleport", string.Empty, KruneAim.Retreat, "overwhelmed: elsewhere in the sanctum");
             }
             if (Has(v, "Dimension Door"))
             {
-                return C("Dimension Door", string.Empty, KruneAim.Retreat, "overwhelmed: away from the foes");
+                yield return C("Dimension Door", string.Empty, KruneAim.Retreat, "overwhelmed: away from the foes");
             }
-            return null;
         }
 
         private static IEnumerable<KruneChoice> Defenses(KruneView v)
@@ -263,10 +287,6 @@ namespace KingmakerWakingRune.Sanctum.Krune
                         yield return C(cloud.Replace("Empowered ", string.Empty), cloud.StartsWith("Empowered ") ? "Empowered" : string.Empty, KruneAim.FoeCluster, "a cloud he is immune to, in close quarters");
                     }
                 }
-            }
-            if (!v.TentaclesActive && v.BestCluster >= 2 && Has(v, "Black Tentacles"))
-            {
-                yield return C("Black Tentacles", string.Empty, KruneAim.FoeCluster, "pin a cluster");
             }
             if (v.AdjacentFoes > 0 && Has(v, "Hostile Juxtaposition"))
             {

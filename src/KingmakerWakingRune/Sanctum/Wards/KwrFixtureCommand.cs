@@ -73,6 +73,13 @@ namespace KingmakerWakingRune.Sanctum.Wards
             return ResultType.Success;
         }
 
+        protected override void OnEnded(bool raiseEvent = true)
+        {
+            if (m_Label == "force the emerald" && Result != ResultType.Success)
+                WardRuntime.Say($"{Executor?.CharacterName ?? "The chosen adventurer"} could not complete the attempt at the altar.");
+            base.OnEnded(raiseEvent);
+        }
+
         protected override string GetInnerDataDescription()
         {
             return m_Label;

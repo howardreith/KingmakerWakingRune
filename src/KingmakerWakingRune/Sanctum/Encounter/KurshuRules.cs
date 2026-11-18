@@ -210,6 +210,8 @@ namespace KingmakerWakingRune.Sanctum.Encounter
 
         public double EngagedAt = -1d;
 
+        public bool WoundDialoguePending;
+        public bool BloodDialoguePending;
         public bool WoundSpoken;
         public double WoundSpokenAt = -1d;
 
@@ -455,7 +457,7 @@ namespace KingmakerWakingRune.Sanctum.Encounter
         public static List<HealthEvent> ObserveHealth(KurshuState state, int hitPointsLeft, int maxHitPoints, bool conscious, bool dead, double now)
         {
             var events = new List<HealthEvent>();
-            if (!state.WoundSpoken && !dead && conscious && maxHitPoints > 0 && hitPointsLeft <= maxHitPoints * KurshuProfile.SubstantialWoundFraction)
+            if (!state.Defeated && !state.WoundSpoken && !dead && conscious && maxHitPoints > 0 && hitPointsLeft <= maxHitPoints * KurshuProfile.SubstantialWoundFraction)
             {
                 state.WoundSpoken = true;
                 state.WoundSpokenAt = now;

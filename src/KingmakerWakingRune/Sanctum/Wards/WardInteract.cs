@@ -60,7 +60,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
             else if (id == WardText.GemId)
             {
-                yield return new WardAction { Key = "break", Label = "[Strength] Force the emerald from the altar", Show = () => !WardRuntime.State.Gem.Destroyed, Run = user => WardInteract.Defer(() => WardGem.Order(user)) };
+                yield return new WardAction { Key = "break", Label = "[Strength] Force the emerald from the altar", Show = () => !WardRuntime.State.Gem.Destroyed, Run = user => WardInteract.Defer(WardGem.Order) };
                 yield return new WardAction { Key = "attack", Label = "Attack the emerald", Show = () => !WardRuntime.State.Gem.Destroyed, Run = user => WardInteract.Defer(() => WardInteract.Attack(WardFixtures.Gem)) };
             }
             else if (id == WardText.PedestalId)
@@ -168,6 +168,18 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public static IEnumerable<UnitEntityData> Party()
         {
             return Game.Instance.Player.Party.Where(u => u.Descriptor.State.CanAct);
+        }
+
+        internal static UnitEntityData BestParticipant(StatType stat, Func<UnitEntityData, bool> eligible = null)
+        {
+            return Participants().Where(u => eligible == null || eligible(u))
+                .OrderByDescending(u => u.Stats.GetStat(stat).ModifiedValue).FirstOrDefault();
+        }
+
+        public static IEnumerable<UnitEntityData> Participants()
+        {
+            return Party().Where(u => u.IsInGame && u.View != null && u.IsDirectlyControllable
+                && u.Descriptor.State.IsConscious && !u.Descriptor.IsPet && !u.HasControlLossEffects());
         }
 
         private static bool IsGood(UnitEntityData unit)
@@ -289,7 +301,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 return false;
             }
-            return WardActions.Party().Any(u => InspectionRules.CanAttempt(state.Knowledge, check.Key, u.UniqueId, skill.ToString(), u.Stats.GetStat(stat).BaseValue));
+            return WardActions.Participants().Any(u => InspectionRules.CanAttempt(state.Knowledge, check.Key, u.UniqueId, skill.ToString(), u.Stats.GetStat(stat).BaseValue));
         }
 
         /// <summary>
@@ -300,10 +312,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
         {
             SanctumState state = WardRuntime.State;
             StatType stat = Stats[skill];
-            UnitEntityData actor = WardActions.Party()
-                .Where(u => InspectionRules.CanAttempt(state.Knowledge, check.Key, u.UniqueId, skill.ToString(), u.Stats.GetStat(stat).BaseValue))
-                .OrderByDescending(u => u.Stats.GetStat(stat).ModifiedValue)
-                .FirstOrDefault();
+            UnitEntityData actor = WardActions.BestParticipant(stat, u =>
+                InspectionRules.CanAttempt(state.Knowledge, check.Key, u.UniqueId, skill.ToString(), u.Stats.GetStat(stat).BaseValue));
             if (actor == null)
             {
                 return;
@@ -311,7 +321,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             int before = Learned(check, InspectionRules.BestResult(state.Knowledge, check.Key));
             RuleSkillCheck roll = Rulebook.Trigger(new RuleSkillCheck(actor, stat, check.DC) { Silent = true });
             InspectionRules.Record(state.Knowledge, check.Key, actor.UniqueId, skill.ToString(), actor.Stats.GetStat(stat).BaseValue, roll.RollResult);
-            Log.Info($"Study {check.Key}: {actor.CharacterName} {skill} {roll.RollResult} against DC {check.DC}.");
+            Log.Info($"Study {check.Key}: {actor.CharacterName} {skill} modifier {actor.Stats.GetStat(stat).ModifiedValue}, d20 {roll.D20}, total {roll.RollResult} against DC {check.DC}.");
             if (Learned(check, InspectionRules.BestResult(state.Knowledge, check.Key)) <= before)
             {
                 s_Note = check.Skills.Contains(WardSkill.Perception)

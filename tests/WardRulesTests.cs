@@ -482,14 +482,14 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(true, WardGeometry.InAlarmZone(13f, 19.6f, 6f), "apex");
             Assert.Equal(false, WardGeometry.InAlarmZone(13f, 15.1f, 0f), "printed arrival");
             Assert.Equal(false, WardGeometry.InAlarmZone(11.1f, 13.9f, 0f), "arrival corner");
-            Assert.Equal(4f, WardGeometry.AlarmRadiusSquares, "twenty feet in five-foot squares");
+            Assert.Equal(4f / Sanctum.SanctumPlan.HorizontalScale, WardGeometry.AlarmRadiusSquares, "twenty feet after widening");
         }
 
         public static void TestGlyphBurstReachesTenFeetFromItsTrigger()
         {
             Assert.Equal(true, WardGeometry.InGlyphTrigger(19.6f, 14.65f), "centre");
             Assert.Equal(false, WardGeometry.InGlyphTrigger(19.6f, 12.5f), "not the room beyond");
-            Assert.Equal(2f, WardGeometry.GlyphBurstSquares, "ten feet");
+            Assert.Equal(2f / Sanctum.SanctumPlan.HorizontalScale, WardGeometry.GlyphBurstSquares, "ten feet");
         }
 
         public static void TestMistStaysInItsVisibleRectangleAndChamber()
@@ -669,11 +669,13 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(3, state.Statue("Support-N1").RouteLeg, "route progress kept");
         }
 
-        public static void TestBearerManifestIsFiveAndFive()
+        public static void TestRestoredBearersHaveStableResponses()
         {
             Assert.Equal(10, BearerManifest.Roles.Count, "ten bearers");
-            Assert.Equal(5, BearerManifest.Roles.Values.Count(r => r == BearerRole.Attack), "attack");
-            Assert.Equal(5, BearerManifest.Roles.Values.Count(r => r == BearerRole.Report), "report");
+            Assert.Equal(3, BearerManifest.Roles.Values.Count(r => r == BearerRole.Attack), "attack");
+            Assert.Equal(4, BearerManifest.Roles.Values.Count(r => r == BearerRole.Report), "report");
+            Assert.Equal(2, BearerManifest.Roles.Values.Count(r => r == BearerRole.Flee), "flee");
+            Assert.Equal(BearerRole.Deceive, BearerManifest.Roles["Support-E2"], "the manipulator");
             Assert.Equal(true, BearerManifest.Roles.Keys.All(BearerManifest.IsBearer), "ids");
         }
     }

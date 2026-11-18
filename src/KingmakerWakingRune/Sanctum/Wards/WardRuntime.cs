@@ -120,7 +120,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         public static double Now => Game.Instance.Player.GameTime.TotalSeconds;
 
-        public static void OnSanctumLoaded(bool legacyEntered)
+        public static void OnSanctumLoaded(bool legacyEntered, bool layoutReady)
         {
             if (!s_Subscribed)
             {
@@ -153,10 +153,14 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 Log.Info($"Sanctum state initialized at {Now:0} ({(legacyEntered ? "legacy save" : "fresh")}); profile {state.ProfileSubtier}, {state.ProfilePartyBaseline} PCs, extra challenge {state.ProfileExtraChallenge}.");
             }
             WardHazards.ForgetTurns();
-            WardStatues.ForgetStatsProbe();
             RuneConditionClock.Forget();
             SummonOrders.AfterLoad();
             WardFixtures.Ensure();
+            if (layoutReady)
+            {
+                state.LayoutVersion = SanctumPlan.LayoutVersion;
+                state.MigratedActorIds.Clear();
+            }
             WardStatues.MigrateMarked(state);
             WardCredentials.Reconcile(state);
             EnsureDefenseWard(state);
@@ -217,6 +221,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
             KingmakerWakingRune.Scenario.ScenarioJournal.Tick();
             Sanctum.Krune.RuneRod.SyncWielders();
+            Sanctum.Krune.KruneDirector.Watch();
             TestHook?.Invoke();
             double now = Now;
             if (now < s_NextTick)

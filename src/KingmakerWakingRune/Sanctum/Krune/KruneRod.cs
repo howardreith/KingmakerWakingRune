@@ -49,6 +49,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
             public string CasterId;
             public BlueprintAbility Spell;
             public UnitCommand Command;
+            public AbilityData Ability;
+            public string Reservation;
             public List<string> Requested;
             public List<RodOption> Applied = new List<RodOption>();
             public double At;
@@ -234,7 +236,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             {
                 return null;
             }
-            s_Order = new Order { CasterId = krune.UniqueId, Spell = spell.Blueprint, Command = command, Requested = requested, At = WardRuntime.Now };
+            s_Order = new Order { CasterId = krune.UniqueId, Spell = spell.Blueprint, Command = command, Ability = spell, Requested = requested, At = WardRuntime.Now };
             return string.Join(" + ", preview.Select(o => o.Feat).ToArray());
         }
 
@@ -243,20 +245,16 @@ namespace KingmakerWakingRune.Sanctum.Krune
         {
             if (s_Order != null && s_Order.Command == command)
             {
+                if (s_Order.Reservation != null) s_Pending.Remove(s_Order.Reservation);
                 KruneAwakening.Note($"rune-carved rod: the order for {s_Order.Spell.name} ends with its command (not cast).");
                 s_Order = null;
             }
         }
 
-        private static bool Same(BlueprintAbility a, BlueprintAbility b)
-        {
-            return a != null && b != null && (a == b || a.Parent == b || b.Parent == a);
-        }
-
         public static void KruneParams(UnitEntityData krune, RuleCalculateAbilityParams evt)
         {
             Order order = s_Order;
-            if (order == null || evt.AbilityData == null || krune.UniqueId != order.CasterId || !Same(evt.Spell, order.Spell))
+            if (order == null || evt.AbilityData == null || krune.UniqueId != order.CasterId || !ReferenceEquals(evt.AbilityData, order.Ability))
             {
                 return;
             }
@@ -276,6 +274,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             List<RodOption> applied = ApplyTo(evt, order.Requested, KeyOf(krune, evt.Spell));
             if (Casting(evt.AbilityData))
             {
+                order.Reservation = KeyOf(krune, evt.Spell);
                 order.Applied = applied;
             }
         }
@@ -283,7 +282,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public static void KruneCast(UnitEntityData krune, RuleCastSpell evt)
         {
             Order order = s_Order;
-            if (order == null || krune.UniqueId != order.CasterId || !Same(evt.Spell.Blueprint, order.Spell))
+            if (order == null || krune.UniqueId != order.CasterId || !ReferenceEquals(evt.Spell, order.Ability))
             {
                 return;
             }

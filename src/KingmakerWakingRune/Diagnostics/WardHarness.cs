@@ -460,6 +460,9 @@ namespace KingmakerWakingRune.Diagnostics
                     return KingmakerWakingRune.Sanctum.Krune.KruneAwakening.ReleaseForDiagnostics();
                 case "krunedeadline":
                     return KruneDeadline(double.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture));
+                case "krunerejectsummon":
+                    KingmakerWakingRune.Sanctum.Krune.KruneDirector.ProbeSummonRejection = true;
+                    return "SETUP/INJECTED: the next quickened Summon Monster V offered Extend with a living summoned Frost Giant present will be rejected before Start.";
                 case "krunebook":
                 {
                     // Read only: his book as it stands (ready slots by level and metamagic), and the one-time setup note.
@@ -676,6 +679,10 @@ namespace KingmakerWakingRune.Diagnostics
                     }
                     return string.Join("\n", found.Select(u => $"READ entity {u.UniqueId} '{u.CharacterName}' inGame={u.IsInGame} dead={u.Descriptor.State.IsDead} view={(u.View != null)} viewActive={(u.View != null && u.View.gameObject.activeInHierarchy)} pos=({u.Position.x:0.0},{u.Position.y:0.0},{u.Position.z:0.0}) faction={u.Descriptor.Faction?.name} brain={u.IsBrainActive} commands=[{string.Join(",", u.Commands.Raw.Where(c => c != null).Select(c => c.GetType().Name).ToArray())}] part={(u.Get<WardRestoredPart>() != null)}").ToArray());
                 }
+                case "statuestats":
+                    if (args.Length < 2 || BodyOf(args[1]) == null) return "READ no restored body with that statue identity.";
+                    WardStatues.LogStats(args[1], BodyOf(args[1]), "READ requested by harness");
+                    return "READ restored body statistics written to log.";
                 case "statuesave":
                     WardStatues.ForcedSurvival = args[1] == "pass";
                     return $"SETUP the next Stone to Flesh survival save is forced to {(WardStatues.ForcedSurvival.Value ? "pass" : "fail")} (once; the roll is still made and logged).";

@@ -22,6 +22,17 @@ namespace KingmakerWakingRune.Tests
             return state;
         }
 
+        public static void TestLethalFirstWoundSkipsProphecyEvenAfterRegeneration()
+        {
+            var state = new KurshuState();
+            var down = KurshuRules.ObserveHealth(state, -30, 219, false, false, 13d);
+            Assert.Equal(true, down.SequenceEqual(new[] { HealthEvent.Defeated }), "defeat without permanent death");
+            Assert.Equal(0, KurshuRules.ObserveHealth(state, 7, 219, true, false, 19d).Count, "no belated wound speech after rising");
+            var acid = KurshuRules.ObserveHealth(state, -400, 219, false, true, 21d);
+            Assert.Equal(true, acid.SequenceEqual(new[] { HealthEvent.Slain }), "later lethal damage yields no second defeat");
+            Assert.Equal(13d, state.DefeatedAt, "original defeat time");
+        }
+
         public static void TestHardModeRemovesWeaknessAndOneNegativeLevelOnly()
         {
             Assert.Equal(30, KurshuProfile.Authored("Armor Class"), "AC: printed 28, weakness's natural armor -2 removed once");

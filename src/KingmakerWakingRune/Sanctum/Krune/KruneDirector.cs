@@ -78,7 +78,10 @@ namespace KingmakerWakingRune.Sanctum.Krune
     {
         private static KrunePlan s_Cached;
         private static string s_CachedFor = string.Empty;
-        private static KruneView s_LastView;
+        private static KwrDirectedCast s_Active;
+        internal static bool ProbeSummonRejection;
+        private static FailedKrunePlans s_Failed = new FailedKrunePlans();
+        private static int s_CachedFrame;
         private static double s_CachedAt = -1d;
 
         /// <summary>
@@ -89,12 +92,13 @@ namespace KingmakerWakingRune.Sanctum.Krune
         {
             s_Cached = null;
             s_CachedFor = string.Empty;
-            s_LastView = null;
+            s_Active = null;
+            ProbeSummonRejection = false;
+            s_FreeSince = -1f;
+            s_WatchNext = 0f;
             s_CachedAt = -1d;
-            s_Suppressed.Clear();
-            s_IssuedKey = null;
-            s_IssuedAt = -100d;
-            s_IssuedReady = 0;
+            s_Failed = new FailedKrunePlans();
+            s_LastUnavailable = string.Empty;
             s_LastIdle = string.Empty;
             s_LastIdleAt = -100d;
         }
@@ -105,8 +109,53 @@ namespace KingmakerWakingRune.Sanctum.Krune
         /// <summary>Read only, for the harness: the session's transient decisions as they stand.</summary>
         public static string DebugState()
         {
-            return $"issued={s_IssuedKey ?? "none"}@{s_IssuedAt:0.0} heldBack=[{string.Join(", ", s_Suppressed.Select(p => p.Key + " until " + p.Value.ToString("0.0")).ToArray())}] cachedFor={(s_CachedFor.Length > 0 ? s_CachedFor : "none")}@{s_CachedAt:0.0}";
+            return $"command={s_Active?.Combination ?? "none"} cachedFor={s_CachedFor}@{s_CachedAt:0.0}";
         }
+
+        private static float s_FreeSince = -1f;
+        private static float s_WatchNext;
+        // Check twice per real second. Allow two seconds of unpaused, actionable inactivity for the brain.
+        internal static void Watch()
+        {
+            float time = Time.unscaledTime;
+            if (time < s_WatchNext) return;
+            s_WatchNext = time + 0.5f;
+            var unit = KruneAwakening.Actor;
+            bool tb = TurnBased.Controllers.CombatController.IsInTurnBasedCombat();
+            if (unit == null || !Live(unit) || !Free(unit) || Game.Instance.IsPaused || Game.Instance.CurrentMode != Kingmaker.GameModes.GameModeType.Default
+                || (tb && TurnBased.Controllers.CombatController.CurrentUnit != unit)
+                || unit.Commands.Raw.Any(c => c != null && !c.IsFinished) || unit.Commands.Queue.Count != 0
+                || (unit.CombatState.HasCooldownForCommand(UnitCommand.CommandType.Standard) && unit.CombatState.HasCooldownForCommand(UnitCommand.CommandType.Swift)))
+            {
+                s_FreeSince = -1f;
+                return;
+            }
+            if (s_FreeSince < 0f) s_FreeSince = time;
+            if (time - s_FreeSince < 2f) return;
+            if (s_Active != null) Ended(s_Active, "native queue discarded the command", false);
+            var plan = Plan(unit);
+            if (plan != null)
+            {
+                KruneAwakening.Note("director watchdog: free with an empty native queue; resuming with " + plan.Ability.Blueprint.name);
+                UnitCommand replacement = Command(unit);
+                if (replacement != null) unit.Commands.Run(replacement);
+            }
+            else if (WardRuntime.State.Krune.Pursuing && !unit.CombatState.HasCooldownForCommand(UnitCommand.CommandType.Move))
+            {
+                var state = WardRuntime.State.Krune;
+                Vector3 seen = KruneMoves.World(state.EnemySeenX, state.EnemySeenY);
+                if (unit.DistanceTo(seen) > 2f) unit.Commands.Run(new UnitMoveTo(seen, 1.5f));
+                else state.Pursuing = false;
+            }
+            else if (tb && Game.Instance.TurnBasedCombatController.CurrentTurn.CanEndTurn())
+            {
+                KruneAwakening.Note("director watchdog: empty queue and no legal cast; ending turn.");
+                Game.Instance.TurnBasedCombatController.CurrentTurn.ForceToEnd();
+            }
+            s_FreeSince = time;
+        }
+
+        internal static bool Pending => s_Active != null;
 
         public static bool Live(UnitEntityData krune)
         {
@@ -117,13 +166,38 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public static KrunePlan Plan(UnitEntityData krune)
         {
             double now = Game.Instance.TimeController.GameTime.TotalSeconds;
-            if (s_Cached != null && s_CachedFor == krune?.UniqueId && Math.Abs(now - s_CachedAt) < 0.05d)
+            if (!Live(krune) || !Free(krune))
+            {
+                return null;
+            }
+            bool turnBased = TurnBased.Controllers.CombatController.IsInTurnBasedCombat();
+            if (turnBased && TurnBased.Controllers.CombatController.CurrentUnit != krune)
+            {
+                return null;
+            }
+            int round = turnBased ? Game.Instance.TurnBasedCombatController.RoundNumber : (int)((now - WardRuntime.State.Krune.CombatStartedAt) / 6d);
+            s_Failed.BeginRound(turnBased ? -round - 1 : round);
+            if (s_Active != null)
+            {
+                // The brain may construct a candidate and discard it before Init or OnEnded.
+                // A full round without acceptance is a terminal rejection for this decision.
+                if (s_Active.Executor == null && now - s_Active.CreatedAt >= 6d)
+                {
+                    Ended(s_Active, "rejected before start (never accepted by native queue)", false);
+                }
+                else
+                {
+                    return null;
+                }
+            }
+            if (s_CachedFor == krune?.UniqueId && s_CachedFrame == Time.frameCount)
             {
                 return s_Cached;
             }
             s_Cached = Decide(krune);
             s_CachedFor = krune?.UniqueId ?? string.Empty;
             s_CachedAt = now;
+            s_CachedFrame = Time.frameCount;
             return s_Cached;
         }
 
@@ -148,14 +222,19 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 }
             }
             List<UnitEntityData> foes = Foes(krune);
-            if (foes.Count == 0)
+            if (foes.Count == 0 && state.DirectorPhase != KrunePhase.Recover)
             {
                 return Idle("no foe he can see within 40 m");
             }
+            if (foes.Count > 0)
+            {
+                Vector3 seen = foes.OrderBy(f => f.DistanceTo(krune)).First().Position;
+                state.EnemySeenX = KruneMoves.GridX(seen);
+                state.EnemySeenY = KruneMoves.GridY(seen);
+                state.Pursuing = false;
+            }
             KruneView view = View(krune, foes, state);
-            CheckLastCast(view);
-            s_LastView = view;
-            KrunePhase next = KruneTactics.NextPhase(view);
+            KrunePhase next = foes.Count == 0 ? KrunePhase.Recover : KruneTactics.NextPhase(view);
             if (next != state.DirectorPhase)
             {
                 KruneAwakening.Note($"director: phase {state.DirectorPhase} -> {next} (hp {view.HitPointFraction:0.00}, adjacent {view.AdjacentFoes}).");
@@ -171,11 +250,32 @@ namespace KingmakerWakingRune.Sanctum.Krune
                     return swift;
                 }
             }
+            if (KruneTactics.Overwhelmed(view))
+            {
+                KrunePlan passage = view.HasPhaseDoor ? PassagePlan(krune, foes) : null;
+                if (passage != null) return passage;
+                var step = krune.Descriptor.Abilities.Enumerable.FirstOrDefault(a => a.Blueprint.GetComponents<AbilityResourceLogic>()
+                    .Any(r => r.RequiredResource == KruneBlueprints.DimensionalSteps && r.IsSpendResource));
+                if (step != null && step.Data.IsAvailable && !krune.CombatState.HasCooldownForCommand(step.Data.RuntimeActionType))
+                {
+                    Vector3? to = KruneMoves.Retreat(krune, foes, 30f.Feet().Meters, true);
+                    if (to.HasValue && step.Data.CanTarget(new TargetWrapper(to.Value)))
+                    {
+                        var jump = Eligible(new KrunePlan { Ability = step.Data, Target = new TargetWrapper(to.Value), Aim = KruneAim.Retreat, Reason = "dimensional steps out of the surround" });
+                        if (jump != null) return jump;
+                    }
+                }
+            }
             if (krune.CombatState.HasCooldownForCommand(UnitCommand.CommandType.Standard))
             {
                 return null;
             }
-            return GearFirst(krune, foes, view) ?? First(krune, foes, KruneTactics.StandardOptions(view), false) ?? GearLast(krune, foes, view) ?? Fallback(krune, foes) ?? Idle("nothing to cast: the native attack");
+            if (foes.Count == 0)
+            {
+                if (view.SummonsAlive >= 3 && view.HasForesight && view.HasStoneskin) return null;
+                return First(krune, foes, KruneTactics.StandardOptions(view), false);
+            }
+            return GearFirst(krune, foes, view) ?? First(krune, foes, KruneTactics.StandardOptions(view), false) ?? GearLast(krune, foes, view) ?? Fallback(krune, foes) ?? Idle("no legal cast: " + s_LastUnavailable);
         }
 
         /// <summary>Boots of speed: switched on (a free action) once he is fighting, while they have rounds left that day.</summary>
@@ -192,14 +292,6 @@ namespace KingmakerWakingRune.Sanctum.Krune
         /// <summary>Uses that come before his prepared list: wish's summons while he recovers; the ring when foes cast and his own spell turning is gone.</summary>
         private static KrunePlan GearFirst(UnitEntityData krune, List<UnitEntityData> foes, KruneView view)
         {
-            if (view.HasPhaseDoor && KruneTactics.Overwhelmed(view))
-            {
-                KrunePlan step = PassagePlan(krune, foes);
-                if (step != null)
-                {
-                    return step;
-                }
-            }
             if (view.Phase == KrunePhase.Recover)
             {
                 KrunePlan wish = WishPlan(krune, foes, KruneGear.WishSummon, "wish: a summoned army while he recovers");
@@ -253,7 +345,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             Kingmaker.UnitLogic.Abilities.Ability fact = krune.Descriptor.Abilities.GetFact(KruneLocalSpells.PhaseDoorStep) as Kingmaker.UnitLogic.Abilities.Ability;
             AbilityData data = fact?.Data;
             TargetWrapper target = data != null && data.IsAvailableForCast ? Aim(krune, foes, data, KruneAim.Retreat) : null;
-            return target != null && data.CanTarget(target) && InRange(krune, data, target) ? new KrunePlan { Ability = data, Target = target, Reason = "overwhelmed: through his phase door to another part of the sanctum", Key = data.Blueprint.name } : null;
+            return target != null && data.CanTarget(target) && InRange(krune, data, target) ? Eligible(new KrunePlan { Ability = data, Target = target, Reason = "overwhelmed: through his phase door to another part of the sanctum", Key = data.Blueprint.name, Aim = KruneAim.Retreat }) : null;
         }
 
         private static KrunePlan Telekinesis(UnitEntityData krune, List<UnitEntityData> foes)
@@ -276,21 +368,21 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
             KruneAim aim = variant == KruneGear.WishSummon ? KruneAim.SummonPoint : KruneAim.FoeCluster;
             TargetWrapper target = Aim(krune, foes, data, aim);
-            return target != null && data.CanTarget(target) && InRange(krune, data, target) ? new KrunePlan { Ability = data, Target = target, Reason = reason, Key = variant.name, Aim = aim } : null;
+            return target != null && data.CanTarget(target) && InRange(krune, data, target) ? Eligible(new KrunePlan { Ability = data, Target = target, Reason = reason, Key = variant.name, Aim = aim }) : null;
         }
 
         private static KrunePlan ItemPlan(UnitEntityData krune, Kingmaker.Blueprints.Items.BlueprintItem blueprint, TargetWrapper target, string reason)
         {
             Kingmaker.Items.ItemEntity item = KruneGear.Item(krune, blueprint);
             AbilityData data = item?.Ability?.Data;
-            return data != null && item.Charges > 0 && data.IsAvailableForCast && data.CanTarget(target) ? new KrunePlan { Ability = data, Target = target, Reason = reason, Key = blueprint.name } : null;
+            return data != null && item.Charges > 0 && data.IsAvailableForCast && data.CanTarget(target) ? Eligible(new KrunePlan { Ability = data, Target = target, Reason = reason, Key = blueprint.name }) : null;
         }
 
         private static KrunePlan FactPlan(UnitEntityData krune, BlueprintAbility blueprint, UnitEntityData target, string reason, bool swift = false)
         {
             Kingmaker.UnitLogic.Abilities.Ability fact = krune.Descriptor.Abilities.GetFact(blueprint) as Kingmaker.UnitLogic.Abilities.Ability;
             AbilityData data = fact?.Data;
-            return data != null && data.IsAvailableForCast && data.CanTarget(target) && InRange(krune, data, target) ? new KrunePlan { Ability = data, Target = target, Reason = reason, Swift = swift, Key = blueprint.name } : null;
+            return data != null && data.IsAvailableForCast && data.CanTarget(target) && InRange(krune, data, target) ? Eligible(new KrunePlan { Ability = data, Target = target, Reason = reason, Swift = swift, Key = blueprint.name }) : null;
         }
 
         /// <summary>Control effects yield: no director decision while he is not his own master or cannot act.</summary>
@@ -344,7 +436,6 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 HasSpellTurning = KruneLocalSpells.SpellTurning != null && krune.Buffs.HasFact(KruneLocalSpells.SpellTurning),
                 HasGlobe = KruneLocalSpells.InsideGlobe != null && krune.Buffs.HasFact(KruneLocalSpells.InsideGlobe),
                 WallStanding = WardRuntime.State.Walls.Any(w => w.Caster == krune.UniqueId && WallRules.Standing(w)),
-                TentaclesActive = OwnArea(krune, "KWR_KruneBlackTentaclesArea"),
                 CloudActive = OwnArea(krune, "Cloudkill") || OwnArea(krune, "AcidFog") || OwnArea(krune, "StinkingCloud"),
                 FoeHasStrongBuffs = foes.Any(f => f.Buffs.Enumerable.Count(b => b.IsFromSpell) >= 3),
                 RoundsInCombat = state.CombatStartedAt < 0d ? 0 : (int)((WardRuntime.Now - state.CombatStartedAt) / 6d),
@@ -381,11 +472,6 @@ namespace KingmakerWakingRune.Sanctum.Krune
             var skipped = new List<string>();
             foreach (KruneChoice choice in options)
             {
-                if (s_Suppressed.TryGetValue(choice.Key, out double until) && WardRuntime.Now < until && until - WardRuntime.Now <= SuppressSeconds)
-                {
-                    skipped.Add(choice.Key + " (held back after a cast that did not go off)");
-                    continue;
-                }
                 KrunePlan plan = Resolve(krune, foes, choice, swift, out string why);
                 if (plan != null)
                 {
@@ -399,7 +485,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
             if (skipped.Count > 0)
             {
-                Idle((swift ? "swift" : "standard") + " options not castable: " + string.Join("; ", skipped.ToArray()));
+                s_LastUnavailable = string.Join("; ", skipped.ToArray());
             }
             return null;
         }
@@ -419,6 +505,11 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 return null;
             }
             AbilityData ability = WithVariant(slot.Spell, choice.Spell);
+            if (ability == null || !ability.IsAvailable)
+            {
+                why = ability == null ? "no castable variant" : "ability unavailable";
+                return null;
+            }
             TargetWrapper target = Aim(krune, foes, ability, choice.Aim);
             if (target == null)
             {
@@ -435,7 +526,9 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 why = "out of range";
                 return null;
             }
-            return new KrunePlan { Ability = ability, Target = target, Reason = choice.Reason, Swift = swift, Key = choice.Key, Aim = choice.Aim };
+            var plan = Eligible(new KrunePlan { Ability = ability, Target = target, Reason = choice.Reason, Swift = swift, Key = choice.Key, Aim = choice.Aim });
+            if (plan == null) why = "failed this round or action unavailable";
+            return plan;
         }
 
         /// <summary>
@@ -462,12 +555,13 @@ namespace KingmakerWakingRune.Sanctum.Krune
         /// <summary>A phase door passage (through stone) or a greater teleport (anywhere he knows): no line of sight needed.</summary>
         public static bool ThroughStone(AbilityData ability)
         {
-            return ability.Blueprint == KruneLocalSpells.PhaseDoorStep || ability.Blueprint.name == "KWR_KruneGreaterTeleport";
+            return ability.Blueprint == KruneBlueprints.DimensionDoorFx || ability.Blueprint == KruneLocalSpells.PhaseDoorStep || ability.Blueprint.name == "KWR_KruneGreaterTeleport";
         }
 
         /// <summary>He casts from where he stands: a target beyond the spell's range (this game's fixed ranges) is not chosen.</summary>
         private static bool InRange(UnitEntityData krune, AbilityData ability, TargetWrapper target)
         {
+            if (ability.Blueprint == KruneBlueprints.DimensionDoorFx) return true;
             float range = ability.Blueprint.GetRange().Meters;
             if (range <= 0f || range > 500f)
             {
@@ -488,31 +582,53 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return Kingmaker.Visual.FogOfWar.LineOfSightGeometry.Instance == null || !Kingmaker.Visual.FogOfWar.LineOfSightGeometry.Instance.HasObstacle(krune.EyePosition, to);
         }
 
-        private const double SuppressSeconds = 12d;
-        private static readonly Dictionary<string, double> s_Suppressed = new Dictionary<string, double>();
-        private static string s_IssuedKey;
-        private static double s_IssuedAt = -100d;
-        private static int s_IssuedReady;
-
-        /// <summary>A cast ordered more than a few seconds ago whose slot is still there did not go off: hold it back two rounds.</summary>
-        private static void CheckLastCast(KruneView view)
+        private static string Combination(KrunePlan plan)
         {
-            if (s_IssuedKey != null && WardRuntime.Now < s_IssuedAt)
-            {
-                // Time ran backwards (a load the session reset missed): the order is from another moment.
-                s_IssuedKey = null;
-            }
-            if (s_IssuedKey == null || WardRuntime.Now - s_IssuedAt < 4d)
+            Vector3 point = plan.Target.Point;
+            string target = plan.Target.IsUnit ? plan.Target.Unit.UniqueId
+                : Mathf.RoundToInt(point.x) + "/" + Mathf.RoundToInt(point.y) + "/" + Mathf.RoundToInt(point.z);
+            return plan.Ability.Blueprint.AssetGuid + "/" + Metamagic(plan.Ability) + "/" + plan.Ability.RuntimeActionType + "/" + target;
+        }
+
+        private static KrunePlan Eligible(KrunePlan plan)
+        {
+            var actor = plan.Ability.Caster.Unit;
+            return !actor.CombatState.HasCooldownForCommand(plan.Ability.RuntimeActionType)
+                && s_Failed.Allows(Combination(plan)) ? plan : null;
+        }
+
+        internal static void Ended(KwrDirectedCast command, string reason, bool committed)
+        {
+            RuneRod.CommandEnded(command);
+            if (command != s_Active)
             {
                 return;
             }
-            int ready = view.Ready.TryGetValue(s_IssuedKey, out int n) ? n : 0;
-            if (ready >= s_IssuedReady && ready > 0)
+            if (committed && command.Relocation && WardRuntime.State != null)
             {
-                s_Suppressed[s_IssuedKey] = WardRuntime.Now + SuppressSeconds;
-                KruneAwakening.Note($"director: {s_IssuedKey} was ordered but did not go off; held back for two rounds.");
+                var state = WardRuntime.State.Krune;
+                state.HasRetreat = state.Pursuing = true;
+                state.RetreatX = KruneMoves.GridX(command.Target.Point);
+                state.RetreatY = KruneMoves.GridY(command.Target.Point);
+                state.DirectorPhase = KrunePhase.Recover;
             }
-            s_IssuedKey = null;
+            if (committed && command.Spell.Blueprint == KruneBlueprints.DimensionDoorFx && command.Executor != null)
+            {
+                // Dimension door ends the caster's actions even when quickened. The native teleport delivery
+                // moves the unit and plays its effects. Leave cooldown expiry and turn advancement to the engine.
+                var cooldown = command.Executor.CombatState.Cooldown;
+                cooldown.StandardAction = Math.Max(cooldown.StandardAction, 6f);
+                cooldown.MoveAction = Math.Max(cooldown.MoveAction, 3f);
+                cooldown.SwiftAction = Math.Max(cooldown.SwiftAction, 6f);
+            }
+            if (!committed)
+            {
+                s_Failed.Reject(command.Combination);
+            }
+            s_Active = null;
+            s_Cached = null;
+            s_CachedFrame = -1;
+            KruneAwakening.Note($"director terminal: {command.Spell.Blueprint.name} {command.Combination}: {reason}.");
         }
 
         private static AbilityData WithVariant(AbilityData spell, string printed)
@@ -524,12 +640,29 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 variant = spell.Blueprint.name.Replace("Base", "Single");
             }
             BlueprintAbility chosen = variant.Length == 0 ? null : spell.Blueprint.GetComponent<AbilityVariants>()?.Variants.FirstOrDefault(v => v.name == variant);
-            return chosen == null ? spell : new AbilityData(spell, chosen);
+            if (chosen != null)
+            {
+                return new AbilityData(spell, chosen);
+            }
+            // Some profiles replace the base with a directly executable spell. Never dispatch a selector.
+            var variants = spell.Blueprint.GetComponent<AbilityVariants>();
+            if (variants != null)
+            {
+                if (!printed.StartsWith("Summon Monster", StringComparison.Ordinal)) return null;
+                // Compatibility profiles can replace the native Single child. Select only a live executable leaf.
+                return variants.Variants.Where(v => v != null && v.GetComponent<AbilityVariants>() == null)
+                    .Select(v => new AbilityData(spell, v)).FirstOrDefault(v => v.IsAvailable);
+            }
+            if (variant.Length == 0) return spell;
+            // Retain only profile replacements with an executable summon, never a group teleport.
+            return printed.StartsWith("Summon Monster", StringComparison.Ordinal)
+                && spell.Blueprint.GetComponent<AbilityEffectRunAction>() != null ? spell : null;
         }
 
         private static TargetWrapper Aim(UnitEntityData krune, List<UnitEntityData> foes, AbilityData ability, KruneAim aim)
         {
-            UnitEntityData nearest = foes.OrderBy(f => f.DistanceTo(krune)).First();
+            if (foes.Count == 0 && aim != KruneAim.Self && aim != KruneAim.SummonPoint) return null;
+            UnitEntityData nearest = foes.OrderBy(f => f.DistanceTo(krune)).FirstOrDefault();
             switch (aim)
             {
                 case KruneAim.Self:
@@ -546,8 +679,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 case KruneAim.FoeCluster:
                     float radius = Math.Max(ability.Blueprint.AoERadius.Meters, 10f.Feet().Meters);
                     bool poisonCloud = (ability.Blueprint.GetComponent<SpellDescriptorComponent>()?.Descriptor.Value & SpellDescriptor.Poison) != 0;
-                    // Tentacles cannot hold a creature that cannot be held in place (freedom of movement): those do not count.
-                    List<UnitEntityData> pool = ability.Blueprint.name == "KWR_KruneBlackTentacles" ? foes.Where(f => !f.Descriptor.State.HasConditionImmunity(UnitCondition.CantMove)).ToList() : foes;
+                    List<UnitEntityData> pool = foes;
                     // Foes already inside one of his own areas of the same spell are not a reason to cast it again.
                     List<Vector3> covered = Game.Instance.State.AreaEffects.Where(a => a.Context?.MaybeCaster == krune && a.Context.SourceAbility != null
                         && (a.Context.SourceAbility == ability.Blueprint || a.Context.SourceAbility == ability.Blueprint.Parent)).Select(a => a.Position).ToList();
@@ -567,12 +699,18 @@ namespace KingmakerWakingRune.Sanctum.Krune
                     Vector3 point = krune.Position + toward.normalized * Mathf.Clamp(d * 0.5f, 2f, 6f);
                     return new TargetWrapper(point);
                 case KruneAim.SummonPoint:
-                    Vector3 front = krune.Position + (nearest.Position - krune.Position).normalized * 2f;
-                    return new TargetWrapper(Kingmaker.View.ObstacleAnalyzer.GetNearestNode(front).clampedPosition);
+                    Vector3 direction = nearest == null ? Vector3.forward : (nearest.Position - krune.Position).normalized;
+                    for (int i = 0; i < 8; i++)
+                    {
+                        Vector3 front = krune.Position + Quaternion.Euler(0f, i * 45f, 0f) * direction * 3f;
+                        Vector3 landing = Kingmaker.View.ObstacleAnalyzer.GetNearestNode(front).clampedPosition;
+                        if (KruneMoves.LegalDestination(landing, null)) return new TargetWrapper(landing);
+                    }
+                    return null;
                 case KruneAim.Retreat:
                     // Within the spell's own reach (a phase door passage: 40 ft) and, except through stone, in his sight.
                     float span = ability.Blueprint.GetRange().Meters;
-                    float max = ability.Blueprint == KruneLocalSpells.PhaseDoorStep ? 40f.Feet().Meters : span > 0f && span < 500f ? span - 0.5f : 0f;
+                    float max = ability.Blueprint == KruneLocalSpells.PhaseDoorStep ? 40f.Feet().Meters : ability.Blueprint == KruneBlueprints.DimensionDoorFx ? 0f : span > 0f && span < 500f ? span - 0.5f : 0f;
                     Vector3? away = KruneMoves.Retreat(krune, foes, max, !ThroughStone(ability));
                     return away.HasValue ? new TargetWrapper(away.Value) : null;
                 default:
@@ -625,6 +763,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             return bestCount;
         }
 
+        private static string s_LastUnavailable = string.Empty;
         private static string s_LastIdle = string.Empty;
         private static double s_LastIdleAt = -100d;
 
@@ -668,20 +807,17 @@ namespace KingmakerWakingRune.Sanctum.Krune
         private static KrunePlan Fallback(UnitEntityData krune, List<UnitEntityData> foes)
         {
             UnitEntityData nearest = foes.OrderBy(f => f.DistanceTo(krune)).First();
-            if (nearest.DistanceTo(krune) <= krune.Corpulence + nearest.Corpulence + 1.7f)
-            {
-                return null;
-            }
             Kingmaker.UnitLogic.Abilities.Ability dart = krune.Descriptor.Abilities.Enumerable.FirstOrDefault(a => a.Blueprint.name == "ConjurationAcidDartAbility");
             if (dart != null && dart.Data.IsAvailableForCast && dart.Data.CanTarget(nearest))
             {
-                return new KrunePlan { Ability = dart.Data, Target = nearest, Reason = "acid dart" };
+                KrunePlan dartPlan = Eligible(new KrunePlan { Ability = dart.Data, Target = nearest, Reason = "acid dart" });
+                if (dartPlan != null && InRange(krune, dart.Data, nearest)) return dartPlan;
             }
             Kingmaker.Items.ItemEntity wand = krune.Body.QuickSlots.Select(s => s.MaybeItem).FirstOrDefault(i => i != null && i.Blueprint == KruneBlueprints.WandOfAcidArrow && i.Charges > 0);
             AbilityData wandAbility = wand?.Ability?.Data;
-            if (wandAbility != null && wandAbility.IsAvailableForCast && wandAbility.CanTarget(nearest))
+            if (wandAbility != null && wandAbility.IsAvailableForCast && wandAbility.CanTarget(nearest) && InRange(krune, wandAbility, nearest))
             {
-                return new KrunePlan { Ability = wandAbility, Target = nearest, Reason = "wand of acid arrow" };
+                return Eligible(new KrunePlan { Ability = wandAbility, Target = nearest, Reason = "wand of acid arrow" });
             }
             return null;
         }
@@ -693,15 +829,17 @@ namespace KingmakerWakingRune.Sanctum.Krune
             {
                 return null;
             }
-            if (plan.Key != null)
-            {
-                s_IssuedKey = plan.Key;
-                s_IssuedAt = WardRuntime.Now;
-                s_IssuedReady = s_LastView != null && s_LastView.Ready.TryGetValue(plan.Key, out int ready) ? ready : 0;
-            }
             s_Cached = null;
-            var command = new KwrDirectedCast(plan.Ability, plan.Target);
+            var command = new KwrDirectedCast(plan.Ability, plan.Target, Combination(plan), plan.Aim == KruneAim.Retreat);
+            s_Active = command;
             string rod = RuneRod.Offer(krune, plan.Ability, RodRequest(plan), command);
+            if (ProbeSummonRejection && plan.Key == "Quickened Summon Monster V" && rod == "Extend"
+                && Game.Instance.State.Units.Any(u => u.IsInGame && !u.Descriptor.State.IsDead && u.Get<UnitPartSummonedMonster>() != null
+                    && u.Blueprint.name.IndexOf("FrostGiant", StringComparison.OrdinalIgnoreCase) >= 0))
+            {
+                command.RejectForProbe = true;
+                ProbeSummonRejection = false;
+            }
             KruneAwakening.Note($"director: {plan.Ability.Blueprint.name}{(plan.Ability.MetamagicData != null && plan.Ability.MetamagicData.NotEmpty ? " (" + plan.Ability.MetamagicData.MetamagicMask + ")" : string.Empty)} at {(plan.Target.IsUnit ? plan.Target.Unit.CharacterName : plan.Target.Point.ToString())}{(plan.Swift ? " (swift)" : string.Empty)}{(rod != null ? " with the rod's " + rod : string.Empty)}: {plan.Reason}.");
             return command;
         }
@@ -759,12 +897,26 @@ namespace KingmakerWakingRune.Sanctum.Krune
     {
         public override bool IsAvailable(DecisionContext context)
         {
-            return !context.Unit.CombatState.HasCooldownForCommand(UnitCommand.CommandType.Standard);
+            UnitEntityData krune = context.Unit;
+            if (!KruneDirector.Live(krune) || !KruneDirector.OwnMaster(krune) || KruneDirector.Pending) return false;
+            return KruneTactics.MayUseHeldSpear(!krune.CombatState.HasCooldownForCommand(UnitCommand.CommandType.Standard),
+                KruneDirector.Plan(krune) != null, krune.Memory.Enemies.Any(e => InReach(krune, e.Unit)));
+        }
+
+        public override bool IsTargetValid(DecisionContext context)
+        {
+            return InReach(context.Unit, context.Target.Unit) && base.IsTargetValid(context);
         }
 
         public override UnitCommand CreateCommand(DecisionContext context, UnitEntityData target)
         {
-            return UnitAttack.CreateAttackCommand(context.Unit, target);
+            return IsAvailable(context) && InReach(context.Unit, target) ? UnitAttack.CreateAttackCommand(context.Unit, target) : null;
+        }
+
+        private static bool InReach(UnitEntityData krune, UnitEntityData target)
+        {
+            return target != null && target.IsInGame && target.Descriptor.State.IsConscious && krune.IsEnemy(target)
+                && krune.Memory.ContainsVisible(target) && krune.DistanceTo(target) <= krune.Corpulence + target.Corpulence + (krune.Body.PrimaryHand.MaybeWeapon?.AttackRange.Meters ?? 0f);
         }
 
         public override Kingmaker.Controllers.Brain.Blueprints.TargetType GetTargetType(DecisionContext context)
@@ -788,13 +940,31 @@ namespace KingmakerWakingRune.Sanctum.Krune
     {
         private readonly TimeSpan m_Created = Game.Instance.TimeController.GameTime;
 
-        public KwrDirectedCast(AbilityData spell, TargetWrapper target)
+        internal readonly string Combination;
+        internal readonly bool Relocation;
+        internal bool RejectForProbe;
+        internal double CreatedAt => m_Created.TotalSeconds;
+
+        public KwrDirectedCast(AbilityData spell, TargetWrapper target, string combination, bool relocation)
             : base(spell, target)
         {
-            // A phase door passage goes through stone: the only cast that needs no line of sight to its point.
+            Combination = combination;
+            Relocation = relocation;
+            // His long-distance teleports and phase passage can target unseen sanctum floor.
             if (KruneDirector.ThroughStone(spell))
             {
                 NeedLoS = false;
+            }
+        }
+
+        public override void Init(UnitEntityData executor)
+        {
+            base.Init(executor);
+            if (Spell.Blueprint == KruneBlueprints.DimensionDoorFx) ApproachRadius = float.MaxValue;
+            if (RejectForProbe && !IsFinished)
+            {
+                KruneAwakening.Note("SETUP/INJECTED: rejecting the quickened summon after native Init and the Extend offer, before Start.");
+                Interrupt();
             }
         }
 
@@ -813,8 +983,22 @@ namespace KingmakerWakingRune.Sanctum.Krune
         /// <summary>Cast, interrupted or replaced: a rod order made for this command ends with it.</summary>
         protected override void OnEnded(bool raiseEvent = true)
         {
-            base.OnEnded(raiseEvent);
-            RuneRod.CommandEnded(this);
+            bool cast = ExecutionProcess != null || Result == ResultType.Success;
+            string reason = cast ? "cast" : Executor == null ? "rejected before start"
+                : !Spell.CanTarget(Target) ? "target invalid"
+                : !IsStarted && !IsUnitEnoughClose ? "range or line of effect invalid"
+                : !IsActed && Executor.CombatState.HasCooldownForCommand(this) ? "action unavailable"
+                : !Spell.IsAvailable ? "resource unavailable"
+                : !IsStarted ? "rejected before start"
+                : Result == ResultType.Interrupt ? "interrupted" : "native command failure";
+            try
+            {
+                KruneDirector.Ended(this, reason, cast);
+            }
+            finally
+            {
+                base.OnEnded(raiseEvent);
+            }
         }
     }
 }

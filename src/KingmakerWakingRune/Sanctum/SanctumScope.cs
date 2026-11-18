@@ -73,8 +73,8 @@ namespace KingmakerWakingRune.Sanctum
 
     internal static class SanctumScope
     {
-        private const float MapHalfWidth = 22f;
-        private const float MapHalfDepth = 26f;
+        private const float MapHalfWidth = 22f * SanctumPlan.HorizontalScale;
+        private const float MapHalfDepth = 26f * SanctumPlan.HorizontalScale;
         /// <summary>Metres two arrivals must stand apart; anything closer is the stacked placement this check exists to catch.</summary>
         private const float MinSeparation = 0.2f;
         /// <summary>Metres a restored unit may be from the navmesh and still count as standing on it.</summary>
@@ -229,36 +229,51 @@ namespace KingmakerWakingRune.Sanctum
         /// Puts anyone a save left somewhere the plan or navmesh no longer allows, such as a flight that has since moved,
         /// on the nearest ground in the same space. Everyone else, and everything else about them, is left alone.
         /// </summary>
-        public static void RepairRestoredPositions()
+        public static bool RepairRestoredPositions(bool previousLayout)
         {
-            if (!IsBuilt)
-            {
-                return;
-            }
-            List<UnitEntityData> party = PartyAndPets().Where(u => u.IsInGame && u.View != null).ToList();
+            if (!IsBuilt) return false;
+            bool complete = true;
+            var migrated = previousLayout ? Wards.WardStore.Existing.MigratedActorIds : null;
+            List<UnitEntityData> party = (previousLayout ? Game.Instance.State.Units.AsEnumerable() : PartyAndPets())
+                .Where(u => u.IsInGame && u.View != null && Wards.WardFixtures.IdOf(u) == null).ToList();
             if (party.Count > 0 && FaultInjection.Take("position-invalid"))
             {
                 // A compatibility fixture for the harness: terrace height inside the upper courses is ground no save should hold.
                 party[0].Position = new Vector3(SanctumPlan.ToWorldX(13.6f), SanctumPlan.RingHeight, SanctumPlan.ToWorldZ(18.2f));
                 Log.Info($"INJECTED FAULT position-invalid: {party[0].CharacterName} moved to {party[0].Position}.");
             }
+            DoorPlan[] closed = SanctumDoors.ClosedPlans();
             foreach (UnitEntityData unit in party)
             {
-                if (IsStandingValidly(unit.Position))
+                if (migrated != null && migrated.Contains(unit.UniqueId)) continue;
+                Vector3 from = unit.Position;
+                float oldX = previousLayout ? from.x / SanctumPlan.PrintedSquareMeters + SanctumPlan.OriginX : GridX(from);
+                float oldY = previousLayout ? SanctumPlan.OriginY - from.z / SanctumPlan.PrintedSquareMeters : GridY(from);
+                SanctumSpace space = SanctumPlan.SpaceAt(oldX, oldY);
+                GridPoint old = new GridPoint(oldX, oldY);
+                bool Permitted(Vector3 p)
                 {
+                    var after = new GridPoint(GridX(p), GridY(p));
+                    return closed.All(d => SanctumPlan.SameDoorSide(d, old, after)
+                        && !SanctumPlan.DoorwayOverlap(d, after.X, after.Y, p.y, unit.Corpulence / SanctumPlan.MetersPerSquare));
+                }
+                if (IsStandingValidly(from) && (!previousLayout || space == SanctumPlan.SpaceAt(GridX(from), GridY(from))) && Permitted(from))
+                {
+                    migrated?.Add(unit.UniqueId);
                     continue;
                 }
-                Vector3 from = unit.Position;
-                SanctumSpace space = SanctumPlan.SpaceAt(GridX(from), GridY(from));
-                Vector3? ground = FindGround(GridX(from), GridY(from), space, unit, party);
+                Vector3? ground = FindGround(GridX(from), GridY(from), space, unit, party, Permitted);
                 if (ground == null)
                 {
                     Log.Error($"No safe ground found near {unit.CharacterName} at {from}; left in place.");
+                    complete = false;
                     continue;
                 }
                 unit.Position = ground.Value;
+                migrated?.Add(unit.UniqueId);
                 Log.Info($"Restored position corrected: {unit.CharacterName} {from} -> {ground.Value} in {space}.");
             }
+            return complete;
         }
 
         private static bool IsStandingValidly(Vector3 p)
@@ -270,10 +285,10 @@ namespace KingmakerWakingRune.Sanctum
         {
             NNInfo nearest = ObstacleAnalyzer.GetNearestNode(p);
             Vector3 clamped = nearest.clampedPosition;
-            return nearest.node != null && new Vector2(clamped.x - p.x, clamped.z - p.z).sqrMagnitude <= NavmeshReach * NavmeshReach && Mathf.Abs(clamped.y - p.y) <= SanctumPlan.GroundTolerance;
+            return nearest.node != null && nearest.node.Walkable && new Vector2(clamped.x - p.x, clamped.z - p.z).sqrMagnitude <= NavmeshReach * NavmeshReach && Mathf.Abs(clamped.y - p.y) <= SanctumPlan.GroundTolerance;
         }
 
-        private static Vector3? FindGround(float x, float y, SanctumSpace space, UnitEntityData unit, List<UnitEntityData> party)
+        private static Vector3? FindGround(float x, float y, SanctumSpace space, UnitEntityData unit, List<UnitEntityData> party, Func<Vector3, bool> permitted)
         {
             foreach (GridPoint candidate in SanctumPlan.RingsAround(x, y))
             {
@@ -288,7 +303,7 @@ namespace KingmakerWakingRune.Sanctum
                     continue;
                 }
                 Vector3 placed = ObstacleAnalyzer.GetNearestNode(point).clampedPosition;
-                if (party.All(other => other == unit || new Vector2(other.Position.x - placed.x, other.Position.z - placed.z).magnitude >= other.View.Corpulence + unit.View.Corpulence))
+                if (permitted(placed) && (space == SanctumSpace.None || SanctumPlan.SpaceAt(GridX(placed), GridY(placed)) == space) && party.All(other => other == unit || new Vector2(other.Position.x - placed.x, other.Position.z - placed.z).magnitude >= other.View.Corpulence + unit.View.Corpulence))
                 {
                     return placed;
                 }
@@ -316,7 +331,6 @@ namespace KingmakerWakingRune.Sanctum
             {
                 Floor = Copy(found, "cyclops_dungeon_floor_tile_01_opaque_d"),
                 Rock = Copy(found, "cyclops_dungeon_rock_opaque_d"),
-                Black = Copy(found, "black_cut_opaque_d"),
 
             };
         }

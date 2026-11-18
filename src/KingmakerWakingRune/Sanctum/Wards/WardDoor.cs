@@ -291,13 +291,18 @@ namespace KingmakerWakingRune.Sanctum.Wards
     /// <summary>The soul emerald's physical route: hardness 20, 40 hit points, break DC 40, and awakening if it is destroyed.</summary>
     internal static class WardGem
     {
-        public static void Order(UnitEntityData actor)
+        public static void Order()
         {
             UnitEntityData proxy = WardFixtures.Gem;
-            if (actor != null && proxy != null)
+            UnitEntityData actor = proxy == null ? null : WardActions.Participants()
+                .Where(u => u.Descriptor.State.CanMove || u.DistanceTo(proxy) <= WardProfile.ContactReachMeters)
+                .OrderByDescending(u => u.Stats.Strength.Bonus).ThenBy(u => u.DistanceTo(proxy)).FirstOrDefault();
+            if (actor == null)
             {
-                KwrFixtureCommand.Issue(actor, KwrFixtureCommand.AtUnit(proxy, WardProfile.ContactReachMeters, "force the emerald", false, u => !WardRuntime.State.Gem.Destroyed, Force));
+                WardRuntime.Say("No one in the party can reach and force the emerald.");
+                return;
             }
+            KwrFixtureCommand.Issue(actor, KwrFixtureCommand.AtUnit(proxy, WardProfile.ContactReachMeters, "force the emerald", false, u => !WardRuntime.State.Gem.Destroyed && WardActions.Participants().Contains(u), Force));
         }
 
         private static void Force(UnitEntityData user)

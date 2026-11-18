@@ -114,7 +114,10 @@ namespace KingmakerWakingRune.Sanctum
     {
         public const float MetersPerFoot = 0.3048f;
         public const float FeetPerSquare = 5f;
-        public const float MetersPerSquare = MetersPerFoot * FeetPerSquare;
+        public const int LayoutVersion = 2;
+        public const float HorizontalScale = 1.15f;
+        public const float PrintedSquareMeters = MetersPerFoot * FeetPerSquare;
+        public const float MetersPerSquare = PrintedSquareMeters * HorizontalScale;
         public const float OriginX = 13f;
         public const float OriginY = 15.5f;
 
@@ -345,6 +348,20 @@ namespace KingmakerWakingRune.Sanctum
             return DoorwayOverlap(door, x, y, height, radius) || LeafSweepOverlap(door, x, y, height, radius);
         }
 
+        public static bool SameDoorSide(DoorPlan door, GridPoint before, GridPoint after)
+        {
+            // Classify only a move whose segment crosses the physical span of this door.
+            bool horizontal = door.Hinge.Y == door.Latch.Y;
+            float a = horizontal ? before.Y - door.Center.Y : before.X - door.Center.X;
+            float b = horizontal ? after.Y - door.Center.Y : after.X - door.Center.X;
+            if (a * b >= 0f) return true;
+            float t = a / (a - b);
+            float cross = horizontal ? before.X + t * (after.X - before.X) : before.Y + t * (after.Y - before.Y);
+            float start = horizontal ? door.Hinge.X : door.Hinge.Y;
+            float end = horizontal ? door.Latch.X : door.Latch.Y;
+            return cross < Math.Min(start, end) - DoorwayHalfDepth || cross > Math.Max(start, end) + DoorwayHalfDepth;
+        }
+
         private static float DistanceToSegment(float x, float y, GridPoint a, GridPoint b)
         {
             float vx = b.X - a.X, vy = b.Y - a.Y;
@@ -424,25 +441,24 @@ namespace KingmakerWakingRune.Sanctum
         /// Cutaway height of a wall seen by a camera looking along +Y at the native 43-degree pitch: a wall in front
         /// of its own floor stays low; a wall behind a floor rises only as far as it can without hiding the next walkable floor.
         /// </summary>
-        public static float CutawayHeight(GridPoint a, GridPoint b, float low, float high)
+        public static float CutawayHeight(GridPoint a, GridPoint b, float low, float high, float dx = 0f, float dy = 1f, float pitchTangent = 0.9325f)
         {
-            const float pitchTangent = 0.9325f;
             float best = high;
             for (int i = 0; i <= 4; i++)
             {
                 float t = i / 4f;
                 float x = a.X + (b.X - a.X) * t;
                 float y = a.Y + (b.Y - a.Y) * t;
-                if (HeightAt(x, y + 0.08f).HasValue)
+                if (HeightAt(x + dx * 0.08f, y + dy * 0.08f).HasValue)
                 {
                     return low;
                 }
                 float distance = high;
                 for (float d = 0.25f; d < 8f; d += 0.25f)
                 {
-                    if (HeightAt(x, y + d).HasValue)
+                    if (HeightAt(x + dx * d, y + dy * d).HasValue)
                     {
-                        distance = d * MetersPerSquare * pitchTangent * 0.9f;
+                        distance = Math.Max(0f, d - 0.25f) * MetersPerSquare * pitchTangent * 0.9f;
                         break;
                     }
                 }

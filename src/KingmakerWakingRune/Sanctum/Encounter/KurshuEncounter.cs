@@ -177,6 +177,20 @@ namespace KingmakerWakingRune.Sanctum.Encounter
                 return;
             }
             UnitEntityData unit = Kurshu;
+            if ((kurshu.BloodDialoguePending || (kurshu.WoundDialoguePending && unit != null && unit.Descriptor.State.IsConscious)) && ControlRestored(out _)
+                && Game.Instance.Player.Dialog.Scheduled == null && !Game.Instance.Player.GameOverReason.HasValue
+                && Game.Instance.ProjectileController.Projectiles.Count() == 0)
+            {
+                if (kurshu.BloodDialoguePending)
+                {
+                    Game.Instance.DialogController.StartDialogWithoutTarget(WardDialogs.Blood, null);
+                }
+                else
+                {
+                    Game.Instance.DialogController.StartDialogWithUnit(WardDialogs.Prophecy, unit);
+                }
+                return;
+            }
             if (unit == null)
             {
                 return;
@@ -358,14 +372,13 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             var stealth = Rulebook.Trigger(new RuleSkillCheck(unit, StatType.SkillStealth, 0));
             kurshu.StealthResult = stealth.RollResult;
             kurshu.BestPerception = int.MinValue;
-            foreach (UnitEntityData member in Game.Instance.Player.Party.Where(u => !u.Descriptor.State.IsDead))
+            UnitEntityData observer = WardActions.BestParticipant(StatType.SkillPerception);
+            if (observer != null)
             {
-                var perception = Rulebook.Trigger(new RuleSkillCheck(member, StatType.SkillPerception, kurshu.StealthResult));
-                if (perception.RollResult > kurshu.BestPerception)
-                {
-                    kurshu.BestPerception = perception.RollResult;
-                    kurshu.SpottedBy = perception.RollResult >= kurshu.StealthResult ? member.CharacterName : string.Empty;
-                }
+                var check = Rulebook.Trigger(new RuleSkillCheck(observer, StatType.SkillPerception, kurshu.StealthResult) { Silent = true });
+                kurshu.BestPerception = check.RollResult;
+                kurshu.SpottedBy = check.IsPassed ? observer.CharacterName : string.Empty;
+                Note($"Perception: {observer.CharacterName} modifier {observer.Stats.SkillPerception.ModifiedValue}, d20 {check.D20}, DC {kurshu.StealthResult}.");
             }
             kurshu.BelievedHidden = string.IsNullOrEmpty(kurshu.SpottedBy);
             kurshu.HiddenCheckDone = true;
@@ -384,6 +397,12 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             unit.IsBrainActive = true;
         }
 
+        internal static void ObserveHealthChange(UnitEntityData unit)
+        {
+            if (unit?.Get<KurshuPart>() == null || State == null || State.Kurshu.EntityId != unit.UniqueId) return;
+            Observe(State.Kurshu, unit, WardRuntime.Now);
+        }
+
         private static void Observe(KurshuState kurshu, UnitEntityData unit, double now)
         {
             UnitDescriptor d = unit.Descriptor;
@@ -394,16 +413,13 @@ namespace KingmakerWakingRune.Sanctum.Encounter
                 {
                     case HealthEvent.SubstantialWound:
                         Note($"substantial wound at {d.HPLeft}/{d.MaxHP}: she speaks.");
-                        const string speech = "You may have bled me, mortal, but Krune has mastered the rune of armor and your blades shall never pierce his flesh! Alacrity bestows him with a sixth sense with which he anticipates intentions and actions. Still other runes feed him divine power, strengthening his body and mind, as well as assuring him immortality.";
-                        Game.Instance.UI.Bark(unit, speech, Kingmaker.UI.Common.UIUtility.GetBarkDuration(speech));
-                        WardRuntime.Say("Kurshu: \"" + speech + "\"");
+                        kurshu.WoundDialoguePending = true;
                         break;
                     case HealthEvent.Defeated:
                         Defeated(kurshu, unit, now);
                         break;
                     case HealthEvent.Slain:
                         Note($"slain at {now:0}; regeneration ended (hp {d.HPLeft}).");
-                        WardRuntime.Say("Kurshu the Undying is dead, and does not rise.");
                         break;
                 }
             }
@@ -419,11 +435,8 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             Note($"DEFEATED at {now:0} ({kurshu.DefeatedHow}); deadline started {started}, due at {State.Ritual.GlobalDeadline:0} ({WardProfile.GlobalDeadlineSeconds / 60d:0} minutes).");
             if (!kurshu.BloodMessageShown)
             {
-                kurshu.BloodMessageShown = true;
-                const string blood = "Droplets of Kurshu's blood spatter into Thassilonian runes: \"Enjoy your victory, and I shall enjoy mine. In your righteousness you have sacrificed my life to assure the rise of another. May Runelord Krune skin you alive and use your flesh as the canvas for the scriptures of Lissala's second coming!\"";
-                WardRuntime.Say(blood);
-                WardRuntime.Say("Somewhere beyond the stone, something stirs. You have little more than an hour and a half before Krune wakes.");
-                EventBus.RaiseEvent(delegate(IWarningNotificationUIHandler h) { h.HandleWarning("Her blood spells out a message in Thassilonian runes. Krune will wake within 90 minutes."); });
+                kurshu.BloodDialoguePending = true;
+                kurshu.WoundDialoguePending = false;
             }
         }
 
@@ -998,6 +1011,7 @@ namespace KingmakerWakingRune.Sanctum.Encounter
 
         public static void OnDamaged(UnitEntityData unit, RuleDealDamage evt)
         {
+            ObserveHealthChange(unit);
             string parts = string.Join(", ", evt.ResultDamage?.Select(v => $"{Describe(v.Source)} {v.ValueWithoutReduction}-{v.Reduction}={v.FinalValue}").ToArray() ?? new string[0]);
             Note($"takes {evt.Damage} from {evt.Initiator?.CharacterName} [{parts}]; hp {unit.Descriptor.HPLeft}/{unit.Descriptor.MaxHP}; regenerating {unit.Descriptor.State.IsRegenerate}.");
         }

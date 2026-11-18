@@ -48,9 +48,32 @@ namespace KingmakerWakingRune.Tests
             v.HasShield = true;
             v.AdjacentFoes = 0;
             v.BestCluster = 2;
-            v.TentaclesActive = true;
             v.FoeHasStrongBuffs = true;
-            Assert.Equal(false, KruneTactics.Swift(v).Key == "Quickened Black Tentacles", "no second tentacle field while one holds");
+            Assert.Equal(false, KruneTactics.SwiftOptions(v).Concat(KruneTactics.StandardOptions(v)).Any(choice => choice.Spell == "Black Tentacles"), "both printed preparations are unavailable");
+        }
+
+        public static void TestHeldSpearNeedsAnUnusedStandardAnAdjacentFoeAndExhaustedMagic()
+        {
+            Assert.Equal(true, KruneTactics.MayUseHeldSpear(true, false, true), "exhausted caster with a foe in reach");
+            Assert.Equal(false, KruneTactics.MayUseHeldSpear(true, true, true), "magic available in melee");
+            Assert.Equal(false, KruneTactics.MayUseHeldSpear(true, false, false), "no walking into melee");
+            Assert.Equal(false, KruneTactics.MayUseHeldSpear(false, false, true), "standard already spent");
+        }
+
+        public static void TestRejectedSwiftSummonCannotStarveStandardAtFrozenGameTime()
+        {
+            var plans = new FailedKrunePlans();
+            const string summon = "SummonMonsterVSingle/Quicken/point/Swift";
+            plans.BeginRound(1);
+            plans.Reject(summon);
+            for (int retry = 0; retry < 1000; retry++)
+            {
+                plans.BeginRound(1);
+                Assert.Equal(false, plans.Allows(summon), "same turn, same command");
+            }
+            Assert.Equal(true, plans.Allows("SummonMonsterVSingle/point/Standard"), "standard remains available");
+            plans.BeginRound(2);
+            Assert.Equal(true, plans.Allows(summon), "next round can reconsider");
         }
 
         public static void TestAWallOfStoneIsARealBreakableObstacle()

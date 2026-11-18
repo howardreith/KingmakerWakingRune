@@ -11,7 +11,7 @@ namespace KingmakerWakingRune.Sanctum
     /// </summary>
     internal static class SanctumDressing
     {
-        private const float PlateRadius = SanctumPlan.MetersPerFoot * 2.5f;
+        internal const float PlateRadius = SanctumPlan.MetersPerFoot * 2.5f;
         private const float FixtureWidth = 2.6f;
         private const float FixtureFace = 2.5f;
         private const float SarcophagusHang = 1.5f;
@@ -28,6 +28,9 @@ namespace KingmakerWakingRune.Sanctum
         private static StatueBuilder s_Statues;
         public const string FlailObjectName = "KWR_FlailScenery";
         private const string BrokenRunePrefix = "KWR_RuneBroken_";
+
+        internal static readonly Dictionary<string, Vector3> PlateCenters = new Dictionary<string, Vector3>();
+        internal static readonly Dictionary<string, Vector3> PlateNormals = new Dictionary<string, Vector3>();
 
         public static readonly Dictionary<string, Light> RuneLights = new Dictionary<string, Light>();
         public static readonly Dictionary<string, GameObject[]> BrokenRunes = new Dictionary<string, GameObject[]>();
@@ -59,6 +62,8 @@ namespace KingmakerWakingRune.Sanctum
         {
             System.Diagnostics.Stopwatch timer = System.Diagnostics.Stopwatch.StartNew();
             StatueFeet.Clear();
+            PlateCenters.Clear();
+            PlateNormals.Clear();
             RuneLights.Clear();
             BrokenRunes.Clear();
             EmeraldIntact = new GameObject[0];
@@ -264,6 +269,8 @@ namespace KingmakerWakingRune.Sanctum
             s_Mesh.Lathe(s_Palette.Abyssium, center + normal * 0.012f, normal, new[] { PlateRadius + 0.05f, 0f, PlateRadius + 0.05f, 0.014f, 0f, 0.014f }, 40);
             s_Mesh.Lathe(s_Palette.Stone, center + normal * 0.026f, normal, new[] { PlateRadius, 0f, PlateRadius, 0.03f, 0f, 0.03f }, 40);
             s_Mesh.Lathe(s_Palette.Basalt, center + normal * 0.056f, normal, new[] { PlateRadius * 0.9f, 0f, PlateRadius * 0.9f, 0.006f, 0f, 0.006f }, 40);
+            PlateCenters[plate.Id] = center + normal * 0.075f;
+            PlateNormals[plate.Id] = normal;
             Rune(center + normal * 0.07f, normal, PlateRadius * 0.72f, RuneShapes[plate.Rune]);
 
             // The extraplanar beings framing the rune, each authored in StatueManifest: two on the floor, one crouched above.

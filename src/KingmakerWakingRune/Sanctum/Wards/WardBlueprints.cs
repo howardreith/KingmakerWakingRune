@@ -246,10 +246,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
             foreach (var pair in BearerManifest.Roles)
             {
                 string slot = pair.Key;
-                bool attacker = pair.Value == BearerRole.Attack;
                 string name = "KWR_Cultist_" + slot.Replace("-", string.Empty);
-                // A reporter is hostile like an attacker, so hostile magic can stop it; its flight is WardStatues' doing.
-                BlueprintUnit unit = Cultist(donor, root, name, attacker ? "Restored Lissalan Cultist" : "Fleeing Lissalan Cultist", root.SystemMechanics.FactionMobs);
+                BlueprintUnit unit = Cultist(donor, root, name, "Restored Lissalan Cultist", root.SystemMechanics.FactionNeutrals);
+                AddInteraction(unit);
                 unit.Alignment = Alignment.NeutralEvil;
                 unit.Strength = 10;
                 unit.Dexterity = 13;
