@@ -72,20 +72,19 @@ namespace KingmakerWakingRune.Tests
 
         public static void TestSurvivorPlacementProvenanceSurvivesSaveReloadAndExpiry()
         {
-            var json = new JavaScriptSerializer();
             const string areaId = "d52b71013a1b46f1a887a562deca30be";
-            var state = json.Deserialize<SanctumState>("{}"); // a legacy payload has no placement records
+            var state = WardPayload.Read("{}"); // a legacy payload has no placement records
             Assert.Equal(false, state.SurvivorExposure.Provokes(true, true, areaId, "Support-N1"), "unknown legacy hazard");
             state.SurvivorExposure.Place(areaId, new[] { "Support-N1" });
-            // Serialize the actual field of the ward payload and reconstruct a distinct loaded state.
-            string Save(SanctumState current) => json.Serialize(new { current.SurvivorExposure });
-            var loaded = json.Deserialize<SanctumState>(Save(state));
+            state.LayoutVersion = 2;
+            var loaded = WardPayload.Read(WardPayload.Write(state));
+            Assert.Equal(2, loaded.LayoutVersion, "restored complete ward payload");
             loaded.SurvivorExposure.Place(areaId, new[] { "Support-W1" });
             Assert.Equal(true, loaded.SurvivorExposure.Provokes(true, true, areaId, "Support-N1"), "original subject on reload");
             Assert.Equal(false, loaded.SurvivorExposure.Provokes(true, true, areaId, "Support-W1"), "rebuild cannot add a later entrant");
             Assert.Equal(false, loaded.SurvivorExposure.Provokes(false, true, areaId, "Support-N1"), "nonparty area");
             loaded.SurvivorExposure.Remove(areaId);
-            var afterExpiry = json.Deserialize<SanctumState>(Save(loaded));
+            var afterExpiry = WardPayload.Read(WardPayload.Write(loaded));
             Assert.Equal(0, afterExpiry.SurvivorExposure.Occupants.Count, "expired record deleted from next save");
         }
 

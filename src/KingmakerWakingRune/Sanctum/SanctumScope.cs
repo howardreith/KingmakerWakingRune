@@ -231,65 +231,98 @@ namespace KingmakerWakingRune.Sanctum
         public static bool RepairRestoredPositions(bool previousLayout)
         {
             if (!IsBuilt) return false;
-            bool complete = true;
-            var migrated = previousLayout ? Wards.WardStore.Existing.MigratedActorIds : null;
-            List<UnitEntityData> party = (previousLayout ? Game.Instance.State.Units.AsEnumerable() : PartyAndPets())
-                .Where(u => u.IsInGame && u.View != null && Wards.WardFixtures.IdOf(u) == null).ToList();
+            var state = Wards.WardStore.Existing;
+            var members = PartyAndPets();
             if (previousLayout)
             {
-                // A missing view has no usable footprint yet. Keep the layout pending until its real radius is available.
-                var savedActors = Game.Instance.CurrentScene.AllEntityData.OfType<UnitEntityData>().Concat(PartyAndPets());
-                if (savedActors.Any(u => u.IsInGame && u.View == null && !migrated.Contains(u.UniqueId) && Wards.WardFixtures.IdOf(u) == null))
-                {
-                    Log.Info("Layout migration awaits a saved actor's view.");
-                    complete = false;
-                }
+                // Include scene entities that have not attached a view yet, including restored corpses.
+                members = members.Concat(Game.Instance.CurrentScene.AllEntityData.OfType<UnitEntityData>())
+                    .Concat(Game.Instance.Player.CrossSceneState.AllEntityData.OfType<UnitEntityData>()
+                        .Where(u => state.PendingLayoutOrigins.ContainsKey(u.UniqueId)))
+                    .Concat(Game.Instance.State.Units.Where(u => u.View != null));
             }
-            if (party.Count > 0 && FaultInjection.Take("position-invalid"))
+            var units = members.Where(u => !u.Destroyed && !u.ShouldBeDestroyed && Wards.WardFixtures.IdOf(u) == null &&
+                (u.IsInGame || (previousLayout && state.PendingLayoutOrigins.ContainsKey(u.UniqueId))) && (previousLayout || u.View != null))
+                .Distinct().ToDictionary(u => u.UniqueId);
+            if (units.Count > 0 && FaultInjection.Take("position-invalid"))
             {
-                // A compatibility fixture for the harness: terrace height inside the upper courses is ground no save should hold.
-                party[0].Position = new Vector3(SanctumPlan.ToWorldX(13.6f), SanctumPlan.RingHeight, SanctumPlan.ToWorldZ(18.2f));
-                Log.Info($"INJECTED FAULT position-invalid: {party[0].CharacterName} moved to {party[0].Position}.");
+                var subject = units.Values.First();
+                subject.Position = new Vector3(SanctumPlan.ToWorldX(13.6f), SanctumPlan.RingHeight, SanctumPlan.ToWorldZ(18.2f));
+                Log.Info($"INJECTED FAULT position-invalid: {subject.CharacterName} moved to {subject.Position}.");
             }
-            DoorPlan[] closed = SanctumDoors.ClosedPlans();
-            var state = Wards.WardStore.Existing;
+            var positions = units.ToDictionary(kv => kv.Key, kv =>
+            {
+                var from = kv.Value.Position;
+                return new LayoutPosition(from.x, from.y, from.z);
+            });
+            if (previousLayout)
+            {
+                state.CaptureLayoutOrigins(positions);
+                // OnAreaDidLoad has the complete scene and cross-scene lists. A despawned entity needs no landing.
+                foreach (var gone in state.PendingLayoutOrigins.Keys.Where(id => !units.ContainsKey(id)).ToList())
+                    state.PendingLayoutOrigins.Remove(gone);
+            }
+            var snapshot = new List<LayoutActor>();
+            foreach (var unit in units.Values)
+            {
+                var from = positions[unit.UniqueId];
+                snapshot.Add(previousLayout
+                    ? state.SnapshotOldLayout(unit.UniqueId, from, ReservationRadius(unit), !unit.IsInGame || unit.View == null)
+                    : new LayoutActor(unit.UniqueId, from, unit.Corpulence, IsStandingValidly(unit.Position), false, false));
+            }
+            var closed = SanctumDoors.ClosedPlans();
             var stoneFigures = SanctumDressing.StatueFeet.Where(kv => state == null ||
                 !state.Statues.TryGetValue(kv.Key, out var statue) || statue.Outcome == Wards.StatueOutcome.Stone)
                 .Select(kv => kv.Value).ToList();
-            foreach (UnitEntityData unit in party)
+            bool Legal(LayoutActor actor, GridPoint point, LayoutPosition target)
             {
-                if (migrated != null && migrated.Contains(unit.UniqueId)) continue;
-                Vector3 from = unit.Position;
-                GridPoint old = SanctumPlan.SavedPoint(from.x, from.z, previousLayout);
-                float radius = unit.Corpulence / SanctumPlan.MetersPerSquare;
-                bool Legal(GridPoint point)
+                float radius = actor.Radius.Value;
+                if (!SanctumPlan.FitsMigration(actor.Logical, point, target.Y, radius / SanctumPlan.MetersPerSquare, closed)) return false;
+                var p = new Vector3(target.X, target.Y, target.Z);
+                NNInfo nearest = ObstacleAnalyzer.GetNearestNode(p);
+                if (nearest.node == null || !nearest.node.Walkable || (nearest.clampedPosition - p).sqrMagnitude > 0.03f * 0.03f) return false;
+                return !stoneFigures.Any(foot => Mathf.Abs(foot.y - p.y) < SanctumPlan.GroundTolerance &&
+                    Vector2.Distance(new Vector2(foot.x, foot.z), new Vector2(p.x, p.z)) < 0.3f + radius);
+            }
+
+            var moves = LayoutMigration.Plan(snapshot, Legal);
+            bool complete = true;
+            foreach (var actor in snapshot)
+            {
+                if (actor.Settled) continue;
+                if (!moves.TryGetValue(actor.Id, out var to))
                 {
-                    float? y = SanctumPlan.HeightAt(point.X, point.Y);
-                    if (!y.HasValue || !SanctumPlan.FitsMigration(old, point, y.Value, radius, closed)) return false;
-                    var p = new Vector3(SanctumPlan.ToWorldX(point.X), y.Value, SanctumPlan.ToWorldZ(point.Y));
-                    // Keep the tested X/Z. A coarse nearest-node snap could put the body across a wall.
-                    NNInfo nearest = ObstacleAnalyzer.GetNearestNode(p);
-                    if (nearest.node == null || !nearest.node.Walkable || (nearest.clampedPosition - p).sqrMagnitude > 0.03f * 0.03f) return false;
-                    if (stoneFigures.Any(foot => Mathf.Abs(foot.y - p.y) < SanctumPlan.GroundTolerance &&
-                        Vector2.Distance(new Vector2(foot.x, foot.z), new Vector2(p.x, p.z)) < 0.3f + unit.Corpulence)) return false;
-                    return party.All(other => other == unit || Mathf.Abs(other.Position.y - p.y) > SanctumPlan.GroundTolerance
-                        || Vector2.Distance(new Vector2(other.Position.x, other.Position.z), new Vector2(p.x, p.z)) >= other.Corpulence + unit.Corpulence);
-                }
-                bool placed = SanctumPlan.RestorePosition(from.x, from.z, previousLayout, !previousLayout && IsStandingValidly(from), Legal,
-                    (x, y, z) =>
-                    {
-                        unit.Position = new Vector3(x, y, z);
-                        Log.Info($"Restored position corrected: {unit.CharacterName} {from} -> {unit.Position} in {SanctumPlan.SpaceAt(old.X, old.Y)}.");
-                    });
-                if (!placed)
-                {
-                    Log.Error($"No safe ground found near {unit.CharacterName} at {from}; left in place.");
+                    Log.Info($"Layout repair pending for {actor.Id} ({(actor.AwaitingView ? "awaiting view" : "no reserved destination")}).");
                     complete = false;
                     continue;
                 }
-                migrated?.Add(unit.UniqueId);
+                var unit = units[actor.Id];
+                unit.Position = new Vector3(to.X, to.Y, to.Z);
+                if (previousLayout) state.AppliedLayoutPosition(actor.Id);
+                Log.Info($"Restored position corrected: {unit.CharacterName} -> {unit.Position} in {SanctumPlan.SpaceAt(actor.Logical.X, actor.Logical.Y)}.");
             }
-            return complete;
+            return complete && (!previousLayout || state.PendingLayoutOrigins.Count == 0);
+        }
+
+        private static float? ReservationRadius(UnitEntityData unit)
+        {
+            if (unit.View != null) return unit.Corpulence;
+            // Read the same prefab selection as UnitEntityData.CreateView without instantiating or moving the unit.
+            var morph = unit.GetActivePolymorph();
+            UnitEntityView prefab = morph?.Prefab.Load();
+            if (prefab != null) return prefab.Corpulence; // native replacement view disables size scaling
+            var doll = unit.Descriptor.Doll;
+            if (doll != null)
+            {
+                var gen = Game.Instance.BlueprintRoot.CharGen;
+                prefab = (doll.Gender == Kingmaker.Blueprints.Gender.Male ? gen.MaleDoll : gen.FemaleDoll).GetComponent<UnitEntityView>();
+            }
+            else prefab = string.IsNullOrEmpty(unit.Descriptor.CustomPrefabGuid) ? unit.Blueprint.Prefab.Load()
+                : Kingmaker.Blueprints.ResourcesLibrary.TryGetResource<UnitEntityView>(unit.Descriptor.CustomPrefabGuid);
+            if (prefab == null) return null;
+            int change = (int)unit.Descriptor.State.Size - (int)unit.Descriptor.OriginalSize;
+            float scale = prefab.DisableSizeScaling ? 1f : Mathf.Pow(0.66f, -change);
+            return Mathf.Max(0.5f, prefab.Corpulence * scale);
         }
 
         private static bool IsStandingValidly(Vector3 p)

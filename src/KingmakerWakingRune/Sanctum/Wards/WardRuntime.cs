@@ -160,6 +160,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 state.LayoutVersion = SanctumPlan.LayoutVersion;
                 state.MigratedActorIds.Clear();
+                state.PendingLayoutOrigins.Clear();
             }
             WardStatues.MigrateMarked(state);
             WardCredentials.Reconcile(state);

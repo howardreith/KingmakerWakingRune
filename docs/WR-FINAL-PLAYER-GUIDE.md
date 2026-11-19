@@ -104,6 +104,6 @@ negative energy or death magic, and a skilled hand with magic devices or traps.
 ## Known limitations of this playtest draft
 - The rod's Silent, Still and Widen Spell are not implemented in this draft; its Enlarge works as Reach Spell (the
   next range band).
-- Krune’s printed Black Tentacles preparations are unavailable in 0.12.2.
+- Krune’s printed Black Tentacles preparations are unavailable in the 0.12.3 playtest candidate.
 - Some of Krune's printed spells and abilities have no use in this game (they are listed in his spellbook as held).
 - Placeholder model and portrait for Krune; the journal's title is the game's own ("Linzi's Journal").

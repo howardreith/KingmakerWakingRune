@@ -132,6 +132,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         public int Version = CurrentVersion;
         public int LayoutVersion;
+        public Dictionary<string, LayoutPosition> PendingLayoutOrigins = new Dictionary<string, LayoutPosition>();
         public HashSet<string> MigratedActorIds = new HashSet<string>();
         public string ProfileSubtier = WardProfile.Subtier;
         public int ProfilePartyBaseline = WardProfile.PartyBaseline;
@@ -177,6 +178,26 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public List<Krune.WallRecord> Walls = new List<Krune.WallRecord>();
         /// <summary>The expedition's conclusion (WR-FINAL): Krune's death, the aftermath, the artifacts, the return and the outcome.</summary>
         public Krune.ConclusionState Conclusion = new Krune.ConclusionState();
+
+        // Freeze the entire old-layout cohort before native view/footprint lookups or movement.
+        public void CaptureLayoutOrigins(IEnumerable<KeyValuePair<string, LayoutPosition>> positions)
+        {
+            if (PendingLayoutOrigins.Count == 0)
+                PendingLayoutOrigins = positions.Where(p => !MigratedActorIds.Contains(p.Key))
+                    .ToDictionary(p => p.Key, p => p.Value);
+        }
+
+        public LayoutActor SnapshotOldLayout(string id, LayoutPosition current, float? radius, bool awaitingView)
+        {
+            bool pending = PendingLayoutOrigins.TryGetValue(id, out var original);
+            return new LayoutActor(id, pending ? original : current, radius, !pending, awaitingView, true);
+        }
+
+        public void AppliedLayoutPosition(string id)
+        {
+            MigratedActorIds.Add(id);
+            PendingLayoutOrigins.Remove(id);
+        }
 
         /// <summary>
         /// Brings an older save forward without resetting anything it recorded. Version 1 predates credentials and route

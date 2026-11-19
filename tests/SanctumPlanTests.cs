@@ -285,6 +285,25 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(1, SanctumPlan.Walls.Single(w => w.Name == "A4A5").Openings.Count, "A4 mouth");
         }
 
+        // Exercise the same batch planner used by the native adapter, even for single-actor saves.
+        private static bool RestorePosition(float x, float z, bool old, bool standingValid,
+            Func<GridPoint, bool> legal, Action<float, float, float> apply)
+        {
+            var actor = new LayoutActor("one", new LayoutPosition(x, 0, z), 0.25f, !old && standingValid, false, old);
+            var moves = LayoutMigration.Plan(new[] { actor }, (a, p, to) => legal(p));
+            if (actor.Settled) return true;
+            if (!moves.TryGetValue(actor.Id, out var target)) return false;
+            apply(target.X, target.Y, target.Z);
+            return true;
+        }
+
+        private static GridPoint? NearestMigrationPoint(float x, float z, bool old, Func<GridPoint, bool> legal)
+        {
+            GridPoint? selected = null;
+            RestorePosition(x, z, old, false, legal, (px, py, pz) => selected = SanctumPlan.SavedPoint(px, pz, false));
+            return selected;
+        }
+
         public static void TestLayoutTwoReprojectsLegalPositionsInEveryRegion()
         {
             var sites = new Dictionary<string, GridPoint>
@@ -308,7 +327,7 @@ namespace KingmakerWakingRune.Tests
                     probes++;
                     return SanctumPlan.FitsMigration(old, point, SanctumPlan.HeightAt(point.X, point.Y) ?? -100f, 0.25f, SanctumPlan.Doors);
                 }
-                bool placed = SanctumPlan.RestorePosition(x, z, true, true, Legal, (worldX, height, worldZ) =>
+                bool placed = RestorePosition(x, z, true, true, Legal, (worldX, height, worldZ) =>
                 {
                     moves++;
                     Assert.Equal(true, Close(SanctumPlan.ToWorldX(original.X), worldX) && Close(SanctumPlan.ToWorldZ(original.Y), worldZ), site.Key + " projected world point");
@@ -326,8 +345,8 @@ namespace KingmakerWakingRune.Tests
         public static void TestLayoutRepairRetainsUnresolvedActorForRetryAndSkipsValidCurrentLayout()
         {
             int moves = 0;
-            Assert.Equal(false, SanctumPlan.RestorePosition(1f, 1f, true, true, p => false, (x,y,z) => moves++), "all destinations occupied");
-            Assert.Equal(true, SanctumPlan.RestorePosition(1f, 1f, false, true, p => { throw new Exception("unnecessary search"); }, (x,y,z) => moves++), "valid current-layout position");
+            Assert.Equal(false, RestorePosition(1f, 1f, true, true, p => false, (x,y,z) => moves++), "all destinations occupied");
+            Assert.Equal(true, RestorePosition(1f, 1f, false, true, p => { throw new Exception("unnecessary search"); }, (x,y,z) => moves++), "valid current-layout position");
             Assert.Equal(0, moves, "no spurious moves");
         }
 
@@ -357,11 +376,11 @@ namespace KingmakerWakingRune.Tests
                     return height.HasValue && SanctumPlan.FitsMigration(old, p, height.Value, c.Radius, SanctumPlan.Doors)
                         && Distance(old, p) > c.Radius + 0.013f; // occupied by a stationary actor
                 }
-                var selected = SanctumPlan.NearestMigrationPoint(worldX, worldZ, true, Legal);
+                var selected = NearestMigrationPoint(worldX, worldZ, true, Legal);
                 Assert.Equal(true, selected.HasValue, c.Label + " has valid landing");
                 var eligible = SanctumPlan.RingsAround(c.X, c.Y).Where(Legal).ToList();
                 Assert.Equal(true, Math.Abs(eligible.Min(p => Distance(p, old)) - Distance(selected.Value, old)) < 0.001, c.Label + " nearest eligible radius");
-                var wrong = SanctumPlan.NearestMigrationPoint(worldX, worldZ, false, Legal);
+                var wrong = NearestMigrationPoint(worldX, worldZ, false, Legal);
                 Assert.Equal(true, !wrong.HasValue || Distance(wrong.Value, selected.Value) > 0.02, c.Label + " rejects compressed search origin");
                 Assert.Equal(SanctumPlan.SpaceAt(old.X, old.Y), SanctumPlan.SpaceAt(selected.Value.X, selected.Value.Y), c.Label + " same room");
             }

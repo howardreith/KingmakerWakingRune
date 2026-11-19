@@ -302,26 +302,6 @@ namespace KingmakerWakingRune.Sanctum
             return true;
         }
 
-        internal static bool RestorePosition(float savedX, float savedZ, bool previousLayout, bool standingValid,
-            Func<GridPoint, bool> legal, Action<float, float, float> move)
-        {
-            if (!previousLayout && standingValid) return true;
-            var destination = NearestMigrationPoint(savedX, savedZ, previousLayout, legal);
-            if (!destination.HasValue) return false;
-            var point = destination.Value;
-            move(ToWorldX(point.X), HeightAt(point.X, point.Y).Value, ToWorldZ(point.Y));
-            return true;
-        }
-
-        public static GridPoint? NearestMigrationPoint(float savedX, float savedZ, bool previousLayout, Func<GridPoint, bool> legal)
-        {
-            GridPoint old = SavedPoint(savedX, savedZ, previousLayout);
-            if (legal(old)) return old;
-            foreach (var candidate in RingsAround(old.X, old.Y))
-                if (legal(candidate)) return candidate;
-            return null;
-        }
-
         public static float ToWorldX(float gridX)
         {
             return (gridX - OriginX) * MetersPerSquare;
