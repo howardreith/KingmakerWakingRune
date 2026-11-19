@@ -119,32 +119,47 @@ namespace KingmakerWakingRune.Sanctum.Krune
         }
     }
 
+    [System.Flags]
+    internal enum KruneActionBudget { Free = 0, Standard = 1, Swift = 2, Move = 4 }
+
     internal sealed class FailedKrunePlans
     {
-        private readonly HashSet<string> failed = new HashSet<string>();
+        private readonly Dictionary<KruneActionBudget, HashSet<string>> failures = new Dictionary<KruneActionBudget, HashSet<string>>();
         private object turn;
-        private bool observed;
-        private int lastSpent;
-        private string lastState;
+        private KruneActionBudget lastSpent;
 
-        public void Observe(object activeTurn, int spentActions, string tacticalState)
+        // The caller skips the interval between native turns. Null denotes real-time combat.
+        public void Observe(object activeTurn, KruneActionBudget spent)
         {
-            // TurnController is a fresh object for an actual turn. In RT, an observed spent action
-            // becoming available again is a renewed budget. Elapsed wall or game seconds are irrelevant.
-            if (!ReferenceEquals(turn, activeTurn) || (activeTurn == null && observed &&
-                ((lastSpent & ~spentActions) != 0 || lastState != tacticalState))) failed.Clear();
-            observed = true;
-            lastSpent = spentActions;
+            if (activeTurn != null)
+            {
+                if (!ReferenceEquals(turn, activeTurn)) failures.Clear();
+            }
+            else if (turn == null)
+            {
+                var renewed = lastSpent & ~spent;
+                if (renewed != 0)
+                    foreach (var entry in failures)
+                        if ((entry.Key & renewed) != 0) entry.Value.Clear();
+            }
             turn = activeTurn;
-            lastState = tacticalState;
+            lastSpent = spent;
         }
 
-        public void Reject(string plan, string target, CastResult reason)
+        public void Reject(KruneActionBudget budget, string plan, string target, CastResult reason)
         {
+            if (!failures.TryGetValue(budget, out var failed))
+            {
+                failed = new HashSet<string>();
+                failures.Add(budget, failed);
+            }
             failed.Add(reason == CastResult.TargetInvalid || reason == CastResult.RangeInvalid ? plan + "@" + target : plan);
         }
 
-        public bool Allows(string plan, string target) => !failed.Contains(plan) && !failed.Contains(plan + "@" + target);
+        public bool Allows(KruneActionBudget budget, string plan, string target)
+        {
+            return !failures.TryGetValue(budget, out var failed) || (!failed.Contains(plan) && !failed.Contains(plan + "@" + target));
+        }
     }
 
     /// <summary>

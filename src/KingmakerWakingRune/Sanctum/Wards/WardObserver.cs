@@ -163,8 +163,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public void OnEventAboutToTrigger(RuleCastSpell evt)
         {
             Krune.KruneDirector.Executing?.Lifecycle.BeginRule(evt.Spell, evt);
-            if (evt.Spell.Blueprint.EffectOnEnemy == AbilityEffectOnUnit.Harmful)
-                WardStatues.Provoke(evt.Initiator, evt.SpellTarget.Unit);
+            HostileEffect(evt.Context, evt.SpellTarget.Unit);
         }
 
         public void OnEventDidTrigger(RuleCastSpell evt)
@@ -175,20 +174,21 @@ namespace KingmakerWakingRune.Sanctum.Wards
         }
 
         // A later entrant into a persistent hazard was not targeted when the party placed it.
-        private readonly SurvivorExposure m_Exposure = new SurvivorExposure();
         public void HandleAreaEffectSpawned(AreaEffectEntityData area)
         {
             var cast = area.Context?.SourceAbilityContext;
             if (!SanctumScope.IsSanctumLoaded || cast?.MaybeCaster?.IsPlayerFaction != true || area.View?.Shape == null ||
                 cast.AbilityBlueprint.EffectOnEnemy != AbilityEffectOnUnit.Harmful) return;
             var exposed = Kingmaker.Game.Instance.State.Units.Where(u => u.IsInGame && u.Get<WardRestoredPart>() != null &&
-                area.View.Shape.Contains(u.Position, u.Corpulence)).Select(u => u.UniqueId);
-            m_Exposure.Place(area.Context, exposed);
+                area.View.Shape.Contains(u.Position, u.Corpulence)).Select(u => u.Get<WardRestoredPart>().StatueId);
+            WardRuntime.State?.SurvivorExposure.Place(area.UniqueId, exposed);
         }
 
-        internal void ForgetAreas() => m_Exposure.Clear();
+        public void HandleAreaEffectDestroyed(AreaEffectEntityData area)
+        {
+            if (SanctumScope.IsSanctumLoaded) WardRuntime.State?.SurvivorExposure.Remove(area.UniqueId);
+        }
 
-        public void HandleAreaEffectDestroyed(AreaEffectEntityData area) => m_Exposure.Remove(area.Context);
         public void OnEventAboutToTrigger(RuleSavingThrow evt) => HostileEffect(evt.Reason?.Context, evt.Initiator);
         public void OnEventDidTrigger(RuleSavingThrow evt) { }
 
@@ -206,15 +206,22 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         private void HostileEffect(MechanicsContext context, UnitEntityData victim)
         {
-            if (victim?.Get<WardRestoredPart>() == null) return;
+            var statueId = victim?.Get<WardRestoredPart>()?.StatueId;
+            if (statueId == null) return;
             var cast = context?.SourceAbilityContext;
             if (cast == null) return;
             bool harmful = cast.AbilityBlueprint.EffectOnEnemy == AbilityEffectOnUnit.Harmful;
             var area = Kingmaker.ElementsSystem.ElementsContext.GetData<Kingmaker.UnitLogic.Abilities.Components.AreaEffects.AreaEffectContextData>()?.Entity;
-            var origin = area?.Context;
-            for (var parent = context; origin == null && parent != null; parent = parent.ParentContext)
-                if (parent.AssociatedBlueprint is BlueprintAbilityAreaEffect) origin = parent;
-            if (m_Exposure.Provokes(cast.MaybeCaster?.IsPlayerFaction == true, harmful, origin, victim.UniqueId))
+            string areaId = area?.UniqueId;
+            // A delayed save or buff can carry the area's context outside its native event scope.
+            for (var parent = context; areaId == null && parent != null; parent = parent.ParentContext)
+            {
+                if (!(parent.AssociatedBlueprint is BlueprintAbilityAreaEffect)) continue;
+                var source = Kingmaker.Game.Instance.State.AreaEffects.FirstOrDefault(a => ReferenceEquals(a.Context, parent));
+                // Missing or expired area provenance cannot authorize provocation as a direct cast.
+                areaId = source?.UniqueId ?? string.Empty;
+            }
+            if (WardRuntime.State?.SurvivorExposure.Provokes(cast.MaybeCaster?.IsPlayerFaction == true, harmful, areaId, statueId) == true)
                 WardStatues.Provoke(cast.MaybeCaster, victim);
         }
 

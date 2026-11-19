@@ -587,14 +587,30 @@ namespace KingmakerWakingRune.Sanctum.Krune
         private static void ObserveBudget(UnitEntityData krune)
         {
             if (krune == null || !Live(krune)) return;
-            int spent = (krune.CombatState.HasCooldownForCommand(UnitCommand.CommandType.Standard) ? 1 : 0)
-                | (krune.CombatState.HasCooldownForCommand(UnitCommand.CommandType.Swift) ? 2 : 0)
-                | (krune.CombatState.HasCooldownForCommand(UnitCommand.CommandType.Move) ? 4 : 0);
-            var turn = TurnBased.Controllers.CombatController.IsInTurnBasedCombat() ? Game.Instance.TurnBasedCombatController.CurrentTurn : null;
-            var state = WardRuntime.State.Krune;
-            string tacticalState = krune.HPLeft + "/" + krune.Memory.Enemies.Count + "/" + state.DirectorPhase
-                + "/" + state.RodCharges + "/" + KruneSpellbook.Ready(krune).Count();
-            s_Failed.Observe(turn, spent, tacticalState);
+            if (TurnBased.Controllers.CombatController.IsInTurnBasedCombat())
+            {
+                var turn = Game.Instance.TurnBasedCombatController.CurrentTurn;
+                if (turn != null) s_Failed.Observe(turn, 0);
+                return;
+            }
+            // A running move command can temporarily block a standard. Only a real cooldown is a spent budget.
+            var cooldown = krune.CombatState.Cooldown;
+            var spent = (cooldown.StandardAction > 0f ? KruneActionBudget.Standard : 0)
+                | (cooldown.SwiftAction > 0f ? KruneActionBudget.Swift : 0)
+                | (cooldown.MoveAction > 0f ? KruneActionBudget.Move : 0);
+            s_Failed.Observe(null, spent);
+        }
+
+        private static KruneActionBudget Budget(UnitCommand.CommandType type)
+        {
+            switch (type)
+            {
+                case UnitCommand.CommandType.Free: return KruneActionBudget.Free;
+                case UnitCommand.CommandType.Move: return KruneActionBudget.Move;
+                case UnitCommand.CommandType.Standard: return KruneActionBudget.Standard;
+                case UnitCommand.CommandType.Swift: return KruneActionBudget.Swift;
+                default: throw new ArgumentOutOfRangeException(nameof(type));
+            }
         }
 
         private static string PlanKey(KrunePlan plan) => plan.Ability.Blueprint.AssetGuid + "/" + Metamagic(plan.Ability) + "/" + plan.Ability.RuntimeActionType;
@@ -611,7 +627,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
         {
             var actor = plan.Ability.Caster.Unit;
             return !actor.CombatState.HasCooldownForCommand(plan.Ability.RuntimeActionType)
-                && s_Failed.Allows(PlanKey(plan), TargetKey(plan)) ? plan : null;
+                && s_Failed.Allows(Budget(plan.Ability.RuntimeActionType), PlanKey(plan), TargetKey(plan)) ? plan : null;
         }
 
         internal static void Ended(KwrDirectedCast command, CastResult reason)
@@ -640,7 +656,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
             }
             if (reason != CastResult.Committed && reason != CastResult.Delivered)
             {
-                s_Failed.Reject(command.PlanKey, command.TargetKey, reason);
+                s_Failed.Reject(Budget(command.Type), command.PlanKey, command.TargetKey, reason);
             }
             s_Active = null;
             s_Cached = null;

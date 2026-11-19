@@ -150,6 +150,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public int RuneMask;
         public Dictionary<string, CurseRecord> Curses = new Dictionary<string, CurseRecord>();
         public Dictionary<string, MistRecord> Mist = new Dictionary<string, MistRecord>();
+        public SurvivorExposure SurvivorExposure = new SurvivorExposure();
         public Dictionary<string, StatueState> Statues = new Dictionary<string, StatueState>();
         public AlarmState Alarm = new AlarmState();
         public GlyphState Glyph = new GlyphState();
@@ -292,6 +293,12 @@ namespace KingmakerWakingRune.Sanctum.Wards
                     orderby modifier(member, skill) descending select Tuple.Create(member, skill)).FirstOrDefault();
         }
 
+        internal static bool StudyAvailable(SanctumState state, string check, string actor, WardSkill skill, int rank)
+        {
+            return RankAvailable(state.StudyRanks, Opportunity(check, actor, skill), rank)
+                && CanAttempt(state.Knowledge, check, actor, skill.ToString(), rank);
+        }
+
         internal static string Opportunity(string key, string member, WardSkill skill) => key + "/" + member + "/" + skill;
 
         internal static bool RankAvailable(Dictionary<string, int> ranks, string key, int rank)
@@ -330,14 +337,23 @@ namespace KingmakerWakingRune.Sanctum.Wards
     /// <summary>Identifies restored survivors exposed when the party placed a harmful area.</summary>
     internal sealed class SurvivorExposure
     {
-        private readonly Dictionary<object, HashSet<string>> placed = new Dictionary<object, HashSet<string>>();
-        public void Place(object area, IEnumerable<string> subjects) => placed[area] = new HashSet<string>(subjects);
-        public void Remove(object area) => placed.Remove(area);
-        public void Clear() => placed.Clear();
+        // Native area entity UniqueId -> authored statue IDs in its footprint at placement.
+        public Dictionary<string, List<string>> Occupants = new Dictionary<string, List<string>>();
 
-        public bool Provokes(bool partyCast, bool harmful, object area, string subject)
+        public void Place(string areaId, IEnumerable<string> subjects)
         {
-            return partyCast && harmful && (area == null || placed.TryGetValue(area, out var occupants) && occupants.Contains(subject));
+            if (!string.IsNullOrEmpty(areaId) && !Occupants.ContainsKey(areaId))
+                Occupants.Add(areaId, subjects.Distinct().ToList());
+        }
+
+        public void Remove(string areaId)
+        {
+            if (areaId != null) Occupants.Remove(areaId);
+        }
+
+        public bool Provokes(bool partyCast, bool harmful, string areaId, string statueId)
+        {
+            return partyCast && harmful && (areaId == null || Occupants.TryGetValue(areaId, out var exposed) && exposed.Contains(statueId));
         }
     }
 

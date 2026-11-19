@@ -690,7 +690,6 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         public static void OnLeavingSanctum()
         {
-            s_Observer.ForgetAreas();
             foreach (UnitEntityData unit in Game.Instance.Player.Party)
             {
                 unit.Descriptor.RemoveFact(WardBlueprints.WakeAlly);

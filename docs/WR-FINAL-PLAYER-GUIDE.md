@@ -56,7 +56,7 @@ reach it approaches and makes the attempt. Saving often is wise.
 
 Kurshu’s prophecy and the writing in her blood appear in the dialogue panel. Use **Continue** to read them.
 Her defeat starts the 90-minute awakening clock. Among the stone figures, a survivor who speaks or runs may still
-serve Lissala. You can question a speaker, block the path, allow the cultist to leave, or attack.
+serve Lissala. You can question a speaker, block the path, allow the cultist to leave, or attack. A harmful party spell can provoke a survivor caught in its area when cast. A survivor who walks into the same area later can still suffer its effects without turning hostile for that reason.
 
 **The runelord:** a 17th-level conjurer of ancient Thassilon. He fights to the death within his sanctum. Expect
 summoned creatures, walls of stone, rebounding spells and a spear with a will of its own. If surrounded, he can teleport
@@ -104,6 +104,6 @@ negative energy or death magic, and a skilled hand with magic devices or traps.
 ## Known limitations of this playtest draft
 - The rod's Silent, Still and Widen Spell are not implemented in this draft; its Enlarge works as Reach Spell (the
   next range band).
-- Krune’s printed Black Tentacles preparations are unavailable in 0.12.1.
+- Krune’s printed Black Tentacles preparations are unavailable in 0.12.2.
 - Some of Krune's printed spells and abilities have no use in this game (they are listed in his spellbook as held).
 - Placeholder model and portrait for Krune; the journal's title is the game's own ("Linzi's Journal").

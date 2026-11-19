@@ -226,8 +226,7 @@ namespace KingmakerWakingRune.Sanctum
         }
 
         /// <summary>
-        /// Puts anyone a save left somewhere the plan or navmesh no longer allows, such as a flight that has since moved,
-        /// on the nearest ground in the same space. Everyone else, and everything else about them, is left alone.
+        /// Reprojects old-layout actors into the same logical space. On the current layout only invalid placements need repair.
         /// </summary>
         public static bool RepairRestoredPositions(bool previousLayout)
         {
@@ -236,6 +235,16 @@ namespace KingmakerWakingRune.Sanctum
             var migrated = previousLayout ? Wards.WardStore.Existing.MigratedActorIds : null;
             List<UnitEntityData> party = (previousLayout ? Game.Instance.State.Units.AsEnumerable() : PartyAndPets())
                 .Where(u => u.IsInGame && u.View != null && Wards.WardFixtures.IdOf(u) == null).ToList();
+            if (previousLayout)
+            {
+                // A missing view has no usable footprint yet. Keep the layout pending until its real radius is available.
+                var savedActors = Game.Instance.CurrentScene.AllEntityData.OfType<UnitEntityData>().Concat(PartyAndPets());
+                if (savedActors.Any(u => u.IsInGame && u.View == null && !migrated.Contains(u.UniqueId) && Wards.WardFixtures.IdOf(u) == null))
+                {
+                    Log.Info("Layout migration awaits a saved actor's view.");
+                    complete = false;
+                }
+            }
             if (party.Count > 0 && FaultInjection.Take("position-invalid"))
             {
                 // A compatibility fixture for the harness: terrace height inside the upper courses is ground no save should hold.
@@ -253,41 +262,32 @@ namespace KingmakerWakingRune.Sanctum
                 Vector3 from = unit.Position;
                 GridPoint old = SanctumPlan.SavedPoint(from.x, from.z, previousLayout);
                 float radius = unit.Corpulence / SanctumPlan.MetersPerSquare;
-                bool Permitted(Vector3 p)
+                bool Legal(GridPoint point)
                 {
-                    var point = new GridPoint(GridX(p), GridY(p));
-                    if (!SanctumPlan.FitsMigration(old, point, p.y, radius, closed) || !IsOnNavmesh(p)) return false;
+                    float? y = SanctumPlan.HeightAt(point.X, point.Y);
+                    if (!y.HasValue || !SanctumPlan.FitsMigration(old, point, y.Value, radius, closed)) return false;
+                    var p = new Vector3(SanctumPlan.ToWorldX(point.X), y.Value, SanctumPlan.ToWorldZ(point.Y));
+                    // Keep the tested X/Z. A coarse nearest-node snap could put the body across a wall.
+                    NNInfo nearest = ObstacleAnalyzer.GetNearestNode(p);
+                    if (nearest.node == null || !nearest.node.Walkable || (nearest.clampedPosition - p).sqrMagnitude > 0.03f * 0.03f) return false;
                     if (stoneFigures.Any(foot => Mathf.Abs(foot.y - p.y) < SanctumPlan.GroundTolerance &&
                         Vector2.Distance(new Vector2(foot.x, foot.z), new Vector2(p.x, p.z)) < 0.3f + unit.Corpulence)) return false;
                     return party.All(other => other == unit || Mathf.Abs(other.Position.y - p.y) > SanctumPlan.GroundTolerance
                         || Vector2.Distance(new Vector2(other.Position.x, other.Position.z), new Vector2(p.x, p.z)) >= other.Corpulence + unit.Corpulence);
                 }
-                if (previousLayout ? Permitted(from) : IsStandingValidly(from))
-                {
-                    migrated?.Add(unit.UniqueId);
-                    continue;
-                }
-                Vector3? ground = null;
-                SanctumPlan.NearestMigrationPoint(from.x, from.z, previousLayout, point =>
-                {
-                    float? y = SanctumPlan.HeightAt(point.X, point.Y);
-                    if (!y.HasValue) return false;
-                    var p = new Vector3(SanctumPlan.ToWorldX(point.X), y.Value, SanctumPlan.ToWorldZ(point.Y));
-                    if (!Permitted(p)) return false;
-                    // Keep the tested X/Z. A coarse nearest-node snap could put the body across a wall.
-                    if ((ObstacleAnalyzer.GetNearestNode(p).clampedPosition - p).sqrMagnitude > 0.03f * 0.03f) return false;
-                    ground = p;
-                    return true;
-                });
-                if (ground == null)
+                bool placed = SanctumPlan.RestorePosition(from.x, from.z, previousLayout, !previousLayout && IsStandingValidly(from), Legal,
+                    (x, y, z) =>
+                    {
+                        unit.Position = new Vector3(x, y, z);
+                        Log.Info($"Restored position corrected: {unit.CharacterName} {from} -> {unit.Position} in {SanctumPlan.SpaceAt(old.X, old.Y)}.");
+                    });
+                if (!placed)
                 {
                     Log.Error($"No safe ground found near {unit.CharacterName} at {from}; left in place.");
                     complete = false;
                     continue;
                 }
-                unit.Position = ground.Value;
                 migrated?.Add(unit.UniqueId);
-                Log.Info($"Restored position corrected: {unit.CharacterName} {from} -> {ground.Value} in {SanctumPlan.SpaceAt(old.X, old.Y)}.");
             }
             return complete;
         }

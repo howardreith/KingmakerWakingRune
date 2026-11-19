@@ -64,7 +64,7 @@ namespace KingmakerWakingRune.Tests
         {
             var failed = new FailedKrunePlans();
             object turn = new object(), spell = new object();
-            failed.Observe(turn, 0, "frost giant");
+            failed.Observe(turn, 0);
             foreach (var stage in new[] { CastStage.Constructed, CastStage.Initialized, CastStage.Started })
             {
                 var command = new DirectedCastLifecycle(spell);
@@ -78,38 +78,38 @@ namespace KingmakerWakingRune.Tests
                 command.End(stage == CastStage.Started ? CastResult.Interrupted : CastResult.Rejected, false, reason =>
                 {
                     extendReserved = false;
-                    failed.Reject("summon/quickened", "giant", reason);
+                    failed.Reject(KruneActionBudget.Swift, "summon/quickened", "giant", reason);
                 }, () =>
                 {
                     Assert.Equal(false, extendReserved, "reservation released before native end subscribers");
                     Assert.Equal(CastStage.Ended, command.Stage, "reentrant native end sees terminal state");
                     for (int i = 0; i < 1000; i++)
-                        Assert.Equal(false, failed.Allows("summon/quickened", "second point"), "broad rejection blocks re-dispatch");
-                    Assert.Equal(true, failed.Allows("summon/standard", "giant"), "distinct standard plan is dispatchable");
+                        Assert.Equal(false, failed.Allows(KruneActionBudget.Swift, "summon/quickened", "second point"), "broad rejection blocks re-dispatch");
+                    Assert.Equal(true, failed.Allows(KruneActionBudget.Standard, "summon/standard", "giant"), "distinct standard plan is dispatchable");
                 });
                 Assert.Equal(1, slots, "no commit spend"); Assert.Equal(1, actions, "no action callback");
                 Assert.Equal(9, charges, "no Extend charge");
                 turn = new object();
-                failed.Observe(turn, 0, "frost giant");
-                Assert.Equal(true, failed.Allows("summon/quickened", "giant"), "next actual turn");
+                failed.Observe(turn, 0);
+                Assert.Equal(true, failed.Allows(KruneActionBudget.Swift, "summon/quickened", "giant"), "next actual turn");
             }
         }
 
-        public static void TestFailedSwiftFallsThroughTacticalListToCommittedStandard()
+        public static void TestRealTimeFailedQuickenedSummonSurvivesStandardFallbackAndTacticalChanges()
         {
             var view = new KruneView { SummonsAlive = 1 };
             view.Ready["Quickened Summon Monster V"] = 1;
             view.Ready["Foresight"] = 1;
             var exclusions = new FailedKrunePlans();
-            exclusions.Observe(new object(), 0, "living frost giant");
+            exclusions.Observe(null, 0);
             KruneChoice Choose() => KruneTactics.SwiftOptions(view).Concat(KruneTactics.StandardOptions(view))
-                .FirstOrDefault(c => exclusions.Allows(c.Key, c.Aim.ToString()));
+                .FirstOrDefault(c => exclusions.Allows(c.Metamagic == "Quickened" ? KruneActionBudget.Swift : KruneActionBudget.Standard, c.Key, c.Aim.ToString()));
 
             var summon = Choose();
             Assert.Equal("Quickened Summon Monster V", summon.Key, "first native order");
             var rejected = new DirectedCastLifecycle(summon);
             rejected.Initialize();
-            rejected.End(CastResult.Rejected, false, reason => exclusions.Reject(summon.Key, summon.Aim.ToString(), reason), () => { });
+            rejected.End(CastResult.Rejected, false, reason => exclusions.Reject(KruneActionBudget.Swift, summon.Key, summon.Aim.ToString(), reason), () => { });
             var defense = Choose();
             Assert.Equal("Foresight", defense.Key, "same turn chooses a different standard action");
             var fallback = new DirectedCastLifecycle(defense);
@@ -122,7 +122,28 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(CastResult.Committed, fallback.Result, "fallback resolves");
             Assert.Equal(0, view.Ready[defense.Key], "one committed standard slot");
             Assert.Equal(1, view.Ready[summon.Key], "rejected swift slot remains prepared");
-            Assert.Equal(null, Choose(), "no immediate duplicate order");
+            void StillExcluded(string change)
+            {
+                exclusions.Observe(null, KruneActionBudget.Standard);
+                Assert.Equal(false, exclusions.Allows(KruneActionBudget.Swift, summon.Key, "another point"), change);
+                Assert.Equal(null, Choose(), "no duplicate dispatch after " + change);
+            }
+            StillExcluded("Foresight spent a standard action and a ready slot");
+            view.HitPointFraction = 0.4;
+            StillExcluded("damage");
+            view.HitPointFraction = 0.9;
+            StillExcluded("healing");
+            view.FoeCasters++;
+            StillExcluded("another enemy caster");
+            var resources = new KruneState { RodCharges = 9 };
+            resources.RodCharges--;
+            StillExcluded("rod charge spent");
+            exclusions.Observe(null, 0);
+            Assert.Equal(null, Choose(), "renewing only the standard cannot renew the summon");
+            // A different swift action now spends that budget. Its native cooldown later expires.
+            exclusions.Observe(null, KruneActionBudget.Swift);
+            exclusions.Observe(null, 0);
+            Assert.Equal(summon.Key, Choose().Key, "swift budget itself renewed");
         }
 
         public static void TestCommitNeedsExactRuleAndRelocationNeedsDelivery()
@@ -170,17 +191,27 @@ namespace KingmakerWakingRune.Tests
         public static void TestFailureEpochTracksBudgetAndTargetInsteadOfGameTime()
         {
             var plans = new FailedKrunePlans();
-            plans.Observe(null, 0, "unchanged");
-            plans.Reject("swift", "giant", CastResult.NativeFailure);
-            plans.Observe(null, 0, "unchanged"); // 5.99 -> 6.01 game seconds
-            Assert.Equal(false, plans.Allows("swift", "empty"), "a clock boundary renews nothing");
-            plans.Observe(null, 1, "unchanged");
-            Assert.Equal(false, plans.Allows("swift", "empty"), "spending a standard is not renewal");
-            plans.Observe(null, 0, "unchanged");
-            Assert.Equal(true, plans.Allows("swift", "giant"), "observed a renewed budget");
-            plans.Reject("swift", "giant", CastResult.RangeInvalid);
-            Assert.Equal(false, plans.Allows("swift", "giant"), "invalid landing");
-            Assert.Equal(true, plans.Allows("swift", "empty"), "different legal landing");
+            plans.Observe(null, 0);
+            plans.Reject(KruneActionBudget.Swift, "swift", "giant", CastResult.NativeFailure);
+            plans.Observe(null, 0); // 5.99 -> 6.01 game seconds
+            Assert.Equal(false, plans.Allows(KruneActionBudget.Swift, "swift", "empty"), "a clock boundary renews nothing");
+            plans.Reject(KruneActionBudget.Move, "passage", "stone", CastResult.ResourceUnavailable);
+            plans.Observe(null, KruneActionBudget.Swift);
+            plans.Observe(null, 0);
+            Assert.Equal(true, plans.Allows(KruneActionBudget.Swift, "swift", "giant"), "renewed swift budget");
+            Assert.Equal(false, plans.Allows(KruneActionBudget.Move, "passage", "other"), "move failure stays broad");
+            plans.Reject(KruneActionBudget.Swift, "swift", "giant", CastResult.RangeInvalid);
+            Assert.Equal(false, plans.Allows(KruneActionBudget.Swift, "swift", "giant"), "invalid landing");
+            Assert.Equal(true, plans.Allows(KruneActionBudget.Swift, "swift", "empty"), "different legal landing");
+
+            var turn = new object();
+            plans.Observe(turn, 0);
+            plans.Reject(KruneActionBudget.Standard, "spell", "one", CastResult.ActionUnavailable);
+            plans.Observe(turn, KruneActionBudget.Standard);
+            plans.Observe(turn, 0);
+            Assert.Equal(false, plans.Allows(KruneActionBudget.Standard, "spell", "two"), "same turn regardless of observed cooldown");
+            plans.Observe(new object(), 0);
+            Assert.Equal(true, plans.Allows(KruneActionBudget.Standard, "spell", "two"), "new native turn");
         }
 
         public static void TestAWallOfStoneIsARealBreakableObstacle()

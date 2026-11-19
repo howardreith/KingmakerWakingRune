@@ -30,6 +30,20 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(true, InspectionRules.CanAttempt(ledger, check.Key, winner.Item1, winner.Item2.ToString(), 8), "new rank qualifies");
         }
 
+        public static void TestLegacyKnowledgeFiltersEachCombinationBeforeChoosingTheRoller()
+        {
+            var state = new SanctumState();
+            var check = new InspectCheck { Key = "A3a", Skills = new[] { WardSkill.Arcana, WardSkill.Religion } };
+            InspectionRules.Record(state.Knowledge, check.Key, "wizard", "Arcana", 7, 10);
+            Assert.Equal(0, state.StudyRanks.Count, "0.11.3 has no party opportunity ledger");
+            Tuple<string, WardSkill> Choose(int wizardRank) => InspectionRules.BestStudy(new[] { "wizard", "cleric" }, check,
+                (actor, skill) => (actor == "wizard" && skill == WardSkill.Arcana) ? 20 : (actor == "cleric" && skill == WardSkill.Religion) ? 18 : 1,
+                (actor, skill) => InspectionRules.StudyAvailable(state, check.Key, actor, skill, actor == "wizard" ? wizardRank : 6));
+            var next = Choose(7);
+            Assert.Equal(Tuple.Create("cleric", WardSkill.Religion), next, "untried runner-up");
+            Assert.Equal(Tuple.Create("wizard", WardSkill.Arcana), Choose(8), "strongest qualifies after gaining a rank");
+        }
+
         public static void TestEmeraldFailedApproachesNeverRollAndOnlyOneContactCanResolve()
         {
             var action = new EmeraldApproach();
@@ -44,16 +58,35 @@ namespace KingmakerWakingRune.Tests
         public static void TestHarmfulPartySpellProvokesOnlyItsSubject()
         {
             var effects = new SurvivorExposure();
-            var grease = new object();
+            const string grease = "native-area-17";
             effects.Place(grease, new[] { "reporter" });
             Assert.Equal(true, effects.Provokes(true, true, null, "reporter"), "direct hold");
             Assert.Equal(true, effects.Provokes(true, true, grease, "reporter"), "reporter caught in fresh grease");
             Assert.Equal(false, effects.Provokes(true, true, grease, "fugitive"), "later entrant");
-            Assert.Equal(false, effects.Provokes(true, true, new object(), "reporter"), "older unrelated area");
+            Assert.Equal(false, effects.Provokes(true, true, "old-area", "reporter"), "older unrelated area");
             Assert.Equal(false, effects.Provokes(false, true, null, "reporter"), "environmental effect");
             Assert.Equal(false, effects.Provokes(true, false, null, "reporter"), "helpful spell");
             effects.Remove(grease);
             Assert.Equal(false, effects.Provokes(true, true, grease, "reporter"), "expired area");
+        }
+
+        public static void TestSurvivorPlacementProvenanceSurvivesSaveReloadAndExpiry()
+        {
+            var json = new JavaScriptSerializer();
+            const string areaId = "d52b71013a1b46f1a887a562deca30be";
+            var state = json.Deserialize<SanctumState>("{}"); // a legacy payload has no placement records
+            Assert.Equal(false, state.SurvivorExposure.Provokes(true, true, areaId, "Support-N1"), "unknown legacy hazard");
+            state.SurvivorExposure.Place(areaId, new[] { "Support-N1" });
+            // Serialize the actual field of the ward payload and reconstruct a distinct loaded state.
+            string Save(SanctumState current) => json.Serialize(new { current.SurvivorExposure });
+            var loaded = json.Deserialize<SanctumState>(Save(state));
+            loaded.SurvivorExposure.Place(areaId, new[] { "Support-W1" });
+            Assert.Equal(true, loaded.SurvivorExposure.Provokes(true, true, areaId, "Support-N1"), "original subject on reload");
+            Assert.Equal(false, loaded.SurvivorExposure.Provokes(true, true, areaId, "Support-W1"), "rebuild cannot add a later entrant");
+            Assert.Equal(false, loaded.SurvivorExposure.Provokes(false, true, areaId, "Support-N1"), "nonparty area");
+            loaded.SurvivorExposure.Remove(areaId);
+            var afterExpiry = json.Deserialize<SanctumState>(Save(loaded));
+            Assert.Equal(0, afterExpiry.SurvivorExposure.Occupants.Count, "expired record deleted from next save");
         }
 
         private static RuneFocus Life => KruneProjection.Focus("A3a");

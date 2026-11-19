@@ -300,14 +300,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 return null;
             }
-            var best = InspectionRules.BestStudy(WardActions.Participants(), check, (u, skill) => u.Stats.GetStat(Stats[skill]).ModifiedValue,
-                (u, skill) => InspectionRules.RankAvailable(state.StudyRanks, InspectionRules.Opportunity(check.Key, u.UniqueId, skill),
-                    u.Stats.GetStat(Stats[skill]).BaseValue));
-            if (best == null) return null;
-            var actor = best.Item1;
-            var skillChosen = best.Item2;
-            return InspectionRules.CanAttempt(state.Knowledge, check.Key, actor.UniqueId, skillChosen.ToString(),
-                actor.Stats.GetStat(Stats[skillChosen]).BaseValue) ? best : null;
+            return InspectionRules.BestStudy(WardActions.Participants(), check,
+                (u, skill) => u.Stats.GetStat(Stats[skill]).ModifiedValue,
+                (u, skill) => InspectionRules.StudyAvailable(state, check.Key, u.UniqueId, skill, u.Stats.GetStat(Stats[skill]).BaseValue));
         }
 
         internal static bool CanStudy(InspectCheck check) => StudyChoice(check) != null;

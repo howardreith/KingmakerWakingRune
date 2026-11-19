@@ -285,6 +285,52 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(1, SanctumPlan.Walls.Single(w => w.Name == "A4A5").Openings.Count, "A4 mouth");
         }
 
+        public static void TestLayoutTwoReprojectsLegalPositionsInEveryRegion()
+        {
+            var sites = new Dictionary<string, GridPoint>
+            {
+                { "A1", new GridPoint(14.7f, 15f) }, { "A3 north", new GridPoint(13f, 2.5f) },
+                { "A3 east", new GridPoint(22.5f, 12f) }, { "A3 south", new GridPoint(13f, 28f) },
+                { "A3 west", new GridPoint(3.5f, 12f) }, { "A4", new GridPoint(16.7f, 10.2f) },
+                { "A5", new GridPoint(9.8f, 11f) }
+            };
+            foreach (var site in sites)
+            {
+                var original = site.Value;
+                float x = (original.X - SanctumPlan.OriginX) * SanctumPlan.PrintedSquareMeters;
+                float z = (SanctumPlan.OriginY - original.Y) * SanctumPlan.PrintedSquareMeters;
+                var old = SanctumPlan.SavedPoint(x, z, true);
+                bool Close(float a, float b) => Math.Abs(a - b) < 0.0001f;
+                Assert.Equal(true, Close(old.X, original.X) && Close(old.Y, original.Y), site.Key + " old world decode");
+                int probes = 0, moves = 0;
+                bool Legal(GridPoint point)
+                {
+                    probes++;
+                    return SanctumPlan.FitsMigration(old, point, SanctumPlan.HeightAt(point.X, point.Y) ?? -100f, 0.25f, SanctumPlan.Doors);
+                }
+                bool placed = SanctumPlan.RestorePosition(x, z, true, true, Legal, (worldX, height, worldZ) =>
+                {
+                    moves++;
+                    Assert.Equal(true, Close(SanctumPlan.ToWorldX(original.X), worldX) && Close(SanctumPlan.ToWorldZ(original.Y), worldZ), site.Key + " projected world point");
+                    var logical = SanctumPlan.SavedPoint(worldX, worldZ, false);
+                    Assert.Equal(true, Close(logical.X, old.X) && Close(logical.Y, old.Y), site.Key + " preserved logical point");
+                    Assert.Equal(true, !Close(x, worldX) || !Close(z, worldZ), site.Key + " moved off old world point");
+                    Assert.Equal(true, Close(height, SanctumPlan.HeightAt(old.X, old.Y).Value), site.Key + " floor elevation");
+                });
+                Assert.Equal(true, placed, site.Key);
+                Assert.Equal(1, probes, site.Key + " intended location tried first");
+                Assert.Equal(1, moves, site.Key + " reproject even if already standing on walkable floor");
+            }
+        }
+
+        public static void TestLayoutRepairRetainsUnresolvedActorForRetryAndSkipsValidCurrentLayout()
+        {
+            int moves = 0;
+            Assert.Equal(false, SanctumPlan.RestorePosition(1f, 1f, true, true, p => false, (x,y,z) => moves++), "all destinations occupied");
+            Assert.Equal(true, SanctumPlan.RestorePosition(1f, 1f, false, true, p => { throw new Exception("unnecessary search"); }, (x,y,z) => moves++), "valid current-layout position");
+            Assert.Equal(0, moves, "no spurious moves");
+        }
+
         public static void TestOldWorldCoordinatesPickNearestLegalOldGridCandidateInEveryRegion()
         {
             var cases = new[]
