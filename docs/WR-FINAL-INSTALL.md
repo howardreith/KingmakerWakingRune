@@ -2,15 +2,17 @@
 
 ## WR-PLAYTEST-03
 
-Candidates 0.12.0 and 0.12.1 were packaged locally. Both archives and their contained DLLs were verified. The live Mods directory still contains only Waking Rune. A read after packaging 0.12.1 confirmed the installed 0.11.3 DLL SHA-256 below.
+0.12.2 was packaged locally from clean source `7e63e2c01ff07bb10f7ffeb04f5fb9805e9e0fee`. Independent archive reads verified the manifest version and SHA-256 digests for each ZIP and its contained DLL, including immutable candidates 0.12.0 and 0.12.1.
 
-Automatic approval review previously rejected the Waking Rune harness's request to open a live transaction. For 0.12.1, installation, runtime backup and restoration are **NOT RUN**. Neither candidate changed owner saves, the Steam mirror, registry, settings or mod configurations. The exact guarded transaction request and immutable candidate hashes are in [WR-PLAYTEST-03](WR-PLAYTEST-03.md).
+**READ after packaging 0.12.2.** The live Mods directory contains only KingmakerWakingRune. Its manifest reports 0.11.3. The installed DLL and the existing `KingmakerWakingRune.dll.27292.cache` each hash to `7933788dcc6cf6e34fd5c7c168601caa637601e4ea825a7080c46ef51be63cc4`. The live manifest hash is `837ee8c365f61c5eef8a74aceeeba86821c40de4492d10aefc72ca92f9f15ad9`.
+
+**Installation, runtime backup and restoration — NOT RUN.** The previous automatic review rejected the Waking Rune live transaction. No playtest transaction touched owner saves, the Steam mirror, registry, settings or Mods in this pass. After authorization, the guarded transaction must use its own fresh pre-run snapshot, finish with `End` and verify the entire restored profile. [Candidate hashes and transaction request](WR-PLAYTEST-03.md).
 
 ## Installed now
 - **Mod:** The Waking Rune 0.11.3 (WR-PLAYTEST-02 after the owner's review), from `artifacts\KingmakerWakingRune-0.11.3.zip`
   (`2e591004cec2c9b0403943d3f83646e62d75234973e78dae0b77a551ea738251`), commit `17c3a69` on `feature/wr-playtest-02`. Installed
-  DLL `7933788dcc6cf6e34fd5c7c168601caa637601e4ea825a7080c46ef51be63cc4` (verified after the transaction). The install is the DLL
-  and `Info.json` only.
+  DLL `7933788dcc6cf6e34fd5c7c168601caa637601e4ea825a7080c46ef51be63cc4` (verified after the transaction). The packaged files are the DLL
+  and `Info.json`. The current runtime cache is listed above.
 - **Location:** `<Kingmaker>\Mods\KingmakerWakingRune` (Unity Mod Manager 0.28.2, game 2.1.7). No other mod is installed
   in this lab's game folder: Mounted Combat, the Tabletop Rules Expansion and Dice Roller were installed only inside
   the runs and removed before each ended.

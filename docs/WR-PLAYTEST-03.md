@@ -1,6 +1,43 @@
 # WR-PLAYTEST-03 — owner playtest follow-up
 
-**PARTIAL — 0.12.1 is ready for native qualification.** The Release build and the complete offline suite passed, with 280 tests and zero failures. The draft PR is open for owner review. The installed game still has 0.11.3.
+**PARTIAL — 0.12.2 awaits owner review.** All four findings from the 0.12.1 review have fixes and offline regressions. Native qualification is **NOT RUN**.
+
+| 0.12.2 candidate | Verified value |
+|---|---|
+| Previous draft head | `5580a1f1c02d0262e3af2d4cccc7c23296a34e00` |
+| Clean source commit | `7e63e2c01ff07bb10f7ffeb04f5fb9805e9e0fee` |
+| Local installable package | `artifacts/KingmakerWakingRune-0.12.2.zip` |
+| ZIP SHA-256 | `45efa1cc623641576455ca5a46d6e75ac8de217f3ecd128bbcd903301a4fde64` |
+| DLL SHA-256 inside ZIP | `f46cd0594da52dfc78d5d9b1c02118dd91f5290c3347abf2d9c7be29ea9b2b3a` |
+| Release and packaging | **PASS**. The full rebuild passed 284 tests with zero failures. After a second static review of the final diff, the clean package build repeated all 284 tests and decoded all 19 embedded images. An independent read verified the manifest version, both ZIP entries and the DLL digest. Both preceding ZIPs and their contained DLLs match the recorded hashes. |
+
+### 0.12.2 review findings
+
+| Owner finding | Offline result | Native result |
+|---|---|---|
+| A standard fallback reopened the rejected swift summon in real time | **PASS**. With a null turn in real time, the quickened summon remains excluded after Foresight commits, after damage and healing, and after enemy and rod-charge changes. Renewing only the standard budget leaves that exclusion in place. Spending then renewing the swift budget permits a retry. Target and range failures stay local to the target. Other failures cover the plan across targets. Resource failures use the ordinary budget renewal. Turn-based exclusions last until the turn object changes. | **NOT RUN** for real-time cooldowns and the living Frost Giant/Extend fixture |
+| A valid old world position skipped layout-2 reprojection | **PASS**. A1, all four A3 sectors, A4 and A5 decode from the printed scale and land at the layout-2 world coordinates of the same logical point. The tests exercise a valid current footing and assert the intended destination is the first probe. Blocked-point tests still cover nearest legal placement, walls, doors, furniture and Large footprints. Failed placements remain pending. Completed IDs prevent repeat moves. | **NOT RUN** for old native saves and full restart |
+| Legacy knowledge could hide an untried scholar | **PASS**. Both saved ledgers filter each member/skill pair before ranking. With empty StudyRanks and a prior wizard/Arcana attempt, the cleric’s Religion wins. A higher Arcana rank makes the wizard eligible again. One choice still produces one roll. | **NOT RUN** for a 0.11.3 save and the native inspection UI |
+| Area placement membership was lost on reload | **PASS** for policy A. The ward payload saves a native area entity ID and its original restored-statue IDs. A repeated placement notification preserves the original list. The same area can recognize the original subject after deserialization, exclude a later entrant and remove its record on destruction. An additional offline full-state round trip used the installed Newtonsoft.Json 8.0.0.0 and the ward serializer settings. | **NOT RUN** for saving with a live area, restarting the game, applying the effect and expiring the area |
+
+Static review checked the director against Kingmaker’s separate real-time standard, move and swift cooldowns. A running move can temporarily block a standard order without spending it. The review also checked the native area's serialized UniqueId, its placement and destruction notifications, the restored-position caller, and both study ledgers. Layout version remains 2. A save already marked layout 2 receives ordinary invalid-position repair. Reprojecting those actors again would move correctly migrated actors a second time. Older saves with an active area and no placement record have no reliable original occupant list. That area alone cannot trigger hostility through the placement rule.
+
+### Owner authorization checkpoint for 0.12.2
+
+The previous automatic review rejected live Waking Rune transactions under the machine’s Mounted Combat policy. This pass used offline builds, serialization and read-only inventory checks. The next requested authorization is for temporary guarded staging of the exact ZIP above. The entry command, from the repository root, is
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/KwrRuntime.ps1 Begin -RunId wrplay3-0122-native -PackagePath artifacts/KingmakerWakingRune-0.12.2.zip
+```
+
+1. Run the **Waking-Rune-only disposable smoke matrix first** using named project saves. Confirm load, native dialogue acknowledgement and simulation resumption, a layout-1 reprojection, legacy study selection, and a harmful-area save/reload. For the area case, record the area entity ID and statue IDs at placement, restart with the area active, compare an original occupant with a later entrant, then expire the area and confirm the record is gone on the next save.
+2. Stage and verify the **exact logged compatibility profile** in the guarded environment before opening disposable copies of owner saves or running the living Frost Giant/Extend reproduction. Compare UMM, every enabled mod and version with the baseline table below, with 0.12.2 as the candidate under test. Only Waking Rune is present in the live Mods directory at this checkpoint. Any unavailable profile component leaves the corresponding result **NOT RUN**.
+3. Run the original native matrix, including the rejected and interrupted commands and their accounting, both combat modes, delivered relocation, pursuit, summons, the legal post-A4 victory, Kurshu, all statue roles, old saves, enlarged traversal, mouse targeting, walls, cutaway, Stone to Flesh timing and stock isolation. Capture evidence before restart and retain the original input labels.
+4. Collect the evidence and finish with `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/KwrRuntime.ps1 End`. Verify restoration of the full pre-run Mods inventory and configuration, including 0.11.3 and its existing cache, plus the protected saves, Steam mirror, settings and registry. Native runs and post-run restoration are **NOT RUN** at this checkpoint.
+
+## Immutable 0.12.1 record
+
+**PARTIAL at the 0.12.1 checkpoint.** The Release build and the complete offline suite passed, with 280 tests and zero failures. The draft PR is open for owner review. The installed game still has 0.11.3.
 
 | 0.12.1 candidate | Verified value |
 |---|---|
@@ -28,7 +65,7 @@ The information-check audit covered the seven rune plates and their figures, A2 
 
 After the complete offline run, the second static review compared the source diff against the installed dialogue, game-mode, command, pathfinder, rule and teleport implementations. It checked the pause-stack IL branch, the scheduled-dialog local, both queue interruption sites, projectile cleanup, state persistence and cast/end callback order. The build uses the Harmony assembly already referenced by the installed Harmony12 adapter for exception finalizers. The package contains the mod DLL and its UMM manifest.
 
-## Owner authorization checkpoint
+### Previous 0.12.1 authorization checkpoint
 
 **Native matrix — NOT RUN.** The previous automatic approval review rejected the Waking Rune guarded transaction because machine policy reserves live Kingmaker Mods transactions for the Mounted Combat guarded tooling. The 0.12.1 pass did not start a transaction. The owner profile below is evidence from the supplied log. This lab's live Mods directory contains only Waking Rune.
 
@@ -107,7 +144,7 @@ The horizontal unit changes from 1.524 m to 1.7526 m per plan square. Ceiling he
 
 On an old sanctum load the migration interprets each saved actor’s position in the old grid, validates its current location against the new floor and closed doors, and searches outward in the same mapped space if repair is necessary. Completed actor IDs are retained if another actor cannot be placed. An unresolved body stays where it was and the layout upgrade can retry. Authored fixtures rebind by identity. Native save round trips are outstanding, including dynamic bodies around the A5 sarcophagus.
 
-| Restoration timing | 0.11.3 owner log | 0.12.0 and 0.12.1 |
+| Restoration timing | 0.11.3 owner log | 0.12.0 through 0.12.2 |
 |---|---|---|
 | A1 cultist | Lines 11525 and 11536 record successful Fortitude saves. No frame duration accompanies either. | NOT RUN |
 | A3 dead husk | No attributable frame timing | NOT RUN |
@@ -117,7 +154,7 @@ The owner log has zero harness frame-stall markers. A frame-time delta or a clai
 
 ## Runtime profile and installation
 
-**READ** from the owner’s baseline, Kingmaker 2.1.7b and UMM 0.33.0.0. The log reports the following mods loading. The candidate was built against the installed game references. No mod profile was exercised with either offline candidate.
+**READ** from the owner’s baseline, Kingmaker 2.1.7b and UMM 0.33.0.0. The log reports the following mods loading. The candidate was built against the installed game references. No mod profile was exercised with any of the three offline candidates.
 
 | Mod | Version | Mod | Version |
 |---|---|---|---|

@@ -2,9 +2,9 @@
 
 ## WR-PLAYTEST-03 — PARTIAL
 
-Candidate **0.12.1** was built from `3c7781e566c952d28b4cc829922ca76b9e5b0dc7` after the eight PR #11 review findings were addressed. The Release build, all **280 offline tests**, and the archive integrity check passed. The immutable 0.12.0 package still matches its original SHA-256.
+Candidate **0.12.2** was built from clean source `7e63e2c01ff07bb10f7ffeb04f5fb9805e9e0fee`. The four 0.12.1 findings have offline regressions. The Release build, **284 offline tests**, full ward-payload JSON round trip and archive verification passed. Both prior immutable archives retain their recorded hashes.
 
-**Native qualification — NOT RUN.** The previous automatic approval review rejected the guarded Waking Rune transaction. The installed 0.11.3 DLL digest was verified again. The review table, candidate digests, outstanding native matrix and exact authorization request are in [the playtest report](docs/WR-PLAYTEST-03.md).
+**Native qualification — NOT RUN.** Owner review precedes any live transaction. The checkpoint calls for disposable Waking-Rune-only smoke tests first, exact compatibility-profile staging before owner-save copies or the Frost Giant reproduction, and verified restoration of the full pre-run profile and 0.11.3. [Playtest report](docs/WR-PLAYTEST-03.md).
 
 ## Previous candidate
 
