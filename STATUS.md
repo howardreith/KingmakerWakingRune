@@ -2,9 +2,9 @@
 
 ## WR-PLAYTEST-03 — PARTIAL
 
-Candidate **0.12.2** was built from clean source `7e63e2c01ff07bb10f7ffeb04f5fb9805e9e0fee`. The four 0.12.1 findings have offline regressions. The Release build, **284 offline tests**, full ward-payload JSON round trip and archive verification passed. Both prior immutable archives retain their recorded hashes.
+Candidate **0.12.3** was packaged from clean source `78aefe218355081eabc14ce520656ca947629c35`. Both Release runs passed **290 tests**. Batch migration preserves valid formations across old saves and reserves space for pending actors. The survivor test now exercises the production Newtonsoft reader and writer. Archive readback verified the manifest, DLL and all 19 images.
 
-**Native qualification — NOT RUN.** Owner review precedes any live transaction. The checkpoint calls for disposable Waking-Rune-only smoke tests first, exact compatibility-profile staging before owner-save copies or the Frost Giant reproduction, and verified restoration of the full pre-run profile and 0.11.3. [Playtest report](docs/WR-PLAYTEST-03.md).
+**Native qualification — NOT RUN.** Owner review is for one Waking-Rune-only disposable smoke transaction. The 28-mod profile, owner-save copies and Frost Giant/Extend fixture have a separate checkpoint. The current live install is 0.11.3. [Candidate and smoke request](docs/WR-PLAYTEST-03.md) · [Compatibility staging plan](docs/WR-PLAYTEST-03-PROFILE.md)
 
 ## Previous candidate
 

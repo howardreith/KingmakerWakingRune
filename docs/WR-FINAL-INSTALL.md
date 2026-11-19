@@ -2,11 +2,11 @@
 
 ## WR-PLAYTEST-03
 
-0.12.2 was packaged locally from clean source `7e63e2c01ff07bb10f7ffeb04f5fb9805e9e0fee`. Independent archive reads verified the manifest version and SHA-256 digests for each ZIP and its contained DLL, including immutable candidates 0.12.0 and 0.12.1.
+0.12.3 was packaged locally from clean source `78aefe218355081eabc14ce520656ca947629c35`. Its manifest, DLL, ZIP and 19 embedded images passed readback. The three earlier immutable candidate ZIPs and their DLLs match their recorded digests. [Candidate hashes](WR-PLAYTEST-03.md)
 
-**READ after packaging 0.12.2.** The live Mods directory contains only KingmakerWakingRune. Its manifest reports 0.11.3. The installed DLL and the existing `KingmakerWakingRune.dll.27292.cache` each hash to `7933788dcc6cf6e34fd5c7c168601caa637601e4ea825a7080c46ef51be63cc4`. The live manifest hash is `837ee8c365f61c5eef8a74aceeeba86821c40de4492d10aefc72ca92f9f15ad9`.
+**READ at the 0.12.3 checkpoint.** The only live mod is KingmakerWakingRune 0.11.3. The installed DLL and its existing `KingmakerWakingRune.dll.27292.cache` each hash to `7933788dcc6cf6e34fd5c7c168601caa637601e4ea825a7080c46ef51be63cc4`. The live Info.json SHA-256 is `837ee8c365f61c5eef8a74aceeeba86821c40de4492d10aefc72ca92f9f15ad9`.
 
-**Installation, runtime backup and restoration — NOT RUN.** The previous automatic review rejected the Waking Rune live transaction. No playtest transaction touched owner saves, the Steam mirror, registry, settings or Mods in this pass. After authorization, the guarded transaction must use its own fresh pre-run snapshot, finish with `End` and verify the entire restored profile. [Candidate hashes and transaction request](WR-PLAYTEST-03.md).
+**Installation, native tests and restoration — NOT RUN.** The review request covers disposable Waking-Rune-only smoke, followed by guarded `End` and verification of the pre-run profile. The full compatibility transaction has a separate authorization and rollback plan. [Smoke checkpoint](WR-PLAYTEST-03.md) · [28-mod staging plan](WR-PLAYTEST-03-PROFILE.md)
 
 ## Installed now
 - **Mod:** The Waking Rune 0.11.3 (WR-PLAYTEST-02 after the owner's review), from `artifacts\KingmakerWakingRune-0.11.3.zip`
