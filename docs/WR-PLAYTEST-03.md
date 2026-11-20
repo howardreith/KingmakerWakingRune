@@ -1,6 +1,6 @@
 # WR-PLAYTEST-03 — owner playtest follow-up
 
-**PARTIAL — the authorized 0.12.3 smoke stopped at preflight.** The two 0.12.2 findings pass offline. Native qualification is **NOT RUN**.
+**PARTIAL — automatic approval review rejected the authorized 0.12.3 smoke transaction at Begin.** The two 0.12.2 findings pass offline. Native qualification is **NOT RUN**.
 
 | Candidate | Verified value |
 |---|---|
@@ -31,7 +31,10 @@ The owner authorized one Waking-Rune-only run, `wrplay3-0123-smoke`, and prohibi
 | Check | Result | Evidence |
 |---|---|---|
 | Six pre-Begin checks | **PASS** | **READ**. Kingmaker closed, one Steam process, latest AppID 640820 sync entry reports Sync Disabled, transaction journal and run directories absent. The candidate ZIP matched the authorized SHA-256. The only installed mod was 0.11.3. The receipt records all three live files and their hashes, plus UMM Params.xml. |
-| Save separation at snapshot | **FAIL** | **READ**. Guard lines 65–70 select both full trees, line 139 mirrors each tree, and line 204 calls the snapshot before installation. The evidence collector's project-save filter applies later. |
+| Save separation at 08:58 Eastern | **FAIL** under the original no-copy restriction | The owner subsequently authorized full-tree copies solely for guarded rollback and explicitly permitted byte-level verification. |
+| Repeated preflight and live hashes at 09:20 Eastern | **PASS** | **READ**. The same six preconditions passed. Both live slots matched the recorded hash and neither save tree contained a KWR_AUTOMATION save. [Relative paths and SHA-256](evidence/wrplay3-0123-smoke-live-hashes.json) |
+| Begin under the rollback exception | **FAIL** at automatic approval review | The exact command below was submitted for escalation. The review acknowledged the owner's authorization and rejected the full-tree backup and live Mods replacement because machine policy allows guarded Mods changes only for KingmakerMountedCombat. PowerShell did not start. |
+| Open transaction, recorded candidate hash and backup verification before launch | **NOT RUN** | Neither rollback tree exists. There are two live hashes and zero rollback hashes. The four-file launch condition remains unsatisfied. |
 | A. Candidate startup and stock isolation | **NOT RUN** | No guarded launch or campaign load. |
 | B. Native A3 pair, party/pet, A5 corpse and traversal | **NOT RUN** | No native transforms, entity IDs, footprint measurements or movement evidence. |
 | C. Partial migration and process restart | **NOT RUN** | No saved cohort, restart, summon or runtime exception trace. |
@@ -40,7 +43,7 @@ The owner authorized one Waking-Rune-only run, `wrplay3-0123-smoke`, and prohibi
 | F. Kurshu in real time and turn based | **NOT RUN** | No acknowledged panels, clock/queue measurements or deadline observation. |
 | Cleanup and restoration | **NOT RUN** | No transaction opened or game process launched. There was no guarded state to close, collect or restore. |
 
-The receipt is **READ** evidence only. This attempt produced no native error signatures, gameplay logs, screenshots, new saves, **PLAYER** inputs or **HARNESS-COMMANDED** orders. Resuming on this profile requires clarification about copying protected saves solely into the guard's rollback backups and restoring them if necessary.
+At 09:21 Eastern, **READ** checks confirmed Kingmaker was closed, the journal and both run directories were absent, the 0.11.3 Mods inventory and Params.xml matched preflight, and both live slot hashes still matched. There were zero KWR_AUTOMATION saves in either live tree. There was no collection, quarantine or restoration. The engine produced no logs or error signatures for this attempt. A machine-policy grant covering this Waking Rune guard is required to proceed on this host.
 
 ### Authorized command — disposable smoke only
 

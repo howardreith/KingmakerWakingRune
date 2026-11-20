@@ -4,7 +4,7 @@
 
 Candidate **0.12.3** was packaged from clean source `78aefe218355081eabc14ce520656ca947629c35`. Both Release runs passed **290 tests**. Batch migration preserves valid formations across old saves and reserves space for pending actors. The survivor test now exercises the production Newtonsoft reader and writer. Archive readback verified the manifest, DLL and all 19 images.
 
-**Native qualification — NOT RUN.** Owner review is for one Waking-Rune-only disposable smoke transaction. The 28-mod profile, owner-save copies and Frost Giant/Extend fixture have a separate checkpoint. The current live install is 0.11.3. [Candidate and smoke request](docs/WR-PLAYTEST-03.md) · [Compatibility staging plan](docs/WR-PLAYTEST-03-PROFILE.md)
+**Native qualification — NOT RUN.** The owner authorized the disposable smoke transaction and its guarded rollback copies. Machine policy rejected Begin before execution. The live installation is 0.11.3 and the run ID remains unused. The 28-mod profile, owner-save gameplay and Frost Giant/Extend fixture have a separate checkpoint. [Smoke results](docs/WR-PLAYTEST-03.md#november-20-smoke-preflight-and-native-results) · [Compatibility staging plan](docs/WR-PLAYTEST-03-PROFILE.md)
 
 ## Previous candidate
 
