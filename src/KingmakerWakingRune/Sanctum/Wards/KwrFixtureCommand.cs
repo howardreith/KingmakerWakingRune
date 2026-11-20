@@ -12,6 +12,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
     /// </summary>
     internal sealed class KwrFixtureCommand : UnitCommand
     {
+        private Action m_Unreachable;
         private readonly string m_Label;
         private readonly bool m_OutOfCombatOnly;
         private readonly Func<UnitEntityData, bool> m_Valid;
@@ -28,9 +29,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
             NeedLoS = false;
         }
 
-        public static KwrFixtureCommand AtUnit(UnitEntityData target, float reach, string label, bool outOfCombatOnly, Func<UnitEntityData, bool> valid, Action<UnitEntityData> body)
+        public static KwrFixtureCommand AtUnit(UnitEntityData target, float reach, string label, bool outOfCombatOnly, Func<UnitEntityData, bool> valid, Action<UnitEntityData> body, Action unreachable = null)
         {
-            return new KwrFixtureCommand(new TargetWrapperProxy(target), reach, label, outOfCombatOnly, valid, body);
+            return new KwrFixtureCommand(new TargetWrapperProxy(target), reach, label, outOfCombatOnly, valid, body) { m_Unreachable = unreachable };
         }
 
         public static KwrFixtureCommand AtPoint(Vector3 point, float reach, string label, bool outOfCombatOnly, Func<UnitEntityData, bool> valid, Action<UnitEntityData> body)
@@ -71,6 +72,15 @@ namespace KingmakerWakingRune.Sanctum.Wards
             Log.Info($"Physical action '{m_Label}' delivered by {Executor.CharacterName}.");
             m_Body(Executor);
             return ResultType.Success;
+        }
+
+        protected override void OnEnded(bool raiseEvent = true)
+        {
+            var retry = m_Unreachable;
+            m_Unreachable = null;
+            base.OnEnded(raiseEvent);
+            if (retry != null && (Result == ResultType.Fail || (Result == ResultType.Interrupt && Executor != null && !IsStarted && !IsUnitEnoughClose)))
+                Kingmaker.Game.Instance.ScheduleAction(retry);
         }
 
         protected override string GetInnerDataDescription()

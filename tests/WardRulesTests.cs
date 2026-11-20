@@ -10,6 +10,84 @@ namespace KingmakerWakingRune.Tests
     /// <summary>Exercises the production WR-04 rule code. Native delivery, targeting and combat results are proven in the running game.</summary>
     public static class WardRulesTests
     {
+        public static void TestStudySelectsOneBestLegalMemberAndSkill()
+        {
+            var check = new InspectCheck { Key = "A3a", Skills = new[] { WardSkill.Arcana, WardSkill.Religion } };
+            var party = new[] { "wizard", "cleric" };
+            var winner = InspectionRules.BestStudy(party, check, (member, skill) =>
+                member == "cleric" && skill == WardSkill.Religion ? 18 : member == "wizard" && skill == WardSkill.Arcana ? 15 : 1);
+            Assert.Equal("cleric", winner.Item1, "actor across disciplines");
+            Assert.Equal(WardSkill.Religion, winner.Item2, "winning skill");
+            var ranks = party.SelectMany(m => check.Skills.Select(skill => InspectionRules.Opportunity(check.Key, m, skill))).ToDictionary(k => k, k => 7);
+            var again = InspectionRules.BestStudy(party, check, (m, skill) => 15, (m, skill) =>
+                InspectionRules.RankAvailable(ranks, InspectionRules.Opportunity(check.Key, m, skill), 7));
+            Assert.Equal(null, again, "no skill or scholar fishing");
+            Assert.Equal(true, InspectionRules.RankAvailable(ranks, InspectionRules.Opportunity(check.Key, "new member", WardSkill.Arcana), 3), "new participant");
+            Assert.Equal(true, InspectionRules.RankAvailable(ranks, InspectionRules.Opportunity(check.Key, "wizard", WardSkill.Arcana), 8), "changed rank");
+            var ledger = new List<KnowledgeEntry>();
+            InspectionRules.Record(ledger, check.Key, winner.Item1, winner.Item2.ToString(), 7, 10);
+            Assert.Equal(false, InspectionRules.CanAttempt(ledger, check.Key, winner.Item1, winner.Item2.ToString(), 7), "no lower-skill reroll");
+            Assert.Equal(true, InspectionRules.CanAttempt(ledger, check.Key, winner.Item1, winner.Item2.ToString(), 8), "new rank qualifies");
+        }
+
+        public static void TestLegacyKnowledgeFiltersEachCombinationBeforeChoosingTheRoller()
+        {
+            var state = new SanctumState();
+            var check = new InspectCheck { Key = "A3a", Skills = new[] { WardSkill.Arcana, WardSkill.Religion } };
+            InspectionRules.Record(state.Knowledge, check.Key, "wizard", "Arcana", 7, 10);
+            Assert.Equal(0, state.StudyRanks.Count, "0.11.3 has no party opportunity ledger");
+            Tuple<string, WardSkill> Choose(int wizardRank) => InspectionRules.BestStudy(new[] { "wizard", "cleric" }, check,
+                (actor, skill) => (actor == "wizard" && skill == WardSkill.Arcana) ? 20 : (actor == "cleric" && skill == WardSkill.Religion) ? 18 : 1,
+                (actor, skill) => InspectionRules.StudyAvailable(state, check.Key, actor, skill, actor == "wizard" ? wizardRank : 6));
+            var next = Choose(7);
+            Assert.Equal(Tuple.Create("cleric", WardSkill.Religion), next, "untried runner-up");
+            Assert.Equal(Tuple.Create("wizard", WardSkill.Arcana), Choose(8), "strongest qualifies after gaining a rank");
+        }
+
+        public static void TestEmeraldFailedApproachesNeverRollAndOnlyOneContactCanResolve()
+        {
+            var action = new EmeraldApproach();
+            Assert.Equal(true, action.Unreachable(0), "strongest has no route");
+            Assert.Equal(false, action.Contact(0), "late path callback cannot roll");
+            Assert.Equal(true, action.Unreachable(1), "second route became blocked before contact");
+            Assert.Equal(true, action.Contact(2), "third actor reached the altar");
+            Assert.Equal(false, action.Contact(2), "one Strength check");
+            Assert.Equal(false, action.Unreachable(2), "no fallback after the check, even on failed Strength");
+        }
+
+        public static void TestHarmfulPartySpellProvokesOnlyItsSubject()
+        {
+            var effects = new SurvivorExposure();
+            const string grease = "native-area-17";
+            effects.Place(grease, new[] { "reporter" });
+            Assert.Equal(true, effects.Provokes(true, true, null, "reporter"), "direct hold");
+            Assert.Equal(true, effects.Provokes(true, true, grease, "reporter"), "reporter caught in fresh grease");
+            Assert.Equal(false, effects.Provokes(true, true, grease, "fugitive"), "later entrant");
+            Assert.Equal(false, effects.Provokes(true, true, "old-area", "reporter"), "older unrelated area");
+            Assert.Equal(false, effects.Provokes(false, true, null, "reporter"), "environmental effect");
+            Assert.Equal(false, effects.Provokes(true, false, null, "reporter"), "helpful spell");
+            effects.Remove(grease);
+            Assert.Equal(false, effects.Provokes(true, true, grease, "reporter"), "expired area");
+        }
+
+        public static void TestSurvivorPlacementProvenanceSurvivesSaveReloadAndExpiry()
+        {
+            const string areaId = "d52b71013a1b46f1a887a562deca30be";
+            var state = WardPayload.Read("{}"); // a legacy payload has no placement records
+            Assert.Equal(false, state.SurvivorExposure.Provokes(true, true, areaId, "Support-N1"), "unknown legacy hazard");
+            state.SurvivorExposure.Place(areaId, new[] { "Support-N1" });
+            state.LayoutVersion = 2;
+            var loaded = WardPayload.Read(WardPayload.Write(state));
+            Assert.Equal(2, loaded.LayoutVersion, "restored complete ward payload");
+            loaded.SurvivorExposure.Place(areaId, new[] { "Support-W1" });
+            Assert.Equal(true, loaded.SurvivorExposure.Provokes(true, true, areaId, "Support-N1"), "original subject on reload");
+            Assert.Equal(false, loaded.SurvivorExposure.Provokes(true, true, areaId, "Support-W1"), "rebuild cannot add a later entrant");
+            Assert.Equal(false, loaded.SurvivorExposure.Provokes(false, true, areaId, "Support-N1"), "nonparty area");
+            loaded.SurvivorExposure.Remove(areaId);
+            var afterExpiry = WardPayload.Read(WardPayload.Write(loaded));
+            Assert.Equal(0, afterExpiry.SurvivorExposure.Occupants.Count, "expired record deleted from next save");
+        }
+
         private static RuneFocus Life => KruneProjection.Focus("A3a");
         private static RuneFocus Alacrity => KruneProjection.Focus("A3b");
         private static RuneFocus Defense => KruneProjection.Focus("A3c");
@@ -482,14 +560,14 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(true, WardGeometry.InAlarmZone(13f, 19.6f, 6f), "apex");
             Assert.Equal(false, WardGeometry.InAlarmZone(13f, 15.1f, 0f), "printed arrival");
             Assert.Equal(false, WardGeometry.InAlarmZone(11.1f, 13.9f, 0f), "arrival corner");
-            Assert.Equal(4f, WardGeometry.AlarmRadiusSquares, "twenty feet in five-foot squares");
+            Assert.Equal(4f / Sanctum.SanctumPlan.HorizontalScale, WardGeometry.AlarmRadiusSquares, "twenty feet after widening");
         }
 
         public static void TestGlyphBurstReachesTenFeetFromItsTrigger()
         {
             Assert.Equal(true, WardGeometry.InGlyphTrigger(19.6f, 14.65f), "centre");
             Assert.Equal(false, WardGeometry.InGlyphTrigger(19.6f, 12.5f), "not the room beyond");
-            Assert.Equal(2f, WardGeometry.GlyphBurstSquares, "ten feet");
+            Assert.Equal(2f / Sanctum.SanctumPlan.HorizontalScale, WardGeometry.GlyphBurstSquares, "ten feet");
         }
 
         public static void TestMistStaysInItsVisibleRectangleAndChamber()
@@ -669,11 +747,13 @@ namespace KingmakerWakingRune.Tests
             Assert.Equal(3, state.Statue("Support-N1").RouteLeg, "route progress kept");
         }
 
-        public static void TestBearerManifestIsFiveAndFive()
+        public static void TestRestoredBearersHaveStableResponses()
         {
             Assert.Equal(10, BearerManifest.Roles.Count, "ten bearers");
-            Assert.Equal(5, BearerManifest.Roles.Values.Count(r => r == BearerRole.Attack), "attack");
-            Assert.Equal(5, BearerManifest.Roles.Values.Count(r => r == BearerRole.Report), "report");
+            Assert.Equal(3, BearerManifest.Roles.Values.Count(r => r == BearerRole.Attack), "attack");
+            Assert.Equal(4, BearerManifest.Roles.Values.Count(r => r == BearerRole.Report), "report");
+            Assert.Equal(2, BearerManifest.Roles.Values.Count(r => r == BearerRole.Flee), "flee");
+            Assert.Equal(BearerRole.Deceive, BearerManifest.Roles["Support-E2"], "the manipulator");
             Assert.Equal(true, BearerManifest.Roles.Keys.All(BearerManifest.IsBearer), "ids");
         }
     }

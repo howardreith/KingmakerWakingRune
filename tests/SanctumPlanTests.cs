@@ -52,7 +52,8 @@ namespace KingmakerWakingRune.Tests
 
         public static void TestScaleIsFiveFootSquaresOnNorthUpAxes()
         {
-            Assert.Equal(1.524f, SanctumPlan.MetersPerSquare, "metres per square");
+            Assert.Equal(1.524f, SanctumPlan.PrintedSquareMeters, "printed five-foot square");
+            Assert.Equal(1.524f * 1.15f, SanctumPlan.MetersPerSquare, "horizontal traversal allowance");
             Assert.Equal(true, SanctumPlan.ToWorldZ(1f) > SanctumPlan.ToWorldZ(30f), "north is +Z");
             Assert.Equal(true, SanctumPlan.ToWorldX(24f) > SanctumPlan.ToWorldX(2f), "east is +X");
         }
@@ -282,6 +283,119 @@ namespace KingmakerWakingRune.Tests
             WallRun core = SanctumPlan.Walls.Single(w => w.Name == "A3Core");
             Assert.Equal(2, core.Openings.Count, "A3 core openings");
             Assert.Equal(1, SanctumPlan.Walls.Single(w => w.Name == "A4A5").Openings.Count, "A4 mouth");
+        }
+
+        // Exercise the same batch planner used by the native adapter, even for single-actor saves.
+        private static bool RestorePosition(float x, float z, bool old, bool standingValid,
+            Func<GridPoint, bool> legal, Action<float, float, float> apply)
+        {
+            var actor = new LayoutActor("one", new LayoutPosition(x, 0, z), 0.25f, !old && standingValid, false, old);
+            var moves = LayoutMigration.Plan(new[] { actor }, (a, p, to) => legal(p));
+            if (actor.Settled) return true;
+            if (!moves.TryGetValue(actor.Id, out var target)) return false;
+            apply(target.X, target.Y, target.Z);
+            return true;
+        }
+
+        private static GridPoint? NearestMigrationPoint(float x, float z, bool old, Func<GridPoint, bool> legal)
+        {
+            GridPoint? selected = null;
+            RestorePosition(x, z, old, false, legal, (px, py, pz) => selected = SanctumPlan.SavedPoint(px, pz, false));
+            return selected;
+        }
+
+        public static void TestLayoutTwoReprojectsLegalPositionsInEveryRegion()
+        {
+            var sites = new Dictionary<string, GridPoint>
+            {
+                { "A1", new GridPoint(14.7f, 15f) }, { "A3 north", new GridPoint(13f, 2.5f) },
+                { "A3 east", new GridPoint(22.5f, 12f) }, { "A3 south", new GridPoint(13f, 28f) },
+                { "A3 west", new GridPoint(3.5f, 12f) }, { "A4", new GridPoint(16.7f, 10.2f) },
+                { "A5", new GridPoint(9.8f, 11f) }
+            };
+            foreach (var site in sites)
+            {
+                var original = site.Value;
+                float x = (original.X - SanctumPlan.OriginX) * SanctumPlan.PrintedSquareMeters;
+                float z = (SanctumPlan.OriginY - original.Y) * SanctumPlan.PrintedSquareMeters;
+                var old = SanctumPlan.SavedPoint(x, z, true);
+                bool Close(float a, float b) => Math.Abs(a - b) < 0.0001f;
+                Assert.Equal(true, Close(old.X, original.X) && Close(old.Y, original.Y), site.Key + " old world decode");
+                int probes = 0, moves = 0;
+                bool Legal(GridPoint point)
+                {
+                    probes++;
+                    return SanctumPlan.FitsMigration(old, point, SanctumPlan.HeightAt(point.X, point.Y) ?? -100f, 0.25f, SanctumPlan.Doors);
+                }
+                bool placed = RestorePosition(x, z, true, true, Legal, (worldX, height, worldZ) =>
+                {
+                    moves++;
+                    Assert.Equal(true, Close(SanctumPlan.ToWorldX(original.X), worldX) && Close(SanctumPlan.ToWorldZ(original.Y), worldZ), site.Key + " projected world point");
+                    var logical = SanctumPlan.SavedPoint(worldX, worldZ, false);
+                    Assert.Equal(true, Close(logical.X, old.X) && Close(logical.Y, old.Y), site.Key + " preserved logical point");
+                    Assert.Equal(true, !Close(x, worldX) || !Close(z, worldZ), site.Key + " moved off old world point");
+                    Assert.Equal(true, Close(height, SanctumPlan.HeightAt(old.X, old.Y).Value), site.Key + " floor elevation");
+                });
+                Assert.Equal(true, placed, site.Key);
+                Assert.Equal(1, probes, site.Key + " intended location tried first");
+                Assert.Equal(1, moves, site.Key + " reproject even if already standing on walkable floor");
+            }
+        }
+
+        public static void TestLayoutRepairRetainsUnresolvedActorForRetryAndSkipsValidCurrentLayout()
+        {
+            int moves = 0;
+            Assert.Equal(false, RestorePosition(1f, 1f, true, true, p => false, (x,y,z) => moves++), "all destinations occupied");
+            Assert.Equal(true, RestorePosition(1f, 1f, false, true, p => { throw new Exception("unnecessary search"); }, (x,y,z) => moves++), "valid current-layout position");
+            Assert.Equal(0, moves, "no spurious moves");
+        }
+
+        public static void TestOldWorldCoordinatesPickNearestLegalOldGridCandidateInEveryRegion()
+        {
+            var cases = new[]
+            {
+                new { Label = "A1 Large pet beside an actor", X = 14.6f, Y = 14.8f, Radius = 0.54f },
+                new { Label = "A3 north wall", X = 13f, Y = 1.12f, Radius = 0.4f },
+                new { Label = "A3 east wall", X = 23.9f, Y = 11f, Radius = 0.36f },
+                new { Label = "A3 south", X = 13f, Y = 28.7f, Radius = 0.4f },
+                new { Label = "A3 west wall", X = 2.1f, Y = 12f, Radius = 0.4f },
+                new { Label = "A4 altar", X = 14.8f, Y = 9.6f, Radius = 0.38f },
+                new { Label = "A5 Large humanoid at coffin", X = 8.87f, Y = 9.46f, Radius = 0.60f },
+                new { Label = "closed east door leaf", X = 21.12f, Y = 14.65f, Radius = 0.4f },
+            };
+            foreach (var c in cases)
+            {
+                float worldX = (c.X - SanctumPlan.OriginX) * SanctumPlan.PrintedSquareMeters;
+                float worldZ = (SanctumPlan.OriginY - c.Y) * SanctumPlan.PrintedSquareMeters;
+                var old = SanctumPlan.SavedPoint(worldX, worldZ, true);
+                Assert.Equal(true, Math.Abs(old.X-c.X) + Math.Abs(old.Y-c.Y) < 0.0001f, c.Label + " old world decode");
+                double Distance(GridPoint p, GridPoint q) => Math.Sqrt((p.X-q.X)*(p.X-q.X) + (p.Y-q.Y)*(p.Y-q.Y));
+                bool Legal(GridPoint p)
+                {
+                    float? height = SanctumPlan.HeightAt(p.X, p.Y);
+                    return height.HasValue && SanctumPlan.FitsMigration(old, p, height.Value, c.Radius, SanctumPlan.Doors)
+                        && Distance(old, p) > c.Radius + 0.013f; // occupied by a stationary actor
+                }
+                var selected = NearestMigrationPoint(worldX, worldZ, true, Legal);
+                Assert.Equal(true, selected.HasValue, c.Label + " has valid landing");
+                var eligible = SanctumPlan.RingsAround(c.X, c.Y).Where(Legal).ToList();
+                Assert.Equal(true, Math.Abs(eligible.Min(p => Distance(p, old)) - Distance(selected.Value, old)) < 0.001, c.Label + " nearest eligible radius");
+                var wrong = NearestMigrationPoint(worldX, worldZ, false, Legal);
+                Assert.Equal(true, !wrong.HasValue || Distance(wrong.Value, selected.Value) > 0.02, c.Label + " rejects compressed search origin");
+                Assert.Equal(SanctumPlan.SpaceAt(old.X, old.Y), SanctumPlan.SpaceAt(selected.Value.X, selected.Value.Y), c.Label + " same room");
+            }
+        }
+
+        public static void TestMigrationCannotCrossEitherClosedDoor()
+        {
+            foreach (var door in SanctumPlan.Doors)
+            {
+                bool horizontal = door.Hinge.Y == door.Latch.Y;
+                var before = new GridPoint(door.Center.X - (horizontal ? 0 : 1), door.Center.Y - (horizontal ? 1 : 0));
+                var across = new GridPoint(2 * door.Center.X - before.X, 2 * door.Center.Y - before.Y);
+                Assert.Equal(false, SanctumPlan.SameDoorSide(door, before, across), door.Id);
+                Assert.Equal(true, SanctumPlan.SameDoorSide(door, before, before), "stationary");
+            }
         }
 
         public static void TestCutawayNeverHidesTheArrivalFloor()

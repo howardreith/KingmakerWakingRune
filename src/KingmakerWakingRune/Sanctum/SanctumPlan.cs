@@ -114,7 +114,10 @@ namespace KingmakerWakingRune.Sanctum
     {
         public const float MetersPerFoot = 0.3048f;
         public const float FeetPerSquare = 5f;
-        public const float MetersPerSquare = MetersPerFoot * FeetPerSquare;
+        public const int LayoutVersion = 2;
+        public const float HorizontalScale = 1.15f;
+        public const float PrintedSquareMeters = MetersPerFoot * FeetPerSquare;
+        public const float MetersPerSquare = PrintedSquareMeters * HorizontalScale;
         public const float OriginX = 13f;
         public const float OriginY = 15.5f;
 
@@ -203,6 +206,7 @@ namespace KingmakerWakingRune.Sanctum
         public static readonly GridPoint[] BrazierSouth = Octagon(15.62f, 10.1f, 0.22f);
         public static readonly GridPoint[] Pedestal = Octagon(19.7f, 10.9f, 0.27f);
         public static readonly GridPoint[] SarcophagusShadow = Rect(8.07f, 8.98f, 9.67f, 9.94f);
+        private static readonly GridPoint[][] Furniture = { Altar, BrazierNorth, BrazierSouth, Pedestal, SarcophagusShadow };
 
         public static readonly GridPoint PortalRecess = new GridPoint(20.6f, 9.65f);
         public static readonly GridPoint SarcophagusCenter = new GridPoint(8.87f, 9.46f);
@@ -250,6 +254,53 @@ namespace KingmakerWakingRune.Sanctum
 
         /// <summary>The runs that stop sight: the drawn walls, with the core following <see cref="CoreSight"/>.</summary>
         public static readonly List<WallRun> SightLines = BuildSightLines();
+
+        public static GridPoint SavedPoint(float worldX, float worldZ, bool previousLayout)
+        {
+            float scale = previousLayout ? PrintedSquareMeters : MetersPerSquare;
+            return new GridPoint(OriginX + worldX / scale, OriginY - worldZ / scale);
+        }
+
+        public static bool FitsMigration(GridPoint old, GridPoint point, float height, float radius, DoorPlan[] closed)
+        {
+            var space = SpaceAt(old.X, old.Y);
+            if (space == SanctumSpace.None || space != SpaceAt(point.X, point.Y) || !IsValidGround(point.X, point.Y, height)) return false;
+            foreach (var door in Doors)
+            {
+                if (closed.Contains(door))
+                {
+                    if (!SameDoorSide(door, old, point) || DoorwayOverlap(door, point.X, point.Y, height, radius)) return false;
+                }
+                else if (height <= DoorLeafHeight)
+                {
+                    double a = door.OpenDegrees * Math.PI / 180;
+                    float dx = door.Latch.X - door.Hinge.X, dy = door.Latch.Y - door.Hinge.Y;
+                    var tip = new GridPoint(door.Hinge.X + (float)(dx * Math.Cos(a) - dy * Math.Sin(a)),
+                        door.Hinge.Y + (float)(dx * Math.Sin(a) + dy * Math.Cos(a)));
+                    if (DistanceToSegment(point.X, point.Y, door.Hinge, tip) <= radius + 0.06f) return false;
+                }
+            }
+            foreach (var wall in Walls)
+            {
+                int count = wall.Points.Length;
+                for (int i = 0; i < (wall.Closed ? count : count - 1); i++)
+                    if (!wall.Openings.Contains(i) && DistanceToSegment(point.X, point.Y, wall.Points[i], wall.Points[(i + 1) % count]) <= radius) return false;
+            }
+            if (space == SanctumSpace.Atrium)
+            {
+                // Each chain pier is engaged with the room wall; allow for its stone base.
+                foreach (var pier in ChainAnchors)
+                {
+                    float dx = point.X - pier.X, dy = point.Y - pier.Y;
+                    float clearance = radius + 0.5f / MetersPerSquare;
+                    if (dx*dx + dy*dy <= clearance*clearance) return false;
+                }
+                foreach (var obstacle in Furniture)
+                    for (int i = 0; i < obstacle.Length; i++)
+                        if (DistanceToSegment(point.X, point.Y, obstacle[i], obstacle[(i + 1) % obstacle.Length]) <= radius) return false;
+            }
+            return true;
+        }
 
         public static float ToWorldX(float gridX)
         {
@@ -345,6 +396,20 @@ namespace KingmakerWakingRune.Sanctum
             return DoorwayOverlap(door, x, y, height, radius) || LeafSweepOverlap(door, x, y, height, radius);
         }
 
+        public static bool SameDoorSide(DoorPlan door, GridPoint before, GridPoint after)
+        {
+            // Classify only a move whose segment crosses the physical span of this door.
+            bool horizontal = door.Hinge.Y == door.Latch.Y;
+            float a = horizontal ? before.Y - door.Center.Y : before.X - door.Center.X;
+            float b = horizontal ? after.Y - door.Center.Y : after.X - door.Center.X;
+            if (a * b >= 0f) return true;
+            float t = a / (a - b);
+            float cross = horizontal ? before.X + t * (after.X - before.X) : before.Y + t * (after.Y - before.Y);
+            float start = horizontal ? door.Hinge.X : door.Hinge.Y;
+            float end = horizontal ? door.Latch.X : door.Latch.Y;
+            return cross < Math.Min(start, end) - DoorwayHalfDepth || cross > Math.Max(start, end) + DoorwayHalfDepth;
+        }
+
         private static float DistanceToSegment(float x, float y, GridPoint a, GridPoint b)
         {
             float vx = b.X - a.X, vy = b.Y - a.Y;
@@ -424,25 +489,24 @@ namespace KingmakerWakingRune.Sanctum
         /// Cutaway height of a wall seen by a camera looking along +Y at the native 43-degree pitch: a wall in front
         /// of its own floor stays low; a wall behind a floor rises only as far as it can without hiding the next walkable floor.
         /// </summary>
-        public static float CutawayHeight(GridPoint a, GridPoint b, float low, float high)
+        public static float CutawayHeight(GridPoint a, GridPoint b, float low, float high, float dx = 0f, float dy = 1f, float pitchTangent = 0.9325f)
         {
-            const float pitchTangent = 0.9325f;
             float best = high;
             for (int i = 0; i <= 4; i++)
             {
                 float t = i / 4f;
                 float x = a.X + (b.X - a.X) * t;
                 float y = a.Y + (b.Y - a.Y) * t;
-                if (HeightAt(x, y + 0.08f).HasValue)
+                if (HeightAt(x + dx * 0.08f, y + dy * 0.08f).HasValue)
                 {
                     return low;
                 }
                 float distance = high;
                 for (float d = 0.25f; d < 8f; d += 0.25f)
                 {
-                    if (HeightAt(x, y + d).HasValue)
+                    if (HeightAt(x + dx * d, y + dy * d).HasValue)
                     {
-                        distance = d * MetersPerSquare * pitchTangent * 0.9f;
+                        distance = Math.Max(0f, d - 0.25f) * MetersPerSquare * pitchTangent * 0.9f;
                         break;
                     }
                 }

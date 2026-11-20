@@ -1,5 +1,13 @@
 # Status: The Waking Rune
 
+## WR-PLAYTEST-03 — PARTIAL
+
+Candidate **0.12.3** was packaged from clean source `78aefe218355081eabc14ce520656ca947629c35`. Both Release runs passed **290 tests**. Batch migration preserves valid formations across old saves and reserves space for pending actors. The survivor test now exercises the production Newtonsoft reader and writer. Archive readback verified the manifest, DLL and all 19 images.
+
+**Native qualification — NOT RUN.** The owner authorized the disposable smoke transaction and its guarded rollback copies. Machine policy rejected Begin before execution. The live installation is 0.11.3 and the run ID remains unused. The 28-mod profile, owner-save gameplay and Frost Giant/Extend fixture have a separate checkpoint. [Smoke results](docs/WR-PLAYTEST-03.md#november-20-smoke-preflight-and-native-results) · [Compatibility staging plan](docs/WR-PLAYTEST-03-PROFILE.md)
+
+## Previous candidate
+
 **Milestone:** WR-PLAYTEST-02 on `feature/wr-playtest-02` (from `main` at `bd4fbad`, release 0.10.14), draft PR for
 owner review, after the owner's review of PR #10. Candidate **0.11.3**: commit `17c3a69`, zip
 `artifacts\KingmakerWakingRune-0.11.3.zip` (`2e591004cec2c9b0403943d3f83646e62d75234973e78dae0b77a551ea738251`), DLL

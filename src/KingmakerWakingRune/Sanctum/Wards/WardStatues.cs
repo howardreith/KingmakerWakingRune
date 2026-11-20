@@ -108,6 +108,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 Log.Info($"Stone to Flesh on {statueId}: already {statue.Outcome}; nothing more happens.");
                 return;
             }
+            var elapsed = System.Diagnostics.Stopwatch.StartNew();
             if (BearerManifest.IsBearer(statueId))
             {
                 RestoreBearer(statueId, statue, caster);
@@ -119,10 +120,12 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 Log.Info($"Stone to Flesh on {statueId}: long dead; crumbling begins.");
                 WardRuntime.Say("Flesh returns for a moment, and begins to crumble to ash.");
             }
+            Log.Info($"Stone to Flesh {statueId}: Waking Rune delivery {elapsed.Elapsed.TotalMilliseconds:0.0} ms.");
         }
 
         private static void RestoreBearer(string id, StatueState statue, UnitEntityData caster)
         {
+            var elapsed = System.Diagnostics.Stopwatch.StartNew();
             Vector3 placed = StepOut(id);
             BearerRole role = BearerManifest.Roles[id];
             BlueprintUnit blueprint = WardBlueprints.Cultists[id];
@@ -130,13 +133,12 @@ namespace KingmakerWakingRune.Sanctum.Wards
             // The survival save is resolved before the body is anyone's enemy: it stands neutral and inert while the
             // transformation either takes or fails, so a body that dies never joins initiative, awareness or an attack.
             cultist.IsBrainActive = false;
-            SetFaction(cultist, Game.Instance.BlueprintRoot.SystemMechanics.FactionNeutrals);
-            LogStats(id, cultist, "spawned");
+            Log.Info($"Stone to Flesh {id}: placement and native spawn {elapsed.Elapsed.TotalMilliseconds:0.0} ms.");
+            statue.Role = role;
             cultist.Descriptor.Ensure<WardRestoredPart>().StatueId = id;
             statue.EntityId = cultist.UniqueId;
             statue.Credentialed = CredentialRules.IsMarked(id);
             statue.RouteLeg = 0;
-            LogStats(id, cultist, "before survival save");
             RuleSavingThrow save = Rulebook.Trigger(new RuleSavingThrow(cultist, SavingThrowType.Fortitude, WardProfile.StoneToFleshSurvivalDC));
             bool survived = ForcedSurvival ?? save.IsPassed;
             Log.Info($"Stone to Flesh on {id}: survival Fortitude {save.RollResult} vs {WardProfile.StoneToFleshSurvivalDC}: {(save.IsPassed ? "survived" : "failed")}" +
@@ -146,9 +148,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 statue.Outcome = StatueOutcome.Living;
                 statue.HostileSettled = true;
-                SetFaction(cultist, Game.Instance.BlueprintRoot.SystemMechanics.FactionMobs);
+                if (role == BearerRole.Attack) SetFaction(cultist, Game.Instance.BlueprintRoot.SystemMechanics.FactionMobs);
                 // An attacker's own AI takes over; a reporter flees from its first moment, its AI never choosing a fight.
-                cultist.IsBrainActive = role != BearerRole.Report;
+                cultist.IsBrainActive = role == BearerRole.Attack;
                 WardRuntime.Say("Stone softens to flesh; a cultist stumbles free of the support.");
             }
             else
@@ -218,6 +220,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         public static void ApplyAll(SanctumState state, double now)
         {
+            // Resolve only the views this area can still restore while the area is loading.
+            foreach (var entry in WardBlueprints.Cultists)
+            {
+                if (state.Statue(entry.Key).Outcome == StatueOutcome.Stone) entry.Value.Prefab.Load();
+            }
             foreach (StatueSlot slot in StatueManifest.Slots)
             {
                 ApplyVisual(slot.Id, state.Statue(slot.Id), now);
@@ -267,14 +274,6 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
         }
 
-        /// <summary>Restored bodies whose statistics were logged since the last load; a reload logs each once again.</summary>
-        private static readonly System.Collections.Generic.HashSet<string> s_StatsLogged = new System.Collections.Generic.HashSet<string>();
-
-        public static void ForgetStatsProbe()
-        {
-            s_StatsLogged.Clear();
-        }
-
         /// <summary>
         /// Where a restored body's numbers come from: the blueprint's score, the initialized base, every modifier with its
         /// source, damage and drain, race, classes and facts. Read only; it never writes a statistic.
@@ -304,10 +303,6 @@ namespace KingmakerWakingRune.Sanctum.Wards
         {
             foreach (StatueState statue in state.Statues.Values.ToList())
             {
-                if (!string.IsNullOrEmpty(statue.EntityId) && s_StatsLogged.Add(statue.EntityId))
-                {
-                    LogStats(statue.Id, Body(statue), "first tick since load or spawn");
-                }
                 if (statue.Outcome == StatueOutcome.Crumbling)
                 {
                     ApplyVisual(statue.Id, statue, now);
@@ -330,7 +325,40 @@ namespace KingmakerWakingRune.Sanctum.Wards
                     {
                         ApplyVisual(statue.Id, statue, now);
                     }
-                    if (!statue.Reported && BearerManifest.Roles.TryGetValue(statue.Id, out BearerRole role) && role == BearerRole.Report)
+                    if (body == null || body.Descriptor.State.IsDead) continue;
+                    if (statue.Provoked)
+                    {
+                        if (!ControlledElsewhere(body) && !body.IsPlayersEnemy)
+                        {
+                            SetFaction(body, Game.Instance.BlueprintRoot.SystemMechanics.FactionMobs);
+                            body.IsBrainActive = true;
+                        }
+                        continue;
+                    }
+                    if (!statue.Role.HasValue)
+                    {
+                        // Restorations from 0.11.3 retain the response they began with.
+                        statue.Role = statue.Id == "Support-W2" ? BearerRole.Report
+                            : statue.Id == "Support-W1" || statue.Id == "Support-E2" ? BearerRole.Attack : BearerManifest.Roles[statue.Id];
+                        if (statue.Role == BearerRole.Attack && !ControlledElsewhere(body))
+                            SetFaction(body, Game.Instance.BlueprintRoot.SystemMechanics.FactionMobs);
+                    }
+                    if (statue.Role == BearerRole.Deceive && statue.Conversation.Length == 0 && !body.IsInCombat && !ControlledElsewhere(body)
+                        && Game.Instance.CurrentMode == Kingmaker.GameModes.GameModeType.Default && Game.Instance.Player.Dialog.Scheduled == null)
+                    {
+                        var witness = WardActions.Participants().OrderBy(u => u.DistanceTo(body)).FirstOrDefault();
+                        if (witness != null && witness.DistanceTo(body) < 7f) Converse(statue.Id, body, witness);
+                    }
+                    if (statue.Conversation == "blocked")
+                    {
+                        if (!ControlledElsewhere(body)) body.Commands.InterruptAll(c => c is UnitMoveTo);
+                        continue;
+                    }
+                    if (statue.Role == BearerRole.Flee && !ControlledElsewhere(body) && body.Descriptor.State.CanMove && body.Descriptor.State.CanAct)
+                    {
+                        SeekRefuge(statue, body, now);
+                    }
+                    if (!statue.Reported && Reporting(statue))
                     {
                         TickRunner(statue, body, now);
                     }
@@ -350,7 +378,6 @@ namespace KingmakerWakingRune.Sanctum.Wards
             {
                 return;
             }
-            SettleHostility(statue, runner);
             if (ControlledElsewhere(runner))
             {
                 // Charmed, dominated, confused or panicked: its commands are someone else's, and its own AI returns.
@@ -395,12 +422,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                     }
                     else if (WardRuntime.State.Door.Latched && !runner.Descriptor.HasFact(WardBlueprints.SihedronBrand))
                     {
-                        // An unmarked cultist has no sign the door knows: it is stopped here and turns on the nearest intruder.
-                        UnitEntityData nearest = Game.Instance.Player.Party.Where(u => !u.Descriptor.State.IsDead).OrderBy(u => u.DistanceTo(runner)).FirstOrDefault();
-                        if (nearest != null && runner.Commands.Empty && nearest.DistanceTo(runner) < 25f)
-                        {
-                            runner.Commands.Run(UnitAttack.CreateAttackCommand(runner, nearest));
-                        }
+                        // Without the sign the reporter waits for a real opening.
                     }
                     else if (runner.Commands.Empty && MayOrder(statue, runner, now, door: true))
                     {
@@ -499,7 +521,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
                 return;
             }
             StatueState statue = state.Statues.Values.FirstOrDefault(s => s.EntityId == unit.UniqueId);
-            if (statue == null || statue.Outcome != StatueOutcome.Living || statue.Reported || !BearerManifest.Roles.TryGetValue(statue.Id, out BearerRole role) || role != BearerRole.Report)
+            if (statue == null || statue.Outcome != StatueOutcome.Living || statue.Reported || statue.Provoked || !Reporting(statue))
             {
                 return;
             }
@@ -572,42 +594,62 @@ namespace KingmakerWakingRune.Sanctum.Wards
         private static bool ControlledElsewhere(UnitEntityData runner)
         {
             return runner.IsPlayerFaction
-                || runner.Descriptor.Faction != Game.Instance.BlueprintRoot.SystemMechanics.FactionMobs
+                || (runner.Descriptor.Faction != Game.Instance.BlueprintRoot.SystemMechanics.FactionMobs && runner.Descriptor.Faction != Game.Instance.BlueprintRoot.SystemMechanics.FactionNeutrals)
                 || runner.Buffs.RawFacts.Any(b => b.Blueprint.ComponentsArray.OfType<Kingmaker.UnitLogic.FactLogic.ChangeFaction>().Any())
                 || runner.Descriptor.State.IsPanicked
                 || runner.Descriptor.State.HasCondition(UnitCondition.Confusion);
         }
 
-        /// <summary>
-        /// Runs before the control test, so an older save's reporter is not mistaken for a charmed one. A reporter restored
-        /// before reporters were hostile stands in the neutral faction with no effect holding it there; it becomes hostile
-        /// once, the way a native faction change does it. While a charm, domination or other faction effect is on it, nothing
-        /// changes, and the migration waits until the effect has handed its faction back.
-        /// </summary>
-        private static void SettleHostility(StatueState statue, UnitEntityData runner)
+        private static bool Reporting(StatueState statue)
         {
-            if (statue.HostileSettled)
+            return statue.Conversation != "blocked" && statue.Role == BearerRole.Report || statue.Role == BearerRole.Deceive && statue.Conversation == "released";
+        }
+
+        private static void SeekRefuge(StatueState statue, UnitEntityData body, double now)
+        {
+            if (!MayActNow(body) || !body.Commands.Empty || statue.RouteLeg > 0) return;
+            Vector3 left = World(new GridPoint(10.6f, 14.8f)), right = World(new GridPoint(15.6f, 14.8f));
+            if (statue.Refuge == 0)
             {
-                return;
+                var party = Game.Instance.Player.Party.Where(u => u.IsInGame).ToList();
+                if (party.Count == 0) return;
+                statue.Refuge = party.Min(u => u.DistanceTo(left)) > party.Min(u => u.DistanceTo(right)) ? 1 : 2;
             }
-            BlueprintFaction mobs = Game.Instance.BlueprintRoot.SystemMechanics.FactionMobs;
-            if (runner.Descriptor.Faction == mobs)
+            Vector3 goal = statue.Refuge == 1 ? left : right;
+            if (body.DistanceTo(goal) <= WaypointMeters) statue.RouteLeg = 1;
+            else if (MayOrder(statue, body, now)) Move(body, goal);
+        }
+
+        public static void Provoke(UnitEntityData actor, UnitEntityData body)
+        {
+            string id = body?.Get<WardRestoredPart>()?.StatueId;
+            if (id == null || actor == null || !actor.IsPlayerFaction || WardRuntime.State == null) return;
+            StatueState statue = WardRuntime.State.Statue(id);
+            if (statue.Provoked || statue.Outcome != StatueOutcome.Living || body.Descriptor.State.IsDead) return;
+            statue.Provoked = true;
+            if (ControlledElsewhere(body)) return;
+            body.Commands.InterruptAll();
+            SetFaction(body, Game.Instance.BlueprintRoot.SystemMechanics.FactionMobs);
+            body.IsBrainActive = true;
+        }
+
+        public static bool Converse(string id, UnitEntityData body, UnitEntityData user)
+        {
+            StatueState statue = WardRuntime.State.Statue(id);
+            if (statue.Outcome != StatueOutcome.Living || statue.Provoked || body.Descriptor.State.IsDead || ControlledElsewhere(body)) return false;
+            if (statue.Role == BearerRole.Deceive && !statue.DeceptionChecked)
             {
-                statue.HostileSettled = true;
-                return;
+                var observer = WardActions.BestParticipant(StatType.SkillPerception);
+                if (observer != null)
+                {
+                    var roll = Rulebook.Trigger(new RuleSkillCheck(observer, StatType.SkillPerception, 22) { Silent = true });
+                    statue.DeceptionChecked = true;
+                    statue.DeceptionDetected = roll.IsPassed;
+                    Log.Info($"Cultist {id}: {observer.CharacterName} Perception {observer.Stats.SkillPerception.ModifiedValue}, d20 {roll.D20}, DC 22.");
+                }
             }
-            bool heldByEffect = runner.IsPlayerFaction || runner.Buffs.RawFacts.Any(b => b.Blueprint.ComponentsArray.OfType<Kingmaker.UnitLogic.FactLogic.ChangeFaction>().Any());
-            if (heldByEffect || runner.Descriptor.Faction != Game.Instance.BlueprintRoot.SystemMechanics.FactionNeutrals)
-            {
-                return;
-            }
-            runner.Descriptor.SwitchFactions(mobs, true);
-            // The runner keeps its own group, so the group's cached factions are rebuilt here rather than by a regrouping.
-            runner.Group.UpdateAttackFactionsCache();
-            runner.Group.ResetFactionSet();
-            Kingmaker.PubSubSystem.EventBus.RaiseEvent(delegate(Kingmaker.PubSubSystem.IUnitFactionHandler h) { h.HandleFactionChanged(runner); });
-            statue.HostileSettled = true;
-            Log.Info($"Migration: runner {statue.Id} ({runner.CharacterName}), restored as a neutral by an older build, is now hostile ({runner.IsPlayersEnemy}) and resumes its route at leg {statue.RouteLeg}/{RunnerRoute.Length}.");
+            WardDialogs.OpenSurvivor(statue, body, user);
+            return true;
         }
 
         /// <summary>

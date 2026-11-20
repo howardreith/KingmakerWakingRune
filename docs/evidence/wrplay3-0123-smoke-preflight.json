@@ -1,0 +1,46 @@
+{
+    "observedAt":  "2026-11-20T08:58:49.0233864-05:00",
+    "label":  "READ",
+    "runId":  "wrplay3-0123-smoke",
+    "runStarted":  false,
+    "reviewedHead":  "187cb5f6b37e3fb9f79ed5074c82dd46e2e1bfae",
+    "guardGitBlob":  "40953a7b3f249c748efce5713121a64e9ae679e9",
+    "kingmakerProcesses":  0,
+    "steamProcesses":  1,
+    "transactionJournalExists":  false,
+    "runBackupExists":  false,
+    "runEvidenceDirectoryExists":  false,
+    "steamCloudLogMatch": "[2026-11-17 00:00:40] [AppID 640820] Failed sync for \u0027AC Exit,Sync Disabled,\u0027 [login=false][offlineMode=true]",
+    "zip":  "artifacts/KingmakerWakingRune-0.12.3.zip",
+    "zipSha256":  "4dec04872820942797e8e38b360ae8cb44ee31cb0b321791e7fb7da64593b402",
+    "installedVersion":  "0.11.3",
+    "modsDirectories":  [
+                            "KingmakerWakingRune"
+                        ],
+    "modsFiles":  [
+                      {
+                          "path":  "KingmakerWakingRune\\Info.json",
+                          "sha256":  "837ee8c365f61c5eef8a74aceeeba86821c40de4492d10aefc72ca92f9f15ad9"
+                      },
+                      {
+                          "path":  "KingmakerWakingRune\\KingmakerWakingRune.dll",
+                          "sha256":  "7933788dcc6cf6e34fd5c7c168601caa637601e4ea825a7080c46ef51be63cc4"
+                      },
+                      {
+                          "path":  "KingmakerWakingRune\\KingmakerWakingRune.dll.27292.cache",
+                          "sha256":  "7933788dcc6cf6e34fd5c7c168601caa637601e4ea825a7080c46ef51be63cc4"
+                      }
+                  ],
+    "ummParamsSha256":  "c1c6feb0b91793056ee3fa7e844b9fd18831d912b9229725d6bd3e8ff0fd26f9",
+    "localSaveMetadata":  {
+                              "zksCount":  294,
+                              "documentedOwnerSlotPresent":  true
+                          },
+    "steamRemoteSaveMetadata":  {
+                                    "zksCount":  108,
+                                    "documentedOwnerSlotPresent":  true
+                                },
+    "documentedOwnerSlot":  "Quick_432.zks",
+    "ownerSlotSource":  "docs/WR-FINAL-INSTALL.md (wrfinal-p5)",
+    "decision":  "STOP before Begin: Save-Tree copies both full trees including the documented owner slot."
+}

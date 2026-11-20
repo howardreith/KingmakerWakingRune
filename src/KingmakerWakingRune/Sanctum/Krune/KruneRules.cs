@@ -119,6 +119,10 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public LegacyAwakening Legacy = LegacyAwakening.None;
         public bool LegacyNoticeShown;
         /// <summary>The director's tactical phase (WR-FINAL): fighting, or withdrawn elsewhere in the sanctum to recover.</summary>
+        public bool HasRetreat;
+        public float RetreatX, RetreatY;
+        public float EnemySeenX, EnemySeenY;
+        public bool Pursuing;
         public KrunePhase DirectorPhase = KrunePhase.Fight;
         /// <summary>When his combat began (the handoff), for his round count; -1 until then.</summary>
         public double CombatStartedAt = -1d;
@@ -259,7 +263,7 @@ namespace KingmakerWakingRune.Sanctum.Krune
         public static int StepFeet(float fromX, float fromY, float toX, float toY)
         {
             double squares = Math.Sqrt((toX - fromX) * (toX - fromX) + (toY - fromY) * (toY - fromY));
-            return Math.Max(1, (int)Math.Ceiling(squares - 1e-4)) * 5;
+            return Math.Max(1, (int)Math.Ceiling(squares * SanctumPlan.HorizontalScale - 1e-4)) * 5;
         }
 
         /// <summary>Uses of the native dimensional-steps resource a step of this length takes: one per 30 feet or part.</summary>

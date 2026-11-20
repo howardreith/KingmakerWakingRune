@@ -1,5 +1,25 @@
 namespace KingmakerWakingRune.Sanctum.Wards
 {
+    // A path callback and a command-end callback may both arrive for one approach.
+    internal sealed class EmeraldApproach
+    {
+        private int index;
+        private bool rolled;
+        public bool Current(int candidate) => !rolled && candidate == index;
+        public bool Unreachable(int candidate)
+        {
+            if (!Current(candidate)) return false;
+            index++;
+            return true;
+        }
+        public bool Contact(int candidate)
+        {
+            if (!Current(candidate)) return false;
+            rolled = true;
+            return true;
+        }
+    }
+
     /// <summary>How an authored breakable object makes saving throws. The proxy unit's own statistics never decide it.</summary>
     internal enum ObjectSave
     {

@@ -8,6 +8,35 @@ namespace KingmakerWakingRune.Tests
     /// <summary>Exercises the production WR-05 rule code. The unit, its native rolls and its AI are proven in the running game.</summary>
     public static class KurshuRulesTests
     {
+        public static void TestNoticeClockRestoresOriginalPauseAndSpeedOnce()
+        {
+            foreach (bool paused in new[] { true, false })
+            {
+                var clock = new NoticeClock();
+                float initial = paused ? 0f : 0.65f;
+                clock.Capture(paused, initial);
+                clock.Capture(false, 0f);
+                int exits = 0;
+                clock.Restore((p, scale) => { Assert.Equal(paused, p, "pause snapshot"); Assert.Equal(initial, scale, "exact speed"); exits++; });
+                clock.Restore((p, scale) => exits++);
+                Assert.Equal(1, exits, "exception, exit and unload may overlap");
+            }
+        }
+
+        public static void TestOnlyFinalAcknowledgementCommitsPendingKurshuNotice()
+        {
+            var state = new KurshuState { WoundDialoguePending = true };
+            Assert.Equal(true, KurshuRules.AcknowledgeNotice(state, true), "acknowledge prophecy");
+            Assert.Equal(false, KurshuRules.AcknowledgeNotice(state, true), "duplicate click");
+            state.BloodDialoguePending = true;
+            Assert.Equal(false, KurshuRules.AcknowledgeNotice(state, false), "cannot present before defeat");
+            state.Defeated = true;
+            Assert.Equal(false, state.BloodMessageShown, "a pending or interrupted dialogue has not been acknowledged");
+            Assert.Equal(true, KurshuRules.AcknowledgeNotice(state, false), "last Continue");
+            Assert.Equal(true, state.BloodMessageShown, "persisted blood text");
+            Assert.Equal(false, KurshuRules.AcknowledgeNotice(state, false), "cannot replay");
+        }
+
         private const double Round = 6d;
 
         private static CorpseFacts Outsider(string id, int hitDice)
@@ -20,6 +49,17 @@ namespace KingmakerWakingRune.Tests
             var state = new KurshuState();
             KurshuRules.DecideOnInitialize(state, legacyEntered: false);
             return state;
+        }
+
+        public static void TestLethalFirstWoundSkipsProphecyEvenAfterRegeneration()
+        {
+            var state = new KurshuState();
+            var down = KurshuRules.ObserveHealth(state, -30, 219, false, false, 13d);
+            Assert.Equal(true, down.SequenceEqual(new[] { HealthEvent.Defeated }), "defeat without permanent death");
+            Assert.Equal(0, KurshuRules.ObserveHealth(state, 7, 219, true, false, 19d).Count, "no belated wound speech after rising");
+            var acid = KurshuRules.ObserveHealth(state, -400, 219, false, true, 21d);
+            Assert.Equal(true, acid.SequenceEqual(new[] { HealthEvent.Slain }), "later lethal damage yields no second defeat");
+            Assert.Equal(13d, state.DefeatedAt, "original defeat time");
         }
 
         public static void TestHardModeRemovesWeaknessAndOneNegativeLevelOnly()

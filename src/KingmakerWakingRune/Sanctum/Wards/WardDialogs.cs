@@ -51,10 +51,111 @@ namespace KingmakerWakingRune.Sanctum.Wards
         public static void Build(Action<BlueprintScriptableObject> register)
         {
             s_Register = register;
+            Prophecy = Notice("Prophecy", true, "You may have bled me, mortal, but Krune has mastered the rune of armor and your blades shall never pierce his flesh! Alacrity bestows him with a sixth sense with which he anticipates intentions and actions. Still other runes feed him divine power, strengthening his body and mind, as well as assuring him immortality.");
+            Blood = Notice("Blood", false, "Kurshu’s blood spills across the stone. The droplets gather into Thassilonian runes.",
+                "Enjoy your victory, and I shall enjoy mine. In your righteousness you have sacrificed my life to assure the rise of another. May Runelord Krune skin you alive and use your flesh as the canvas for the scriptures of Lissala’s second coming!",
+                "Krune will awaken in 90 minutes. The expedition must act quickly.");
+            foreach (var slot in BearerManifest.Roles.Keys) BuildSurvivor(slot);
             foreach (InspectDef def in WardText.All)
             {
                 Dialogs[def.Id] = BuildOne(def);
             }
+        }
+
+        private static void BuildSurvivor(string id)
+        {
+            string key = "survivor." + id;
+            Func<StatueState> state = () => WardRuntime.State.Statue(id);
+            var cue = Create<BlueprintCue>("KWR_Survivor_" + id);
+            cue.Text = LocalizedText.Create(CueKey(key));
+            cue.Speaker = new DialogSpeaker();
+            cue.TurnSpeaker = false;
+            cue.Conditions = new ConditionsChecker();
+            cue.OnShow = cue.OnStop = new ActionList();
+            cue.Continue = new CueSelection();
+            Action refresh = () =>
+            {
+                var s = state();
+                string line = s.Role != BearerRole.Deceive ? "The cultist glances past you, looking for a way out."
+                    : s.Conversation == "questioned" ? "“The woman beyond the gate tends the runes. She alone can put them out. Let me speak to her first.”"
+                    : s.Conversation == "blocked" ? "The cultist waits, watching the door."
+                    : s.Conversation == "released" ? "“You gave me leave to pass.”"
+                    : "“A prisoner, like the others. Open the gate for me and I will beg its keeper to quench the runes.”";
+                if (s.Role == BearerRole.Deceive && s.DeceptionDetected && s.Conversation != "released")
+                    line += " The speaker’s hand forms the seven-pointed sign at the mention of the keeper.";
+                TextKey(key, line);
+            };
+            cue.Answers = new List<BlueprintAnswerBase>
+            {
+                Answer(key + ".question", "Who keeps the gate?", cue, Callback("Question the cultist", () => { state().Conversation = "questioned"; refresh(); }),
+                    () => state().Role == BearerRole.Deceive && state().Conversation == "met"),
+                Answer(key + ".expose", "I saw your sign. Stay here.", null, Callback("Block the cultist", () => state().Conversation = "blocked"),
+                    () => state().DeceptionDetected && state().Conversation != "blocked"),
+                Answer(key + ".block", "Stay where you are.", null, Callback("Block the path", () => state().Conversation = "blocked"), () => state().Conversation != "blocked"),
+                Answer(key + ".release", "Go.", null, Callback("Let the cultist leave", () => state().Conversation = "released"), null),
+                Answer(key + ".attack", "[Attack]", null, Callback("Attack the cultist", () =>
+                {
+                    var body = WardStatues.Body(state());
+                    var actor = Kingmaker.Game.Instance.DialogController.Initiator ?? Kingmaker.Game.Instance.Player.MainCharacter.Value;
+                    WardInteract.Defer(() =>
+                    {
+                        WardStatues.Provoke(actor, body);
+                        if (body != null) actor.Commands.Run(Kingmaker.UnitLogic.Commands.UnitAttack.CreateAttackCommand(actor, body));
+                    });
+                }), null),
+            };
+            var dialog = Create<BlueprintDialog>("KWR_SurvivorDialog_" + id);
+            dialog.FirstCue = new CueSelection { Cues = new List<BlueprintCueBase> { cue } };
+            dialog.StartActions = Actions(Callback("Meet the cultist", () =>
+            {
+                if (state().Conversation.Length == 0) state().Conversation = "met";
+                refresh();
+            }));
+            dialog.FinishActions = Actions(Callback("Resume expedition", WardInteract.RunPending));
+            dialog.ReplaceActions = new ActionList();
+            Dialogs[key] = dialog;
+        }
+
+        public static void OpenSurvivor(StatueState state, Kingmaker.EntitySystem.Entities.UnitEntityData body, Kingmaker.EntitySystem.Entities.UnitEntityData user)
+        {
+            Kingmaker.Game.Instance.DialogController.StartDialogWithUnit(Dialogs["survivor." + state.Id], body, user);
+        }
+
+        public static BlueprintDialog Prophecy { get; private set; }
+        public static BlueprintDialog Blood { get; private set; }
+
+        public static bool IsCombatStory(BlueprintDialog dialog)
+        {
+            return dialog != null && (dialog == Prophecy || dialog == Blood);
+        }
+
+        private static BlueprintDialog Notice(string id, bool spoken, params string[] lines)
+        {
+            BlueprintCue next = null;
+            for (int i = lines.Length - 1; i >= 0; i--)
+            {
+                string key = id + i;
+                TextKey(key, lines[i]);
+                var cue = Create<BlueprintCue>("KWR_KurshuCue_" + key);
+                cue.Text = LocalizedText.Create(CueKey(key));
+                cue.Speaker = new DialogSpeaker { NoSpeaker = !spoken, MoveCamera = spoken };
+                cue.TurnSpeaker = false;
+                cue.Conditions = new ConditionsChecker();
+                cue.OnShow = new ActionList();
+                cue.OnStop = new ActionList();
+                cue.Continue = new CueSelection();
+                GameAction acknowledged = next == null ? Callback("Acknowledge Kurshu", () =>
+                    Encounter.KurshuRules.AcknowledgeNotice(WardRuntime.State?.Kurshu, spoken)) : null;
+                cue.Answers = new List<BlueprintAnswerBase> { Answer(key, "Continue", next, acknowledged, null) };
+                next = cue;
+            }
+            var dialog = Create<BlueprintDialog>("KWR_KurshuDialog_" + id);
+            dialog.TurnFirstSpeaker = dialog.TurnPlayer = false;
+            dialog.FirstCue = new CueSelection { Cues = new List<BlueprintCueBase> { next } };
+            dialog.StartActions = new ActionList();
+            dialog.FinishActions = new ActionList();
+            dialog.ReplaceActions = new ActionList();
+            return dialog;
         }
 
         public static void TextKey(string id, string text)
@@ -82,10 +183,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
             var answers = new List<BlueprintAnswerBase>();
             foreach (InspectCheck check in def.Checks)
             {
-                foreach (WardSkill skill in check.Skills)
-                {
-                    answers.Add(CheckAnswer(def, check, skill, cue));
-                }
+                answers.Add(CheckAnswer(def, check, check.Skills[0], cue));
+                // Saved dialogue history may still reference an old per-skill answer blueprint.
+                foreach (var former in check.Skills.Skip(1)) CheckAnswer(def, check, former, cue);
             }
             foreach (WardAction action in WardActions.For(def.Id))
             {
@@ -102,12 +202,12 @@ namespace KingmakerWakingRune.Sanctum.Wards
             return dialog;
         }
 
-        private static BlueprintAnswer CheckAnswer(InspectDef def, InspectCheck check, WardSkill skill, BlueprintCue cue)
+        private static BlueprintAnswer CheckAnswer(InspectDef def, InspectCheck check, WardSkill identity, BlueprintCue cue)
         {
-            string id = $"{def.Id}.{check.Key}.{skill}";
-            GameAction roll = Callback($"Roll {skill} at {def.Id}", () => WardInteract.Study(def.Id, check, skill));
-            string label = $"[{SkillLabels[skill]}] {check.Label}";
-            return Answer(id, label, cue, roll, () => WardInteract.CanStudy(check, skill));
+            string id = $"{def.Id}.{check.Key}.{identity}";
+            GameAction roll = Callback($"Study {check.Key}", () => WardInteract.Study(def.Id, check));
+            string subjects = string.Join(" / ", check.Skills.Select(s => SkillLabels[s]));
+            return Answer(id, $"[{subjects}] {check.Label}", cue, roll, () => WardInteract.CanStudy(check));
         }
 
         private static BlueprintAnswer ActionAnswer(InspectDef def, WardAction action, BlueprintCue cue)

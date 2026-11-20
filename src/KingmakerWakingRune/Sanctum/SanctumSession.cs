@@ -34,6 +34,7 @@ namespace KingmakerWakingRune.Sanctum
 
         public void OnAreaBeginUnloading()
         {
+            Wards.KurshuNotice.Release();
             Krune.KruneSession.Reset("area unloading");
             if (SanctumScope.IsSanctumLoaded)
             {
@@ -53,15 +54,14 @@ namespace KingmakerWakingRune.Sanctum
             {
                 SanctumScope.EnsureBuilt();
                 // The party is already placed by now: door cuts applied during placement stack everyone on the stairs.
-                SanctumDoors.ReleaseOccupied();
+                var saved = Wards.WardStore.Existing;
+                bool previousLayout = !RefugeTransit.InProgress && saved != null && saved.LayoutVersion < SanctumPlan.LayoutVersion;
+                if (!previousLayout) SanctumDoors.ReleaseOccupied();
                 SanctumScope.ApplyDoorCuts();
-                if (!RefugeTransit.InProgress)
-                {
-                    SanctumScope.RepairRestoredPositions();
-                }
+                bool positionsReady = RefugeTransit.InProgress || SanctumScope.RepairRestoredPositions(previousLayout);
                 // Read before arrival commits: a save that already entered the empty sanctum is the only legacy case.
                 bool legacyEntered = Game.Instance.Player.UnlockableFlags.IsUnlocked(ScenarioBlueprints.SanctumEnteredFlag);
-                Wards.WardRuntime.OnSanctumLoaded(legacyEntered);
+                Wards.WardRuntime.OnSanctumLoaded(legacyEntered, !previousLayout || positionsReady);
                 RefugeTransit.OnSanctumLoaded();
                 Log.Info($"Sanctum loaded: entered={Game.Instance.Player.UnlockableFlags.IsUnlocked(ScenarioBlueprints.SanctumEnteredFlag)} party={Game.Instance.Player.Party.Count} loot={Game.Instance.CurrentlyLoadedArea.LootSetting} indoor={Game.Instance.CurrentlyLoadedArea.IsIndoor}.");
             }

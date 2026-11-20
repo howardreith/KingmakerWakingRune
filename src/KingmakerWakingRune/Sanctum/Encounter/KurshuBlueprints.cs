@@ -227,6 +227,7 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             string nameKey = "kwr.unit.kurshu";
             LocalizedText.Define(nameKey, "Kurshu the Undying");
             BlueprintUnit unit = LodgeCast.CloneUnit(donor, root, "KWR_KurshuTheUndying", ScenarioIds.Derive("unit.KWR_KurshuTheUndying"), nameKey, null);
+            unit.Visual = (UnitVisualParams)AccessTools.Method(typeof(object), "MemberwiseClone").Invoke(unit.Visual, null);
             unit.Faction = root.SystemMechanics.FactionMobs;
             unit.Size = Size.Large;
             unit.Alignment = Alignment.LawfulEvil;
@@ -610,6 +611,16 @@ namespace KingmakerWakingRune.Sanctum.Encounter
             var component = ScriptableObject.CreateInstance<T>();
             component.name = name;
             return component;
+        }
+    }
+    [HarmonyPatch(typeof(UnitVisualParams), nameof(UnitVisualParams.GetDismember))]
+    internal static class KurshuDeathVisual
+    {
+        private static bool Prefix(UnitVisualParams __instance, ref GameObject __result)
+        {
+            if (!ReferenceEquals(__instance, KurshuBlueprints.Unit?.Visual)) return true;
+            __result = null; // PlayDeathEffect keeps its native blood puddle.
+            return false;
         }
     }
 }

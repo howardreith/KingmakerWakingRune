@@ -139,6 +139,12 @@ namespace KingmakerWakingRune.Sanctum
 
         private static GameObject s_Root;
 
+        internal static DoorPlan[] ClosedPlans()
+        {
+            return s_Root == null ? new DoorPlan[0] : s_Root.GetComponentsInChildren<SanctumDoor>(true)
+                .Where(d => d.Data != null && !d.IsOpen).Select(d => d.Plan).ToArray();
+        }
+
         public static bool AreReady => s_Root != null && s_Root.GetComponentsInChildren<SanctumDoor>(true).Count(d => d.Data != null) == SanctumPlan.Doors.Length;
 
         public static IEnumerable<EntityViewBase> Create(IEnumerable<EntityViewBase> donorViews)

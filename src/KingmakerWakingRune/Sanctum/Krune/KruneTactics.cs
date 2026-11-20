@@ -61,13 +61,105 @@ namespace KingmakerWakingRune.Sanctum.Krune
         /// <summary>His phase door's passages are open (the passage itself is taken by the director before any spell).</summary>
         public bool HasPhaseDoor;
         public bool WallStanding;
-        public bool TentaclesActive;
         public bool CloudActive;
         public bool FoeHasStrongBuffs;
         public int RoundsInCombat;
         public KrunePhase Phase = KrunePhase.Fight;
         /// <summary>Ready slots by key (see <see cref="KruneTactics.Key"/>) with how many are left.</summary>
         public Dictionary<string, int> Ready = new Dictionary<string, int>();
+    }
+
+    internal enum CastStage { Constructed, Initialized, Started, Committed, Delivered, Ended }
+    internal enum CastResult { Rejected, Interrupted, TargetInvalid, RangeInvalid, ActionUnavailable, ResourceUnavailable, NativeFailure, Committed, Delivered, DeliveryFailed, InterruptedAfterCommit }
+
+    // The command owns its rule identity. Preview rules, another command's event and duplicate callbacks are inert.
+    internal sealed class DirectedCastLifecycle
+    {
+        private readonly object ability;
+        private object rule;
+        public CastStage Stage { get; private set; }
+        public CastResult Result { get; private set; }
+        public bool Committed { get; private set; }
+
+        public DirectedCastLifecycle(object ability) { this.ability = ability; }
+        public void Initialize() { if (Stage == CastStage.Constructed) Stage = CastStage.Initialized; }
+        public void Start() { if (Stage == CastStage.Initialized) Stage = CastStage.Started; }
+        public void BeginRule(object spell, object cast)
+        {
+            if (Stage == CastStage.Started && rule == null && ReferenceEquals(spell, ability)) rule = cast;
+        }
+
+        public bool ResolveRule(object spell, object cast, bool success, System.Action onCommit = null)
+        {
+            if (!success || Stage != CastStage.Started || cast == null || !ReferenceEquals(rule, cast) || !ReferenceEquals(ability, spell)) return false;
+            Stage = CastStage.Committed;
+            Committed = true;
+            onCommit?.Invoke();
+            return true;
+        }
+
+        public void Delivered()
+        {
+            if (Stage == CastStage.Committed) Stage = CastStage.Delivered;
+        }
+
+        public void End(CastResult failure, bool requiresDelivery, System.Action<CastResult> terminal, System.Action nativeEnd)
+        {
+            // Retire the decision and release its reservation before native end subscribers can re-enter planning.
+            // Always finish native teardown, including when diagnostics or a subscriber throws.
+            if (Stage == CastStage.Ended) return;
+            try
+            {
+                Result = !Committed ? failure : failure == CastResult.Interrupted ? CastResult.InterruptedAfterCommit : Stage == CastStage.Delivered ? CastResult.Delivered :
+                    requiresDelivery ? CastResult.DeliveryFailed : CastResult.Committed;
+                Stage = CastStage.Ended;
+                terminal(Result);
+            }
+            finally { nativeEnd(); }
+        }
+    }
+
+    [System.Flags]
+    internal enum KruneActionBudget { Free = 0, Standard = 1, Swift = 2, Move = 4 }
+
+    internal sealed class FailedKrunePlans
+    {
+        private readonly Dictionary<KruneActionBudget, HashSet<string>> failures = new Dictionary<KruneActionBudget, HashSet<string>>();
+        private object turn;
+        private KruneActionBudget lastSpent;
+
+        // The caller skips the interval between native turns. Null denotes real-time combat.
+        public void Observe(object activeTurn, KruneActionBudget spent)
+        {
+            if (activeTurn != null)
+            {
+                if (!ReferenceEquals(turn, activeTurn)) failures.Clear();
+            }
+            else if (turn == null)
+            {
+                var renewed = lastSpent & ~spent;
+                if (renewed != 0)
+                    foreach (var entry in failures)
+                        if ((entry.Key & renewed) != 0) entry.Value.Clear();
+            }
+            turn = activeTurn;
+            lastSpent = spent;
+        }
+
+        public void Reject(KruneActionBudget budget, string plan, string target, CastResult reason)
+        {
+            if (!failures.TryGetValue(budget, out var failed))
+            {
+                failed = new HashSet<string>();
+                failures.Add(budget, failed);
+            }
+            failed.Add(reason == CastResult.TargetInvalid || reason == CastResult.RangeInvalid ? plan + "@" + target : plan);
+        }
+
+        public bool Allows(KruneActionBudget budget, string plan, string target)
+        {
+            return !failures.TryGetValue(budget, out var failed) || (!failed.Contains(plan) && !failed.Contains(plan + "@" + target));
+        }
     }
 
     /// <summary>
@@ -80,6 +172,11 @@ namespace KingmakerWakingRune.Sanctum.Krune
     /// </summary>
     internal static class KruneTactics
     {
+        internal static bool MayUseHeldSpear(bool standardReady, bool hasMagicPlan, bool targetInReach)
+        {
+            return standardReady && !hasMagicPlan && targetInReach;
+        }
+
         public const double OverwhelmedHitPoints = 0.35d;
         public const double RecoveredHitPoints = 0.6d;
 
@@ -99,14 +196,12 @@ namespace KingmakerWakingRune.Sanctum.Krune
         /// </summary>
         public static KrunePhase NextPhase(KruneView v)
         {
-            if (Overwhelmed(v) && CanRelocate(v))
-            {
-                return KrunePhase.Recover;
-            }
+            // Planning a retreat leaves the saved phase alone until the command delivers the move.
             if (v.Phase == KrunePhase.Fight)
             {
                 return KrunePhase.Fight;
             }
+            if (Overwhelmed(v) && CanRelocate(v)) return KrunePhase.Recover;
             return v.HitPointFraction >= RecoveredHitPoints || v.AdjacentFoes > 0 || v.SummonsAlive >= 3 ? KrunePhase.Fight : KrunePhase.Recover;
         }
 
@@ -136,10 +231,6 @@ namespace KingmakerWakingRune.Sanctum.Krune
             if (v.UnseenFoeSuspected && Has(v, "Quickened Glitterdust"))
             {
                 options.Add(C("Glitterdust", "Quickened", KruneAim.UnseenFoe, "reveal an unseen foe"));
-            }
-            if (!v.TentaclesActive && v.BestCluster >= 2 && Has(v, "Quickened Black Tentacles"))
-            {
-                options.Add(C("Black Tentacles", "Quickened", KruneAim.FoeCluster, "pin a cluster of foes"));
             }
             if (v.SummonsAlive < 4 && Has(v, "Quickened Summon Monster V"))
             {
@@ -172,27 +263,26 @@ namespace KingmakerWakingRune.Sanctum.Krune
             var options = new List<KruneChoice>();
             if (Overwhelmed(v))
             {
-                options.AddRange(new[] { Relocate(v) }.Where(c => c != null));
+                options.AddRange(Relocations(v));
             }
             options.AddRange(Defenses(v).Concat(Summons(v)).Concat(Offense(v)).Where(c => c != null));
             return options;
         }
 
-        private static KruneChoice Relocate(KruneView v)
+        private static IEnumerable<KruneChoice> Relocations(KruneView v)
         {
             if (!v.HasPhaseDoor && Has(v, "Phase Door"))
             {
-                return C("Phase Door", string.Empty, KruneAim.Self, "overwhelmed: an ethereal passage through the stone, to step through at once");
+                yield return C("Phase Door", string.Empty, KruneAim.Self, "overwhelmed: an ethereal passage through the stone, to step through at once");
             }
             if (Has(v, "Greater Teleport"))
             {
-                return C("Greater Teleport", string.Empty, KruneAim.Retreat, "overwhelmed: elsewhere in the sanctum");
+                yield return C("Greater Teleport", string.Empty, KruneAim.Retreat, "overwhelmed: elsewhere in the sanctum");
             }
             if (Has(v, "Dimension Door"))
             {
-                return C("Dimension Door", string.Empty, KruneAim.Retreat, "overwhelmed: away from the foes");
+                yield return C("Dimension Door", string.Empty, KruneAim.Retreat, "overwhelmed: away from the foes");
             }
-            return null;
         }
 
         private static IEnumerable<KruneChoice> Defenses(KruneView v)
@@ -263,10 +353,6 @@ namespace KingmakerWakingRune.Sanctum.Krune
                         yield return C(cloud.Replace("Empowered ", string.Empty), cloud.StartsWith("Empowered ") ? "Empowered" : string.Empty, KruneAim.FoeCluster, "a cloud he is immune to, in close quarters");
                     }
                 }
-            }
-            if (!v.TentaclesActive && v.BestCluster >= 2 && Has(v, "Black Tentacles"))
-            {
-                yield return C("Black Tentacles", string.Empty, KruneAim.FoeCluster, "pin a cluster");
             }
             if (v.AdjacentFoes > 0 && Has(v, "Hostile Juxtaposition"))
             {

@@ -902,8 +902,8 @@ namespace KingmakerWakingRune.Sanctum.Krune
             {
                 return;
             }
-            UnitEntityData best = Game.Instance.Player.Party.Where(u => !u.Descriptor.State.IsDead && u.Descriptor.State.CanAct && SanctumPlan.SpaceAt(GridX(u.Position), GridY(u.Position)) == SanctumSpace.Atrium)
-                .OrderByDescending(u => u.Stats.SkillKnowledgeArcana.ModifiedValue).FirstOrDefault();
+            UnitEntityData best = WardActions.BestParticipant(StatType.SkillKnowledgeArcana, u =>
+                SanctumPlan.SpaceAt(GridX(u.Position), GridY(u.Position)) == SanctumSpace.Atrium);
             if (best == null)
             {
                 return;

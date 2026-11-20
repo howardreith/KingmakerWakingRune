@@ -9,6 +9,8 @@ namespace KingmakerWakingRune.Sanctum.Wards
     {
         public override UnitCommand.ResultType Interact(UnitEntityData user, UnitEntityData target)
         {
+            var restored = target.Get<WardRestoredPart>();
+            if (restored != null) return WardStatues.Converse(restored.StatueId, target, user) ? UnitCommand.ResultType.Success : UnitCommand.ResultType.Fail;
             string id = WardFixtures.IdOf(target);
             if (id == null)
             {

@@ -210,6 +210,8 @@ namespace KingmakerWakingRune.Sanctum.Encounter
 
         public double EngagedAt = -1d;
 
+        public bool WoundDialoguePending;
+        public bool BloodDialoguePending;
         public bool WoundSpoken;
         public double WoundSpokenAt = -1d;
 
@@ -278,8 +280,44 @@ namespace KingmakerWakingRune.Sanctum.Encounter
     /// The encounter's rules, free of the game: who gets the fight, what is spent, what Feed may eat, and the one-time events
     /// of a wound, a defeat and a death. Everything is idempotent, so a reload, a second fight or a repeated callback repeats nothing.
     /// </summary>
+    internal sealed class NoticeClock
+    {
+        private bool captured, paused;
+        private float scale;
+        public void Capture(bool isPaused, float timeScale)
+        {
+            if (captured) return;
+            captured = true;
+            paused = isPaused;
+            scale = timeScale;
+        }
+        public void Restore(Action<bool, float> apply)
+        {
+            if (!captured) return;
+            captured = false;
+            apply(paused, scale);
+        }
+    }
+
     internal static class KurshuRules
     {
+        internal static bool AcknowledgeNotice(KurshuState state, bool wound)
+        {
+            if (state == null) return false;
+            if (wound)
+            {
+                if (!state.WoundDialoguePending || state.Defeated) return false;
+                state.WoundDialoguePending = false;
+            }
+            else
+            {
+                if (!state.BloodDialoguePending || !state.Defeated || state.BloodMessageShown) return false;
+                state.BloodDialoguePending = false;
+                state.BloodMessageShown = true;
+            }
+            return true;
+        }
+
         /// <summary>
         /// Decided once, when the sanctum is first initialized: a fresh token arrival gets the fight; a save that had already
         /// entered the sanctum before WR-04 is left as it was.
@@ -455,7 +493,7 @@ namespace KingmakerWakingRune.Sanctum.Encounter
         public static List<HealthEvent> ObserveHealth(KurshuState state, int hitPointsLeft, int maxHitPoints, bool conscious, bool dead, double now)
         {
             var events = new List<HealthEvent>();
-            if (!state.WoundSpoken && !dead && conscious && maxHitPoints > 0 && hitPointsLeft <= maxHitPoints * KurshuProfile.SubstantialWoundFraction)
+            if (!state.Defeated && !state.WoundSpoken && !dead && conscious && maxHitPoints > 0 && hitPointsLeft <= maxHitPoints * KurshuProfile.SubstantialWoundFraction)
             {
                 state.WoundSpoken = true;
                 state.WoundSpokenAt = now;

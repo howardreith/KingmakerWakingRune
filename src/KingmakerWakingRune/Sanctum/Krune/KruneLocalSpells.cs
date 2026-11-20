@@ -93,6 +93,11 @@ namespace KingmakerWakingRune.Sanctum.Krune
                 Condition(UnitCondition.CantMove), Condition(UnitCondition.Entangled), Component<KwrTentacleHold>("KWR_KruneTentacleHoldLogic"));
             BlueprintAbilityAreaEffect tentacles = CloneArea(AreaOf(native["Web"]), "KWR_KruneBlackTentaclesArea", replace: true, extra: new BlueprintComponent[] { Component<KwrTentacleArea>("KWR_KruneTentacleAreaLogic") });
             built["KWR_KruneBlackTentacles"] = AreaSpell(native["Web"], "KWR_KruneBlackTentacles", "Black Tentacles", "Rubbery black tentacles fill a 20-foot spread within medium range for 1 round per level. Each round, at the start, one grapple check (CMB = caster level + 5; +5 against creatures already held) is applied to every creature in the area, and to any that enter that round: a success grapples and crushes for 1d6+4; a failure lets a held creature go. Freedom of movement cannot be held. Spell resistance does not apply.", tentacles, 6d, SpellSchool.Conjuration, SpellDescriptor.None);
+            var unavailable = Component<Lashmistress.KwrNeverCastable>("KWR_KruneTentaclesDeferred");
+            unavailable.Reason = "This preparation is unavailable in this draft.";
+            var tentacleSpell = built["KWR_KruneBlackTentacles"];
+            tentacleSpell.ComponentsArray = tentacleSpell.ComponentsArray.Concat(new BlueprintComponent[] { unavailable }).ToArray();
+            AccessTools.Field(typeof(BlueprintAbility), "m_CachedCasterCheckers").SetValue(tentacleSpell, null);
 
             // Globe of invulnerability: an immobile 10-foot globe where spells of 4th level or lower cast from outside fail.
             InsideGlobe = Buff(buffDonor, "KWR_KruneInsideGlobe", "Within a globe of invulnerability", "Spells of 4th level or lower cast from outside the globe cannot affect this creature.", false, true);

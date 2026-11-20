@@ -124,6 +124,15 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
             foreach (StatueSlot slot in StatueManifest.Slots)
             {
+                if (slot.Id.EndsWith("-T", System.StringComparison.Ordinal))
+                {
+                    if (Live.TryGetValue(slot.Id, out UnitEntityData oldTop))
+                    {
+                        oldTop.IsInGame = false;
+                        Live.Remove(slot.Id);
+                    }
+                    continue;
+                }
                 if (SanctumDressing.StatueFeet.TryGetValue(slot.Id, out Vector3 foot))
                 {
                     EnsureOne(slot.Id, WardBlueprints.StatueFixture, foot);
@@ -168,8 +177,9 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         private static void EnsureOne(string id, BlueprintUnit blueprint, Vector3 at)
         {
-            if (Live.ContainsKey(id))
+            if (Live.TryGetValue(id, out UnitEntityData existing))
             {
+                if (WardRuntime.State.LayoutVersion < SanctumPlan.LayoutVersion) existing.Position = at;
                 return;
             }
             UnitEntityData unit = Game.Instance.EntityCreator.SpawnUnit(blueprint, at, Quaternion.identity, Game.Instance.State.LoadedAreaState.MainState);
@@ -200,6 +210,7 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
             if (unit.View != null)
             {
+                FitPlate(unit.View);
                 foreach (Renderer renderer in unit.View.GetComponentsInChildren<Renderer>(true))
                 {
                     renderer.enabled = false;
@@ -244,6 +255,39 @@ namespace KingmakerWakingRune.Sanctum.Wards
             }
         }
 
+        private static Mesh s_PlateDisk;
+
+        internal static void FitPlate(UnitEntityView view)
+        {
+            string id = IdOf(view.EntityData);
+            if (id == null || !SanctumDressing.PlateCenters.TryGetValue(id, out Vector3 center)) return;
+            var core = view.transform.Find(UnitEntityView.CoreColliderName)?.GetComponent<MeshCollider>();
+            if (core == null) return;
+            var soft = view.transform.Find("[soft collider]")?.GetComponent<Collider>();
+            if (soft != null) soft.enabled = false;
+            if (s_PlateDisk == null)
+            {
+                const int sides = 32;
+                var vertices = new Vector3[sides + 1];
+                var triangles = new int[sides * 6];
+                for (int i = 0; i < sides; i++)
+                {
+                    float angle = 2f * Mathf.PI * i / sides;
+                    vertices[i + 1] = new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0f) * SanctumDressing.PlateRadius;
+                    int at = 6 * i, next = 1 + (i + 1) % sides;
+                    triangles[at + 1] = triangles[at + 5] = i + 1;
+                    triangles[at + 2] = triangles[at + 4] = next;
+                }
+                s_PlateDisk = new Mesh { name = "KWR_RunePlateSelection", vertices = vertices, triangles = triangles };
+                s_PlateDisk.RecalculateBounds();
+            }
+            core.sharedMesh = s_PlateDisk;
+            core.transform.position = center;
+            core.transform.rotation = Quaternion.LookRotation(SanctumDressing.PlateNormals[id]);
+            Vector3 scale = view.transform.lossyScale;
+            core.transform.localScale = new Vector3(1f / scale.x, 1f / scale.y, 1f / scale.z);
+        }
+
         private static Vector3 RunePoint(string id)
         {
             RunePlate plate = SanctumPlan.RunePlates.First(p => p.Id == id);
@@ -255,6 +299,14 @@ namespace KingmakerWakingRune.Sanctum.Wards
         private static Vector3 GridWorld(float x, float y)
         {
             return new Vector3(SanctumPlan.ToWorldX(x), SanctumPlan.HeightAt(x, y) ?? 0f, SanctumPlan.ToWorldZ(y));
+        }
+    }
+    [Harmony12.HarmonyPatch(typeof(UnitEntityView), nameof(UnitEntityView.SetupSelectionColliders))]
+    internal static class PlateSelectionPatch
+    {
+        private static void Postfix(UnitEntityView __instance)
+        {
+            WardFixtures.FitPlate(__instance);
         }
     }
 }

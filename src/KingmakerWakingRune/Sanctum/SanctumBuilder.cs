@@ -12,7 +12,6 @@ namespace KingmakerWakingRune.Sanctum
     {
         public Material Floor;
         public Material Rock;
-        public Material Black;
         public SanctumPalette Palette;
     }
 
@@ -25,7 +24,7 @@ namespace KingmakerWakingRune.Sanctum
         private const float ArrivalCurb = 0.25f;
         private const float StepRise = 0.17f;
         private const float TreadSink = 0.04f;
-        private const float HighWall = 4.6f;
+        internal const float HighWall = 20f * SanctumPlan.MetersPerFoot;
         private const float WallCap = 0.3f;
         private const float FloorTile = 3f;
         private const float WallTile = 2.4f;
@@ -35,8 +34,6 @@ namespace KingmakerWakingRune.Sanctum
         {
             var floor = new ChunkedMesh();
             var collider = new ChunkedMesh();
-            var rock = new ChunkedMesh();
-            var black = new ChunkedMesh();
             var ashlar = new ChunkedMesh();
 
             foreach (WalkRegion region in SanctumPlan.Regions)
@@ -53,7 +50,7 @@ namespace KingmakerWakingRune.Sanctum
             floor.PlanarTriangle(World(shadow[0], 0f), World(shadow[2], 0f), World(shadow[3], 0f), FloorTile);
             foreach (WallRun wall in SanctumPlan.Walls)
             {
-                AddWall(wall, rock, black);
+                AddWall(root, wall, materials.Palette);
             }
             foreach (WallRun line in SanctumPlan.SightLines)
             {
@@ -64,9 +61,7 @@ namespace KingmakerWakingRune.Sanctum
             AddZigguratBlocker(root);
 
             floor.Instantiate(root, "Floor", materials.Floor);
-            rock.Instantiate(root, "Rock", materials.Rock);
             ashlar.Instantiate(root, "Ashlar", materials.Palette.Ashlar);
-            black.Instantiate(root, "RockTop", materials.Black);
 
             var walkable = new GameObject("WalkableSurface") { layer = GroundLayer };
             walkable.transform.SetParent(root, false);
@@ -135,7 +130,7 @@ namespace KingmakerWakingRune.Sanctum
             return World(x, y, ramp.HeightAt(x, y));
         }
 
-        private static void AddWall(WallRun wall, ChunkedMesh rock, ChunkedMesh black)
+        private static void AddWall(Transform root, WallRun wall, SanctumPalette palette)
         {
             int count = wall.Closed ? wall.Points.Length : wall.Points.Length - 1;
             for (int i = 0; i < count; i++)
@@ -146,12 +141,21 @@ namespace KingmakerWakingRune.Sanctum
                 }
                 GridPoint p0 = wall.Points[i];
                 GridPoint p1 = wall.Points[(i + 1) % wall.Points.Length];
-                float height = wall.Name.StartsWith("A2") ? SanctumPlan.RingHeight + 1.2f : SanctumPlan.CutawayHeight(p0, p1, wall.Name == "A1" ? ArrivalCurb : LowWall, HighWall);
-                AddWallSegment(p0, p1, height, rock, black);
+                var segment = new GameObject(wall.Name + "_" + i);
+                segment.transform.SetParent(root, false);
+                var faces = new ChunkedMesh();
+                var cap = new ChunkedMesh();
+                AddWallSegment(p0, p1, HighWall, faces, cap);
+                faces.Instantiate(segment.transform, "AshlarFace", palette.Ashlar);
+                cap.Instantiate(segment.transform, "StoneCap", palette.Stone);
+                var cut = segment.AddComponent<SanctumWallCutaway>();
+                cut.A = p0;
+                cut.B = p1;
+                cut.Low = wall.Name.StartsWith("A2") ? SanctumPlan.RingHeight + LowWall : wall.Name == "A1" ? ArrivalCurb : LowWall;
             }
         }
 
-        private static void AddWallSegment(GridPoint p0, GridPoint p1, float height, ChunkedMesh rock, ChunkedMesh black)
+        private static void AddWallSegment(GridPoint p0, GridPoint p1, float height, ChunkedMesh rock, ChunkedMesh capMesh)
         {
             Vector3 a = World(p0, 0f);
             Vector3 b = World(p1, 0f);
@@ -181,11 +185,11 @@ namespace KingmakerWakingRune.Sanctum
             Vector3 ta = a + up, tb = b + up;
             if (Vector3.Dot(Vector3.Cross(tb - ta, cap), Vector3.up) >= 0f)
             {
-                black.Quad(ta, tb, tb + cap, ta + cap, Vector2.zero, Vector2.right, Vector2.one, Vector2.up);
+                capMesh.Quad(ta, tb, tb + cap, ta + cap, Vector2.zero, Vector2.right, Vector2.one, Vector2.up);
             }
             else
             {
-                black.Quad(ta, ta + cap, tb + cap, tb, Vector2.zero, Vector2.up, Vector2.one, Vector2.right);
+                capMesh.Quad(ta, ta + cap, tb + cap, tb, Vector2.zero, Vector2.up, Vector2.one, Vector2.right);
             }
         }
 
@@ -369,6 +373,26 @@ namespace KingmakerWakingRune.Sanctum
             AccessTools.Field(typeof(Kingmaker.Utility.PolygonComponent), "m_Points").SetValue(polygon, SanctumPlan.TracedBothWays(points).Select(p => World(p, y)).ToList());
             AccessTools.Field(typeof(Kingmaker.Utility.PolygonComponent), "m_Closed").SetValue(polygon, false);
             go.SetActive(true);
+        }
+    }
+    internal sealed class SanctumWallCutaway : MonoBehaviour
+    {
+        internal GridPoint A, B;
+        internal float Low;
+        private Vector3 m_Direction;
+
+        private void LateUpdate()
+        {
+            Camera camera = Camera.main;
+            if (camera == null) return;
+            Vector3 forward = camera.transform.forward;
+            if ((forward - m_Direction).sqrMagnitude < 0.001f) return;
+            m_Direction = forward;
+            var horizontal = new Vector2(forward.x, -forward.z);
+            float pitch = Mathf.Abs(forward.y) / Mathf.Max(0.01f, horizontal.magnitude);
+            horizontal.Normalize();
+            float height = SanctumPlan.CutawayHeight(A, B, Low, SanctumBuilder.HighWall, horizontal.x, horizontal.y, pitch);
+            transform.localScale = new Vector3(1f, height / SanctumBuilder.HighWall, 1f);
         }
     }
 }

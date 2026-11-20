@@ -11,6 +11,8 @@ using Kingmaker.RuleSystem.Rules.Abilities;
 using Kingmaker.RuleSystem.Rules.Damage;
 using Kingmaker.UnitLogic.Abilities;
 using Kingmaker.UnitLogic.Parts;
+using Kingmaker.UnitLogic.Abilities.Blueprints;
+using Kingmaker.UnitLogic.Mechanics;
 
 namespace KingmakerWakingRune.Sanctum.Wards
 {
@@ -19,12 +21,27 @@ namespace KingmakerWakingRune.Sanctum.Wards
     /// reads is what actually happened, never an ability's name. Only events aimed at a fixture proxy matter here.
     /// </summary>
     internal sealed class WardObserver :
+        IUnitLifeStateChanged, IApplyAbilityEffectHandler,
+        IGlobalRulebookHandler<RuleApplyBuff>, IGlobalRulebookHandler<RuleSavingThrow>, IAreaEffectHandler,
+        IGlobalRulebookHandler<RuleAttackWithWeapon>,
         IGlobalRulebookHandler<RuleDealDamage>,
         IGlobalRulebookHandler<RuleDrainEnergy>,
         IGlobalRulebookHandler<RuleDealStatDamage>,
         IGlobalRulebookHandler<RuleDispelMagic>,
         IGlobalRulebookHandler<RuleCastSpell>
     {
+        public void HandleUnitLifeStateChanged(UnitEntityData unit, Kingmaker.UnitLogic.UnitLifeState previous)
+        {
+            Encounter.KurshuEncounter.ObserveHealthChange(unit);
+        }
+
+        public void OnEventAboutToTrigger(RuleAttackWithWeapon evt)
+        {
+            WardStatues.Provoke(evt.Initiator, evt.Target);
+        }
+
+        public void OnEventDidTrigger(RuleAttackWithWeapon evt) { }
+
         public void OnEventAboutToTrigger(RuleDealDamage evt)
         {
         }
@@ -34,8 +51,11 @@ namespace KingmakerWakingRune.Sanctum.Wards
             Guard(() => HandleDamage(evt));
         }
 
-        private static void HandleDamage(RuleDealDamage evt)
+        private void HandleDamage(RuleDealDamage evt)
         {
+            if (evt.Reason?.Context == null)
+                WardStatues.Provoke(evt.Initiator, evt.Target);
+            else HostileEffect(evt.Reason?.Context, evt.Target);
             string fixtureId = WardFixtures.IdOf(evt.Target);
             if (fixtureId == WardText.DoorId || fixtureId == WardText.GemId || Krune.KruneWalls.IsWall(fixtureId))
             {
@@ -142,11 +162,67 @@ namespace KingmakerWakingRune.Sanctum.Wards
 
         public void OnEventAboutToTrigger(RuleCastSpell evt)
         {
+            Krune.KruneDirector.Executing?.Lifecycle.BeginRule(evt.Spell, evt);
+            HostileEffect(evt.Context, evt.SpellTarget.Unit);
         }
 
         public void OnEventDidTrigger(RuleCastSpell evt)
         {
+            Krune.KruneDirector.Executing?.Lifecycle.ResolveRule(evt.Spell, evt, evt.Success,
+                () => Krune.RuneRod.KruneCast(evt.Initiator, evt));
             Guard(() => HandleCast(evt));
+        }
+
+        // A later entrant into a persistent hazard was not targeted when the party placed it.
+        public void HandleAreaEffectSpawned(AreaEffectEntityData area)
+        {
+            var cast = area.Context?.SourceAbilityContext;
+            if (!SanctumScope.IsSanctumLoaded || cast?.MaybeCaster?.IsPlayerFaction != true || area.View?.Shape == null ||
+                cast.AbilityBlueprint.EffectOnEnemy != AbilityEffectOnUnit.Harmful) return;
+            var exposed = Kingmaker.Game.Instance.State.Units.Where(u => u.IsInGame && u.Get<WardRestoredPart>() != null &&
+                area.View.Shape.Contains(u.Position, u.Corpulence)).Select(u => u.Get<WardRestoredPart>().StatueId);
+            WardRuntime.State?.SurvivorExposure.Place(area.UniqueId, exposed);
+        }
+
+        public void HandleAreaEffectDestroyed(AreaEffectEntityData area)
+        {
+            if (SanctumScope.IsSanctumLoaded) WardRuntime.State?.SurvivorExposure.Remove(area.UniqueId);
+        }
+
+        public void OnEventAboutToTrigger(RuleSavingThrow evt) => HostileEffect(evt.Reason?.Context, evt.Initiator);
+        public void OnEventDidTrigger(RuleSavingThrow evt) { }
+
+        public void OnAbilityEffectApplied(AbilityExecutionContext context) { }
+        public void OnTryToApplyAbilityEffect(AbilityExecutionContext context, Kingmaker.Utility.TargetWrapper target)
+        {
+            HostileEffect(context, target.Unit);
+        }
+        public void OnAbilityEffectAppliedToTarget(AbilityExecutionContext context, Kingmaker.Utility.TargetWrapper target) { }
+        public void OnEventAboutToTrigger(RuleApplyBuff evt) { }
+        public void OnEventDidTrigger(RuleApplyBuff evt)
+        {
+            HostileEffect(evt.Context, evt.Initiator);
+        }
+
+        private void HostileEffect(MechanicsContext context, UnitEntityData victim)
+        {
+            var statueId = victim?.Get<WardRestoredPart>()?.StatueId;
+            if (statueId == null) return;
+            var cast = context?.SourceAbilityContext;
+            if (cast == null) return;
+            bool harmful = cast.AbilityBlueprint.EffectOnEnemy == AbilityEffectOnUnit.Harmful;
+            var area = Kingmaker.ElementsSystem.ElementsContext.GetData<Kingmaker.UnitLogic.Abilities.Components.AreaEffects.AreaEffectContextData>()?.Entity;
+            string areaId = area?.UniqueId;
+            // A delayed save or buff can carry the area's context outside its native event scope.
+            for (var parent = context; areaId == null && parent != null; parent = parent.ParentContext)
+            {
+                if (!(parent.AssociatedBlueprint is BlueprintAbilityAreaEffect)) continue;
+                var source = Kingmaker.Game.Instance.State.AreaEffects.FirstOrDefault(a => ReferenceEquals(a.Context, parent));
+                // Missing or expired area provenance cannot authorize provocation as a direct cast.
+                areaId = source?.UniqueId ?? string.Empty;
+            }
+            if (WardRuntime.State?.SurvivorExposure.Provokes(cast.MaybeCaster?.IsPlayerFaction == true, harmful, areaId, statueId) == true)
+                WardStatues.Provoke(cast.MaybeCaster, victim);
         }
 
         private static void HandleCast(RuleCastSpell evt)

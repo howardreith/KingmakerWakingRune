@@ -1,10 +1,18 @@
 # WR-FINAL: installation and restoration report
 
+## WR-PLAYTEST-03
+
+0.12.3 was packaged locally from clean source `78aefe218355081eabc14ce520656ca947629c35`. Its manifest, DLL, ZIP and 19 embedded images passed readback. The three earlier immutable candidate ZIPs and their DLLs match their recorded digests. [Candidate hashes](WR-PLAYTEST-03.md)
+
+**READ at the 0.12.3 checkpoint.** The only live mod is KingmakerWakingRune 0.11.3. The installed DLL and its existing `KingmakerWakingRune.dll.27292.cache` each hash to `7933788dcc6cf6e34fd5c7c168601caa637601e4ea825a7080c46ef51be63cc4`. The live Info.json SHA-256 is `837ee8c365f61c5eef8a74aceeeba86821c40de4492d10aefc72ca92f9f15ad9`.
+
+**Installation, native tests and restoration — NOT RUN.** The review request covers disposable Waking-Rune-only smoke, followed by guarded `End` and verification of the pre-run profile. The full compatibility transaction has a separate authorization and rollback plan. [Smoke checkpoint](WR-PLAYTEST-03.md) · [28-mod staging plan](WR-PLAYTEST-03-PROFILE.md)
+
 ## Installed now
 - **Mod:** The Waking Rune 0.11.3 (WR-PLAYTEST-02 after the owner's review), from `artifacts\KingmakerWakingRune-0.11.3.zip`
   (`2e591004cec2c9b0403943d3f83646e62d75234973e78dae0b77a551ea738251`), commit `17c3a69` on `feature/wr-playtest-02`. Installed
-  DLL `7933788dcc6cf6e34fd5c7c168601caa637601e4ea825a7080c46ef51be63cc4` (verified after the transaction). The install is the DLL
-  and `Info.json` only.
+  DLL `7933788dcc6cf6e34fd5c7c168601caa637601e4ea825a7080c46ef51be63cc4` (verified after the transaction). The packaged files are the DLL
+  and `Info.json`. The current runtime cache is listed above.
 - **Location:** `<Kingmaker>\Mods\KingmakerWakingRune` (Unity Mod Manager 0.28.2, game 2.1.7). No other mod is installed
   in this lab's game folder: Mounted Combat, the Tabletop Rules Expansion and Dice Roller were installed only inside
   the runs and removed before each ended.

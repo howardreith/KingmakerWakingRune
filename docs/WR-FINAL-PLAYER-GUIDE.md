@@ -48,10 +48,19 @@ Magnimar lodge.
 
 ## The sanctum
 You arrive in a frozen chamber. Explore, read what you find, and think about the wards before forcing them: runes,
-statues and doors respond to how you treat them. Saving often is wise.
+statues and doors respond to how you treat them. Aim at the face of a rune plate to inspect it or target it with a spell.
+Choose Study once. The party member with the highest modifier across the clue’s listed skills makes one check.
+Rune identification uses Knowledge (Arcana) or Lore (Religion). Kingmaker folds spell identification into Arcana
+and has no separate Linguistics skill. If you choose to force the altar emerald, the strongest adventurer who can
+reach it approaches and makes the attempt. Saving often is wise.
+
+Kurshu’s prophecy and the writing in her blood appear in the dialogue panel. Use **Continue** to read them.
+Her defeat starts the 90-minute awakening clock. Among the stone figures, a survivor who speaks or runs may still
+serve Lissala. You can question a speaker, block the path, allow the cultist to leave, or attack. A harmful party spell can provoke a survivor caught in its area when cast. A survivor who walks into the same area later can still suffer its effects without turning hostile for that reason.
 
 **The runelord:** a 17th-level conjurer of ancient Thassilon. He fights to the death within his sanctum. Expect
-summoned creatures, walls of stone, clinging tentacles, teleports, rebounding spells and a spear with a will of its own.
+summoned creatures, walls of stone, rebounding spells and a spear with a will of its own. If surrounded, he can teleport
+to another chamber to prepare a new offensive.
 Freedom of movement, dispels, see invisibility and a way to deal with summons are worth bringing.
 
 ## How it can end
@@ -95,5 +104,6 @@ negative energy or death magic, and a skilled hand with magic devices or traps.
 ## Known limitations of this playtest draft
 - The rod's Silent, Still and Widen Spell are not implemented in this draft; its Enlarge works as Reach Spell (the
   next range band).
+- Krune’s printed Black Tentacles preparations are unavailable in the 0.12.3 playtest candidate.
 - Some of Krune's printed spells and abilities have no use in this game (they are listed in his spellbook as held).
 - Placeholder model and portrait for Krune; the journal's title is the game's own ("Linzi's Journal").
