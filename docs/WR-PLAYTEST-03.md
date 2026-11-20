@@ -1,6 +1,6 @@
 # WR-PLAYTEST-03 — owner playtest follow-up
 
-**PARTIAL — 0.12.3 is ready for owner review.** The two 0.12.2 findings pass offline. Native qualification is **NOT RUN**.
+**PARTIAL — the authorized 0.12.3 smoke stopped at preflight.** The two 0.12.2 findings pass offline. Native qualification is **NOT RUN**.
 
 | Candidate | Verified value |
 |---|---|
@@ -24,9 +24,27 @@ Layout version remains **2**. The adapter freezes the old-world origins for the 
 
 After the complete offline run, static review traced scene, cross-scene and party enumeration, native view/size selection, ground and navmesh validation, both closed-door sides, open leaves, walls, furniture, statue and body footprints, the native position setter, per-actor commit and ward serialization. The old single-actor tests now run the batch planner. Source and tests are frozen at the commit above. The follow-up commit contains the review and staging documentation.
 
-### Current authorization checkpoint — disposable smoke only
+### November 20 smoke preflight and native results
 
-The proposed scope is **one Waking-Rune-only transaction on the lab's existing loader**, using project-owned disposable named fixtures. Previous automatic review rejected a Waking Rune live transaction under this machine's Mounted Combat policy. The owner checkpoint concerns only this ZIP and scope. After authorization and guarded preflight, the entry command from the repository root would be
+The owner authorized one Waking-Rune-only run, `wrplay3-0123-smoke`, and prohibited opening or copying owner saves. At 08:58 Eastern, a filename-only inventory found the previously documented owner slot `Quick_432.zks` in both snapshot sources. The local save directory held 294 save archives and the Steam remote mirror held 108. The guard calls `Save-Tree` on the full profile and mirror before staging the ZIP. Its unfiltered `robocopy /MIR` would copy the owner slot into both rollback snapshots. Preflight stopped before `Begin`. The run ID remains unused. [Preflight receipt](evidence/wrplay3-0123-smoke-preflight.json) · [Guard](../scripts/KwrRuntime.ps1) · [Owner-slot provenance](WR-FINAL-INSTALL.md)
+
+| Check | Result | Evidence |
+|---|---|---|
+| Six pre-Begin checks | **PASS** | **READ**. Kingmaker closed, one Steam process, latest AppID 640820 sync entry reports Sync Disabled, transaction journal and run directories absent. The candidate ZIP matched the authorized SHA-256. The only installed mod was 0.11.3. The receipt records all three live files and their hashes, plus UMM Params.xml. |
+| Save separation at snapshot | **FAIL** | **READ**. Guard lines 65–70 select both full trees, line 139 mirrors each tree, and line 204 calls the snapshot before installation. The evidence collector's project-save filter applies later. |
+| A. Candidate startup and stock isolation | **NOT RUN** | No guarded launch or campaign load. |
+| B. Native A3 pair, party/pet, A5 corpse and traversal | **NOT RUN** | No native transforms, entity IDs, footprint measurements or movement evidence. |
+| C. Partial migration and process restart | **NOT RUN** | No saved cohort, restart, summon or runtime exception trace. |
+| D. Legacy knowledge selection | **NOT RUN** | No native inspection, roll or UI capture. |
+| E. Harmful area and two reloads | **NOT RUN** | No native area ID, ward payload, later entrant or expiry observation. |
+| F. Kurshu in real time and turn based | **NOT RUN** | No acknowledged panels, clock/queue measurements or deadline observation. |
+| Cleanup and restoration | **NOT RUN** | No transaction opened or game process launched. There was no guarded state to close, collect or restore. |
+
+The receipt is **READ** evidence only. This attempt produced no native error signatures, gameplay logs, screenshots, new saves, **PLAYER** inputs or **HARNESS-COMMANDED** orders. Resuming on this profile requires clarification about copying protected saves solely into the guard's rollback backups and restoring them if necessary.
+
+### Authorized command — disposable smoke only
+
+The authorized scope is **one Waking-Rune-only transaction on the lab's existing loader**, using project-owned disposable named fixtures. The specified entry command from the repository root is
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/KwrRuntime.ps1 Begin -RunId wrplay3-0123-smoke -PackagePath artifacts/KingmakerWakingRune-0.12.3.zip -Recon
