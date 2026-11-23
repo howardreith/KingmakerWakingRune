@@ -21,25 +21,38 @@ Harmony12 adapter alone does not cover that API surface.
   `obj/loader-references` cache and verifies archive hash, DLL hash and assembly
   identity. A missing, corrupt or different file (including the installed newer
   loader or Harmony) fails clearly; nothing falls back to the installed UMM. It also
-  requires `Info.json` `ManagerVersion` to equal the pinned UnityModManager version.
-- Direct MSBuild and IDE builds import `LoaderReferences.targets`: before reference
-  resolution it re-verifies the cache; after resolution it requires that the
-  compiler's actual inputs (`@(ReferencePath)`) contain exactly one UnityModManager,
-  one 0Harmony12 and one 0Harmony, all inside the pinned directory. A stray HintPath
-  or the installed loader is refused even when its bytes equal the pin.
+  requires `Info.json` `ManagerVersion` to be a JSON string equal to the pinned
+  UnityModManager version, and the pin file to define exactly these three references
+  under their canonical file names (a dropped or renamed pin is refused).
+- Direct MSBuild builds import `LoaderReferences.targets`: on every build, before
+  reference resolution, it re-verifies the cache and manifest; after reference-assembly
+  selection, immediately before compilation, the list Csc receives
+  (`@(ReferencePathWithRefAssemblies)`; each loader assembly found by file name or by
+  assembly identity) must contain exactly the canonical UnityModManager, 0Harmony12 and
+  0Harmony files by full path. A stray HintPath, a substituted reference assembly, a
+  same-stem or renamed file, or the installed loader is refused even when its bytes equal
+  the pin. The supported routes are `scripts/Build.ps1` and command-line MSBuild; IDE
+  builds are not a supported or verified route. The fast up-to-date check is disabled and
+  the pin, verifier, guard and manifest are compile inputs, so an incremental build refuses
+  a pin-only or manifest-only change.
 - `scripts/Build.ps1` builds, runs the tests, checks the embedded art and the DLL's
   reference versions, packages `KingmakerWakingRune/{Info.json,KingmakerWakingRune.dll}`,
   writes a build receipt beside the ZIP (`<zip>.build.json`: commit, dirty state, DLL
   and ZIP SHA-256, pinned reference identities) and runs the standalone validator on
   the result.
-- `scripts/Validate-Package.ps1` is the standalone pre-install check. `KwrRuntime.ps1`
-  runs it before every install (`Begin`, `Reinstall`); run it by hand on any supplied
-  ZIP. It accepts only the two package files (no loader, Harmony, game or Unity DLL),
+- `scripts/Validate-Package.ps1` is the standalone pre-install check. It inspects and
+  hashes one private copy of the ZIP. `KwrRuntime.ps1` copies the package (and its
+  receipt, if present) to a private folder, validates that copy and installs that same
+  copy for every install (`Begin`, `Reinstall`); run the validator by hand on any supplied
+  ZIP. It accepts only the two package files (no loader, Harmony, game or Unity DLL;
+  a directory record only for the package folder and only when its decoded content is
+  empty),
   requires the packaged manifest's `ManagerVersion` to equal the baseline, and reads the
   packaged DLL's AssemblyRef table: it must name exactly UnityModManager 0.31.1.0,
   0Harmony12 1.2.0.1 and 0Harmony 2.3.1.1. With a receipt (KwrRuntime passes one when it
   exists beside the ZIP), the receipt must describe the same ZIP and DLL bytes and the
-  pinned identities, so a stale receipt cannot vouch for different bytes. A clean
+  pinned identities (fields are type-checked first), so a stale receipt cannot vouch for
+  different bytes, and a pin change makes an older package fail validation. A clean
   package is never overwritten for the same version (existing `Build.ps1` rule), so a
   changed pin or build input produces a new `-dirty` or new-version package rather than
   silently reusing a frozen one.
@@ -57,17 +70,23 @@ manifest declares 0.28.2. Those historical packages and their records are unchan
 .\scripts\Validate-Package.ps1 -PackagePath <zip> [-ReceiptPath <zip>.build.json]
 ```
 
-`Test-LoaderBaseline.ps1` runs each check in its own process with real files: genuine,
-corrupt (Harmony2), missing and installed-loader cache bytes; direct MSBuild of the
-production project with a corrupt cache and with the genuine cache (the `csc` command
-line must name exactly the three pinned files); probe projects whose UnityModManager or
-0Harmony resolves outside the pinned directory; manifest/pin disagreement on copies of
-the real scripts; the candidate with its receipt (accepted), a re-packed ZIP of the same
-content (accepted alone, refused with the old receipt), receipts naming other DLL bytes,
-another loader or no loader references; packages with an added Harmony2 or a swapped-in
-UnityModManager or game DLL; the genuine v0.12.3 release with only its manifest set to
-0.31.1 (refused by the standalone validator); and that every `Expand-Archive` in
-`KwrRuntime.ps1` follows a validator call.
+`Test-LoaderBaseline.ps1` clones the committed HEAD into a temporary directory whose path
+contains a space, builds and packages it there with `Build.ps1`, and runs each check in its
+own PowerShell or MSBuild process; this checkout's artifacts and the installed game are not
+written. It downloads (or accepts) three hash-checked fixtures and reads them through private
+copies: the genuine v0.12.3 release (SHA-256 `4dec0487…4593b402`; its DLL references
+UnityModManager 0.33.2.0 and 0Harmony 2.3.6.0), the author's UnityModManager 0.32.4 package and
+the official Lib.Harmony 2.3.6 package (net48), as known distinct wrong fixtures; the owner's
+installation is only measured. Its 51 checks cover cache bytes; dropped/misnamed pins and raised
+or array-typed manifests; direct and incremental builds (the three pinned paths on the Csc
+command line; manifest-only and pin-only changes refused); Csc-input probes (identical copy
+elsewhere, same-stem or renamed files, both fixtures, a substituted reference assembly); the
+validator with and without receipts, typed and mismatched receipt fields, smuggled or renamed
+DLLs, data-bearing and level-0 DEFLATE empty directory records, non-string `ManagerVersion`, the
+v0.12.3 DLL with only its manifest set to 0.31.1 (refused), both packages in one Windows
+PowerShell session, a caller ZIP replaced after the validator's snapshot, an older package after
+a pin change; and that `KwrRuntime.ps1` installs only validated private copies (it is not run:
+it transacts against the live game).
 
 ## Evidence for this change (2026-11-23)
 
@@ -76,8 +95,14 @@ Kingmaker 2.1.7b managed assemblies): SHA-256
 `7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904`, MVID
 `ccc59117-f992-44ce-9355-540d35f181f0`; AssemblyRefs UnityModManager 0.31.1.0,
 0Harmony12 1.2.0.1, 0Harmony 2.3.1.1. 290/290 tests, 19 embedded images verified,
-standalone validation passed. `Test-LoaderBaseline.ps1`: 25/25. The candidate commit
-and package hash are recorded in the pull request.
+standalone validation passed. `Test-LoaderBaseline.ps1`: 51/51.
+
+Machine-generated records for the candidate are committed as structured files (no logs) in
+[`docs/evidence/umm-0311/`](evidence/umm-0311/INDEX.md): the `Build.ps1` receipt and summary, a
+direct normal-verbosity build record (the Csc inputs), the boundary-suite results, the static
+audit, a full loader-profile inventory (every component's identity, SHA-256, MVID and
+references), the newest-stable selection record and the audit tool's source. Local path
+prefixes are replaced by placeholders; the index names the producing commit.
 
 | Observation | Result |
 | --- | --- |

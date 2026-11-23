@@ -1,0 +1,26 @@
+{
+    "commit":  "3ca53fc65feae47ccf969beccafd7a16995d9c94",
+    "dirty":  false,
+    "version":  "0.12.3",
+    "minimumManagerVersion":  "0.31.1",
+    "loaderReferences":  [
+                             {
+                                 "name":  "UnityModManager",
+                                 "assemblyVersion":  "0.31.1.0",
+                                 "sha256":  "2e038ff23ab01d538dfef792096e1f5c04802d1edac3660db20d0d54c167c2c4"
+                             },
+                             {
+                                 "name":  "0Harmony12",
+                                 "assemblyVersion":  "1.2.0.1",
+                                 "sha256":  "aa1cd48317254985d8b700cc74953477d1b40c3022ce9aa4c95ed2b8327e1292"
+                             },
+                             {
+                                 "name":  "0Harmony",
+                                 "assemblyVersion":  "2.3.1.1",
+                                 "sha256":  "5f7ad0df1eb08e81f66d4006d3a9e5cb40fc05e381f36d7bd0513f334f6a251f"
+                             }
+                         ],
+    "dllSha256":  "7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904",
+    "zip":  "<repo>\\artifacts\\KingmakerWakingRune-0.12.3.zip",
+    "zipSha256":  "41f89f3358140f8dc6edbc8afdeaa250a283795e7c437f87107f0d3d85259518"
+}

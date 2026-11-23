@@ -1,0 +1,298 @@
+{
+    "schema":  "kwr.loader-baseline-tests.v2",
+    "source_commit":  "3ca53fc65feae47ccf969beccafd7a16995d9c94",
+    "clone_build_receipt":  {
+                                "commit":  "3ca53fc65feae47ccf969beccafd7a16995d9c94",
+                                "dirty":  false,
+                                "version":  "0.12.3",
+                                "minimumManagerVersion":  "0.31.1",
+                                "loaderReferences":  [
+                                                         {
+                                                             "name":  "UnityModManager",
+                                                             "assemblyVersion":  "0.31.1.0",
+                                                             "sha256":  "2e038ff23ab01d538dfef792096e1f5c04802d1edac3660db20d0d54c167c2c4"
+                                                         },
+                                                         {
+                                                             "name":  "0Harmony12",
+                                                             "assemblyVersion":  "1.2.0.1",
+                                                             "sha256":  "aa1cd48317254985d8b700cc74953477d1b40c3022ce9aa4c95ed2b8327e1292"
+                                                         },
+                                                         {
+                                                             "name":  "0Harmony",
+                                                             "assemblyVersion":  "2.3.1.1",
+                                                             "sha256":  "5f7ad0df1eb08e81f66d4006d3a9e5cb40fc05e381f36d7bd0513f334f6a251f"
+                                                         }
+                                                     ],
+                                "dllSha256":  "7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904",
+                                "zip":  "<temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\clone with space\\artifacts\\KingmakerWakingRune-0.12.3.zip",
+                                "zipSha256":  "39347c44f6f2fd2b331ec13b21332c420ecd66f60a940653e3495c9199c0a610"
+                            },
+    "legacy_release_zip_sha256":  "4dec04872820942797e8e38b360ae8cb44ee31cb0b321791e7fb7da64593b402",
+    "wrong_fixtures":  [
+                           "UnityModManager 0.32.4.0 1387468bc3af41c50fe51859a3bb7af4922891aa8f13a6187e7a348ceaabfd88",
+                           "0Harmony 2.3.6.0 net48 df043f05c6e43602fa8e8f38f52a3a2cf962aab7a65a9d85573ea25f01a63e80"
+                       ],
+    "owner_install_measured":  {
+                                   "version":  "0.33.0.0",
+                                   "sha256":  "63e5baf7b1738e4091b5fd17ccb738ecdb4d1dbf246061dfd55dc52835d52691"
+                               },
+    "passed":  51,
+    "total":  51,
+    "cases":  [
+                  {
+                      "name":  "clone-build-and-package-from-detached-commit",
+                      "passed":  true,
+                      "detail":  "receipt commit 3ca53fc65feae47ccf969beccafd7a16995d9c94 dirty False; DLL 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; ZIP 39347c44f6f2fd2b331ec13b21332c420ecd66f60a940653e3495c9199c0a610; Tests: 290 passed, 0 failed"
+                  },
+                  {
+                      "name":  "cache-genuine-verified",
+                      "passed":  true,
+                      "detail":  "accepted"
+                  },
+                  {
+                      "name":  "cache-corrupt-harmony2-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Pinned loader reference hash mismatch:"
+                  },
+                  {
+                      "name":  "cache-missing-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Pinned loader reference missing:"
+                  },
+                  {
+                      "name":  "cache-umm-0.32.4-fixture-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Pinned loader reference hash mismatch:"
+                  },
+                  {
+                      "name":  "cache-harmony2-2.3.6-fixture-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Pinned loader reference hash mismatch:"
+                  },
+                  {
+                      "name":  "manifest-control-accepted",
+                      "passed":  true,
+                      "detail":  "accepted"
+                  },
+                  {
+                      "name":  "pin-definition-without-harmony2-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: The pin file must define exactly: UnityModManager, 0Harmony12, 0Harmony."
+                  },
+                  {
+                      "name":  "pin-definition-misnamed-harmony2-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: The pin file must define 0Harmony exactly once as 0Harmony.dll."
+                  },
+                  {
+                      "name":  "manifest-above-compiler-reference-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Info.json ManagerVersion must equal the pinned baseline 0.31.1."
+                  },
+                  {
+                      "name":  "manifest-array-version-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Info.json ManagerVersion must equal the pinned baseline 0.31.1."
+                  },
+                  {
+                      "name":  "compiler-pin-above-minimum-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: The UnityModManager compile reference must equal the declared minimum."
+                  },
+                  {
+                      "name":  "msbuild-corrupt-cache-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Pinned loader reference hash mismatch:"
+                  },
+                  {
+                      "name":  "msbuild-direct-compiles-against-pinned-inputs",
+                      "passed":  true,
+                      "detail":  "exit 0; UnityModManager.dll -\u003e <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\clone with space\\obj\\loader-references\\UnityModManager.dll; 0Harmony12.dll -\u003e <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\clone with space\\obj\\loader-references\\0Harmony12.dll; 0Harmony.dll -\u003e <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\clone with space\\obj\\loader-references\\0Harmony.dll"
+                  },
+                  {
+                      "name":  "incremental-build-genuine-accepted",
+                      "passed":  true,
+                      "detail":  "accepted"
+                  },
+                  {
+                      "name":  "incremental-build-up-to-date-accepted",
+                      "passed":  true,
+                      "detail":  "accepted"
+                  },
+                  {
+                      "name":  "incremental-build-after-manifest-only-change-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Info.json ManagerVersion must equal the pinned baseline 0.31.1."
+                  },
+                  {
+                      "name":  "incremental-build-after-pin-only-change-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Pinned loader reference hash mismatch:"
+                  },
+                  {
+                      "name":  "incremental-build-after-restore-accepted",
+                      "passed":  true,
+                      "detail":  "accepted"
+                  },
+                  {
+                      "name":  "csc-input-pinned-accepted",
+                      "passed":  true,
+                      "detail":  "accepted"
+                  },
+                  {
+                      "name":  "csc-input-identical-copy-elsewhere-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\clone with space\\LoaderReferences.targets(39,5): error : Loader compiler references must be the verified files in the pinned directory <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\clone with space\\obj\\loader-references\\; resolved: <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\stray copy\\UnityModManager.dll [<temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\probe stray.csproj]"
+                  },
+                  {
+                      "name":  "csc-input-same-stem-harmony2-in-pinned-dir-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\clone with space\\LoaderReferences.targets(39,5): error : Loader compiler references must be the verified files in the pinned directory <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\clone with space\\obj\\loader-references\\; resolved: <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\clone with space\\obj\\loader-references\\0Harmony.exe [<temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\probe samestem.csproj]"
+                  },
+                  {
+                      "name":  "csc-input-renamed-loader-in-pinned-dir-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\clone with space\\LoaderReferences.targets(39,5): error : Loader compiler references must be the verified files in the pinned directory <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\clone with space\\obj\\loader-references\\; resolved: <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\clone with space\\obj\\loader-references\\umm-alias.dll [<temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\probe alias.csproj]"
+                  },
+                  {
+                      "name":  "csc-input-umm-0.32.4-fixture-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\clone with space\\LoaderReferences.targets(39,5): error : Loader compiler references must be the verified files in the pinned directory <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\clone with space\\obj\\loader-references\\; resolved: <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\inputs\\UnityModManager-0.32.4.dll [<temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\probe wrongumm.csproj]"
+                  },
+                  {
+                      "name":  "csc-input-harmony2-2.3.6-fixture-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\clone with space\\LoaderReferences.targets(39,5): error : Loader compiler references must be the verified files in the pinned directory <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\clone with space\\obj\\loader-references\\; resolved: <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\inputs\\0Harmony-2.3.6.dll [<temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\probe wrongharmony.csproj]"
+                  },
+                  {
+                      "name":  "csc-input-substituted-reference-assembly-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\clone with space\\LoaderReferences.targets(39,5): error : Loader compiler references must be the verified files in the pinned directory <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\clone with space\\obj\\loader-references\\; resolved: <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\stray copy\\0Harmony.dll [<temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\probe substituted.csproj]"
+                  },
+                  {
+                      "name":  "package-candidate-with-receipt-accepted",
+                      "passed":  true,
+                      "detail":  "accepted: loader references: UnityModManager 0.31.1.0, 0Harmony12 1.2.0.1, 0Harmony 2.3.1.1"
+                  },
+                  {
+                      "name":  "package-repacked-same-content-accepted-without-receipt",
+                      "passed":  true,
+                      "detail":  "accepted: Package validation passed"
+                  },
+                  {
+                      "name":  "receipt-for-other-zip-bytes-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Build receipt does not describe this package (zip SHA-256 differs); rebuild."
+                  },
+                  {
+                      "name":  "receipt-other-dll-digest-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Build receipt does not describe the packaged DLL (SHA-256 differs); rebuild."
+                  },
+                  {
+                      "name":  "receipt-other-loader-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Build receipt does not match pinned reference UnityModManager; rebuild."
+                  },
+                  {
+                      "name":  "receipt-no-loader-references-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Build receipt has no loaderReferences; rebuild."
+                  },
+                  {
+                      "name":  "receipt-zip-digest-array-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Build receipt zipSha256 must be a lowercase SHA-256 string; rebuild."
+                  },
+                  {
+                      "name":  "receipt-dll-digest-boolean-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Build receipt dllSha256 must be a lowercase SHA-256 string; rebuild."
+                  },
+                  {
+                      "name":  "receipt-loader-version-array-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Build receipt loader reference field assemblyVersion must be a string; rebuild."
+                  },
+                  {
+                      "name":  "package-extra-harmony2-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Package must contain exactly 2 files; found 3: KingmakerWakingRune/Info.json,"
+                  },
+                  {
+                      "name":  "package-swapped-in-loader-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Unexpected package entry: KingmakerWakingRune/UnityModManager.dll"
+                  },
+                  {
+                      "name":  "package-swapped-in-game-assembly-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Unexpected package entry: KingmakerWakingRune/Assembly-CSharp-firstpass.dll"
+                  },
+                  {
+                      "name":  "package-data-bearing-directory-record-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Unexpected or data-bearing package directory record: \u0027KingmakerWakingRune/\u0027"
+                  },
+                  {
+                      "name":  "package-level0-deflate-empty-directory-accepted",
+                      "passed":  true,
+                      "detail":  "accepted: Package validation passed"
+                  },
+                  {
+                      "name":  "package-manager-version-array-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Packaged Info.json ManagerVersion must be a JSON string."
+                  },
+                  {
+                      "name":  "package-manager-version-boolean-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Packaged Info.json ManagerVersion must be a JSON string."
+                  },
+                  {
+                      "name":  "legacy-release-references-umm-0.33.2-harmony-2.3.6",
+                      "passed":  true,
+                      "detail":  "genuine v0.12.3 ZIP 4dec04872820942797e8e38b360ae8cb44ee31cb0b321791e7fb7da64593b402; DLL references 0Harmony 2.3.6.0; UnityModManager 0.33.2.0"
+                  },
+                  {
+                      "name":  "package-legacy-0.33.2-dll-with-0.31.1-manifest-rejected",
+                      "passed":  true,
+                      "detail":  "rejected: Packaged DLL must reference pinned UnityModManager 0.31.1.0 (found: 0.33.2.0); lowering Info.json alone is not"
+                  },
+                  {
+                      "name":  "same-host-validation-KingmakerWakingRune-0.12.3-first",
+                      "passed":  true,
+                      "detail":  "Package validation passed: <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\clone with space\\artifacts\\KingmakerWakingRune-0.12.3.zip | Package SHA-256: 39347c44f6f2fd2b331ec13b21332c420ecd66f60a940653e3495c9199c0a610; DLL SHA-256: 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; MVID: ccc59117-f992-44ce-9355-540d35f181f0; loader references: UnityModManager 0.31.1.0, 0Harmony12 1.2.0.1, 0Harmony 2.3.1.1 | ACCEPTED KingmakerWakingRune-0.12.3.zip | REJECTED legacy-lowered-manifest.zip: Packaged DLL must reference pinned UnityModManager 0.31.1.0 (found: 0.33.2.0); lowering Info.json alone is not sufficient."
+                  },
+                  {
+                      "name":  "same-host-validation-legacy-lowered-manifest-first",
+                      "passed":  true,
+                      "detail":  "REJECTED legacy-lowered-manifest.zip: Packaged DLL must reference pinned UnityModManager 0.31.1.0 (found: 0.33.2.0); lowering Info.json alone is not sufficient. | Package validation passed: <temp>\\kwr-loader-baseline-ee570d81d67a476fb139833c49ea3971\\clone with space\\artifacts\\KingmakerWakingRune-0.12.3.zip | Package SHA-256: 39347c44f6f2fd2b331ec13b21332c420ecd66f60a940653e3495c9199c0a610; DLL SHA-256: 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; MVID: ccc59117-f992-44ce-9355-540d35f181f0; loader references: UnityModManager 0.31.1.0, 0Harmony12 1.2.0.1, 0Harmony 2.3.1.1 | ACCEPTED KingmakerWakingRune-0.12.3.zip"
+                  },
+                  {
+                      "name":  "validator-report-pairs-zip-digest-with-its-own-dll",
+                      "passed":  true,
+                      "detail":  "report ZIP 39347c44f6f2fd2b331ec13b21332c420ecd66f60a940653e3495c9199c0a610 with DLL 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; caller path now holds the repacked ZIP"
+                  },
+                  {
+                      "name":  "package-from-earlier-pins-rejected-after-pin-change",
+                      "passed":  true,
+                      "detail":  "rejected: Packaged DLL must reference pinned 0Harmony 2.3.6.0 (found: 2.3.1.1); lowering Info.json alone is not sufficient."
+                  },
+                  {
+                      "name":  "kwrruntime-installs-only-validated-copies",
+                      "passed":  true,
+                      "detail":  "Expand-Archive sources: $validatedCopy, $validatedCopy; validated copies: 2 (KwrRuntime.ps1 itself is not run: it transacts against the live game)"
+                  },
+                  {
+                      "name":  "repository-artifacts-untouched",
+                      "passed":  true,
+                      "detail":  "this checkout\u0027s artifacts folder is unchanged"
+                  },
+                  {
+                      "name":  "legacy-input-preserved",
+                      "passed":  true,
+                      "detail":  "private copy still 4dec04872820942797e8e38b360ae8cb44ee31cb0b321791e7fb7da64593b402"
+                  }
+              ]
+}

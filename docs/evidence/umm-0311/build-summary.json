@@ -1,0 +1,12 @@
+{
+ "schema": "kingmaker.build-record.v1",
+ "source_commit": "3ca53fc65feae47ccf969beccafd7a16995d9c94",
+ "product": "KingmakerWakingRune.dll",
+ "product_compilations": [],
+ "other_compilations": [],
+ "summary_lines": [
+  "Tests: 290 passed, 0 failed.",
+  "Package validation passed: <repo>\\artifacts\\KingmakerWakingRune-0.12.3.zip",
+  "Package SHA-256: 41f89f3358140f8dc6edbc8afdeaa250a283795e7c437f87107f0d3d85259518; DLL SHA-256: 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; MVID: ccc59117-f992-44ce-9355-540d35f181f0; loader references: UnityModManager 0.31.1.0, 0Harmony12 1.2.0.1, 0Harmony 2.3.1.1"
+ ]
+}
