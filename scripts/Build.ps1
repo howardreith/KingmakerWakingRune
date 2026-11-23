@@ -11,6 +11,10 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $Root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 
+# The installed runtime may be newer; the product always targets the same oldest supported API.
+$loaderReferences = & (Join-Path $PSScriptRoot 'Get-PinnedLoaderReferences.ps1')
+$loaderPins = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'loader-reference-pins.json') | ConvertFrom-Json
+
 $vswhere = 'C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe'
 $msbuild = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
 if (-not $msbuild) { throw 'MSBuild not found (Visual Studio Build Tools required).' }
@@ -36,6 +40,13 @@ Copy-Item (Join-Path $Root 'bin\Release\KingmakerWakingRune.dll') $stage
 Add-Type -AssemblyName System.Drawing
 $dllBytes = [IO.File]::ReadAllBytes((Join-Path $stage 'KingmakerWakingRune.dll'))
 $assembly = [Reflection.Assembly]::Load($dllBytes)
+$assemblyReferences = @($assembly.GetReferencedAssemblies())
+foreach ($pin in $loaderPins.references) {
+    $reference = @($assemblyReferences | Where-Object Name -CEQ $pin.Name)
+    if ($reference.Count -ne 1 -or $reference[0].Version.ToString() -cne $pin.Version) {
+        throw "Built DLL does not reference the pinned $($pin.Name) $($pin.Version)."
+    }
+}
 $resources = @{}
 foreach ($name in $assembly.GetManifestResourceNames()) { $resources[$name.Replace([char]92, [char]47)] = $name }
 $expected = @('Icons/RefugeToken.png')
@@ -75,6 +86,14 @@ finally { $archive.Dispose() }
     commit = $commit
     dirty = $dirty
     version = $info.Version
+    minimumManagerVersion = $info.ManagerVersion
+    loaderReferences = @($loaderPins.references | ForEach-Object {
+        [ordered]@{
+            name = $_.Name
+            assemblyVersion = $_.Version
+            sha256 = (Get-FileHash -LiteralPath (Join-Path $loaderReferences $_.File) -Algorithm SHA256).Hash.ToLowerInvariant()
+        }
+    })
     dllSha256 = (Get-FileHash (Join-Path $stage 'KingmakerWakingRune.dll') -Algorithm SHA256).Hash.ToLowerInvariant()
     zip = $zip
     zipSha256 = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()

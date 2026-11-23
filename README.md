@@ -9,7 +9,8 @@ the Society Coordinator, and spend a shared 450,000 gp at the Quartermaster's sh
 investigation and rune sabotage. Boss combat is the next milestone, and there is no return route yet.
 
 ## Requirements
-- Pathfinder: Kingmaker 2.1.7b (Steam), Unity Mod Manager 0.33.x (any 0.28+ with Harmony 1.2 support).
+- Pathfinder: Kingmaker 2.1.7b (Steam). The common UMM build and support target is **0.31.1**, using its Harmony 1.2 adapter and Harmony 2.3.1.1.
+- Newer UMM versions are separate compatibility targets. The baseline change still needs an in-game qualification run; see [UMM compatibility](docs/UMM-COMPATIBILITY.md) for evidence and remaining checks.
 - No other mods are required.
 
 ## Install
@@ -33,6 +34,10 @@ copy LocalGamePaths.props.example LocalGamePaths.props   # then point it at your
 .\scripts\Build.ps1                                       # builds, runs tests, writes artifacts\*.zip + hashes
 ```
 Requires Visual Studio 2022 Build Tools (MSBuild) and the .NET Framework 4.7 targeting pack.
+The build fetches the exact upstream loader references pinned in `scripts/loader-reference-pins.json`
+into `obj/loader-references` and checks their SHA-256 and assembly identities. Direct MSBuild
+also verifies those files; run `scripts/Get-PinnedLoaderReferences.ps1` first to populate the cache.
+The installed UMM does not select build references. Loader/Harmony DLLs are not included in the mod ZIP.
 
 ## Repository map
 - `src/KingmakerWakingRune` — the mod (blueprints, selection, lodge, thin Harmony patches).
