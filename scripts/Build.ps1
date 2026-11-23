@@ -70,7 +70,8 @@ $zip = Join-Path $Root ("artifacts\KingmakerWakingRune-{0}{1}.zip" -f $info.Vers
 if (-not $dirty -and (Test-Path -LiteralPath $zip) -and -not $ReplacePackage) {
     throw "$zip already exists and may be a tested candidate; bump the version, or pass -ReplacePackage only with the owner's authorization."
 }
-Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
+$receiptPath = $zip + '.build.json'
+Remove-Item -LiteralPath $zip, $receiptPath -Force -ErrorAction SilentlyContinue
 # Entries are written with forward slashes (the zip standard): Compress-Archive in Windows PowerShell 5.1 writes
 # backslashes, which some extractors turn into flat file names instead of folders.
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
@@ -82,7 +83,7 @@ try {
     }
 }
 finally { $archive.Dispose() }
-[ordered]@{
+$receipt = [ordered]@{
     commit = $commit
     dirty = $dirty
     version = $info.Version
@@ -97,4 +98,11 @@ finally { $archive.Dispose() }
     dllSha256 = (Get-FileHash (Join-Path $stage 'KingmakerWakingRune.dll') -Algorithm SHA256).Hash.ToLowerInvariant()
     zip = $zip
     zipSha256 = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
-} | ConvertTo-Json
+}
+# The receipt beside the zip binds these exact bytes to the pinned references; the standalone validator (also run by
+# KwrRuntime.ps1 before any install) checks the packaged DLL's actual AssemblyRefs and, with the receipt, its hashes.
+$receipt | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $receiptPath -Encoding UTF8
+# Separate process: this script has already loaded the DLL bytes above.
+& powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'Validate-Package.ps1') -PackagePath $zip -ReceiptPath $receiptPath
+if ($LASTEXITCODE -ne 0) { throw 'Standalone package validation failed.' }
+$receipt | ConvertTo-Json -Depth 5

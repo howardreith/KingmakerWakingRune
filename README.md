@@ -10,7 +10,7 @@ investigation and rune sabotage. Boss combat is the next milestone, and there is
 
 ## Requirements
 - Pathfinder: Kingmaker 2.1.7b (Steam). The common UMM build and support target is **0.31.1**, using its Harmony 1.2 adapter and Harmony 2.3.1.1.
-- Newer UMM versions are separate compatibility targets. The baseline change still needs an in-game qualification run; see [UMM compatibility](docs/UMM-COMPATIBILITY.md) for evidence and remaining checks.
+- Newer UMM versions are separate compatibility targets. The baseline build, tests and package checks pass; in-game validation on 0.31.1 and newer loaders has not been run. See [UMM compatibility](docs/UMM-COMPATIBILITY.md) for evidence and remaining checks.
 - No other mods are required.
 
 ## Install
@@ -38,6 +38,8 @@ The build fetches the exact upstream loader references pinned in `scripts/loader
 into `obj/loader-references` and checks their SHA-256 and assembly identities. Direct MSBuild
 also verifies those files; run `scripts/Get-PinnedLoaderReferences.ps1` first to populate the cache.
 The installed UMM does not select build references. Loader/Harmony DLLs are not included in the mod ZIP.
+Before installing any ZIP, `scripts/Validate-Package.ps1 -PackagePath <zip>` checks its files, manifest and the
+DLL's actual loader references (`KwrRuntime.ps1` runs it automatically).
 
 ## Repository map
 - `src/KingmakerWakingRune` — the mod (blueprints, selection, lodge, thin Harmony patches).
