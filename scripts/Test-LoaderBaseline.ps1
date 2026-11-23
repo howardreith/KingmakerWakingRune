@@ -135,7 +135,14 @@ function Expand-Entry([string] $Zip, [string] $Entry, [string] $Destination, [st
 }
 
 try {
-    $legacyZip = Get-Fixture $LegacyReleaseZip $legacyUrl 'legacy-v0.12.3.zip' $legacySha256
+    # The repository is private: without -LegacyReleaseZip the release asset is fetched through the authenticated gh CLI.
+    if ($LegacyReleaseZip) { $legacyZip = Get-Fixture $LegacyReleaseZip $legacyUrl 'legacy-v0.12.3.zip' $legacySha256 }
+    else {
+        $legacyDir = Join-Path $inputs 'legacy-download'
+        $previous = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+        try { $null | & gh release download v0.12.3 -R howardreith/KingmakerWakingRune -p 'KingmakerWakingRune-0.12.3.zip' -D $legacyDir 2>&1 | Out-Null } finally { $ErrorActionPreference = $previous }
+        $legacyZip = Get-Fixture (Join-Path $legacyDir 'KingmakerWakingRune-0.12.3.zip') $legacyUrl 'legacy-v0.12.3.zip' $legacySha256
+    }
     $legacyDll = Join-Path $inputs 'legacy.dll'
     Expand-Entry $legacyZip "$modFolder/KingmakerWakingRune.dll" $legacyDll $null
     $wrongUmm = Join-Path $inputs 'UnityModManager-0.32.4.dll'
