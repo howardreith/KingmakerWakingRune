@@ -1,0 +1,81 @@
+{
+ "schema": "kwr.onboarding-profile-summary.v1",
+ "recorded_at_utc": "2026-11-24T01:01:16Z",
+ "profile": "user-local ~/.agent-review/projects/kingmaker-waking-rune.json (not in this repository)",
+ "created_by": "agent-review init-project on 2026-11-23 (mission onboarding allowance); validated with check-project and preflight",
+ "project_id": "kwr",
+ "repository": "howardreith/KingmakerWakingRune",
+ "allowed_remote_urls": [
+  "git@github.com:howardreith/KingmakerWakingRune.git",
+  "https://github.com/howardreith/KingmakerWakingRune.git"
+ ],
+ "expected_actor": "howardreith",
+ "default_target_branch": "main",
+ "branch_pattern": "^codex/[a-z0-9][a-z0-9._/-]*$",
+ "gates": {
+  "baseline": {
+   "argv": [
+    "powershell.exe",
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    "scripts/Test-LoaderBaseline.ps1"
+   ],
+   "timeout_minutes": 40
+  }
+ },
+ "limits": {
+  "max_developer_invocations": 30,
+  "max_review_attempts_per_round": 3,
+  "max_review_rounds_per_checkpoint": 5,
+  "no_progress_rounds": 3,
+  "publication_attempts": 4,
+  "retry_backoff_seconds": [
+   30,
+   120
+  ]
+ },
+ "instructions": [
+  "README.md",
+  "docs/UMM-COMPATIBILITY.md"
+ ],
+ "transcript_dir": "docs/agent-reviews",
+ "push_policy": "controller built-in guarded push (agent_review.py push): enrolled branch only, no force",
+ "developer": {
+  "model": "opus",
+  "effort": "high",
+  "allowed_model_pattern": "^claude-opus-",
+  "permissions_allow": [
+   "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/Build.ps1*)",
+   "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/Test-LoaderBaseline.ps1*)",
+   "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/Validate-Package.ps1*)",
+   "PowerShell(.\\scripts\\Build.ps1 *)",
+   "PowerShell(.\\scripts\\Build.ps1)",
+   "PowerShell(.\\scripts\\Test-LoaderBaseline.ps1 *)",
+   "PowerShell(.\\scripts\\Test-LoaderBaseline.ps1)",
+   "PowerShell(.\\scripts\\Validate-Package.ps1 *)"
+  ],
+  "permissions_deny": [
+   "Bash(powershell.exe -File scripts/KwrRuntime.ps1*)",
+   "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/KwrRuntime.ps1*)",
+   "PowerShell(.\\scripts\\KwrRuntime.ps1*)"
+  ],
+  "protected_paths": null
+ },
+ "reviewer": {
+  "model": "gpt-6.2-astra",
+  "effort": "max",
+  "executable": "codex"
+ },
+ "runtime_lock_paths": [
+  "<dev>/KingmakerGunslingerLab/compatibility-state/compatibility.lock",
+  "<dev>/KingmakerGunslingerLab/game-copies/loader-compat.lock",
+  "<dev>/KingmakerBuffPlannerLab/runtime-state/deployment.lock",
+  "<dev>/KingmakerBuffPlannerLab/runtime-fixture-state/fixture.lock",
+  "<dev>/KingmakerMemoryLeakResearchLab/runtime-state/kmld-runtime.lock",
+  "<dev>/KingmakerMountedCombatLab/runtime-state/active-transaction.lock",
+  "<dev>/KingmakerSkipCinematicLab/runtime-state/runtime.lock",
+  "<dev>/KingmakerWakingRuneLab/runtime-state/transaction.json"
+ ]
+}

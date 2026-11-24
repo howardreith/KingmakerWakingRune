@@ -1,0 +1,16 @@
+{
+ "schema": "kwr.pr-record.v1",
+ "recorded_at_utc": "2026-11-24T01:01:16Z",
+ "source": "gh pr view 12 (read-only)",
+ "pr": {
+  "baseRefName": "main",
+  "body": "## Why\nThe manifest advertised UMM 0.28.2 while builds used whatever loader and Harmony DLLs happened to be installed. That did not establish the common 0.31.x baseline requested across the Kingmaker mods.\n\n## Changes\n- Set the common minimum to UMM **0.31.1**, matching Tabletop Rules Expansion and Cutscene Skip.\n- Compile against SHA-256-verified upstream UMM 0.31.1, Harmony12 1.2.0.1, and Harmony 2.3.1.1 references kept outside the installed game.\n- Check the exact references during direct MSBuild as well as the build wrapper.\n- Refuse packaging unless the produced DLL references the pinned assembly versions; report reference identities in the build output.\n- Document each newer loader as a separate compatibility target and retain historical runtime evidence under its original identity.\n\n## Validation\nPassed: PowerShell parsing, real upstream archive/DLL hashes and assembly identities, missing/corrupt Harmony2 rejection, XML/JSON validation, diff checks, and an independent review of the build/package changes. Source inspection found the existing direct Harmony2 finalizer APIs in the pinned baseline binary.\n\n**Not run:** full Kingmaker product compilation, Windows packaging, or in-game compatibility. The game references are not available in this workspace and the Windows game host is offline. This draft is a reviewable source checkpoint, not a release qualification or runtime-support claim. The remaining per-profile checks are in `docs/UMM-COMPATIBILITY.md`.\n\nNo gameplay code, save format, installed game, published package, or release was changed.",
+  "createdAt": "2026-11-23T19:15:32Z",
+  "headRefName": "codex/umm-0311-baseline-20261123",
+  "isDraft": true,
+  "number": 12,
+  "state": "OPEN",
+  "title": "build: establish the UMM 0.31.1 baseline",
+  "url": "https://github.com/howardreith/KingmakerWakingRune/pull/12"
+ }
+}
