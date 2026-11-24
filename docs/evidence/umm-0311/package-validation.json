@@ -1,7 +1,7 @@
 {
     "status":  "package-validated",
-    "package":  "<temp>\\kwr-ev4-BCc2\\clone\\artifacts\\KingmakerWakingRune-0.12.3.zip",
-    "package_sha256":  "6f13d111b22b9158ac5f4adad08e990a2f363443ac43c74e24cdb49d4cb8de94",
+    "package":  "<temp>\\kwr-ev5-YWe2\\clone\\artifacts\\KingmakerWakingRune-0.12.3.zip",
+    "package_sha256":  "b7a824f226aa16304ae89bde52a87c3b3f52f52d58c2d9c501c6bd7af799e0ee",
     "version":  "0.12.3",
     "manager_version":  "0.31.1",
     "dll_assembly_name":  "KingmakerWakingRune",

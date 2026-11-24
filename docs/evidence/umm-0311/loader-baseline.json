@@ -1,9 +1,9 @@
 {
     "schema":  "kwr.loader-baseline-tests.v3",
-    "test_clone_commit":  "5609b015b89e92f75d993e45747c48dea36567c3",
-    "source_commit":  "5b91fa18fff8f7a23bd2698807b6a304e43b1408",
+    "test_clone_commit":  "44d546f994de5b37457d40bd3b2b259d8d59fbdb",
+    "source_commit":  "3779b0ef0d450e52073000a99ffef7fd0ee7b6cd",
     "clone_build_receipt":  {
-                                "commit":  "5609b015b89e92f75d993e45747c48dea36567c3",
+                                "commit":  "44d546f994de5b37457d40bd3b2b259d8d59fbdb",
                                 "dirty":  false,
                                 "version":  "0.12.4",
                                 "minimumManagerVersion":  "0.31.1",
@@ -24,7 +24,7 @@
                                                              "sha256":  "5f7ad0df1eb08e81f66d4006d3a9e5cb40fc05e381f36d7bd0513f334f6a251f"
                                                          }
                                                      ],
-                                "buildInputsSha256":  "dc247e0d546816f70a637f0d004cd1c51d58670eb742834425477ff4bda7defe",
+                                "buildInputsSha256":  "0b7bc9edade927ae3e6ff9a607ace836a3ecf965a016a93aa24faac31bfdab0f",
                                 "compilerInputs":  [
                                                        {
                                                            "kind":  "compiler",
@@ -1058,13 +1058,13 @@
                                                        }
                                                    ],
                                 "dllSha256":  "7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904",
-                                "zip":  "<temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\clone with space\\artifacts\\KingmakerWakingRune-0.12.4.zip",
-                                "zipSha256":  "6abb3957b9b1a55e3dc10fb04ca02a411fbdbd341ef86b35080b09f766401d41"
+                                "zip":  "<temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\clone with space\\artifacts\\KingmakerWakingRune-0.12.4.zip",
+                                "zipSha256":  "e6039b960f92520977bf73c9be98fc7d4c7964ce68e39b25bc947e6220be0716"
                             },
     "rebuild_receipt":  {
-                            "note":  "receipt of the last rebuild in the suite (after the section-11 compiler options were removed), recorded separately from the clone build",
+                            "note":  "receipt of the rebuild after restoring the section-11 compiler settings, recorded separately from the clone build",
                             "receipt":  {
-                                            "commit":  "186f344828bae052af5153aee4725d2cc97c7ec5",
+                                            "commit":  "e5eba26ffd839f736f00257fe467e17bd2be206d",
                                             "dirty":  false,
                                             "version":  "0.12.4",
                                             "minimumManagerVersion":  "0.31.1",
@@ -1085,7 +1085,7 @@
                                                                          "sha256":  "5f7ad0df1eb08e81f66d4006d3a9e5cb40fc05e381f36d7bd0513f334f6a251f"
                                                                      }
                                                                  ],
-                                            "buildInputsSha256":  "4d3485e86881cd04a8e2ab4071df477c88d7b8fc260c9eb1269e382dbcdb7274",
+                                            "buildInputsSha256":  "e261787497aee0ebbcaef170aaf79a47a277a79c2d164eed599f9ae22745b112",
                                             "compilerInputs":  [
                                                                    {
                                                                        "kind":  "compiler",
@@ -2119,8 +2119,8 @@
                                                                    }
                                                                ],
                                             "dllSha256":  "7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904",
-                                            "zip":  "<temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\clone with space\\artifacts\\KingmakerWakingRune-0.12.4.zip",
-                                            "zipSha256":  "22b957777803c1d6becd333b82d098c3103ead950bf67eee20aa64502ac87c9f"
+                                            "zip":  "<temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\clone with space\\artifacts\\KingmakerWakingRune-0.12.4.zip",
+                                            "zipSha256":  "c615d6585a13e8dc238cb31d2233b7b329fea88595dac68780ba8a54b998974c"
                                         }
                         },
     "legacy_release_zip_sha256":  "4dec04872820942797e8e38b360ae8cb44ee31cb0b321791e7fb7da64593b402",
@@ -2132,23 +2132,23 @@
                                    "version":  "0.33.0.0",
                                    "sha256":  "63e5baf7b1738e4091b5fd17ccb738ecdb4d1dbf246061dfd55dc52835d52691"
                                },
-    "passed":  108,
-    "total":  108,
+    "passed":  120,
+    "total":  120,
     "cases":  [
                   {
                       "name":  "unmodified-candidate-cold-cache-build-and-receipt-check",
                       "passed":  true,
-                      "detail":  "shipping version 0.12.3 at 5b91fa18fff8f7a23bd2698807b6a304e43b1408 (empty cache before the build): ZIP 07573ea37877000d93eae86e1bfd3bf1afe58f87a4e30d257fc81e586c9e7b2f DLL 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; standalone check with current provenance passed"
+                      "detail":  "shipping version 0.12.3 at 3779b0ef0d450e52073000a99ffef7fd0ee7b6cd (empty cache before the build): ZIP 58df83529d898527cc02d67c3fb13cb4156c4e57b0b5620c680d6af0ec0a1a02 DLL 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; standalone check with current provenance passed"
                   },
                   {
                       "name":  "alternate-version-build-keeps-shipping-pair",
                       "passed":  true,
-                      "detail":  "shipping 0.12.3 pair unchanged (07573ea37877000d93eae86e1bfd3bf1afe58f87a4e30d257fc81e586c9e7b2f/f86ca32a75e687281cf8ddb8d8a56d16047011e178031750c30a5ed318a59d46); alternate 0.12.4"
+                      "detail":  "shipping 0.12.3 pair unchanged (58df83529d898527cc02d67c3fb13cb4156c4e57b0b5620c680d6af0ec0a1a02/bb67ed78b42fe568caca95f678461fb3359b41307b1cdbff65c8de75a3f89a6b); alternate 0.12.4"
                   },
                   {
                       "name":  "clone-build-at-different-version",
                       "passed":  true,
-                      "detail":  "receipt commit 5609b015b89e92f75d993e45747c48dea36567c3 dirty False; DLL 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; ZIP 6abb3957b9b1a55e3dc10fb04ca02a411fbdbd341ef86b35080b09f766401d41; Tests: 290 passed, 0 failed"
+                      "detail":  "receipt commit 44d546f994de5b37457d40bd3b2b259d8d59fbdb dirty False; DLL 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; ZIP e6039b960f92520977bf73c9be98fc7d4c7964ce68e39b25bc947e6220be0716; Tests: 290 passed, 0 failed"
                   },
                   {
                       "name":  "cache-genuine-verified",
@@ -2213,7 +2213,7 @@
                   {
                       "name":  "msbuild-direct-compiles-against-pinned-inputs",
                       "passed":  true,
-                      "detail":  "exit 0; UnityModManager.dll -\u003e <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\clone with space\\obj\\loader-references\\UnityModManager.dll; 0Harmony12.dll -\u003e <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\clone with space\\obj\\loader-references\\0Harmony12.dll; 0Harmony.dll -\u003e <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\clone with space\\obj\\loader-references\\0Harmony.dll"
+                      "detail":  "exit 0; UnityModManager.dll -\u003e <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\clone with space\\obj\\loader-references\\UnityModManager.dll; 0Harmony12.dll -\u003e <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\clone with space\\obj\\loader-references\\0Harmony12.dll; 0Harmony.dll -\u003e <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\clone with space\\obj\\loader-references\\0Harmony.dll"
                   },
                   {
                       "name":  "incremental-build-genuine-accepted",
@@ -2248,32 +2248,32 @@
                   {
                       "name":  "csc-input-identical-copy-elsewhere-rejected",
                       "passed":  true,
-                      "detail":  "rejected: <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\clone with space\\LoaderReferences.targets(39,5): error : Loader compiler references must be the verified files in the pinned directory <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\clone with space\\obj\\loader-references\\; resolved: <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\stray copy\\UnityModManager.dll [<temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\probe stray.csproj]"
+                      "detail":  "rejected: <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\clone with space\\LoaderReferences.targets(39,5): error : Loader compiler references must be the verified files in the pinned directory <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\clone with space\\obj\\loader-references\\; resolved: <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\stray copy\\UnityModManager.dll [<temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\probe stray.csproj]"
                   },
                   {
                       "name":  "csc-input-same-stem-harmony2-in-pinned-dir-rejected",
                       "passed":  true,
-                      "detail":  "rejected: <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\clone with space\\LoaderReferences.targets(39,5): error : Loader compiler references must be the verified files in the pinned directory <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\clone with space\\obj\\loader-references\\; resolved: <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\clone with space\\obj\\loader-references\\0Harmony.exe [<temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\probe samestem.csproj]"
+                      "detail":  "rejected: <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\clone with space\\LoaderReferences.targets(39,5): error : Loader compiler references must be the verified files in the pinned directory <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\clone with space\\obj\\loader-references\\; resolved: <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\clone with space\\obj\\loader-references\\0Harmony.exe [<temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\probe samestem.csproj]"
                   },
                   {
                       "name":  "csc-input-renamed-loader-in-pinned-dir-rejected",
                       "passed":  true,
-                      "detail":  "rejected: <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\clone with space\\LoaderReferences.targets(39,5): error : Loader compiler references must be the verified files in the pinned directory <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\clone with space\\obj\\loader-references\\; resolved: <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\clone with space\\obj\\loader-references\\umm-alias.dll [<temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\probe alias.csproj]"
+                      "detail":  "rejected: <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\clone with space\\LoaderReferences.targets(39,5): error : Loader compiler references must be the verified files in the pinned directory <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\clone with space\\obj\\loader-references\\; resolved: <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\clone with space\\obj\\loader-references\\umm-alias.dll [<temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\probe alias.csproj]"
                   },
                   {
                       "name":  "csc-input-umm-0.32.4-fixture-rejected",
                       "passed":  true,
-                      "detail":  "rejected: <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\clone with space\\LoaderReferences.targets(39,5): error : Loader compiler references must be the verified files in the pinned directory <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\clone with space\\obj\\loader-references\\; resolved: <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\inputs\\UnityModManager-0.32.4.dll [<temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\probe wrongumm.csproj]"
+                      "detail":  "rejected: <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\clone with space\\LoaderReferences.targets(39,5): error : Loader compiler references must be the verified files in the pinned directory <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\clone with space\\obj\\loader-references\\; resolved: <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\inputs\\UnityModManager-0.32.4.dll [<temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\probe wrongumm.csproj]"
                   },
                   {
                       "name":  "csc-input-harmony2-2.3.6-fixture-rejected",
                       "passed":  true,
-                      "detail":  "rejected: <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\clone with space\\LoaderReferences.targets(39,5): error : Loader compiler references must be the verified files in the pinned directory <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\clone with space\\obj\\loader-references\\; resolved: <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\inputs\\0Harmony-2.3.6.dll [<temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\probe wrongharmony.csproj]"
+                      "detail":  "rejected: <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\clone with space\\LoaderReferences.targets(39,5): error : Loader compiler references must be the verified files in the pinned directory <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\clone with space\\obj\\loader-references\\; resolved: <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\inputs\\0Harmony-2.3.6.dll [<temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\probe wrongharmony.csproj]"
                   },
                   {
                       "name":  "csc-input-substituted-reference-assembly-rejected",
                       "passed":  true,
-                      "detail":  "rejected: <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\clone with space\\LoaderReferences.targets(39,5): error : Loader compiler references must be the verified files in the pinned directory <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\clone with space\\obj\\loader-references\\; resolved: <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\stray copy\\0Harmony.dll [<temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\probe substituted.csproj]"
+                      "detail":  "rejected: <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\clone with space\\LoaderReferences.targets(39,5): error : Loader compiler references must be the verified files in the pinned directory <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\clone with space\\obj\\loader-references\\; resolved: <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\stray copy\\0Harmony.dll [<temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\probe substituted.csproj]"
                   },
                   {
                       "name":  "package-candidate-with-receipt-accepted",
@@ -2368,17 +2368,17 @@
                   {
                       "name":  "same-host-validation-KingmakerWakingRune-0.12.4-first",
                       "passed":  true,
-                      "detail":  "Package validation passed: <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\clone with space\\artifacts\\KingmakerWakingRune-0.12.4.zip | Package SHA-256: 6abb3957b9b1a55e3dc10fb04ca02a411fbdbd341ef86b35080b09f766401d41; DLL SHA-256: 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; MVID: ccc59117-f992-44ce-9355-540d35f181f0; loader references: UnityModManager 0.31.1.0, 0Harmony12 1.2.0.1, 0Harmony 2.3.1.1; source provenance: not-checked | ACCEPTED KingmakerWakingRune-0.12.4.zip | REJECTED legacy-lowered-manifest.zip: Packaged DLL must reference pinned UnityModManager 0.31.1.0 (found: 0.33.2.0); lowering Info.json alone is not sufficient."
+                      "detail":  "Package validation passed: <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\clone with space\\artifacts\\KingmakerWakingRune-0.12.4.zip | Package SHA-256: e6039b960f92520977bf73c9be98fc7d4c7964ce68e39b25bc947e6220be0716; DLL SHA-256: 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; MVID: ccc59117-f992-44ce-9355-540d35f181f0; loader references: UnityModManager 0.31.1.0, 0Harmony12 1.2.0.1, 0Harmony 2.3.1.1; source provenance: not-checked | ACCEPTED KingmakerWakingRune-0.12.4.zip | REJECTED legacy-lowered-manifest.zip: Packaged DLL must reference pinned UnityModManager 0.31.1.0 (found: 0.33.2.0); lowering Info.json alone is not sufficient."
                   },
                   {
                       "name":  "same-host-validation-legacy-lowered-manifest-first",
                       "passed":  true,
-                      "detail":  "REJECTED legacy-lowered-manifest.zip: Packaged DLL must reference pinned UnityModManager 0.31.1.0 (found: 0.33.2.0); lowering Info.json alone is not sufficient. | Package validation passed: <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\clone with space\\artifacts\\KingmakerWakingRune-0.12.4.zip | Package SHA-256: 6abb3957b9b1a55e3dc10fb04ca02a411fbdbd341ef86b35080b09f766401d41; DLL SHA-256: 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; MVID: ccc59117-f992-44ce-9355-540d35f181f0; loader references: UnityModManager 0.31.1.0, 0Harmony12 1.2.0.1, 0Harmony 2.3.1.1; source provenance: not-checked | ACCEPTED KingmakerWakingRune-0.12.4.zip"
+                      "detail":  "REJECTED legacy-lowered-manifest.zip: Packaged DLL must reference pinned UnityModManager 0.31.1.0 (found: 0.33.2.0); lowering Info.json alone is not sufficient. | Package validation passed: <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\clone with space\\artifacts\\KingmakerWakingRune-0.12.4.zip | Package SHA-256: e6039b960f92520977bf73c9be98fc7d4c7964ce68e39b25bc947e6220be0716; DLL SHA-256: 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; MVID: ccc59117-f992-44ce-9355-540d35f181f0; loader references: UnityModManager 0.31.1.0, 0Harmony12 1.2.0.1, 0Harmony 2.3.1.1; source provenance: not-checked | ACCEPTED KingmakerWakingRune-0.12.4.zip"
                   },
                   {
                       "name":  "validator-report-pairs-zip-digest-with-its-own-dll",
                       "passed":  true,
-                      "detail":  "report ZIP 6abb3957b9b1a55e3dc10fb04ca02a411fbdbd341ef86b35080b09f766401d41 with DLL 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; caller path now holds the repacked ZIP"
+                      "detail":  "report ZIP e6039b960f92520977bf73c9be98fc7d4c7964ce68e39b25bc947e6220be0716 with DLL 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; caller path now holds the repacked ZIP"
                   },
                   {
                       "name":  "package-from-earlier-pins-rejected-after-pin-change",
@@ -2408,12 +2408,12 @@
                   {
                       "name":  "validator-offline-pin-missing-required-archive-digest-rejected",
                       "passed":  true,
-                      "detail":  "rejected: Missing archive hash for UnityModManager.dll."
+                      "detail":  "rejected:     + FullyQualifiedErrorId : The NuGet package source of UnityModManager.dll needs ArchiveEntry and ArchiveSha256."
                   },
                   {
                       "name":  "validator-offline-pin-archive-digest-without-entry-rejected",
                       "passed":  true,
-                      "detail":  "rejected: Archive hash without an archive entry for 0Harmony12.dll: the archive fields must be given together."
+                      "detail":  "rejected: The direct .dll source of 0Harmony12.dll must not name archive fields."
                   },
                   {
                       "name":  "validator-additional-harmony-adapter-reference-rejected",
@@ -2433,7 +2433,7 @@
                   {
                       "name":  "validator-relative-literal-path-from-powershell-location",
                       "passed":  true,
-                      "detail":  "relative \u0027pkg [1].zip\u0027 resolved to the PowerShell location: digest 6abb3957b9b1a55e3dc10fb04ca02a411fbdbd341ef86b35080b09f766401d41 (candidate 6abb3957b9b1a55e3dc10fb04ca02a411fbdbd341ef86b35080b09f766401d41; the process directory holds the lowered legacy ZIP)"
+                      "detail":  "relative \u0027pkg [1].zip\u0027 resolved to the PowerShell location: digest e6039b960f92520977bf73c9be98fc7d4c7964ce68e39b25bc947e6220be0716 (candidate e6039b960f92520977bf73c9be98fc7d4c7964ce68e39b25bc947e6220be0716; the process directory holds the lowered legacy ZIP)"
                   },
                   {
                       "name":  "validator-report-path-equal-to-package-rejected",
@@ -2448,12 +2448,12 @@
                   {
                       "name":  "validator-report-collisions-leave-inputs-intact",
                       "passed":  true,
-                      "detail":  "package 6abb3957b9b1a55e3dc10fb04ca02a411fbdbd341ef86b35080b09f766401d41 and receipt 79504d1af7aa29e8c0525e114e4e6b767af53678baa78fe3e4767363914506c6 unchanged"
+                      "detail":  "package e6039b960f92520977bf73c9be98fc7d4c7964ce68e39b25bc947e6220be0716 and receipt bc57cdaf9b2e216bc02f7347e55834e62c957f212dad2c2b1cef3b5e49de09c2 unchanged"
                   },
                   {
                       "name":  "install-helper-records-captured-source-and-digest-after-caller-zip-moved",
                       "passed":  true,
-                      "detail":  "RECORDED <temp>\\kwr-loader-baseline-ded1331b96014f32b6be284584057ff9\\caller [dir]\\KingmakerWakingRune [candidate].zip | 6abb3957b9b1a55e3dc10fb04ca02a411fbdbd341ef86b35080b09f766401d41 | verified-current / PRIVATE-LEFT False; installed DLL 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904"
+                      "detail":  "RECORDED <temp>\\kwr-loader-baseline-6598583461dc487ea535c4ee69e4b51d\\caller [dir]\\KingmakerWakingRune [candidate].zip | e6039b960f92520977bf73c9be98fc7d4c7964ce68e39b25bc947e6220be0716 | verified-current / PRIVATE-LEFT False; installed DLL 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904"
                   },
                   {
                       "name":  "install-helper-rejected-receipt-cleans-private-copy",
@@ -2473,7 +2473,7 @@
                   {
                       "name":  "build-clean-retry-succeeds-without-replace",
                       "passed":  true,
-                      "detail":  "exit 0; DLL 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904 (same as the first build); ZIP d72ace72011da181653bd2a2d7eb21f42143526dc966cbd80a25f1dfedad81ca"
+                      "detail":  "exit 0; DLL 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904 (same as the first build); ZIP 0ef540600ade4213c1086290e7f39ef5a68c06fccacdb21552d78d7018964fed"
                   },
                   {
                       "name":  "build-refuses-to-replace-clean-candidate",
@@ -2493,7 +2493,7 @@
                   {
                       "name":  "provenance-after-reference-helper-change-rejected",
                       "passed":  true,
-                      "detail":  "rejected: 5609b015b89e92f75d993e45747c48dea36567c3; rebuild."
+                      "detail":  "rejected: 44d546f994de5b37457d40bd3b2b259d8d59fbdb; rebuild."
                   },
                   {
                       "name":  "provenance-after-resolved-project-setting-change-rejected",
@@ -2508,7 +2508,7 @@
                   {
                       "name":  "provenance-old-pair-after-committed-helper-change-rejected",
                       "passed":  true,
-                      "detail":  "rejected: 5609b015b89e92f75d993e45747c48dea36567c3; rebuild."
+                      "detail":  "rejected: 44d546f994de5b37457d40bd3b2b259d8d59fbdb; rebuild."
                   },
                   {
                       "name":  "provenance-rebuilt-candidate-current",
@@ -2518,7 +2518,7 @@
                   {
                       "name":  "provenance-receipt-older-commit-rejected",
                       "passed":  true,
-                      "detail":  "rejected: 5b91fa18fff8f7a23bd2698807b6a304e43b1408; rebuild."
+                      "detail":  "rejected: 3779b0ef0d450e52073000a99ffef7fd0ee7b6cd; rebuild."
                   },
                   {
                       "name":  "provenance-receipt-unknown-commit-rejected",
@@ -2533,7 +2533,7 @@
                   {
                       "name":  "provenance-receipt-commit-differing-only-in-packaged-image-rejected",
                       "passed":  true,
-                      "detail":  "commit 1f9bf962a94a94afc9dfeed81ddf7fce95913c67 differs only in assets/icons/RefugeToken.png; 1f9bf962a94a94afc9dfeed81ddf7fce95913c67; rebuild."
+                      "detail":  "commit 7c19ad7d5d1b86f40a72ed594daef1fc16f1467a differs only in assets/icons/RefugeToken.png; 7c19ad7d5d1b86f40a72ed594daef1fc16f1467a; rebuild."
                   },
                   {
                       "name":  "provenance-after-base-address-change-rejected",
@@ -2558,7 +2558,7 @@
                   {
                       "name":  "build-with-response-file-records-it-and-its-resource",
                       "passed":  true,
-                      "detail":  "exit 0; @extra options.rsp 43e2b8f421f5f880058329398952a1514b22f6e612d9093da77f4e0f81d6e2df; /resource:rsp resource.bin,KWR/RspProbe.bin 019b69aa36628bc3eeaa9ace0d15de26f9fed9dc794a59fd6e9cfa21d9ad21f8"
+                      "detail":  "exit 0; @extra options.rsp 45b2d17f52a5b14c16fe392871d812680caa48a42eca9b443f7c6af168f1abd8; /resource:rsp resource.bin,KWR/RspProbe.bin 019b69aa36628bc3eeaa9ace0d15de26f9fed9dc794a59fd6e9cfa21d9ad21f8"
                   },
                   {
                       "name":  "provenance-response-file-build-current",
@@ -2568,7 +2568,7 @@
                   {
                       "name":  "provenance-after-response-file-resource-changed-rejected",
                       "passed":  true,
-                      "detail":  "response file unchanged (43e2b8f421f5f880058329398952a1514b22f6e612d9093da77f4e0f81d6e2df); compiler settings); rebuild."
+                      "detail":  "response file unchanged (45b2d17f52a5b14c16fe392871d812680caa48a42eca9b443f7c6af168f1abd8); compiler settings); rebuild."
                   },
                   {
                       "name":  "provenance-rebuilt-pair-after-resource-change-current",
@@ -2578,7 +2578,7 @@
                   {
                       "name":  "provenance-after-documentation-only-commit-current",
                       "passed":  true,
-                      "detail":  "receipt commit 186f344828bae052af5153aee4725d2cc97c7ec5; HEAD 83473caed1aa5a957558c4430117aba91a7c7ca4; source provenance: verified-current"
+                      "detail":  "receipt commit e5eba26ffd839f736f00257fe467e17bd2be206d; HEAD c1febac587ed48c85fa61798909c808bfceafdc3; source provenance: verified-current"
                   },
                   {
                       "name":  "report-path-equal-to-adjacent-receipt-without-receipt-argument-rejected",
@@ -2593,22 +2593,27 @@
                   {
                       "name":  "report-identity-refusals-leave-inputs-intact",
                       "passed":  true,
-                      "detail":  "package 22b957777803c1d6becd333b82d098c3103ead950bf67eee20aa64502ac87c9f and receipt 24cfd3edaa2e1f758fca829b28d33fbe23f0c1c3c84a87b25966388cf2a5c589 unchanged"
+                      "detail":  "package c615d6585a13e8dc238cb31d2233b7b329fea88595dac68780ba8a54b998974c and receipt 6cfead697a7c0f265cc0e5afd2911f8f2fce77f16272508b280e81ba82d19a6f unchanged"
                   },
                   {
                       "name":  "file-identity-matches-trusted-windows-read",
                       "passed":  true,
-                      "detail":  "validator 6cfdfe4e:003000000029345e; fsutil/vol 6cfdfe4e:003000000029345e (File ID is 0x0000000000000000003000000029345e;  Volume in drive C has no label.  Volume Serial Number is 6CFD-FE4E)"
+                      "detail":  "validator 6cfdfe4e:003a0000001e773b; fsutil/CIM 6cfdfe4e:003a0000001e773b (File ID is 0x0000000000000000003a0000001e773b; volume serial 6CFDFE4E)"
                   },
                   {
                       "name":  "report-path-distinct-existing-file-written",
                       "passed":  true,
-                      "detail":  "exit 0; report written in place of the distinct file (identity 6cfdfe4e:002d000000293475); package digest 22b957777803c1d6becd333b82d098c3103ead950bf67eee20aa64502ac87c9f"
+                      "detail":  "exit 0; report written in place of the distinct file (identity 6cfdfe4e:00490000001e774c); package digest c615d6585a13e8dc238cb31d2233b7b329fea88595dac68780ba8a54b998974c"
+                  },
+                  {
+                      "name":  "input-moved-to-the-report-destination-after-snapshot-refused",
+                      "passed":  true,
+                      "detail":  "exit 1; input bytes at the destination unchanged: True"
                   },
                   {
                       "name":  "report-destination-replaced-during-validation-refused",
                       "passed":  true,
-                      "detail":  "exit 1; path must not be an input of the validation (file identity 6cfdfe4e:003000000029345e).\"; package and receipt unchanged: True"
+                      "detail":  "exit 1; path must not be an input of the validation (file identity 6cfdfe4e:003a0000001e773b).\"; package and receipt unchanged: True"
                   },
                   {
                       "name":  "failed-replacement-restores-previous-zip-and-receipt",
@@ -2628,7 +2633,7 @@
                   {
                       "name":  "retry-after-receipt-lock-released-succeeds",
                       "passed":  true,
-                      "detail":  "exit 0; ZIP bd614bf1e6ae30b1ab6583433890b48c901d54962900a2670fb20c26d28bd109"
+                      "detail":  "exit 0; ZIP 88e7c9d56fe00675d132d71afcc80ef2d2ed1fb34bfc70bd485d38369065d27d"
                   },
                   {
                       "name":  "packaged-dll-is-this-invocations-compile",
@@ -2661,9 +2666,64 @@
                       "detail":  "REINSTALL-FAILED injected placement failure / PHASE-AFTER-FAILURE reinstalling MODDIR False / PHASE-AFTER-CLOSE reinstalling / LAUNCH-1 No installed transaction ready to launch. / PHASE-AFTER-RECOVERY closed DLL 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904 / LAUNCH-2 LAUNCH-ADMITTED (fixture stub stops before Steam)"
                   },
                   {
+                      "name":  "kwrruntime-interrupted-reinstall-keeps-recon-mode",
+                      "passed":  true,
+                      "detail":  "RECON-JOURNAL True / RECON-AFTER-RECOVERY True JOURNAL True"
+                  },
+                  {
+                      "name":  "provenance-receipt-commit-with-an-extra-icon-rejected",
+                      "passed":  true,
+                      "detail":  "commit f0ab1973665bd6bf325f2767648bd91fbe49ca93 adds assets/icons/LoaderBaselineExtra.png; f0ab1973665bd6bf325f2767648bd91fbe49ca93; rebuild."
+                  },
+                  {
+                      "name":  "provenance-current-again-after-extra-icon-case",
+                      "passed":  true,
+                      "detail":  "accepted: source provenance: verified-current"
+                  },
+                  {
+                      "name":  "build-with-response-file-recursion-refused",
+                      "passed":  true,
+                      "detail":  "rejected:    to the receipt); remove it from the project or local configuration."
+                  },
+                  {
+                      "name":  "provenance-with-response-file-recursion-declined",
+                      "passed":  true,
+                      "detail":  "rejected:    to the receipt); remove it from the project or local configuration."
+                  },
+                  {
+                      "name":  "provenance-current-again-after-recursion-removed",
+                      "passed":  true,
+                      "detail":  "accepted: source provenance: verified-current"
+                  },
+                  {
+                      "name":  "validator-offline-nuget-pin-without-archive-fields-rejected",
+                      "passed":  true,
+                      "detail":  "rejected:     + FullyQualifiedErrorId : The NuGet package source of UnityModManager.dll needs ArchiveEntry and ArchiveSha256."
+                  },
+                  {
+                      "name":  "validator-offline-raw-pin-with-omitted-archive-keys-accepted",
+                      "passed":  true,
+                      "detail":  "accepted: Package validation passed"
+                  },
+                  {
+                      "name":  "cold-acquisition-of-the-raw-pin-with-omitted-archive-keys",
+                      "passed":  true,
+                      "detail":  "exit 0; 0Harmony12.dll aa1cd48317254985d8b700cc74953477d1b40c3022ce9aa4c95ed2b8327e1292"
+                  },
+                  {
+                      "name":  "packaging-gated-by-this-invocations-tests",
+                      "passed":  true,
+                      "detail":  "exit 0; Tests: 290 passed, 0 failed; stale runner answered: False"
+                  },
+                  {
+                      "name":  "build-waits-for-the-destination-publisher-and-places-its-own-pair",
+                      "passed":  true,
+                      "detail":  "waited while held: True; previous pair untouched while held: True; exit 0; receipt names this compile: True"
+                  },
+                  {
                       "name":  "shipping-0.12.99-and-alternate-fixture-are-distinct-validated-packages",
                       "passed":  true,
-                      "detail":  "builds exit 0/0; validation (current provenance) 0.12.99 exit 0 before the version change, 0.12.100 exit 0; alternate 0.12.100; 0.12.99 pair 33ee0cfc6ed69697957fb6d0a73816ca83e9266a4a86fe275fe7926b2f514c6c/c78b7305176caf1dfc8e2e3c07c5b5796a417ae4ecc2b97a95287270c843e4e1 (after alternate build: 33ee0cfc6ed69697957fb6d0a73816ca83e9266a4a86fe275fe7926b2f514c6c/c78b7305176caf1dfc8e2e3c07c5b5796a417ae4ecc2b97a95287270c843e4e1); alternate ZIP 27e8692b1de9ebba9854d55a92e842daf7653055aa4063596eba75b5a5ecca6b"
+                      "detail":  "builds exit 0/0; validation (current provenance) 0.12.99 exit 0 before the version change, 0.12.100 exit 0; alternate 0.12.100; 0.12.99 pair 518c7ca32e9c0f916dd5e0eb358d0acbe3dbf28f86ab6bdfd0aa6a9c7106cdb6/60f7f584c0a9ef3358fd3a90c4d8d21077886ee7db13d0d80a9b0fec0b7e71a1 (after alternate build: 518c7ca32e9c0f916dd5e0eb358d0acbe3dbf28f86ab6bdfd0aa6a9c7106cdb6/60f7f584c0a9ef3358fd3a90c4d8d21077886ee7db13d0d80a9b0fec0b7e71a1); alternate ZIP 897a3dc7ac45ea5a8753838dcd1236cc61e991cb1a642a00b4b9300b7322a604"
                   },
                   {
                       "name":  "repository-artifacts-untouched",

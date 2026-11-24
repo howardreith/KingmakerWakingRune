@@ -1,5 +1,5 @@
 {
-    "commit":  "5b91fa18fff8f7a23bd2698807b6a304e43b1408",
+    "commit":  "3779b0ef0d450e52073000a99ffef7fd0ee7b6cd",
     "dirty":  false,
     "version":  "0.12.3",
     "minimumManagerVersion":  "0.31.1",
@@ -20,7 +20,7 @@
                                  "sha256":  "5f7ad0df1eb08e81f66d4006d3a9e5cb40fc05e381f36d7bd0513f334f6a251f"
                              }
                          ],
-    "buildInputsSha256":  "cfc33eb3b921b001c2bb5942575be8132c50add985f004c407c6561e0022a628",
+    "buildInputsSha256":  "db55cb5b5ceb5c770b30217e0f8b9bdee8b78f8bd0f6f40246bb5e6244230799",
     "compilerInputs":  [
                            {
                                "kind":  "compiler",
@@ -1054,6 +1054,6 @@
                            }
                        ],
     "dllSha256":  "7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904",
-    "zip":  "<temp>\\kwr-ev4-BCc2\\clone\\artifacts\\KingmakerWakingRune-0.12.3.zip",
-    "zipSha256":  "6f13d111b22b9158ac5f4adad08e990a2f363443ac43c74e24cdb49d4cb8de94"
+    "zip":  "<temp>\\kwr-ev5-YWe2\\clone\\artifacts\\KingmakerWakingRune-0.12.3.zip",
+    "zipSha256":  "b7a824f226aa16304ae89bde52a87c3b3f52f52d58c2d9c501c6bd7af799e0ee"
 }

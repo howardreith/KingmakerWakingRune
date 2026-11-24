@@ -1,7 +1,7 @@
 {
     "schema":  "kwr.readme-audit-run.v1",
-    "run_at_utc":  "2026-11-24T03:01:57Z",
-    "checkout_commit":  "5b91fa18fff8f7a23bd2698807b6a304e43b1408",
+    "run_at_utc":  "2026-11-24T16:41:17Z",
+    "checkout_commit":  "3779b0ef0d450e52073000a99ffef7fd0ee7b6cd",
     "checkout_clean":  true,
     "dotnet_sdk":  "8.0.424",
     "steps":  [
@@ -31,14 +31,14 @@
                       "exit_code":  0,
                       "output":  [
                                      "  Determining projects to restore...",
-                                     "  Restored <temp>\\kwr-ev4-BCc2\\clone\\audit\\LoaderApiAudit.csproj (in 63 ms).",
-                                     "  LoaderApiAudit -\u003e <temp>\\kwr-ev4-BCc2\\clone\\audit\\bin\\Release\\net8.0\\LoaderApiAudit.dll",
+                                     "  Restored <temp>\\kwr-ev5-YWe2\\clone\\audit\\LoaderApiAudit.csproj (in 248 ms).",
+                                     "  LoaderApiAudit -\u003e <temp>\\kwr-ev5-YWe2\\clone\\audit\\bin\\Release\\net8.0\\LoaderApiAudit.dll",
                                      "",
                                      "Build succeeded.",
                                      "    0 Warning(s)",
                                      "    0 Error(s)",
                                      "",
-                                     "Time Elapsed 00:00:02.46"
+                                     "Time Elapsed 00:00:10.07"
                                  ]
                   },
                   {
