@@ -34,3 +34,12 @@ python -c "import hashlib,subprocess,sys; print(hashlib.sha256(subprocess.check_
 | `loader-profiles.md` | `3b2883677f537286a0d6f210327fae8ac8734b40ec7cc5850e92819eaeb03d5e` | `3b2883677f537286a0d6f210327fae8ac8734b40ec7cc5850e92819eaeb03d5e` |
 | `loader-api-audit-Program.cs.txt` | `be870827024fd41f63235ebb522c489e8d49c7991de7091ad0e14a1a0e935ea3` | `be870827024fd41f63235ebb522c489e8d49c7991de7091ad0e14a1a0e935ea3` |
 | `loader-api-audit-csproj.txt` | `93989652d8252ff54a60ec92c13c1fc41bf94bfa3cf6c9f7f13c877bac761909` | `93989652d8252ff54a60ec92c13c1fc41bf94bfa3cf6c9f7f13c877bac761909` |
+| `onboarding-check-project-20261124.json` | `1364b1bf6e39d313b23c8c4cb9a08303966af9cc6ca1042b767da018db640030` | `2cca8f36d6830372c02c749b6cce5477f3f316652cd8b864f291571b055ccd92` |
+| `onboarding-preflight-20261124.json` | `fee0f562e9d28d52bf0b865a45b0ae35271de0daf2dce41699497c860f263da4` | `f5ca5bfc44c46d5515ee5941dea53bfd74fc0989377d7ddcebfabdb52338fbe9` |
+| `effective-profile-verification-20261124.json` | `244ea7f66eb2d08943f882dbc74d4c119fdf3a1c3f5b8fcc99ed58f1b9531b54` | `244ea7f66eb2d08943f882dbc74d4c119fdf3a1c3f5b8fcc99ed58f1b9531b54` |
+
+Added 2026-11-24 after the owner amendment (controller-recorded): `onboarding-check-project-20261124.json` and
+`onboarding-preflight-20261124.json` are controller outputs of that day, and `effective-profile-verification-20261124.json`
+records that the profile file equals the enrollment snapshot. They verify the current configuration. They are not
+pre-enrollment evidence: the pre-enrollment check survives only as the transcript summary in
+`pre-enrollment-check-project.json`, which the owner accepted as a documented historical gap.
