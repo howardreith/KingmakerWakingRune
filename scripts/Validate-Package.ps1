@@ -34,10 +34,32 @@ if ($ReceiptPath) {
 elseif ($RequireCurrentProvenance) { throw '-RequireCurrentProvenance needs the build receipt (-ReceiptPath).' }
 if ($ReportPath) {
     $ReportPath = Resolve-LiteralFilePath $ReportPath
-    foreach ($inputPath in @($PackagePath, $ReceiptPath) | Where-Object { $_ }) {
-        if ([string]::Equals([IO.Path]::GetFullPath($ReportPath), [IO.Path]::GetFullPath($inputPath), [StringComparison]::OrdinalIgnoreCase)) {
-            throw "The report path must not be an input of the validation: $inputPath"
+    # Protected inputs: the package, the receipt given, and the conventional receipt beside the package even when it is
+    # not given. An existing report destination is compared by file identity (volume and file index), so another
+    # spelling, a short name or a hard link of a protected input is refused too.
+    if (-not ('KwrFileIdentity' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.IO;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
+public static class KwrFileIdentity {
+    [StructLayout(LayoutKind.Sequential)] struct Info { public uint Attributes; public long C, A, W; public uint Volume, SizeHigh, SizeLow, Links, IndexHigh, IndexLow; }
+    [DllImport("kernel32.dll", SetLastError = true)] static extern bool GetFileInformationByHandle(SafeFileHandle h, out Info i);
+    public static string Of(string path) {
+        using (var f = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete)) {
+            Info i; if (!GetFileInformationByHandle(f.SafeFileHandle, out i)) return null;
+            return i.Volume.ToString("x8") + ":" + i.IndexHigh.ToString("x8") + i.IndexLow.ToString("x8");
         }
+    }
+}
+'@
+    }
+    $protected = @($PackagePath, $ReceiptPath, ($PackagePath + '.build.json')) | Where-Object { $_ } | Select-Object -Unique
+    foreach ($inputPath in $protected) {
+        $same = [string]::Equals([IO.Path]::GetFullPath($ReportPath), [IO.Path]::GetFullPath($inputPath), [StringComparison]::OrdinalIgnoreCase)
+        if (-not $same -and [IO.File]::Exists($ReportPath) -and [IO.File]::Exists($inputPath)) { $same = [KwrFileIdentity]::Of($ReportPath) -ceq [KwrFileIdentity]::Of($inputPath) }
+        if ($same) { throw "The report path must not be an input of the validation: $inputPath" }
     }
 }
 # The same pin-definition and manifest contract as the build (offline; no download, no cache needed).
@@ -179,6 +201,9 @@ if ($ReceiptPath) {
     if ([string]$receipt.zipSha256 -cne $packageSha256) { throw 'Build receipt does not describe this package (zip SHA-256 differs); rebuild.' }
     if ([string]$receipt.dllSha256 -cne $dllSha256) { throw 'Build receipt does not describe the packaged DLL (SHA-256 differs); rebuild.' }
     if ([string]$receipt.minimumManagerVersion -cne [string]$pins.minimumManagerVersion) { throw 'Build receipt records a different minimum UMM version; rebuild.' }
+    if (-not $receipt.PSObject.Properties['version'] -or -not ($receipt.version -is [string]) -or [string]$receipt.version -cne [string]$info.Version) {
+        throw "Build receipt version does not match the packaged manifest ($($info.Version)); rebuild."
+    }
     $recorded = @($receipt.loaderReferences)
     if ($recorded.Count -ne @($pins.references).Count) { throw 'Build receipt has an unexpected loader reference count; rebuild.' }
     foreach ($pin in $pins.references) {
@@ -202,6 +227,13 @@ if ($ReceiptPath) {
                 if ($null -eq $entry -or -not $entry.PSObject.Properties[$field] -or -not ($entry.$field -is [string])) { throw "Build receipt compiler input field $field must be a string; rebuild." }
             }
         }
+        # The recorded commit must exist and its material inputs must be the files present now.
+        & git -C $Root cat-file -e ($receipt.commit + '^{commit}') 2>$null
+        if ($LASTEXITCODE -ne 0) { throw "Build receipt names a commit this repository does not have ($($receipt.commit)); rebuild." }
+        $materialPaths = @('src', 'Info.json', 'LoaderReferences.targets', 'scripts/loader-reference-pins.json', 'scripts/Get-PinnedLoaderReferences.ps1', 'scripts/Build.ps1', 'scripts/KwrBuild.Common.ps1')
+        & git -C $Root diff --quiet $receipt.commit -- @materialPaths 2>$null
+        if ($LASTEXITCODE -ne 0) { throw "The material inputs differ from the receipt's commit $($receipt.commit); rebuild." }
+        if (@($receipt.compilerInputs | Where-Object { [string]$_.sha256 -ceq 'absent' }).Count -ne 0) { throw 'Build receipt has an unidentified compiler input; rebuild.' }
         $currentInputs = @(Get-KwrCompilerInputs)
         if ((ConvertTo-KwrCompilerInventoryText $receipt.compilerInputs) -cne (ConvertTo-KwrCompilerInventoryText $currentInputs) -or
             [string]$receipt.buildInputsSha256 -cne (Get-KwrBuildInputFingerprint $currentInputs)) {

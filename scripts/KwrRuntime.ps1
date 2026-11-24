@@ -24,6 +24,8 @@ param(
     [string] $RunId,
     [string] $PackagePath,
     [switch] $Recon,
+    # Begin/Reinstall: stage a receipt-backed diagnostic build without the frozen-candidate provenance requirement.
+    [switch] $Diagnostic,
     [string[]] $LaunchArgs = @(),
     [string] $Name,
     [int] $X,
@@ -197,7 +199,7 @@ function Invoke-Begin {
     if (@(Get-GameProcesses).Count -gt 0) { throw 'Kingmaker is running; it may be an owner session. Refusing to start.' }
     if (-not $RunId -or $RunId -notmatch '^[A-Za-z0-9._-]{3,80}$') { throw 'A -RunId of 3-80 safe characters is required.' }
     if (-not $PackagePath) { throw 'A -PackagePath to the built zip is required.' }
-    $validated = New-KwrValidatedPackageCopy $PackagePath
+    $validated = New-KwrValidatedPackageCopy $PackagePath -Diagnostic:$Diagnostic
     try {
     Assert-SteamCloudOffline
 
@@ -205,7 +207,7 @@ function Invoke-Begin {
     $run = Join-Path $EvidenceRoot $RunId
     if ((Test-Path $tx) -or (Test-Path $run)) { throw "RunId $RunId was already used." }
     New-Item -ItemType Directory -Force -Path $tx, $run | Out-Null
-    $s = [ordered]@{ runId = $RunId; createdUtc = (Get-Date).ToUniversalTime().ToString('o'); phase = 'snapshotting'; gamePid = $null; gameStart = $null; package = $validated.Source; packageSha256 = $validated.Sha256; sourceProvenance = $validated.SourceProvenance; recon = [bool]$Recon }
+    $s = [ordered]@{ runId = $RunId; createdUtc = (Get-Date).ToUniversalTime().ToString('o'); phase = 'snapshotting'; gamePid = $null; gameStart = $null; package = $validated.Source; packageSha256 = $validated.Sha256; sourceProvenance = $validated.SourceProvenance; installMode = $validated.InstallMode; recon = [bool]$Recon }
     Save-State $s
 
     Write-Step 'Snapshotting Kingmaker profile and Steam save mirror...'
@@ -247,17 +249,26 @@ function Invoke-Reinstall {
     if (-not $s -or $s.phase -notin @('installed', 'closed')) { throw 'Reinstall needs an open transaction with the game closed.' }
     if (@(Get-GameProcesses).Count -gt 0) { throw 'Kingmaker is running; never hot-replace the DLL.' }
     if (-not $PackagePath) { throw 'A -PackagePath is required.' }
-    $validated = New-KwrValidatedPackageCopy $PackagePath
+    $validated = New-KwrValidatedPackageCopy $PackagePath -Diagnostic:$Diagnostic
     try {
         $recon = Test-Path -LiteralPath (Join-Path $ModDir 'recon.flag')
+        # Stage and verify the new folder first; then mark the transaction non-launchable before touching the installed
+        # mod, so a failure leaves a 'reinstalling' transaction that Launch refuses and End restores.
+        $stagedMod = Expand-KwrValidatedPackageCopy $validated
+        $previousPhase = $s.phase
+        $s.phase = 'reinstalling'
+        Save-State $s
         if (Test-Path -LiteralPath $ModDir) { Remove-Item -LiteralPath $ModDir -Recurse -Force }
-        Install-KwrValidatedPackageCopy $validated $ModsRoot
+        Move-Item -LiteralPath $stagedMod -Destination $ModDir
+        if ((Get-FileHash -LiteralPath (Join-Path $ModDir 'KingmakerWakingRune.dll') -Algorithm SHA256).Hash.ToLowerInvariant() -cne $validated.DllSha256) { throw 'Installed DLL differs from the validated package.' }
         if ($recon) { Set-Content -LiteralPath (Join-Path $ModDir 'recon.flag') -Value 'recon' }
         Set-Content -LiteralPath (Join-Path $ModDir 'capture.flag') -Value 'harness'
         # Recorded from the identities captured before installing (never re-resolved from the caller's path).
         $s.package = $validated.Source
         $s.packageSha256 = $validated.Sha256
         $s | Add-Member -NotePropertyName sourceProvenance -NotePropertyValue $validated.SourceProvenance -Force
+        $s | Add-Member -NotePropertyName installMode -NotePropertyValue $validated.InstallMode -Force
+        $s.phase = $previousPhase
         Save-State $s
         Write-Step "Reinstalled package $($s.packageSha256) (recon=$recon)."
     }

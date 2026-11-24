@@ -35,7 +35,8 @@ $buildInputs = Get-KwrBuildInputFingerprint $compilerInputs
 $msbuild = Get-KwrMsBuild
 $productionInventory = Join-Path ([IO.Path]::GetTempPath()) ('kwr-production-inputs-' + [Guid]::NewGuid().ToString('N') + '.txt')
 try {
-    & $msbuild (Join-Path $Root 'src\KingmakerWakingRune\KingmakerWakingRune.csproj') -nologo -v:minimal -p:Configuration=Release "-p:CompilerReferenceListPath=$productionInventory"
+    # A fresh compile (Rebuild): the packaged DLL is always this invocation's output, never an earlier incremental result.
+    & $msbuild (Join-Path $Root 'src\KingmakerWakingRune\KingmakerWakingRune.csproj') -nologo -v:minimal -t:Rebuild -p:Configuration=Release "-p:CompilerReferenceListPath=$productionInventory"
     if ($LASTEXITCODE -ne 0) { throw 'Mod build failed.' }
     $produced = @(ConvertFrom-KwrCompilerInputList $productionInventory)
 }
@@ -131,12 +132,24 @@ try {
     if (-not $dirty) { $validation += '-RequireCurrentProvenance' }
     & powershell.exe @validation
     if ($LASTEXITCODE -ne 0) { throw 'Standalone package validation failed; nothing is placed at the candidate paths.' }
-    if ($ReplacePackage) { Remove-Item -LiteralPath $zip, $receiptPath -Force -ErrorAction SilentlyContinue }
-    elseif ($dirty) { Remove-Item -LiteralPath $zip, $receiptPath -Force -ErrorAction SilentlyContinue }
-    # File.Move refuses an existing destination: a clean candidate that appeared meanwhile is never overwritten.
-    [IO.File]::Move($pendingZip, $zip)
-    try { [IO.File]::Move($pendingReceipt, $receiptPath) }
-    catch { [IO.File]::Delete($zip); throw }
+    # A replaced package (owner-authorized -ReplacePackage, or a -dirty build) is moved aside first and restored if either
+    # placement fails; File.Move refuses an existing destination, so a clean candidate is never overwritten silently.
+    $previous = Join-Path $pending 'previous'
+    $keptAside = @()
+    if ($ReplacePackage -or $dirty) {
+        New-Item -ItemType Directory -Path $previous | Out-Null
+        foreach ($file in @($zip, $receiptPath)) { if (Test-Path -LiteralPath $file) { [IO.File]::Move($file, (Join-Path $previous ([IO.Path]::GetFileName($file)))); $keptAside += $file } }
+    }
+    try {
+        [IO.File]::Move($pendingZip, $zip)
+        [IO.File]::Move($pendingReceipt, $receiptPath)
+    }
+    catch {
+        if (Test-Path -LiteralPath $zip) { if ((Get-KwrSha256 $zip) -ceq $receipt.zipSha256) { [IO.File]::Delete($zip) } }
+        if (Test-Path -LiteralPath $receiptPath) { if (-not (Test-Path -LiteralPath $pendingReceipt)) { [IO.File]::Delete($receiptPath) } }
+        foreach ($file in $keptAside) { if (-not (Test-Path -LiteralPath $file)) { [IO.File]::Move((Join-Path $previous ([IO.Path]::GetFileName($file))), $file) } }
+        throw
+    }
 }
 finally {
     if ([IO.Directory]::Exists($pending)) { [IO.Directory]::Delete($pending, $true) }

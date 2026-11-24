@@ -6,7 +6,9 @@ Set-StrictMode -Version Latest
 # when present) into a private directory, validates that copy with the standalone validator and returns the identities
 # of the validated bytes. A receipt makes this the frozen-candidate path: the receipt must also name a clean producing
 # commit and the current build inputs. The private directory is removed on any failure.
-function New-KwrValidatedPackageCopy([string] $PackagePath) {
+# -Diagnostic: a receipt-backed diagnostic build (for example a dirty working tree) is staged with the ZIP, DLL and pin
+# checks and the receipt matched to the package, without the frozen-candidate provenance requirement.
+function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic) {
     $source = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($PackagePath)
     if (-not [IO.File]::Exists($source)) { throw "Package not found: $source" }
     $private = Join-Path ([IO.Path]::GetTempPath()) ('KingmakerWakingRune-package-' + [Guid]::NewGuid().ToString('N'))
@@ -18,7 +20,8 @@ function New-KwrValidatedPackageCopy([string] $PackagePath) {
         $receiptSource = $source + '.build.json'
         if ([IO.File]::Exists($receiptSource)) {
             [IO.File]::Copy($receiptSource, $copy + '.build.json')
-            & (Join-Path $PSScriptRoot 'Validate-Package.ps1') -PackagePath $copy -ReceiptPath ($copy + '.build.json') -RequireCurrentProvenance -ReportPath $report | Out-Host
+            if ($Diagnostic) { & (Join-Path $PSScriptRoot 'Validate-Package.ps1') -PackagePath $copy -ReceiptPath ($copy + '.build.json') -ReportPath $report | Out-Host }
+            else { & (Join-Path $PSScriptRoot 'Validate-Package.ps1') -PackagePath $copy -ReceiptPath ($copy + '.build.json') -RequireCurrentProvenance -ReportPath $report | Out-Host }
         }
         else { & (Join-Path $PSScriptRoot 'Validate-Package.ps1') -PackagePath $copy -ReportPath $report | Out-Host }
         $validation = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
@@ -30,6 +33,7 @@ function New-KwrValidatedPackageCopy([string] $PackagePath) {
             Sha256 = [string]$validation.package_sha256
             DllSha256 = [string]$validation.dll_sha256
             SourceProvenance = [string]$validation.source_provenance
+            InstallMode = $(if ($Diagnostic) { 'diagnostic' } else { 'frozen-candidate' })
         }
     }
     catch {
@@ -38,13 +42,26 @@ function New-KwrValidatedPackageCopy([string] $PackagePath) {
     }
 }
 
-# Extracts exactly the validated copy into the destination root; the extracted DLL must be the validated DLL.
-function Install-KwrValidatedPackageCopy($Validated, [string] $DestinationRoot) {
+# Extracts exactly the validated copy into a staging folder beside the private copy and verifies it (the DLL must be the
+# validated DLL) before anything is installed; returns the staged mod folder.
+function Expand-KwrValidatedPackageCopy($Validated) {
     Add-Type -AssemblyName System.IO.Compression.FileSystem
-    [IO.Compression.ZipFile]::ExtractToDirectory($Validated.Copy, $DestinationRoot)
-    $dll = Join-Path $DestinationRoot 'KingmakerWakingRune\KingmakerWakingRune.dll'
-    if (-not [IO.File]::Exists($dll)) { throw 'Package did not install the expected mod folder.' }
-    if ((Get-FileHash -LiteralPath $dll -Algorithm SHA256).Hash.ToLowerInvariant() -cne $Validated.DllSha256) { throw 'Installed DLL differs from the validated package.' }
+    $staged = Join-Path $Validated.PrivateDirectory 'staged'
+    [IO.Compression.ZipFile]::ExtractToDirectory($Validated.Copy, $staged)
+    $mod = Join-Path $staged 'KingmakerWakingRune'
+    $dll = Join-Path $mod 'KingmakerWakingRune.dll'
+    if (-not [IO.File]::Exists($dll) -or -not [IO.File]::Exists((Join-Path $mod 'Info.json'))) { throw 'Package did not stage the expected mod folder.' }
+    if ((Get-FileHash -LiteralPath $dll -Algorithm SHA256).Hash.ToLowerInvariant() -cne $Validated.DllSha256) { throw 'Staged DLL differs from the validated package.' }
+    return $mod
+}
+
+# Installs the verified staged folder as <DestinationRoot>\KingmakerWakingRune (the destination must not exist).
+function Install-KwrValidatedPackageCopy($Validated, [string] $DestinationRoot) {
+    $mod = Expand-KwrValidatedPackageCopy $Validated
+    $target = Join-Path $DestinationRoot 'KingmakerWakingRune'
+    if (Test-Path -LiteralPath $target) { throw "Install target already exists: $target" }
+    Move-Item -LiteralPath $mod -Destination $target
+    if ((Get-FileHash -LiteralPath (Join-Path $target 'KingmakerWakingRune.dll') -Algorithm SHA256).Hash.ToLowerInvariant() -cne $Validated.DllSha256) { throw 'Installed DLL differs from the validated package.' }
 }
 
 function Remove-KwrValidatedPackageCopy($Validated) {
