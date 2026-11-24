@@ -35,23 +35,30 @@ Harmony12 adapter alone does not cover that API surface.
   builds are not a supported or verified route. The fast up-to-date check is disabled and
   the pin, verifier, guard and manifest are compile inputs, so an incremental build refuses
   a pin-only or manifest-only change.
-- `scripts/Build.ps1` reads the commit and dirty state, the compiler inventory MSBuild evaluates
-  for the production project (an opt-in `WriteCompilerReferenceList` target: the exact references Csc
-  receives after reference-assembly selection, source/resource/analyzer items and compile-affecting
-  properties, including anything `LocalGamePaths.props` sets) and a build-input fingerprint (tracked or new
+- `scripts/Build.ps1` reads the commit and dirty state, the compiler inventory - the exact Csc command line
+  MSBuild produces for the production project (an opt-in `WriteCompilerReferenceList` target with
+  `ProvideCommandLineArgs`, evaluated by a `SkipCompilerExecution` pass through `PrepareResources` and
+  `CoreCompile` in a fresh intermediate directory, so anything `LocalGamePaths.props` sets is included): the
+  effective compiler binary, then every argument in order, options verbatim, references, sources (generated
+  ones included), response files and file-valued options (`/win32res`, `/resource`, `/keyfile`, ...) by the
+  content of the files they name - and a build-input fingerprint (tracked or new
   files under `src/`, `Info.json`, `LoaderReferences.targets`, the pins, verifier and build scripts, plus
   that inventory) before building; the production compile writes its own inventory, which must equal the
-  evaluated one, and neither HEAD nor the inputs may change while building. It then builds, runs the
+  evaluated one, and neither HEAD nor the inputs may change while building. The product is always a fresh
+  compile (`Rebuild`), never an earlier incremental output. It then builds, runs the
   tests, checks the embedded art and the DLL's reference versions, writes the ZIP
   (`KingmakerWakingRune/{Info.json,KingmakerWakingRune.dll}`) and its receipt (`<zip>.build.json`:
   commit, dirty state, build inputs, compiler inventory, DLL and ZIP SHA-256, pinned reference identities)
   in a private staging folder, validates the pair (with current provenance for a clean build) and only
-  then moves both to their final paths. A failure leaves no new file at the candidate paths, and a clean
-  candidate is never replaced for the same version unless `-ReplacePackage` is given with the owner's
-  authorization.
+  then moves both to their final paths. A failure leaves no new file at the candidate paths; when a package
+  is replaced (owner-authorized `-ReplacePackage`, or a `-dirty` build), the previous ZIP and receipt are
+  moved aside first and restored if either placement fails. A clean candidate is never replaced for the same
+  version without `-ReplacePackage`.
 - `scripts/Validate-Package.ps1` is the standalone pre-install check. It resolves its paths with
   PowerShell literal semantics (relative to the current PowerShell location, no wildcards), refuses a
-  report path that is one of its inputs, applies the same pin-definition contract as the build offline
+  report path that is one of its inputs - the package, the given receipt, or the conventional receipt beside
+  the package even when none is given - compared by file identity (volume and file index) when the
+  destination exists, so another spelling, a short name or a hard link is refused too, applies the same pin-definition contract as the build offline
   (`Get-PinnedLoaderReferences.ps1 -DefinitionOnly`), and inspects and hashes one private copy of the ZIP
   (and of the receipt) created inside its cleanup scope. It accepts only the two package files (no loader,
   Harmony, game or Unity DLL; a directory record only for the package folder and only when its decoded
@@ -61,15 +68,19 @@ Harmony12 adapter alone does not cover that API surface.
   or Harmony assembly (an extra Harmony adapter reference is refused). With a receipt, the receipt must
   describe the same ZIP and DLL bytes and the pinned identities (fields are type-checked first). With
   `-RequireCurrentProvenance` (the frozen-candidate path) the receipt must also name a clean producing
-  commit, and its recorded compiler inventory and build inputs must equal what MSBuild and the
-  repository give now; otherwise the old ZIP and receipt lose current-candidate status. The report states
+  commit that exists in the repository and whose material inputs equal the files present now, its version
+  must equal the packaged manifest, it may contain no unidentified compiler input, and its recorded compiler
+  inventory and build inputs must equal what MSBuild and the repository give now; otherwise the old ZIP and receipt lose current-candidate status. The report states
   `source_provenance` (`not-checked` for an external ZIP inspected by content only,
   `receipt-matches-package`, or `verified-current`).
 - `KwrRuntime.ps1` (`Begin`, `Reinstall`) uses `scripts/KwrPackage.ps1`: it resolves the caller's ZIP once,
-  validates a private copy (with current provenance when a receipt is beside the ZIP), installs exactly that
-  copy (the extracted DLL must equal the validated DLL), records the resolved source path, validated digest
-  and provenance captured before installing (never re-resolved from the caller's path), and removes the
-  private copy in every outcome.
+  validates a private copy (frozen-candidate mode requires current provenance when a receipt is beside the
+  ZIP; `-Diagnostic` stages a receipt-backed diagnostic build with the ZIP, DLL, pin and receipt-match checks
+  only), stages and verifies that copy (the staged DLL must equal the validated DLL) before installing it,
+  records the source path, validated digest, provenance and install mode captured before installing (never
+  re-resolved from the caller's path), and removes the private copy in every outcome. `Reinstall` marks the
+  transaction `reinstalling` (which `Launch` refuses) before replacing the installed folder, so a failure
+  leaves a non-launchable transaction that `End` restores.
 
 Earlier releases were compiled against the installed loader: the published v0.12.3
 prerelease DLL references UnityModManager 0.33.2.0 and 0Harmony 2.3.6.0 while its
@@ -93,7 +104,7 @@ UnityModManager 0.33.2.0 and 0Harmony 2.3.6.0), the author's UnityModManager 0.3
 the official Lib.Harmony 2.3.6 package (net48), as known distinct wrong fixtures; the owner's
 installation is only measured. The suite starts the clone with an empty reference cache (the clone's own
 resolver downloads and verifies the pins) and a different product version committed in the clone (the
-positive artifact name is derived from the manifest). Its 73 checks cover cache bytes; dropped/misnamed pins and raised
+positive artifact name is derived from the manifest). Its 88 checks cover cache bytes; dropped/misnamed pins and raised
 or array-typed manifests; direct and incremental builds (the three pinned paths on the Csc
 command line; manifest-only and pin-only changes refused); Csc-input probes (identical copy
 elsewhere, same-stem or renamed files, both fixtures, a substituted reference assembly); the
@@ -112,19 +123,25 @@ it transacts against the live game); a `Build.ps1` failure after the receipt is 
 clean retry without `-ReplacePackage`; replacement of a clean candidate refused); and current provenance
 (clean candidate verified; external content inspection marked not checked; a reference-helper change and an
 overflow-checking setting in `LocalGamePaths.props` refused and accepted after restore; after a committed
-helper change the old pair is refused and the rebuilt candidate verified).
+helper change the old pair is refused and the rebuilt candidate verified); and, from round 3: the unmodified
+candidate built from an empty cache and checked with its receipt before the version change; receipts naming an
+older commit, an unknown commit or another version (refused); `BaseAddress` and an external `Win32Resource`
+(refused until rebuilt; the receipt records the resource's digest; removing the options reproduces the DLL);
+report destinations equal to the adjacent receipt without `-ReceiptPath` or a hard link to the package
+(refused, inputs intact); a failed replacement (previous ZIP and receipt restored); a receipt-backed dirty build
+refused in frozen mode and staged in diagnostic mode; and the reinstall ordering in `KwrRuntime.ps1`.
 
-## Evidence for this change (2026-11-24, round 2)
+## Evidence for this change (2026-11-24, round 3)
 
-The build and validation tooling is at `c0a6732`; the product sources are unchanged, so the candidate DLL is
-byte-identical to round 1. Candidate (clean `Build.ps1` of `c0a6732` on Windows against the pinned cache and
+The build and validation tooling is at `3c9f79e`; the product sources are unchanged, so the candidate DLL is
+byte-identical to round 1. Candidate (clean `Build.ps1` of `3c9f79e` on Windows against the pinned cache and
 the Kingmaker 2.1.7b managed assemblies): DLL SHA-256
 `7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904`, MVID
 `ccc59117-f992-44ce-9355-540d35f181f0`; AssemblyRefs UnityModManager 0.31.1.0,
 0Harmony12 1.2.0.1, 0Harmony 2.3.1.1; `KingmakerWakingRune-0.12.3.zip` SHA-256
-`51be31ccdd5a861096e8c2140ecd06bd0be32e08ce25c659577d6fca0577a24f` (ZIP digests depend on file times; the
+`6a49a3fd4aa1800b61565bbb5f2647046449feca733f2830cc51e4fafa617109` (ZIP digests depend on file times; the
 receipt and validator report name the exact bytes). 290/290 tests, 19 embedded images verified, standalone
-validation with current provenance passed. `Test-LoaderBaseline.ps1` on `c0a6732`: 73/73 (the clone at a
+validation with current provenance passed. `Test-LoaderBaseline.ps1` on `3c9f79e`: 88/88 (the clone at a
 disposable version 0.12.99 produced the same DLL).
 
 Machine-generated records for the candidate are committed as structured files (no logs) in
