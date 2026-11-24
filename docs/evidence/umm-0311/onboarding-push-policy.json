@@ -1,6 +1,6 @@
 {
  "schema": "kwr.onboarding-push-policy.v1",
- "recorded_at_utc": "2026-11-24T02:04:54Z",
+ "recorded_at_utc": "2026-11-24T03:02:26Z",
  "controller_package": "85dece1ca3547fddf67d378f54779e7bade47f36fb3ac91c9314393b35397916 (installed; read only)",
  "protected_paths": {
   "profile_field": "none - the project profile schema has no protected-path field and this profile sets none",
@@ -40,5 +40,5 @@
   "<dev>/KingmakerSkipCinematicLab/runtime-state/runtime.lock",
   "<dev>/KingmakerWakingRuneLab/runtime-state/transaction.json"
  ],
- "historical_check_project": "The check-project run made during onboarding on 2026-11-23 (before enrollment) was not retained and cannot be confirmed from records; the dated run of 2026-11-24 (onboarding-check-project.json) reports problems [] for the same profile, and the onboarding preflight result of 2026-11-23T23:09Z is retained (onboarding-preflight.json)."
+ "historical_check_project": "Recovered: the pre-enrollment check-project run (2026-11-23T23:09:31Z-23:09:33Z, problems [], gates [baseline], branch pattern ^codex/[a-z0-9][a-z0-9._/-]*$, built-in guarded push) is recorded in the developer session transcript; pre-enrollment-check-project.json is the read-only extract with transcript line numbers and line digests, before the enrollment the controller records as created at 2026-11-23T23:10:25Z. The later dated run of 2026-11-24 (onboarding-check-project.json) and the onboarding preflight (onboarding-preflight.json) are also retained."
 }

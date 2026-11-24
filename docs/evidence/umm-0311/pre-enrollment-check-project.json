@@ -1,0 +1,35 @@
+{
+ "schema": "kwr.pre-enrollment-check-project.v1",
+ "recorded_at_utc": "2026-11-24T02:49:53Z",
+ "source": "The developer's Claude Code session transcript (append-only JSONL kept by Claude Code under <user-profile>/.claude-personal/projects/C--Dev/, session e178a93b-ca53-4b6b-a4d2-a357d48eaa77); read-only extract. Each referenced transcript line is identified by its line number and the SHA-256 of the line's UTF-8 text so the owner can verify it in that file.",
+ "check_project": {
+  "tool_use_id": "toolu_0132nmskT7apk7RuQKvZJucX",
+  "invoked_at_utc": "2026-11-23T23:09:31.963Z",
+  "completed_at_utc": "2026-11-23T23:09:33.788Z",
+  "transcript_lines": {
+   "invocation": {
+    "line": 3034,
+    "sha256": "065c098286b931a0d0bbb1bd0b1d29cb1ff2ecb585587d8f83e16c39a3ddff1b"
+   },
+   "result": {
+    "line": 3035,
+    "sha256": "9708aa46c6ae61e12f48e4048e61de18594c7722e6a3f5c667c0ca9348eb789b"
+   }
+  },
+  "command": "python agent-review/agent_review.py check-project --project kingmaker-waking-rune --repo <repo> | python -c \"import sys,json; d=json.load(sys.stdin); print('problems',d['problems'],d['gates'],d['branch_pattern'],d['push'])\"",
+  "summarized_output": "problems [] ['baseline'] ^codex/[a-z0-9][a-z0-9._/-]*$ built-in guarded push",
+  "note": "The command piped the JSON result through a one-line summary (problems, gates, branch pattern, push); that summary line is the recorded output. The full JSON was not printed at the time."
+ },
+ "enrollment": {
+  "tool_use_id": "toolu_01F9vNvAJGbQJqyzzL8MjL4w",
+  "invoked_at_utc": null,
+  "transcript_line": {
+   "line": 3048,
+   "sha256": "97c3c90a5a8dd8ac93fb8537726c2d691214f223afec95fca788418518dc668f"
+  },
+  "command": "python agent-review/agent_review.py enroll --project kingmaker-waking-rune --worktree <repo> --plan single --mission <fleet>/KINGMAKER-UMM-0311-MISSION-20261123.md --mode foreground --pr 12",
+  "controller_created_at_utc": "2026-11-23T23:10:25Z",
+  "enrollment_id": "kwr-codex-umm-0311-baseline-20261123-20261123181024-1057"
+ },
+ "conclusion": "check-project for kingmaker-waking-rune ran against the enrollment worktree at 2026-11-23T23:09:33.788Z with problems [] (gates ['baseline'], branch pattern ^codex/[a-z0-9][a-z0-9._/-]*$, built-in guarded push), before the enrollment the controller records as created at 2026-11-23T23:10:25Z."
+}

@@ -1,13 +1,13 @@
 {
  "schema": "kingmaker.build-record.v1",
- "source_commit": "3c9f79e28acf473c919d21ab4e46deb323ff3902",
+ "source_commit": "5b91fa18fff8f7a23bd2698807b6a304e43b1408",
  "product": "KingmakerWakingRune.dll",
  "product_compilations": [
   {
-   "out": "<temp>\\kwr-ev3-FBZ4\\direct-obj\\KingmakerWakingRune.dll",
+   "out": "<temp>\\kwr-ev4-BCc2\\direct-obj\\KingmakerWakingRune.dll",
    "references": [
-    "<temp>\\kwr-ev3-FBZ4\\clone\\obj\\loader-references\\0Harmony.dll",
-    "<temp>\\kwr-ev3-FBZ4\\clone\\obj\\loader-references\\0Harmony12.dll",
+    "<temp>\\kwr-ev4-BCc2\\clone\\obj\\loader-references\\0Harmony.dll",
+    "<temp>\\kwr-ev4-BCc2\\clone\\obj\\loader-references\\0Harmony12.dll",
     "<game>\\Kingmaker_Data\\Managed\\Assembly-CSharp-firstpass.dll",
     "<game>\\Kingmaker_Data\\Managed\\Assembly-CSharp.dll",
     "<reference-assemblies>\\Microsoft\\Framework\\.NETFramework\\v4.7\\mscorlib.dll",
@@ -24,7 +24,7 @@
     "<game>\\Kingmaker_Data\\Managed\\UnityEngine.ScreenCaptureModule.dll",
     "<game>\\Kingmaker_Data\\Managed\\UnityEngine.UI.dll",
     "<game>\\Kingmaker_Data\\Managed\\UnityEngine.UIModule.dll",
-    "<temp>\\kwr-ev3-FBZ4\\clone\\obj\\loader-references\\UnityModManager.dll"
+    "<temp>\\kwr-ev4-BCc2\\clone\\obj\\loader-references\\UnityModManager.dll"
    ]
   }
  ],
