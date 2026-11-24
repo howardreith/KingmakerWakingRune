@@ -386,8 +386,8 @@ try {
     Expect-Accepted 'validator-offline-without-reference-cache-accepted' (& $v $candidateZip) 'Package validation passed'
     foreach ($bad in @(
         @{ Name = 'digest-with-trailing-line-feed'; Edit = { param($j) $pin = @($j.references | Where-Object Name -eq 'UnityModManager')[0]; $pin.Sha256 = $pin.Sha256 + "`n" }; Pattern = 'Invalid or duplicate loader reference pin' },
-        @{ Name = 'missing-required-archive-digest'; Edit = { param($j) @($j.references | Where-Object Name -eq 'UnityModManager')[0].ArchiveSha256 = $null }; Pattern = 'Missing archive hash for UnityModManager\.dll' },
-        @{ Name = 'archive-digest-without-entry'; Edit = { param($j) @($j.references | Where-Object Name -eq '0Harmony12')[0].ArchiveSha256 = ('a' * 64) }; Pattern = 'Archive hash without an archive entry for 0Harmony12\.dll' })) {
+        @{ Name = 'missing-required-archive-digest'; Edit = { param($j) @($j.references | Where-Object Name -eq 'UnityModManager')[0].ArchiveSha256 = $null }; Pattern = 'NuGet package source of UnityModManager\.dll needs ArchiveEntry and ArchiveSha256' },
+        @{ Name = 'archive-digest-without-entry'; Edit = { param($j) @($j.references | Where-Object Name -eq '0Harmony12')[0].ArchiveSha256 = ('a' * 64) }; Pattern = 'direct \.dll source of 0Harmony12\.dll must not name archive fields' })) {
         Edit-Json $pinsFile $bad.Edit
         Expect-Rejected "validator-offline-pin-$($bad.Name)-rejected" (& $v $candidateZip) $bad.Pattern
         & git -C $base checkout -q -- scripts/loader-reference-pins.json
