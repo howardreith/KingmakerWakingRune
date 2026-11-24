@@ -42,18 +42,23 @@ Harmony12 adapter alone does not cover that API surface.
   effective compiler binary, then every argument in order, options verbatim, references, sources (generated
   ones included), response files and file-valued options (`/win32res`, `/resource`, `/keyfile`, ...) by the
   content of the files they name; a response file is also expanded in place, so the files it names are identified
-  by content too, and a named file that cannot be read is recorded as unidentified - and a build-input fingerprint (tracked or new
+  by content too, and a named file that cannot be read is recorded as unidentified; inputs that cannot be named file
+  by file (`/recurse` wildcard sources and `/link` embedded-interop references, also inside a response file) are
+  refused - and a build-input fingerprint (tracked or new
   files under `src/`, `Info.json`, `LoaderReferences.targets`, the pins, verifier and build scripts, plus
   that inventory) before building; the production compile writes its own inventory, which must equal the
   evaluated one, and neither HEAD nor the inputs may change while building. The product is always a fresh
   compile (`Rebuild`) into a folder the invocation owns (`OutDir` and `IntermediateOutputPath` are global
   properties, so no project or local setting redirects them): the copied DLL must equal Csc's `/out:` file there,
-  and those bytes are staged and packaged, never a DLL left at `bin\Release`. It then builds, runs the
-  tests, checks the embedded art and the DLL's reference versions, writes the ZIP
+  and those bytes are staged and packaged, never a DLL left at `bin\Release`; the receipt records the digest
+  captured from that compile. The tests are built into the same invocation folder and run from there, so an older
+  runner at `bin\Tests` never answers. It then checks the embedded art and the DLL's reference versions, writes the ZIP
   (`KingmakerWakingRune/{Info.json,KingmakerWakingRune.dll}`) and its receipt (`<zip>.build.json`:
   commit, dirty state, build inputs, compiler inventory, DLL and ZIP SHA-256, pinned reference identities)
-  in a private staging folder, validates the pair (with current provenance for a clean build) and only
-  then moves both to their final paths. A failure leaves no new file at the candidate paths; when a package
+  in a folder private to the invocation (staging, archive, receipt and validation all live there), validates the
+  pair (with current provenance for a clean build) and only then moves both to their final paths, holding the
+  destination's publish lock (`<zip>.publish.lock`, exclusive and removed when its handle closes), so placement and
+  rollback never act on another build's files; a second build for the same destination waits for it. A failure leaves no new file at the candidate paths; when a package
   is replaced (owner-authorized `-ReplacePackage`, or a `-dirty` build), moving the previous ZIP and receipt
   aside and placing the new pair are one rollback scope: every completed move is undone in reverse if any step
   fails (for example a receipt held open by another process), and if the rollback itself fails the staging
@@ -66,9 +71,12 @@ Harmony12 adapter alone does not cover that API surface.
   `GetFileInformationByHandle`, `scripts/KwrFileIdentity.ps1`) when the destination exists, so another spelling,
   a short name or a hard link is refused too; the report itself is written through one handle whose identity is
   checked against the inputs immediately before it is truncated, so a destination replaced during validation is
-  refused as well. It applies the same pin-definition contract as the build offline
+  refused as well; the identities refused there are taken when the inputs are read (before and after the
+  snapshot copy) as well as at the write, so an input moved to the report path after its snapshot is still
+  refused. It applies the same pin-definition contract as the build offline
   (`Get-PinnedLoaderReferences.ps1 -DefinitionOnly`: every pin string matched through its absolute end, so a
-  trailing line feed is refused, and the archive entry and archive SHA-256 given together or not at all), and inspects and hashes one private copy of the ZIP
+  trailing line feed is refused; a NuGet package source names both its archive entry and archive SHA-256, and a
+  direct `.dll` source names neither, read the same way as acquisition reads them), and inspects and hashes one private copy of the ZIP
   (and of the receipt) created inside its cleanup scope. It accepts only the two package files (no loader,
   Harmony, game or Unity DLL; a directory record only for the package folder and only when its decoded
   content is empty), requires the packaged manifest's `ManagerVersion` to equal the baseline, requires the
@@ -77,8 +85,9 @@ Harmony12 adapter alone does not cover that API surface.
   or Harmony assembly (an extra Harmony adapter reference is refused). With a receipt, the receipt must
   describe the same ZIP and DLL bytes and the pinned identities (fields are type-checked first). With
   `-RequireCurrentProvenance` (the frozen-candidate path) the receipt must also name a clean producing
-  commit that exists in the repository and whose material inputs (the fixed build paths plus every tracked file
-  the recorded inventory names, such as the embedded art) equal the files present now, its version
+  commit that exists in the repository and whose material inputs (the fixed build paths, the whole embedded-art
+  tree `assets/`, plus every tracked file the recorded inventory names) equal the files present now, with no
+  untracked file among them, its version
   must equal the packaged manifest, it may contain no unidentified compiler input, and its recorded compiler
   inventory and build inputs must equal what MSBuild and the repository give now; otherwise the old ZIP and receipt lose current-candidate status. The report states
   `source_provenance` (`not-checked` for an external ZIP inspected by content only,
@@ -93,7 +102,8 @@ Harmony12 adapter alone does not cover that API surface.
   transaction `reinstalling` (which `Launch` refuses) before replacing the installed folder, so a failure
   leaves a non-launchable transaction; `Close` keeps that phase (only `running` becomes `closed`), and either a
   repeated `Reinstall` (which resumes it and returns to the phase before the interrupted reinstall) or `End`
-  restores it.
+  restores it. The recon setting is recorded in the journal before the installed folder is removed, and a resumed
+  reinstall restores it from there.
 
 Earlier releases were compiled against the installed loader: the published v0.12.3
 prerelease DLL references UnityModManager 0.33.2.0 and 0Harmony 2.3.6.0 while its
@@ -117,7 +127,7 @@ UnityModManager 0.33.2.0 and 0Harmony 2.3.6.0), the author's UnityModManager 0.3
 the official Lib.Harmony 2.3.6 package (net48), as known distinct wrong fixtures; the owner's
 installation is only measured. The suite starts the clone with an empty reference cache (the clone's own
 resolver downloads and verifies the pins) and a different product version committed in the clone (the
-positive artifact name is derived from the manifest). Its 108 checks cover cache bytes; dropped/misnamed pins and raised
+positive artifact name is derived from the manifest). Its 120 checks cover cache bytes; dropped/misnamed pins and raised
 or array-typed manifests; direct and incremental builds (the three pinned paths on the Csc
 command line; manifest-only and pin-only changes refused); Csc-input probes (identical copy
 elsewhere, same-stem or renamed files, both fixtures, a substituted reference assembly); the
@@ -153,20 +163,29 @@ intact); a receipt held open by another process during replacement (previous pai
 succeeds after release); an older DLL at `bin\Release` with a redirected `OutputPath` and a source change (the
 packaged DLL is the new compile); the recorded install mode for receiptless, diagnostic and frozen packages; and
 `KwrRuntime.ps1`'s own `Reinstall`, `Close` and `Launch` functions against a temporary journal (an interrupted
-reinstall stays non-launchable through `Close` and is recovered).
+reinstall stays non-launchable through `Close` and is recovered); and, from round 5: recon mode kept through an
+interrupted reinstall; the volume serial read from CIM (independent of the display language); an input moved to the
+report destination after its snapshot (refused); the fixed-version regression in its own temporary checkout; a
+receipt naming a commit that adds one icon under `assets/` (refused); a response file with `/recurse` (build refused,
+current qualification declined); a NuGet pin without archive fields (refused offline) and a raw `.dll` pin with the
+archive keys omitted (accepted offline and acquired cold); a stale passing runner at `bin\Tests` (never answers;
+this invocation's tests gate packaging); and a build waiting for another holder of the destination's publish lock
+(previous pair untouched while held; then its own pair placed and verified current).
 
-## Evidence for this change (2026-11-24, round 4)
+## Evidence for this change (2026-11-24, round 5)
 
-The build and validation tooling is at `5b91fa1`; the product sources are unchanged, so the candidate DLL is
-byte-identical to round 1. Candidate (clean `Build.ps1` of `5b91fa1` on Windows against the pinned cache and
+The build and validation tooling is at `3779b0e`; the product sources are unchanged, so the candidate DLL is
+byte-identical to rounds 1 to 4. Candidate (clean `Build.ps1` of `3779b0e` on Windows against the pinned cache and
 the Kingmaker 2.1.7b managed assemblies): DLL SHA-256
 `7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904`, MVID
 `ccc59117-f992-44ce-9355-540d35f181f0`; AssemblyRefs UnityModManager 0.31.1.0,
 0Harmony12 1.2.0.1, 0Harmony 2.3.1.1; `KingmakerWakingRune-0.12.3.zip` SHA-256
-`6f13d111b22b9158ac5f4adad08e990a2f363443ac43c74e24cdb49d4cb8de94` (ZIP digests depend on file times; the
+`b7a824f226aa16304ae89bde52a87c3b3f52f52d58c2d9c501c6bd7af799e0ee` (ZIP digests depend on file times; the
 receipt and validator report name the exact bytes). 290/290 tests, 19 embedded images verified, standalone
-validation with current provenance passed. `Test-LoaderBaseline.ps1` on `5b91fa1`: 108/108 (the clone at the
-alternate version 0.12.4 produced the same DLL).
+validation with current provenance passed. `Test-LoaderBaseline.ps1` on `3779b0e`: 120/120 (the clone at the
+alternate version 0.12.4 produced the same DLL); the same suite from a temporary commit setting the shipping version
+to 0.12.99 on top of `3779b0e`: 120/120 (that run's fixed-version regression, section 16, builds 0.12.99
+and its derived alternate in its own checkout).
 
 Machine-generated records for the candidate are committed as structured files (no logs) in
 [`docs/evidence/umm-0311/`](evidence/umm-0311/INDEX.md): the `Build.ps1` receipt and summary, a
