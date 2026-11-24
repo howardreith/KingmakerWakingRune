@@ -184,26 +184,11 @@ function Assert-SteamCloudOffline {
     Write-Step "Steam cloud preflight: $last"
 }
 
-# Every install path validates a private copy of the package with the standalone validator (pinned UMM 0.31.1
-# baseline: files, manifest and the DLL's actual AssemblyRefs; a build receipt beside the zip, when present, must describe
-# the same bytes) and installs that same copy, so the installed bytes are the validated bytes. Returns the copy's path.
-function Get-ValidatedPackageCopy([string] $Path) {
-    $private = Join-Path ([IO.Path]::GetTempPath()) ('KingmakerWakingRune-package-' + [Guid]::NewGuid().ToString('N'))
-    [void][IO.Directory]::CreateDirectory($private)
-    $copy = Join-Path $private ([IO.Path]::GetFileName($Path))
-    [IO.File]::Copy((Resolve-Path -LiteralPath $Path).Path, $copy)
-    $receipt = "$Path.build.json"
-    if (Test-Path -LiteralPath $receipt -PathType Leaf) {
-        [IO.File]::Copy((Resolve-Path -LiteralPath $receipt).Path, "$copy.build.json")
-        & (Join-Path $PSScriptRoot 'Validate-Package.ps1') -PackagePath $copy -ReceiptPath "$copy.build.json"
-    }
-    else { & (Join-Path $PSScriptRoot 'Validate-Package.ps1') -PackagePath $copy }
-    return $copy
-}
-function Remove-ValidatedPackageCopy([string] $Copy) {
-    $private = Split-Path -Parent $Copy
-    if ((Split-Path -Leaf $private) -like 'KingmakerWakingRune-package-*' -and [IO.Directory]::Exists($private)) { [IO.Directory]::Delete($private, $true) }
-}
+# Every install path resolves the caller's package once, validates a private copy (scripts\KwrPackage.ps1: files,
+# manifest, assembly definition and the DLL's actual AssemblyRefs; with a build receipt beside the zip, also the clean
+# producing commit and current build inputs) and installs that same copy. The state records the resolved source path and
+# the validated digest captured before installing; the private copy is removed in every outcome.
+. (Join-Path $PSScriptRoot 'KwrPackage.ps1')
 
 function Get-RunDir($s) { Join-Path $EvidenceRoot $s.runId }
 
@@ -211,15 +196,16 @@ function Invoke-Begin {
     if (Get-State) { throw "A transaction is already open: $StatePath. Run End (or inspect) first." }
     if (@(Get-GameProcesses).Count -gt 0) { throw 'Kingmaker is running; it may be an owner session. Refusing to start.' }
     if (-not $RunId -or $RunId -notmatch '^[A-Za-z0-9._-]{3,80}$') { throw 'A -RunId of 3-80 safe characters is required.' }
-    if (-not $PackagePath -or -not (Test-Path -LiteralPath $PackagePath)) { throw 'A -PackagePath to the built zip is required.' }
-    $validatedCopy = Get-ValidatedPackageCopy $PackagePath
+    if (-not $PackagePath) { throw 'A -PackagePath to the built zip is required.' }
+    $validated = New-KwrValidatedPackageCopy $PackagePath
+    try {
     Assert-SteamCloudOffline
 
     $tx = Join-Path $BackupRoot $RunId
     $run = Join-Path $EvidenceRoot $RunId
     if ((Test-Path $tx) -or (Test-Path $run)) { throw "RunId $RunId was already used." }
     New-Item -ItemType Directory -Force -Path $tx, $run | Out-Null
-    $s = [ordered]@{ runId = $RunId; createdUtc = (Get-Date).ToUniversalTime().ToString('o'); phase = 'snapshotting'; gamePid = $null; gameStart = $null; package = (Resolve-Path $PackagePath).Path; packageSha256 = (Get-FileHash -LiteralPath $validatedCopy -Algorithm SHA256).Hash.ToLowerInvariant(); recon = [bool]$Recon }
+    $s = [ordered]@{ runId = $RunId; createdUtc = (Get-Date).ToUniversalTime().ToString('o'); phase = 'snapshotting'; gamePid = $null; gameStart = $null; package = $validated.Source; packageSha256 = $validated.Sha256; sourceProvenance = $validated.SourceProvenance; recon = [bool]$Recon }
     Save-State $s
 
     Write-Step 'Snapshotting Kingmaker profile and Steam save mirror...'
@@ -246,32 +232,36 @@ function Invoke-Begin {
     $params.Param.ShowOnStart = '0'
     $params.Save($UmmParams)
 
-    Expand-Archive -LiteralPath $validatedCopy -DestinationPath $ModsRoot
-    Remove-ValidatedPackageCopy $validatedCopy
-    if (-not (Test-Path -LiteralPath (Join-Path $ModDir 'KingmakerWakingRune.dll'))) { throw 'Package did not install the expected mod folder.' }
+    Install-KwrValidatedPackageCopy $validated $ModsRoot
     if ($Recon) { Set-Content -LiteralPath (Join-Path $ModDir 'recon.flag') -Value 'recon' }
     Set-Content -LiteralPath (Join-Path $ModDir 'capture.flag') -Value 'harness'
     $s.phase = 'installed'
     Save-State $s
     Write-Step "Installed package $($s.packageSha256) into $ModDir (recon=$([bool]$Recon))."
+    }
+    finally { Remove-KwrValidatedPackageCopy $validated }
 }
 
 function Invoke-Reinstall {
     $s = Get-State
     if (-not $s -or $s.phase -notin @('installed', 'closed')) { throw 'Reinstall needs an open transaction with the game closed.' }
     if (@(Get-GameProcesses).Count -gt 0) { throw 'Kingmaker is running; never hot-replace the DLL.' }
-    if (-not $PackagePath -or -not (Test-Path -LiteralPath $PackagePath)) { throw 'A -PackagePath is required.' }
-    $validatedCopy = Get-ValidatedPackageCopy $PackagePath
-    $recon = Test-Path -LiteralPath (Join-Path $ModDir 'recon.flag')
-    if (Test-Path -LiteralPath $ModDir) { Remove-Item -LiteralPath $ModDir -Recurse -Force }
-    Expand-Archive -LiteralPath $validatedCopy -DestinationPath $ModsRoot
-    $s.packageSha256 = (Get-FileHash -LiteralPath $validatedCopy -Algorithm SHA256).Hash.ToLowerInvariant()
-    Remove-ValidatedPackageCopy $validatedCopy
-    if ($recon) { Set-Content -LiteralPath (Join-Path $ModDir 'recon.flag') -Value 'recon' }
-    Set-Content -LiteralPath (Join-Path $ModDir 'capture.flag') -Value 'harness'
-    $s.package = (Resolve-Path $PackagePath).Path
-    Save-State $s
-    Write-Step "Reinstalled package $($s.packageSha256) (recon=$recon)."
+    if (-not $PackagePath) { throw 'A -PackagePath is required.' }
+    $validated = New-KwrValidatedPackageCopy $PackagePath
+    try {
+        $recon = Test-Path -LiteralPath (Join-Path $ModDir 'recon.flag')
+        if (Test-Path -LiteralPath $ModDir) { Remove-Item -LiteralPath $ModDir -Recurse -Force }
+        Install-KwrValidatedPackageCopy $validated $ModsRoot
+        if ($recon) { Set-Content -LiteralPath (Join-Path $ModDir 'recon.flag') -Value 'recon' }
+        Set-Content -LiteralPath (Join-Path $ModDir 'capture.flag') -Value 'harness'
+        # Recorded from the identities captured before installing (never re-resolved from the caller's path).
+        $s.package = $validated.Source
+        $s.packageSha256 = $validated.Sha256
+        $s | Add-Member -NotePropertyName sourceProvenance -NotePropertyValue $validated.SourceProvenance -Force
+        Save-State $s
+        Write-Step "Reinstalled package $($s.packageSha256) (recon=$recon)."
+    }
+    finally { Remove-KwrValidatedPackageCopy $validated }
 }
 
 function Invoke-Uninstall {
