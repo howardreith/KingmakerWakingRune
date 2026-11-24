@@ -623,7 +623,6 @@ try {
     [IO.File]::WriteAllText($failingPlace, $buildText.Replace($placeAnchor, $placeAnchor + "`r`n        throw 'injected failure after the new ZIP was placed'"))
     $f = Invoke-Isolated @('-File', $failingPlace, '-SkipTests', '-ReplacePackage')
     Remove-Item -LiteralPath $failingPlace
-    $null = $null
     Add-Case 'failed-replacement-restores-previous-zip-and-receipt' ($f.ExitCode -ne 0 -and $f.Output -match 'injected failure' -and (Get-Sha256 $candidateZip) -eq $zipBefore -and (Get-Sha256 $receiptPath) -eq $receiptBefore) ("exit $($f.ExitCode); ZIP and receipt restored: $((Get-Sha256 $candidateZip) -eq $zipBefore -and (Get-Sha256 $receiptPath) -eq $receiptBefore)")
 
     # 13b. A receipt held open without delete sharing by another process: the replacement fails, both previous files keep
