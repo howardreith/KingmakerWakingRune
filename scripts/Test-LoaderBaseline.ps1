@@ -617,7 +617,7 @@ try {
 
     # 13. A failed replacement restores the previous validated ZIP and receipt.
     $buildText = [IO.File]::ReadAllText((Join-Path $base 'scripts\Build.ps1'))
-    $placeAnchor = '        [IO.File]::Move($pendingZip, $zip)'
+    $placeAnchor = '        [IO.File]::Move($pendingZip, $zip); $done.Add(@($zip, $pendingZip))'
     if ($buildText.IndexOf($placeAnchor) -lt 0) { throw 'Build.ps1 placement anchor not found.' }
     $failingPlace = Join-Path $base 'scripts\Build-instrumented.ps1'
     [IO.File]::WriteAllText($failingPlace, $buildText.Replace($placeAnchor, $placeAnchor + "`r`n        throw 'injected failure after the new ZIP was placed'"))
@@ -731,17 +731,18 @@ try { Invoke-Launch } catch { 'LAUNCH-2 ' + `$_.Exception.Message }
     $b99 = Invoke-Isolated @('-File', (Join-Path $base 'scripts\Build.ps1'), '-SkipTests')
     $zip99 = Join-Path $base 'artifacts\KingmakerWakingRune-0.12.99.zip'
     $pair99 = if (Test-Path -LiteralPath ($zip99 + '.build.json')) { (Get-Sha256 $zip99) + '/' + (Get-Sha256 ($zip99 + '.build.json')) } else { 'missing' }
+    # Validated while 0.12.99 is the repository's version (the validator requires the packaged manifest to match it).
+    $v99 = Invoke-Isolated @('-File', $validator, '-PackagePath', $zip99, '-ReceiptPath', ($zip99 + '.build.json'), '-RequireCurrentProvenance')
     $alt99 = Get-AlternateFixtureVersion '0.12.99'
     Edit-Json (Join-Path $base 'Info.json') { param($j) $j.Version = $alt99 }
     & git -C $base -c user.name=loader-baseline -c user.email=loader-baseline@invalid commit -q -am 'test: alternate fixture version'
     $bAlt = Invoke-Isolated @('-File', (Join-Path $base 'scripts\Build.ps1'), '-SkipTests')
     $zipAlt = Join-Path $base "artifacts\KingmakerWakingRune-$alt99.zip"
-    $v99 = Invoke-Isolated @('-File', $validator, '-PackagePath', $zip99, '-ReceiptPath', ($zip99 + '.build.json'))
     $vAlt = Invoke-Isolated @('-File', $validator, '-PackagePath', $zipAlt, '-ReceiptPath', ($zipAlt + '.build.json'), '-RequireCurrentProvenance')
     $pair99After = if (Test-Path -LiteralPath ($zip99 + '.build.json')) { (Get-Sha256 $zip99) + '/' + (Get-Sha256 ($zip99 + '.build.json')) } else { 'missing' }
     $ok = $alt99 -cne '0.12.99' -and $b99.ExitCode -eq 0 -and $bAlt.ExitCode -eq 0 -and $v99.ExitCode -eq 0 -and $vAlt.ExitCode -eq 0 -and $vAlt.Output -match 'verified-current' -and
         $pair99 -ne 'missing' -and $pair99 -ceq $pair99After -and (Get-Sha256 $zipAlt) -ne (Get-Sha256 $zip99)
-    Add-Case 'shipping-0.12.99-and-alternate-fixture-are-distinct-validated-packages' $ok "alternate $alt99; 0.12.99 pair $pair99 (after alternate build: $pair99After); alternate ZIP $(if (Test-Path -LiteralPath $zipAlt) { Get-Sha256 $zipAlt } else { 'missing' })"
+    Add-Case 'shipping-0.12.99-and-alternate-fixture-are-distinct-validated-packages' $ok "builds exit $($b99.ExitCode)/$($bAlt.ExitCode); validation (current provenance) 0.12.99 exit $($v99.ExitCode) before the version change, $alt99 exit $($vAlt.ExitCode); alternate $alt99; 0.12.99 pair $pair99 (after alternate build: $pair99After); alternate ZIP $(if (Test-Path -LiteralPath $zipAlt) { Get-Sha256 $zipAlt } else { 'missing' })"
 
     $artifactsAfter = @(Get-ChildItem -LiteralPath (Join-Path $source 'artifacts') -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name + '=' + (Get-Sha256 $_.FullName) }) -join ';'
     Add-Case 'repository-artifacts-untouched' ($sourceArtifactsBefore -eq $artifactsAfter) 'this checkout''s artifacts folder is unchanged'
