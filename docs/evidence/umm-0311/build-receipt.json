@@ -1,5 +1,5 @@
 {
-    "commit":  "c0a6732396d1d000b771d3dcd9abed35b7d1525e",
+    "commit":  "3c9f79e28acf473c919d21ab4e46deb323ff3902",
     "dirty":  false,
     "version":  "0.12.3",
     "minimumManagerVersion":  "0.31.1",
@@ -20,8 +20,288 @@
                                  "sha256":  "5f7ad0df1eb08e81f66d4006d3a9e5cb40fc05e381f36d7bd0513f334f6a251f"
                              }
                          ],
-    "buildInputsSha256":  "e50fa87726e8a8ec5a15af4f029c80bc11bbcb3ddd621ba402031fd11cd19301",
+    "buildInputsSha256":  "321904d081455255899026bd8e089ea01acf321823082eee47c54d5ae03ae986",
     "compilerInputs":  [
+                           {
+                               "kind":  "compiler",
+                               "name":  "csc.exe",
+                               "sha256":  "f895c265b8fa8ed9601f6d8ec87d1e2079f5e851c70d0719a90007564ae8f6ab"
+                           },
+                           {
+                               "kind":  "option",
+                               "name":  "/noconfig",
+                               "sha256":  ""
+                           },
+                           {
+                               "kind":  "option",
+                               "name":  "/nowarn:1701,1702",
+                               "sha256":  ""
+                           },
+                           {
+                               "kind":  "option",
+                               "name":  "/fullpaths",
+                               "sha256":  ""
+                           },
+                           {
+                               "kind":  "option",
+                               "name":  "/nostdlib+",
+                               "sha256":  ""
+                           },
+                           {
+                               "kind":  "option",
+                               "name":  "/warn:4",
+                               "sha256":  ""
+                           },
+                           {
+                               "kind":  "option",
+                               "name":  "/define:TRACE",
+                               "sha256":  ""
+                           },
+                           {
+                               "kind":  "option",
+                               "name":  "/highentropyva+",
+                               "sha256":  ""
+                           },
+                           {
+                               "kind":  "reference",
+                               "name":  "obj/loader-references/0Harmony.dll",
+                               "sha256":  "5f7ad0df1eb08e81f66d4006d3a9e5cb40fc05e381f36d7bd0513f334f6a251f"
+                           },
+                           {
+                               "kind":  "reference",
+                               "name":  "obj/loader-references/0Harmony12.dll",
+                               "sha256":  "aa1cd48317254985d8b700cc74953477d1b40c3022ce9aa4c95ed2b8327e1292"
+                           },
+                           {
+                               "kind":  "reference",
+                               "name":  "Assembly-CSharp-firstpass.dll",
+                               "sha256":  "069a7362ce5e3ccd597206174aec13743c2db5a1bfbc2a42f15a5fbd1ea30d30"
+                           },
+                           {
+                               "kind":  "reference",
+                               "name":  "Assembly-CSharp.dll",
+                               "sha256":  "3b6450ffec440e296e586f71c711b195aed144b28d53e1cbb29406d18fef5afb"
+                           },
+                           {
+                               "kind":  "reference",
+                               "name":  "mscorlib.dll",
+                               "sha256":  "d33b4c6f04319d41348244f2506bb787abe7afa0e2ee464693082817d4124de1"
+                           },
+                           {
+                               "kind":  "reference",
+                               "name":  "Newtonsoft.Json.dll",
+                               "sha256":  "3a23988f473e9e8304fbbcfff16872cca919bd1a1f3dee1e374acc1f0cbbbc80"
+                           },
+                           {
+                               "kind":  "reference",
+                               "name":  "Pathfinding.Poly2Tri.dll",
+                               "sha256":  "6d37c20001d050b2bfd5071d64ee19f7fd7415e021e8122f1e9070613e4d570b"
+                           },
+                           {
+                               "kind":  "reference",
+                               "name":  "System.Core.dll",
+                               "sha256":  "d2570c87ba2f6b7e9d577cf2f9c864bd523a34dcb13165122b2dc0eef8cf0278"
+                           },
+                           {
+                               "kind":  "reference",
+                               "name":  "System.dll",
+                               "sha256":  "e31e3988eaff4fdc9cb28ca6ba0980f7204c5be0cb79e2dc4e56682833fd55da"
+                           },
+                           {
+                               "kind":  "reference",
+                               "name":  "UnityEngine.AnimationModule.dll",
+                               "sha256":  "18636cc226c7e6299e80210d4ae808eb2552cbcdb92c8713caee6a7f0e1be1a5"
+                           },
+                           {
+                               "kind":  "reference",
+                               "name":  "UnityEngine.CoreModule.dll",
+                               "sha256":  "3a76df7f709d465e3273502e08edbffb536b1c2f78c3a132b8668e59fddd2803"
+                           },
+                           {
+                               "kind":  "reference",
+                               "name":  "UnityEngine.dll",
+                               "sha256":  "50b79c57f46bf4e060bb27461b6d4fac6f078e08b57e776c7a811554c4899fd6"
+                           },
+                           {
+                               "kind":  "reference",
+                               "name":  "UnityEngine.ImageConversionModule.dll",
+                               "sha256":  "1b30743ab1830b9b45e79f88c1acefd7517eafcef4fd1a7a3eb853a07ca5bb17"
+                           },
+                           {
+                               "kind":  "reference",
+                               "name":  "UnityEngine.ParticleSystemModule.dll",
+                               "sha256":  "f105c561a5a052584d596fc364246bb79ebdca35113092446a835d851dfb003d"
+                           },
+                           {
+                               "kind":  "reference",
+                               "name":  "UnityEngine.PhysicsModule.dll",
+                               "sha256":  "724ac786e5dceae9d24521b6dcfb3c595de7529b4a7096e70fd6871809ad2ac7"
+                           },
+                           {
+                               "kind":  "reference",
+                               "name":  "UnityEngine.ScreenCaptureModule.dll",
+                               "sha256":  "814ede6a1cc2c267e477af7510c4731f91478f3b08fad6a20b829dc817896760"
+                           },
+                           {
+                               "kind":  "reference",
+                               "name":  "UnityEngine.UI.dll",
+                               "sha256":  "4dee942e8974492511733e5482f89fde39e3964008f072ec9c12d05e40a9080d"
+                           },
+                           {
+                               "kind":  "reference",
+                               "name":  "UnityEngine.UIModule.dll",
+                               "sha256":  "51b32055e2a03c78d3e7b2d7d8a6425ee80d415c1e07ea0ec7b1dd84eddc9f12"
+                           },
+                           {
+                               "kind":  "reference",
+                               "name":  "obj/loader-references/UnityModManager.dll",
+                               "sha256":  "2e038ff23ab01d538dfef792096e1f5c04802d1edac3660db20d0d54c167c2c4"
+                           },
+                           {
+                               "kind":  "option",
+                               "name":  "/debug-",
+                               "sha256":  ""
+                           },
+                           {
+                               "kind":  "option",
+                               "name":  "/filealign:512",
+                               "sha256":  ""
+                           },
+                           {
+                               "kind":  "option",
+                               "name":  "/optimize+",
+                               "sha256":  ""
+                           },
+                           {
+                               "kind":  "output",
+                               "name":  "/out:KingmakerWakingRune.dll",
+                               "sha256":  ""
+                           },
+                           {
+                               "kind":  "option",
+                               "name":  "/subsystemversion:6.00",
+                               "sha256":  ""
+                           },
+                           {
+                               "kind":  "file-option",
+                               "name":  "/resource:assets/portraits/AmbrusValsin/Fulllength.png,KWR/Portraits/AmbrusValsin\\Fulllength.png",
+                               "sha256":  "7078e5561e1979640b496e2af137c2b8bcf0be6fe33c0968551a4d4eb8818b6e"
+                           },
+                           {
+                               "kind":  "file-option",
+                               "name":  "/resource:assets/portraits/AmbrusValsin/Medium.png,KWR/Portraits/AmbrusValsin\\Medium.png",
+                               "sha256":  "50fba21eed2440b49e0633b77f6683a4c4f05f3a8893ccd49ea5562b4f32b406"
+                           },
+                           {
+                               "kind":  "file-option",
+                               "name":  "/resource:assets/portraits/AmbrusValsin/Small.png,KWR/Portraits/AmbrusValsin\\Small.png",
+                               "sha256":  "7cdcc36a67a35609471aa017b03d2449a3571f785a0c0a884a700dbae74abe98"
+                           },
+                           {
+                               "kind":  "file-option",
+                               "name":  "/resource:assets/portraits/DecemvirateMember/Fulllength.png,KWR/Portraits/DecemvirateMember\\Fulllength.png",
+                               "sha256":  "7553c157f4caf648c40fbec6e892e4fc222a9bd79b691fe983551f7ab225dea3"
+                           },
+                           {
+                               "kind":  "file-option",
+                               "name":  "/resource:assets/portraits/DecemvirateMember/Medium.png,KWR/Portraits/DecemvirateMember\\Medium.png",
+                               "sha256":  "8fc4687644bc3913c264999da58bb46e37fe1e15294a88ce7c20fe1b9a7a7eda"
+                           },
+                           {
+                               "kind":  "file-option",
+                               "name":  "/resource:assets/portraits/DecemvirateMember/Small.png,KWR/Portraits/DecemvirateMember\\Small.png",
+                               "sha256":  "6e12cbe55d0665aff7cf53b422a63e597ebb682175754bb2f9ecbb2f59955ccf"
+                           },
+                           {
+                               "kind":  "file-option",
+                               "name":  "/resource:assets/portraits/Quartermaster/Fulllength.png,KWR/Portraits/Quartermaster\\Fulllength.png",
+                               "sha256":  "0bdf04e7946ad1cca779050cf54d7fc29b46295618e13433940799cbcad6d449"
+                           },
+                           {
+                               "kind":  "file-option",
+                               "name":  "/resource:assets/portraits/Quartermaster/Medium.png,KWR/Portraits/Quartermaster\\Medium.png",
+                               "sha256":  "abb701fa47dcdf1b0632ca646a108cd41b3c015e624930ebfcc0026295aa5f05"
+                           },
+                           {
+                               "kind":  "file-option",
+                               "name":  "/resource:assets/portraits/Quartermaster/Small.png,KWR/Portraits/Quartermaster\\Small.png",
+                               "sha256":  "6b666485675d9e057f76c03f02edb48092f811f0df224c4b6cc7be7f0468800f"
+                           },
+                           {
+                               "kind":  "file-option",
+                               "name":  "/resource:assets/portraits/RunelordKrune/Fulllength.png,KWR/Portraits/RunelordKrune\\Fulllength.png",
+                               "sha256":  "78f2ca3c42c98e5f938725919019c4c0f8d7b96c60083e4b0192fc37c5a1feab"
+                           },
+                           {
+                               "kind":  "file-option",
+                               "name":  "/resource:assets/portraits/RunelordKrune/Medium.png,KWR/Portraits/RunelordKrune\\Medium.png",
+                               "sha256":  "81305d1dfe4a90747f9f75f8695720dedf7b25ae61535fc3a12503790d08e1f4"
+                           },
+                           {
+                               "kind":  "file-option",
+                               "name":  "/resource:assets/portraits/RunelordKrune/Small.png,KWR/Portraits/RunelordKrune\\Small.png",
+                               "sha256":  "fbfcd591e962fdfebe1139f420bfbdd28489976b81508dfa9128f0bc0f4a3659"
+                           },
+                           {
+                               "kind":  "file-option",
+                               "name":  "/resource:assets/portraits/SheilaHeidmarch/Fulllength.png,KWR/Portraits/SheilaHeidmarch\\Fulllength.png",
+                               "sha256":  "e9ccdf49514360ae4aae3f4ffb6dd6f20c548cd1f4a8d7074f78e7f360a0d905"
+                           },
+                           {
+                               "kind":  "file-option",
+                               "name":  "/resource:assets/portraits/SheilaHeidmarch/Medium.png,KWR/Portraits/SheilaHeidmarch\\Medium.png",
+                               "sha256":  "f2c2b492f45d6543538c1c6cd9bd915f67eddd68961452e4cc297b327ecf77e7"
+                           },
+                           {
+                               "kind":  "file-option",
+                               "name":  "/resource:assets/portraits/SheilaHeidmarch/Small.png,KWR/Portraits/SheilaHeidmarch\\Small.png",
+                               "sha256":  "f46b6732b19072d32ba88720e42c38b55153be3bc1a7cb4e0ac51ca948ccfa8a"
+                           },
+                           {
+                               "kind":  "file-option",
+                               "name":  "/resource:assets/portraits/SocietyCoordinator/Fulllength.png,KWR/Portraits/SocietyCoordinator\\Fulllength.png",
+                               "sha256":  "930d25a7c3b0a0a619f224458675b1b62553e313f089f4021edd89501f8cd3d9"
+                           },
+                           {
+                               "kind":  "file-option",
+                               "name":  "/resource:assets/portraits/SocietyCoordinator/Medium.png,KWR/Portraits/SocietyCoordinator\\Medium.png",
+                               "sha256":  "d40e2e96b050edc79b7ffdb6b399a6a2235ff34131767d1fa8b663ad6fe5ddb8"
+                           },
+                           {
+                               "kind":  "file-option",
+                               "name":  "/resource:assets/portraits/SocietyCoordinator/Small.png,KWR/Portraits/SocietyCoordinator\\Small.png",
+                               "sha256":  "e44301ce53d125bd4499a3975b41caccda96fda0ca74465adeb87eb2165a3ca2"
+                           },
+                           {
+                               "kind":  "file-option",
+                               "name":  "/resource:assets/icons/RefugeToken.png,KWR/Icons/RefugeToken.png",
+                               "sha256":  "d04275af21f414f7e8e07a9e3675e80dfda9c4c1ad54eaa0a2fa5f5298513e9c"
+                           },
+                           {
+                               "kind":  "option",
+                               "name":  "/target:library",
+                               "sha256":  ""
+                           },
+                           {
+                               "kind":  "option",
+                               "name":  "/warnaserror+",
+                               "sha256":  ""
+                           },
+                           {
+                               "kind":  "option",
+                               "name":  "/utf8output",
+                               "sha256":  ""
+                           },
+                           {
+                               "kind":  "option",
+                               "name":  "/deterministic+",
+                               "sha256":  ""
+                           },
+                           {
+                               "kind":  "option",
+                               "name":  "/langversion:7.3",
+                               "sha256":  ""
+                           },
                            {
                                "kind":  "compile",
                                "name":  "src/KingmakerWakingRune/Blueprints/BlueprintSelfCheck.cs",
@@ -744,6 +1024,11 @@
                            },
                            {
                                "kind":  "compile",
+                               "name":  "src/KingmakerWakingRune/ScenarioIds.cs",
+                               "sha256":  "e2bac35f903d4fc462ea6a2e72a1b9ebea2ddaaed3b7afab4494f6e78c153784"
+                           },
+                           {
+                               "kind":  "compile",
                                "name":  "src/KingmakerWakingRune/Scenario/JournalRules.cs",
                                "sha256":  "e3f2a92905b93a7b8fd5c00cc9c28ed200f8e2d92e2364c8bfb72d8362448fe5"
                            },
@@ -751,11 +1036,6 @@
                                "kind":  "compile",
                                "name":  "src/KingmakerWakingRune/Scenario/ScenarioJournal.cs",
                                "sha256":  "a509ce6c3873660ed4f12ffd157d0ac05ea0a35a9b1c1eb2525d4e2a46a617eb"
-                           },
-                           {
-                               "kind":  "compile",
-                               "name":  "src/KingmakerWakingRune/ScenarioIds.cs",
-                               "sha256":  "e2bac35f903d4fc462ea6a2e72a1b9ebea2ddaaed3b7afab4494f6e78c153784"
                            },
                            {
                                "kind":  "compile",
@@ -768,387 +1048,12 @@
                                "sha256":  "fbba0f888ab35a0fe927874b1ae8292d664d97d8b8db961f786a3fa08ba0a200"
                            },
                            {
-                               "kind":  "reference",
-                               "name":  "Assembly-CSharp.dll",
-                               "sha256":  "3b6450ffec440e296e586f71c711b195aed144b28d53e1cbb29406d18fef5afb"
-                           },
-                           {
-                               "kind":  "reference",
-                               "name":  "Assembly-CSharp-firstpass.dll",
-                               "sha256":  "069a7362ce5e3ccd597206174aec13743c2db5a1bfbc2a42f15a5fbd1ea30d30"
-                           },
-                           {
-                               "kind":  "reference",
-                               "name":  "mscorlib.dll",
-                               "sha256":  "d33b4c6f04319d41348244f2506bb787abe7afa0e2ee464693082817d4124de1"
-                           },
-                           {
-                               "kind":  "reference",
-                               "name":  "Newtonsoft.Json.dll",
-                               "sha256":  "3a23988f473e9e8304fbbcfff16872cca919bd1a1f3dee1e374acc1f0cbbbc80"
-                           },
-                           {
-                               "kind":  "reference",
-                               "name":  "obj/loader-references/0Harmony.dll",
-                               "sha256":  "5f7ad0df1eb08e81f66d4006d3a9e5cb40fc05e381f36d7bd0513f334f6a251f"
-                           },
-                           {
-                               "kind":  "reference",
-                               "name":  "obj/loader-references/0Harmony12.dll",
-                               "sha256":  "aa1cd48317254985d8b700cc74953477d1b40c3022ce9aa4c95ed2b8327e1292"
-                           },
-                           {
-                               "kind":  "reference",
-                               "name":  "obj/loader-references/UnityModManager.dll",
-                               "sha256":  "2e038ff23ab01d538dfef792096e1f5c04802d1edac3660db20d0d54c167c2c4"
-                           },
-                           {
-                               "kind":  "reference",
-                               "name":  "Pathfinding.Poly2Tri.dll",
-                               "sha256":  "6d37c20001d050b2bfd5071d64ee19f7fd7415e021e8122f1e9070613e4d570b"
-                           },
-                           {
-                               "kind":  "reference",
-                               "name":  "System.Core.dll",
-                               "sha256":  "d2570c87ba2f6b7e9d577cf2f9c864bd523a34dcb13165122b2dc0eef8cf0278"
-                           },
-                           {
-                               "kind":  "reference",
-                               "name":  "System.dll",
-                               "sha256":  "e31e3988eaff4fdc9cb28ca6ba0980f7204c5be0cb79e2dc4e56682833fd55da"
-                           },
-                           {
-                               "kind":  "reference",
-                               "name":  "UnityEngine.AnimationModule.dll",
-                               "sha256":  "18636cc226c7e6299e80210d4ae808eb2552cbcdb92c8713caee6a7f0e1be1a5"
-                           },
-                           {
-                               "kind":  "reference",
-                               "name":  "UnityEngine.CoreModule.dll",
-                               "sha256":  "3a76df7f709d465e3273502e08edbffb536b1c2f78c3a132b8668e59fddd2803"
-                           },
-                           {
-                               "kind":  "reference",
-                               "name":  "UnityEngine.dll",
-                               "sha256":  "50b79c57f46bf4e060bb27461b6d4fac6f078e08b57e776c7a811554c4899fd6"
-                           },
-                           {
-                               "kind":  "reference",
-                               "name":  "UnityEngine.ImageConversionModule.dll",
-                               "sha256":  "1b30743ab1830b9b45e79f88c1acefd7517eafcef4fd1a7a3eb853a07ca5bb17"
-                           },
-                           {
-                               "kind":  "reference",
-                               "name":  "UnityEngine.ParticleSystemModule.dll",
-                               "sha256":  "f105c561a5a052584d596fc364246bb79ebdca35113092446a835d851dfb003d"
-                           },
-                           {
-                               "kind":  "reference",
-                               "name":  "UnityEngine.PhysicsModule.dll",
-                               "sha256":  "724ac786e5dceae9d24521b6dcfb3c595de7529b4a7096e70fd6871809ad2ac7"
-                           },
-                           {
-                               "kind":  "reference",
-                               "name":  "UnityEngine.ScreenCaptureModule.dll",
-                               "sha256":  "814ede6a1cc2c267e477af7510c4731f91478f3b08fad6a20b829dc817896760"
-                           },
-                           {
-                               "kind":  "reference",
-                               "name":  "UnityEngine.UI.dll",
-                               "sha256":  "4dee942e8974492511733e5482f89fde39e3964008f072ec9c12d05e40a9080d"
-                           },
-                           {
-                               "kind":  "reference",
-                               "name":  "UnityEngine.UIModule.dll",
-                               "sha256":  "51b32055e2a03c78d3e7b2d7d8a6425ee80d415c1e07ea0ec7b1dd84eddc9f12"
-                           },
-                           {
-                               "kind":  "resource",
-                               "name":  "assets/icons/RefugeToken.png",
-                               "sha256":  "d04275af21f414f7e8e07a9e3675e80dfda9c4c1ad54eaa0a2fa5f5298513e9c"
-                           },
-                           {
-                               "kind":  "resource",
-                               "name":  "assets/portraits/AmbrusValsin/Fulllength.png",
-                               "sha256":  "7078e5561e1979640b496e2af137c2b8bcf0be6fe33c0968551a4d4eb8818b6e"
-                           },
-                           {
-                               "kind":  "resource",
-                               "name":  "assets/portraits/AmbrusValsin/Medium.png",
-                               "sha256":  "50fba21eed2440b49e0633b77f6683a4c4f05f3a8893ccd49ea5562b4f32b406"
-                           },
-                           {
-                               "kind":  "resource",
-                               "name":  "assets/portraits/AmbrusValsin/Small.png",
-                               "sha256":  "7cdcc36a67a35609471aa017b03d2449a3571f785a0c0a884a700dbae74abe98"
-                           },
-                           {
-                               "kind":  "resource",
-                               "name":  "assets/portraits/DecemvirateMember/Fulllength.png",
-                               "sha256":  "7553c157f4caf648c40fbec6e892e4fc222a9bd79b691fe983551f7ab225dea3"
-                           },
-                           {
-                               "kind":  "resource",
-                               "name":  "assets/portraits/DecemvirateMember/Medium.png",
-                               "sha256":  "8fc4687644bc3913c264999da58bb46e37fe1e15294a88ce7c20fe1b9a7a7eda"
-                           },
-                           {
-                               "kind":  "resource",
-                               "name":  "assets/portraits/DecemvirateMember/Small.png",
-                               "sha256":  "6e12cbe55d0665aff7cf53b422a63e597ebb682175754bb2f9ecbb2f59955ccf"
-                           },
-                           {
-                               "kind":  "resource",
-                               "name":  "assets/portraits/Quartermaster/Fulllength.png",
-                               "sha256":  "0bdf04e7946ad1cca779050cf54d7fc29b46295618e13433940799cbcad6d449"
-                           },
-                           {
-                               "kind":  "resource",
-                               "name":  "assets/portraits/Quartermaster/Medium.png",
-                               "sha256":  "abb701fa47dcdf1b0632ca646a108cd41b3c015e624930ebfcc0026295aa5f05"
-                           },
-                           {
-                               "kind":  "resource",
-                               "name":  "assets/portraits/Quartermaster/Small.png",
-                               "sha256":  "6b666485675d9e057f76c03f02edb48092f811f0df224c4b6cc7be7f0468800f"
-                           },
-                           {
-                               "kind":  "resource",
-                               "name":  "assets/portraits/RunelordKrune/Fulllength.png",
-                               "sha256":  "78f2ca3c42c98e5f938725919019c4c0f8d7b96c60083e4b0192fc37c5a1feab"
-                           },
-                           {
-                               "kind":  "resource",
-                               "name":  "assets/portraits/RunelordKrune/Medium.png",
-                               "sha256":  "81305d1dfe4a90747f9f75f8695720dedf7b25ae61535fc3a12503790d08e1f4"
-                           },
-                           {
-                               "kind":  "resource",
-                               "name":  "assets/portraits/RunelordKrune/Small.png",
-                               "sha256":  "fbfcd591e962fdfebe1139f420bfbdd28489976b81508dfa9128f0bc0f4a3659"
-                           },
-                           {
-                               "kind":  "resource",
-                               "name":  "assets/portraits/SheilaHeidmarch/Fulllength.png",
-                               "sha256":  "e9ccdf49514360ae4aae3f4ffb6dd6f20c548cd1f4a8d7074f78e7f360a0d905"
-                           },
-                           {
-                               "kind":  "resource",
-                               "name":  "assets/portraits/SheilaHeidmarch/Medium.png",
-                               "sha256":  "f2c2b492f45d6543538c1c6cd9bd915f67eddd68961452e4cc297b327ecf77e7"
-                           },
-                           {
-                               "kind":  "resource",
-                               "name":  "assets/portraits/SheilaHeidmarch/Small.png",
-                               "sha256":  "f46b6732b19072d32ba88720e42c38b55153be3bc1a7cb4e0ac51ca948ccfa8a"
-                           },
-                           {
-                               "kind":  "resource",
-                               "name":  "assets/portraits/SocietyCoordinator/Fulllength.png",
-                               "sha256":  "930d25a7c3b0a0a619f224458675b1b62553e313f089f4021edd89501f8cd3d9"
-                           },
-                           {
-                               "kind":  "resource",
-                               "name":  "assets/portraits/SocietyCoordinator/Medium.png",
-                               "sha256":  "d40e2e96b050edc79b7ffdb6b399a6a2235ff34131767d1fa8b663ad6fe5ddb8"
-                           },
-                           {
-                               "kind":  "resource",
-                               "name":  "assets/portraits/SocietyCoordinator/Small.png",
-                               "sha256":  "e44301ce53d125bd4499a3975b41caccda96fda0ca74465adeb87eb2165a3ca2"
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "AdditionalLibPaths=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "AllowUnsafeBlocks=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "ApplicationIcon=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "AssemblyName=KingmakerWakingRune",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "AssemblyOriginatorKeyFile=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "CheckForOverflowUnderflow=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "CscToolExe=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "CscToolPath=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "DebugSymbols=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "DebugType=none",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "DefineConstants=TRACE",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "DelaySign=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "Deterministic=true",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "Features=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "FileAlignment=512",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "HighEntropyVA=true",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "LangVersion=7.3",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "ModuleAssemblyName=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "NoConfig=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "NoStdLib=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "NoWarn=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "Nullable=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "Optimize=true",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "PathMap=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "PlatformTarget=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "Prefer32Bit=false",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "PublicSign=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "RootNamespace=KingmakerWakingRune",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "SignAssembly=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "SubsystemVersion=6.00",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "TargetFrameworkMoniker=.NETFramework,Version=v4.7",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "TargetFrameworkVersion=v4.7",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "TreatWarningsAsErrors=true",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "WarningLevel=4",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "WarningsAsErrors=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "WarningsNotAsErrors=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "Win32Manifest=",
-                               "sha256":  ""
-                           },
-                           {
-                               "kind":  "setting",
-                               "name":  "Win32Resource=",
-                               "sha256":  ""
+                               "kind":  "compile",
+                               "name":  "generated:.NETFramework,Version=v4.7.AssemblyAttributes.cs",
+                               "sha256":  "1555ebe6741e05c08c49de3019df3761b92ef583871c838b4262de2ff67fac4e"
                            }
                        ],
     "dllSha256":  "7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904",
-    "zip":  "<temp>\\kwr-ev2-CpIS\\clone\\artifacts\\KingmakerWakingRune-0.12.3.zip",
-    "zipSha256":  "51be31ccdd5a861096e8c2140ecd06bd0be32e08ce25c659577d6fca0577a24f"
+    "zip":  "<temp>\\kwr-ev3-FBZ4\\clone\\artifacts\\KingmakerWakingRune-0.12.3.zip",
+    "zipSha256":  "6a49a3fd4aa1800b61565bbb5f2647046449feca733f2830cc51e4fafa617109"
 }

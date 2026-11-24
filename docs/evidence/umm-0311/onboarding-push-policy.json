@@ -1,0 +1,44 @@
+{
+ "schema": "kwr.onboarding-push-policy.v1",
+ "recorded_at_utc": "2026-11-24T02:04:54Z",
+ "controller_package": "85dece1ca3547fddf67d378f54779e7bade47f36fb3ac91c9314393b35397916 (installed; read only)",
+ "protected_paths": {
+  "profile_field": "none - the project profile schema has no protected-path field and this profile sets none",
+  "inherited_default": "none - the installed controller defines no path-level protected list (searched for 'protected': only runtime-restoration protection and GitHub branch protection appear)",
+  "effective": "no path is push-protected by the controller; repository-level protection is GitHub branch protection of the target branch (required status checks are read from branch protection and rulesets)"
+ },
+ "push_policy": {
+  "route": "built-in guarded push (agent_review.py push) - the profile has no push_command",
+  "rules": [
+   "run in the enrolled worktree on the enrolled branch",
+   "branch matches branch_pattern and is not the target branch",
+   "no unfinished merge/cherry-pick/revert/rebase",
+   "clean worktree",
+   "origin fetch and every push URL in allowed_remote_urls",
+   "fast-forward only: the remote branch must be an ancestor (never force)",
+   "every outgoing blob and commit scanned; a possible token or PEM block refuses the push"
+  ],
+  "allowed_remote_urls": [
+   "git@github.com:howardreith/KingmakerWakingRune.git",
+   "https://github.com/howardreith/KingmakerWakingRune.git"
+  ],
+  "branch_pattern": "^codex/[a-z0-9][a-z0-9._/-]*$",
+  "target": "main"
+ },
+ "developer_permissions_deny": [
+  "Bash(powershell.exe -File scripts/KwrRuntime.ps1*)",
+  "Bash(powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/KwrRuntime.ps1*)",
+  "PowerShell(.\\scripts\\KwrRuntime.ps1*)"
+ ],
+ "runtime_lock_paths": [
+  "<dev>/KingmakerGunslingerLab/compatibility-state/compatibility.lock",
+  "<dev>/KingmakerGunslingerLab/game-copies/loader-compat.lock",
+  "<dev>/KingmakerBuffPlannerLab/runtime-state/deployment.lock",
+  "<dev>/KingmakerBuffPlannerLab/runtime-fixture-state/fixture.lock",
+  "<dev>/KingmakerMemoryLeakResearchLab/runtime-state/kmld-runtime.lock",
+  "<dev>/KingmakerMountedCombatLab/runtime-state/active-transaction.lock",
+  "<dev>/KingmakerSkipCinematicLab/runtime-state/runtime.lock",
+  "<dev>/KingmakerWakingRuneLab/runtime-state/transaction.json"
+ ],
+ "historical_check_project": "The check-project run made during onboarding on 2026-11-23 (before enrollment) was not retained and cannot be confirmed from records; the dated run of 2026-11-24 (onboarding-check-project.json) reports problems [] for the same profile, and the onboarding preflight result of 2026-11-23T23:09Z is retained (onboarding-preflight.json)."
+}
