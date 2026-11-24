@@ -37,28 +37,12 @@ if ($ReportPath) {
     # Protected inputs: the package, the receipt given, and the conventional receipt beside the package even when it is
     # not given. An existing report destination is compared by file identity (volume and file index), so another
     # spelling, a short name or a hard link of a protected input is refused too.
-    if (-not ('KwrFileIdentity' -as [type])) {
-        Add-Type -TypeDefinition @'
-using System;
-using System.IO;
-using System.Runtime.InteropServices;
-using Microsoft.Win32.SafeHandles;
-public static class KwrFileIdentity {
-    [StructLayout(LayoutKind.Sequential)] struct Info { public uint Attributes; public long C, A, W; public uint Volume, SizeHigh, SizeLow, Links, IndexHigh, IndexLow; }
-    [DllImport("kernel32.dll", SetLastError = true)] static extern bool GetFileInformationByHandle(SafeFileHandle h, out Info i);
-    public static string Of(string path) {
-        using (var f = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete)) {
-            Info i; if (!GetFileInformationByHandle(f.SafeFileHandle, out i)) return null;
-            return i.Volume.ToString("x8") + ":" + i.IndexHigh.ToString("x8") + i.IndexLow.ToString("x8");
-        }
-    }
-}
-'@
-    }
+    # The final write is bound to the checked identity as well (see the end of this script).
+    . (Join-Path $PSScriptRoot 'KwrFileIdentity.ps1')
     $protected = @($PackagePath, $ReceiptPath, ($PackagePath + '.build.json')) | Where-Object { $_ } | Select-Object -Unique
     foreach ($inputPath in $protected) {
         $same = [string]::Equals([IO.Path]::GetFullPath($ReportPath), [IO.Path]::GetFullPath($inputPath), [StringComparison]::OrdinalIgnoreCase)
-        if (-not $same -and [IO.File]::Exists($ReportPath) -and [IO.File]::Exists($inputPath)) { $same = [KwrFileIdentity]::Of($ReportPath) -ceq [KwrFileIdentity]::Of($inputPath) }
+        if (-not $same -and [IO.File]::Exists($ReportPath) -and [IO.File]::Exists($inputPath)) { $same = [KwrFileIdentityV2]::Of($ReportPath) -ceq [KwrFileIdentityV2]::Of($inputPath) }
         if ($same) { throw "The report path must not be an input of the validation: $inputPath" }
     }
 }
@@ -231,7 +215,9 @@ if ($ReceiptPath) {
         $previousPreference = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
         try { $null = & git -C $Root cat-file -e ($receipt.commit + '^{commit}') 2>&1; $commitKnown = $LASTEXITCODE -eq 0 } finally { $ErrorActionPreference = $previousPreference }
         if (-not $commitKnown) { throw "Build receipt names a commit this repository does not have ($($receipt.commit)); rebuild." }
-        $materialPaths = @('src', 'Info.json', 'LoaderReferences.targets', 'scripts/loader-reference-pins.json', 'scripts/Get-PinnedLoaderReferences.ps1', 'scripts/Build.ps1', 'scripts/KwrBuild.Common.ps1')
+        # Material: the fixed build paths plus every tracked repository file the recorded inventory names (the embedded
+        # art and any other resource, source or file-valued option).
+        $materialPaths = @(@('src', 'Info.json', 'LoaderReferences.targets', 'scripts/loader-reference-pins.json', 'scripts/Get-PinnedLoaderReferences.ps1', 'scripts/Build.ps1', 'scripts/KwrBuild.Common.ps1') + @(Get-KwrInventoryRepositoryPaths $receipt.compilerInputs) | Select-Object -Unique)
         $previousPreference = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
         try { $null = & git -C $Root diff --quiet $receipt.commit -- @materialPaths 2>&1; $materialSame = $LASTEXITCODE -eq 0 } finally { $ErrorActionPreference = $previousPreference }
         if (-not $materialSame) { throw "Build inputs changed since this package was built: the material inputs differ from the receipt's commit $($receipt.commit); rebuild." }
@@ -258,7 +244,14 @@ $result = [ordered]@{
     receipt_checked = [bool]$ReceiptPath
     source_provenance = $provenance
 }
-if ($ReportPath) { $result | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $ReportPath -Encoding UTF8 }
+if ($ReportPath) {
+    # Bound write: the protected identities are read now, and the destination is opened once, checked through that handle
+    # and only then truncated and written, so a destination replaced during validation is refused too.
+    $protectedIds = [string[]]@($protected | Where-Object { [IO.File]::Exists($_) } | ForEach-Object { [KwrFileIdentityV2]::Of($_) })
+    $reportText = $result | ConvertTo-Json -Depth 5
+    $reportBytes = [byte[]](@([Text.Encoding]::UTF8.GetPreamble()) + @([Text.Encoding]::UTF8.GetBytes($reportText + "`r`n")))
+    [void][KwrFileIdentityV2]::WriteChecked($ReportPath, $protectedIds, $reportBytes)
+}
 Write-Host "Package validation passed: $PackagePath"
 Write-Host "Package SHA-256: $packageSha256; DLL SHA-256: $dllSha256; MVID: $mvid; loader references: $(($observed | ForEach-Object { $_.name + ' ' + $_.version }) -join ', '); source provenance: $provenance"
 }

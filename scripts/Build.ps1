@@ -33,14 +33,29 @@ $compilerInputs = @(Get-KwrCompilerInputs)
 $buildInputs = Get-KwrBuildInputFingerprint $compilerInputs
 
 $msbuild = Get-KwrMsBuild
-$productionInventory = Join-Path ([IO.Path]::GetTempPath()) ('kwr-production-inputs-' + [Guid]::NewGuid().ToString('N') + '.txt')
+# The product is compiled into a folder this invocation owns (OutDir and IntermediateOutputPath are global properties,
+# which no project or local setting overrides), so the packaged DLL is this compile's output: Csc's /out: file in the
+# owned intermediate folder and the copied DLL must have the same digest, and those bytes are what is packaged.
+$owned = Join-Path ([IO.Path]::GetTempPath()) ('kwr-build-' + [Guid]::NewGuid().ToString('N'))
+$productionInventory = Join-Path $owned 'compiler-inputs.txt'
 try {
-    # A fresh compile (Rebuild): the packaged DLL is always this invocation's output, never an earlier incremental result.
-    & $msbuild (Join-Path $Root 'src\KingmakerWakingRune\KingmakerWakingRune.csproj') -nologo -v:minimal -t:Rebuild -p:Configuration=Release "-p:CompilerReferenceListPath=$productionInventory"
+    [void][IO.Directory]::CreateDirectory($owned)
+    & $msbuild (Join-Path $Root 'src\KingmakerWakingRune\KingmakerWakingRune.csproj') -nologo -v:minimal -t:Rebuild -p:Configuration=Release "-p:CompilerReferenceListPath=$productionInventory" "-p:OutDir=$owned\bin\" "-p:IntermediateOutputPath=$owned\obj\"
     if ($LASTEXITCODE -ne 0) { throw 'Mod build failed.' }
     $produced = @(ConvertFrom-KwrCompilerInputList $productionInventory)
+    $listLines = @(Get-Content -LiteralPath $productionInventory -Encoding UTF8)
+    $projectDirectory = $listLines[1].Substring('project|'.Length)
+    $outArgument = @($listLines | Where-Object { $_ -match '^arg\|[/-]out:' })
+    if ($outArgument.Count -ne 1) { throw 'The production command line does not name exactly one /out: file.' }
+    $cscOutput = [IO.Path]::GetFullPath([IO.Path]::Combine($projectDirectory, ($outArgument[0] -replace '^arg\|[/-]out:', '').Trim('"')))
+    if (-not $cscOutput.StartsWith(($owned + '\obj\'), [StringComparison]::OrdinalIgnoreCase)) { throw "The compiler wrote outside this invocation's folder: $cscOutput" }
+    $builtDll = Join-Path $owned 'bin\KingmakerWakingRune.dll'
+    $productDllSha256 = Get-KwrSha256 $builtDll
+    if ((Get-KwrSha256 $cscOutput) -cne $productDllSha256) { throw 'The copied product DLL differs from the compiler output.' }
+    $productDllBytes = [IO.File]::ReadAllBytes($builtDll)
+    Write-Host "Product DLL SHA-256 (this invocation's compile): $productDllSha256"
 }
-finally { Remove-Item -LiteralPath $productionInventory -Force -ErrorAction SilentlyContinue }
+finally { if ([IO.Directory]::Exists($owned)) { [IO.Directory]::Delete($owned, $true) } }
 if ((ConvertTo-KwrCompilerInventoryText $produced) -cne (ConvertTo-KwrCompilerInventoryText $compilerInputs)) {
     throw 'The production compile used different compiler inputs from the evaluated inventory; nothing is packaged.'
 }
@@ -59,7 +74,8 @@ $stage = Join-Path $Root 'artifacts\stage\KingmakerWakingRune'
 Remove-Item -LiteralPath (Join-Path $Root 'artifacts\stage') -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 Copy-Item (Join-Path $Root 'Info.json') $stage
-Copy-Item (Join-Path $Root 'bin\Release\KingmakerWakingRune.dll') $stage
+[IO.File]::WriteAllBytes((Join-Path $stage 'KingmakerWakingRune.dll'), $productDllBytes)
+if ((Get-KwrSha256 (Join-Path $stage 'KingmakerWakingRune.dll')) -cne $productDllSha256) { throw 'The staged DLL differs from this invocation''s compile.' }
 # The approved art is embedded in the DLL (no loose Portraits or Icons folders): every expected image must be present
 # and decode, or the package is refused.
 Add-Type -AssemblyName System.Drawing
@@ -93,6 +109,7 @@ Write-Host "Embedded art verified: $($expected.Count) images."
 $pending = Join-Path $Root ('artifacts\.pending-' + [Guid]::NewGuid().ToString('N'))
 $pendingZip = Join-Path $pending ([IO.Path]::GetFileName($zip))
 $pendingReceipt = $pendingZip + '.build.json'
+$keepPending = $false
 try {
     New-Item -ItemType Directory -Path $pending | Out-Null
     # Entries are written with forward slashes (the zip standard): Compress-Archive in Windows PowerShell 5.1 writes
@@ -132,26 +149,33 @@ try {
     if (-not $dirty) { $validation += '-RequireCurrentProvenance' }
     & powershell.exe @validation
     if ($LASTEXITCODE -ne 0) { throw 'Standalone package validation failed; nothing is placed at the candidate paths.' }
-    # A replaced package (owner-authorized -ReplacePackage, or a -dirty build) is moved aside first and restored if either
-    # placement fails; File.Move refuses an existing destination, so a clean candidate is never overwritten silently.
+    # A replaced package (owner-authorized -ReplacePackage, or a -dirty build) is moved aside first; the moves aside and
+    # the placements are one rollback scope: every completed step is undone in reverse if any step fails (for example a
+    # receipt held open by another process). File.Move refuses an existing destination, so a clean candidate is never
+    # overwritten silently. If the rollback itself fails, the staging folder with the previous files is kept and named.
     $previous = Join-Path $pending 'previous'
-    $keptAside = @()
-    if ($ReplacePackage -or $dirty) {
-        New-Item -ItemType Directory -Path $previous | Out-Null
-        foreach ($file in @($zip, $receiptPath)) { if (Test-Path -LiteralPath $file) { [IO.File]::Move($file, (Join-Path $previous ([IO.Path]::GetFileName($file)))); $keptAside += $file } }
-    }
+    $done = [Collections.Generic.List[object]]::new()
     try {
-        [IO.File]::Move($pendingZip, $zip)
-        [IO.File]::Move($pendingReceipt, $receiptPath)
+        if ($ReplacePackage -or $dirty) {
+            New-Item -ItemType Directory -Path $previous | Out-Null
+            foreach ($file in @($zip, $receiptPath)) {
+                if (Test-Path -LiteralPath $file) { $aside = Join-Path $previous ([IO.Path]::GetFileName($file)); [IO.File]::Move($file, $aside); $done.Add(@($aside, $file)) }
+            }
+        }
+        [IO.File]::Move($pendingZip, $zip); $done.Add(@($zip, $pendingZip))
+        [IO.File]::Move($pendingReceipt, $receiptPath); $done.Add(@($receiptPath, $pendingReceipt))
     }
     catch {
-        if (Test-Path -LiteralPath $zip) { if ((Get-KwrSha256 $zip) -ceq $receipt.zipSha256) { [IO.File]::Delete($zip) } }
-        if (Test-Path -LiteralPath $receiptPath) { if (-not (Test-Path -LiteralPath $pendingReceipt)) { [IO.File]::Delete($receiptPath) } }
-        foreach ($file in $keptAside) { if (-not (Test-Path -LiteralPath $file)) { [IO.File]::Move((Join-Path $previous ([IO.Path]::GetFileName($file))), $file) } }
-        throw
+        $placementError = $_
+        try { for ($i = $done.Count - 1; $i -ge 0; $i--) { [IO.File]::Move($done[$i][0], $done[$i][1]) } }
+        catch {
+            $keepPending = $true
+            throw "Placement failed ($placementError) and the rollback failed ($_); the previous ZIP and receipt are kept in $previous."
+        }
+        throw $placementError
     }
 }
 finally {
-    if ([IO.Directory]::Exists($pending)) { [IO.Directory]::Delete($pending, $true) }
+    if (-not $keepPending -and [IO.Directory]::Exists($pending)) { [IO.Directory]::Delete($pending, $true) }
 }
 $receipt | ConvertTo-Json -Depth 5

@@ -46,12 +46,25 @@ function ConvertFrom-KwrCompilerInputList([string] $ListPath) {
         $rsp = Join-Path (Split-Path -Parent $compiler) 'csc.rsp'
         $implicit += [ordered]@{ kind = 'response-file'; name = 'implicit:csc.rsp'; sha256 = $(if (Test-Path -LiteralPath $rsp -PathType Leaf) { Get-KwrSha256 $rsp } else { 'absent' }) }
     }
-    $entries = foreach ($line in @($cscArgs | ForEach-Object { 'arg|' + $_ })) {
-        if (-not $line.StartsWith('arg|')) { throw "Compiler input list is malformed: $line" }
-        $arg = $line.Substring(4)
-        if ($arg.StartsWith('@')) { [ordered]@{ kind = 'response-file'; name = '@' + (Get-InputName $arg.Substring(1)); sha256 = Get-InputDigest $arg.Substring(1) }; continue }
+    # One argument; a response file contributes its own entry and then, in place, every argument it contains (Csc reads
+    # them as if they were on the command line; '#' lines are comments), so files it names are identified by content
+    # too. A named file that cannot be read is recorded as 'absent', which current qualification refuses.
+    function ConvertFrom-CscArgument([string] $arg, [int] $Depth) {
+        if ($arg.StartsWith('@')) {
+            $rspPath = $arg.Substring(1)
+            [ordered]@{ kind = 'response-file'; name = '@' + (Get-InputName $rspPath); sha256 = Get-InputDigest $rspPath }
+            $rspFull = Resolve-InputPath $rspPath
+            if ($Depth -ge 4) { throw "Response files are nested too deeply: $rspFull" }
+            if (Test-Path -LiteralPath $rspFull -PathType Leaf) {
+                foreach ($rspLine in [IO.File]::ReadAllLines($rspFull)) {
+                    if ($rspLine.TrimStart().StartsWith('#')) { continue }
+                    foreach ($token in [regex]::Matches($rspLine, '(?:"[^"]*"|[^\s"])+')) { ConvertFrom-CscArgument $token.Value.Replace('"', '') ($Depth + 1) }
+                }
+            }
+            return
+        }
         $m = [regex]::Match($arg, '^[/-]([A-Za-z0-9_+-]+?)(?::(.*))?$')
-        if (-not $m.Success) { [ordered]@{ kind = 'compile'; name = Get-InputName $arg; sha256 = Get-InputDigest $arg }; continue }
+        if (-not $m.Success) { [ordered]@{ kind = 'compile'; name = Get-InputName $arg; sha256 = Get-InputDigest $arg }; return }
         $switch = $m.Groups[1].Value.ToLowerInvariant(); $value = $m.Groups[2].Value
         if ($outputSwitches -ccontains $switch) { [ordered]@{ kind = 'output'; name = "/$switch" + ':' + [IO.Path]::GetFileName($value.Trim('"')); sha256 = '' } }
         elseif ($switch -ceq 'reference' -or $switch -ceq 'r') {
@@ -65,10 +78,31 @@ function ConvertFrom-KwrCompilerInputList([string] $ListPath) {
         elseif ($fileSwitches -ccontains $switch -and $value) { [ordered]@{ kind = 'file-option'; name = "/$switch" + ':' + (Get-InputName $value); sha256 = Get-InputDigest $value } }
         else { [ordered]@{ kind = 'option'; name = $arg.Replace($objPrefix.TrimEnd('\'), 'obj:'); sha256 = '' } }
     }
+    $entries = foreach ($arg in $cscArgs) { ConvertFrom-CscArgument $arg 0 }
     # Argument order is kept: the inventory is the compiler, any implicit response file, then every argument as passed.
     return @(@($compilerEntry) + $implicit + @($entries))
 }
 
+
+# The repository files an inventory names (sources, resources such as the embedded art, references, response files and
+# other file-valued options under the repository), as tracked paths: current provenance compares them with the receipt's
+# commit in addition to the fixed material paths.
+function Get-KwrInventoryRepositoryPaths($Inventory) {
+    $candidates = @(foreach ($entry in @($Inventory)) {
+        if ([string]$entry.kind -notin @('compile', 'reference', 'file-option', 'response-file')) { continue }
+        $name = [string]$entry.name
+        if ($name.StartsWith('@')) { $name = $name.Substring(1) }
+        $name = $name -replace '^/[A-Za-z0-9_+-]+:', ''
+        $name = $name -replace '^[A-Za-z_][A-Za-z0-9_]*=', ''
+        if ([string]$entry.kind -ceq 'file-option') { $name = ($name -split ',', 2)[0] }
+        if ($name -match '^(obj|generated|implicit):' -or [string]::IsNullOrWhiteSpace($name)) { continue }
+        $name
+    })
+    if ($candidates.Count -eq 0) { return @() }
+    $tracked = @(& git -C $script:KwrRoot ls-files -- @($candidates | Sort-Object -Unique))
+    if ($LASTEXITCODE -ne 0) { throw 'git ls-files failed while listing the inventory paths.' }
+    return @($tracked | Sort-Object -Unique)
+}
 
 function ConvertTo-KwrCompilerInventoryText($Inventory) {
     return (@($Inventory | ForEach-Object { [string]$_.kind + '|' + [string]$_.name + '|' + [string]$_.sha256 }) -join "`n")

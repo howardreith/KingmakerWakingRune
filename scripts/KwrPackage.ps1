@@ -5,7 +5,8 @@ Set-StrictMode -Version Latest
 # Resolves the caller's package once (PowerShell literal path semantics), copies it (and the build receipt beside it,
 # when present) into a private directory, validates that copy with the standalone validator and returns the identities
 # of the validated bytes. A receipt makes this the frozen-candidate path: the receipt must also name a clean producing
-# commit and the current build inputs. The private directory is removed on any failure.
+# commit and the current build inputs. A ZIP without a receipt is staged as external-content-inspected. The private
+# directory is removed on any failure.
 # -Diagnostic: a receipt-backed diagnostic build (for example a dirty working tree) is staged with the ZIP, DLL and pin
 # checks and the receipt matched to the package, without the frozen-candidate provenance requirement.
 function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic) {
@@ -26,6 +27,15 @@ function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic
         else { & (Join-Path $PSScriptRoot 'Validate-Package.ps1') -PackagePath $copy -ReportPath $report | Out-Host }
         $validation = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
         if ((Get-FileHash -LiteralPath $copy -Algorithm SHA256).Hash.ToLowerInvariant() -cne [string]$validation.package_sha256) { throw 'The validated copy changed after validation.' }
+        # The recorded qualification follows from what the validator established: a clean pair with current provenance is
+        # a frozen candidate; a receipt matched to its package under -Diagnostic is a diagnostic build; a ZIP without a
+        # receipt had its contents inspected only.
+        $installMode = switch ([string]$validation.source_provenance) {
+            'verified-current' { 'frozen-candidate' }
+            'receipt-matches-package' { if ($Diagnostic) { 'diagnostic' } else { throw 'A receipt-backed package was not verified as current.' } }
+            'not-checked' { 'external-content-inspected' }
+            default { throw "Unknown validator provenance: $($validation.source_provenance)" }
+        }
         return [pscustomobject]@{
             Source = $source
             Copy = $copy
@@ -33,7 +43,7 @@ function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic
             Sha256 = [string]$validation.package_sha256
             DllSha256 = [string]$validation.dll_sha256
             SourceProvenance = [string]$validation.source_provenance
-            InstallMode = $(if ($Diagnostic) { 'diagnostic' } else { 'frozen-candidate' })
+            InstallMode = $installMode
         }
     }
     catch {

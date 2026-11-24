@@ -12,7 +12,7 @@ $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $pins = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'loader-reference-pins.json') | ConvertFrom-Json
 if ($pins.schemaVersion -ne 1 -or @($pins.references).Count -eq 0 -or @($pins.manifests).Count -eq 0 -or
     -not ($pins.minimumManagerVersion -is [string]) -or
-    [string]$pins.minimumManagerVersion -cnotmatch '^[0-9]+([.][0-9]+){2}$') { throw 'Unknown or empty loader reference pin file.' }
+    [string]$pins.minimumManagerVersion -cnotmatch '\A[0-9]+([.][0-9]+){2}\z') { throw 'Unknown or empty loader reference pin file.' }
 $manager = @($pins.references | Where-Object Name -CEQ 'UnityModManager')
 if ($manager.Count -ne 1 -or [string]$manager[0].Version -cne ([string]$pins.minimumManagerVersion + '.0')) {
     throw 'The UnityModManager compile reference must equal the declared minimum.'
@@ -34,17 +34,29 @@ foreach ($manifest in $pins.manifests) {
     }
 }
 # The complete pin definition (every field of every pin), checked before any cache access and also in -DefinitionOnly.
-$definitionSeen = @{}
-foreach ($pin in $pins.references) {
-    if ([string]$pin.File -cnotmatch '^[A-Za-z0-9._-]+[.]dll$' -or
-        [string]$pin.Sha256 -cnotmatch '^[0-9a-f]{64}$' -or
-        [string]$pin.Version -cnotmatch '^[0-9]+([.][0-9]+){3}$' -or
-        [string]::IsNullOrWhiteSpace([string]$pin.Name) -or
-        -not ([Uri]$pin.Url).IsAbsoluteUri -or ([Uri]$pin.Url).Scheme -cne 'https' -or
-        $definitionSeen.ContainsKey([string]$pin.File)) { throw 'Invalid or duplicate loader reference pin.' }
-    $definitionSeen[[string]$pin.File] = $true
-    if ($pin.ArchiveEntry -and [string]$pin.ArchiveSha256 -cnotmatch '^[0-9a-f]{64}$') { throw "Missing archive hash for $($pin.File)." }
+# Strings are matched through their absolute end (\z: a trailing line feed is not accepted), and the archive fields come
+# as a pair: both null for a direct download, or an archive entry path together with the archive's SHA-256.
+function Assert-PinDefinition($Pin, [hashtable] $Seen) {
+    foreach ($field in @('Name', 'File', 'Version', 'Url', 'Sha256')) {
+        if (-not $Pin.PSObject.Properties[$field] -or -not ($Pin.$field -is [string])) { throw 'Invalid or duplicate loader reference pin.' }
+    }
+    $uri = $null
+    if ($Pin.File -cnotmatch '\A[A-Za-z0-9._-]+[.]dll\z' -or
+        $Pin.Sha256 -cnotmatch '\A[0-9a-f]{64}\z' -or
+        $Pin.Version -cnotmatch '\A[0-9]+([.][0-9]+){3}\z' -or
+        $Pin.Name -cnotmatch '\A[A-Za-z0-9._-]+\z' -or
+        -not [Uri]::TryCreate($Pin.Url, [UriKind]::Absolute, [ref]$uri) -or $uri.Scheme -cne 'https' -or
+        $Seen.ContainsKey($Pin.File)) { throw 'Invalid or duplicate loader reference pin.' }
+    $Seen[$Pin.File] = $true
+    $entry = if ($Pin.PSObject.Properties['ArchiveEntry']) { $Pin.ArchiveEntry } else { $null }
+    $archiveHash = if ($Pin.PSObject.Properties['ArchiveSha256']) { $Pin.ArchiveSha256 } else { $null }
+    if ($null -ne $entry -and $null -eq $archiveHash) { throw "Missing archive hash for $($Pin.File)." }
+    if ($null -eq $entry -and $null -ne $archiveHash) { throw "Archive hash without an archive entry for $($Pin.File): the archive fields must be given together." }
+    if ($null -ne $entry -and (-not ($entry -is [string]) -or $entry -cnotmatch '\A[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*[.]dll\z' -or
+            -not ($archiveHash -is [string]) -or $archiveHash -cnotmatch '\A[0-9a-f]{64}\z')) { throw "Invalid archive entry or archive hash for $($Pin.File)." }
 }
+$definitionSeen = @{}
+foreach ($pin in $pins.references) { Assert-PinDefinition $pin $definitionSeen }
 if ($DefinitionOnly) { Write-Output 'Loader pin definition: PASS'; return }
 if ([string]::IsNullOrWhiteSpace($ReferenceDirectory)) { $ReferenceDirectory = Join-Path $repoRoot 'obj/loader-references' }
 # PowerShell filesystem semantics: relative to the current PowerShell location; a cache that does not exist yet resolves.
@@ -61,14 +73,7 @@ function Assert-PinnedReference([string]$Path, $Pin) {
 
 $seen = @{}
 foreach ($pin in $pins.references) {
-    if ([string]$pin.File -cnotmatch '^[A-Za-z0-9._-]+[.]dll$' -or
-        [string]$pin.Sha256 -cnotmatch '^[0-9a-f]{64}$' -or
-        [string]$pin.Version -cnotmatch '^[0-9]+([.][0-9]+){3}$' -or
-        [string]::IsNullOrWhiteSpace([string]$pin.Name) -or
-        -not ([Uri]$pin.Url).IsAbsoluteUri -or ([Uri]$pin.Url).Scheme -cne 'https' -or
-        $seen.ContainsKey([string]$pin.File)) { throw 'Invalid or duplicate loader reference pin.' }
-    $seen[[string]$pin.File] = $true
-    if ($pin.ArchiveEntry -and [string]$pin.ArchiveSha256 -cnotmatch '^[0-9a-f]{64}$') { throw "Missing archive hash for $($pin.File)." }
+    Assert-PinDefinition $pin $seen
     $target = Join-Path $ReferenceDirectory $pin.File
     if (Test-Path -LiteralPath $target -PathType Leaf) {
         Assert-PinnedReference $target $pin

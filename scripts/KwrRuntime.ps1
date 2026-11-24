@@ -246,7 +246,8 @@ function Invoke-Begin {
 
 function Invoke-Reinstall {
     $s = Get-State
-    if (-not $s -or $s.phase -notin @('installed', 'closed')) { throw 'Reinstall needs an open transaction with the game closed.' }
+    # 'reinstalling' (an interrupted reinstall) is resumed here; End restores the transaction in every phase.
+    if (-not $s -or $s.phase -notin @('installed', 'closed', 'reinstalling')) { throw 'Reinstall needs an open transaction with the game closed.' }
     if (@(Get-GameProcesses).Count -gt 0) { throw 'Kingmaker is running; never hot-replace the DLL.' }
     if (-not $PackagePath) { throw 'A -PackagePath is required.' }
     $validated = New-KwrValidatedPackageCopy $PackagePath -Diagnostic:$Diagnostic
@@ -255,7 +256,8 @@ function Invoke-Reinstall {
         # Stage and verify the new folder first; then mark the transaction non-launchable before touching the installed
         # mod, so a failure leaves a 'reinstalling' transaction that Launch refuses and End restores.
         $stagedMod = Expand-KwrValidatedPackageCopy $validated
-        $previousPhase = $s.phase
+        $previousPhase = if ($s.phase -eq 'reinstalling') { $(if ($s.PSObject.Properties['resumePhase'] -and [string]$s.resumePhase -in @('installed', 'closed')) { [string]$s.resumePhase } else { 'closed' }) } else { [string]$s.phase }
+        $s | Add-Member -NotePropertyName resumePhase -NotePropertyValue $previousPhase -Force
         $s.phase = 'reinstalling'
         Save-State $s
         if (Test-Path -LiteralPath $ModDir) { Remove-Item -LiteralPath $ModDir -Recurse -Force }
@@ -269,6 +271,7 @@ function Invoke-Reinstall {
         $s | Add-Member -NotePropertyName sourceProvenance -NotePropertyValue $validated.SourceProvenance -Force
         $s | Add-Member -NotePropertyName installMode -NotePropertyValue $validated.InstallMode -Force
         $s.phase = $previousPhase
+        $s.PSObject.Properties.Remove('resumePhase')
         Save-State $s
         Write-Step "Reinstalled package $($s.packageSha256) (recon=$recon)."
     }
@@ -521,8 +524,10 @@ function Invoke-Close {
         }
         Write-Step "Owned game process $($s.gamePid) exited."
     }
-    $s.phase = 'closed'; $s.gamePid = $null; $s.gameStart = $null
-    Save-State $s
+    # Only a running transaction becomes 'closed'; a recovery phase such as 'reinstalling' is kept, so Close never makes
+    # an interrupted reinstall launchable.
+    if ($s -and $s.phase -eq 'running') { $s.phase = 'closed' }
+    if ($s) { $s.gamePid = $null; $s.gameStart = $null; Save-State $s }
 }
 
 function Invoke-Collect {

@@ -63,13 +63,15 @@ Copy-Item docs\evidence\umm-0311\loader-api-audit-Program.cs.txt audit\Program.c
 Copy-Item docs\evidence\umm-0311\loader-api-audit-csproj.txt audit\LoaderApiAudit.csproj
 dotnet build -c Release audit\LoaderApiAudit.csproj
 $audit = 'audit\bin\Release\net8.0\LoaderApiAudit.exe'
+# The audited DLL is the one in the package (scripts/Build.ps1 output); its digest equals the validator's dll_sha256.
+Expand-Archive artifacts\KingmakerWakingRune-<version>.zip audit\package
 ```
 Three profiles are assembled from official NuGet packages (`docs/evidence/umm-0311/loader-profiles.md` lists the
 packages and hashes): `<p>\<v>\UnityModManager.dll` from `unitymodmanager.<v>.nupkg` (`lib/net35`), `0Harmony.dll` from
 the matching `lib.harmony.<v>.nupkg` (`lib/net48`) and the pinned `0Harmony12.dll`. The fourth row is a read-only copy of
 the owner's installed loader folder (`<Kingmaker>\Kingmaker_Data\Managed\UnityModManager`; measured, not assembled):
 ```powershell
-& $audit --mod bin\Release\KingmakerWakingRune.dll --json api-audit.json --assemblies UnityModManager,0Harmony12,0Harmony `
+& $audit --mod audit\package\KingmakerWakingRune\KingmakerWakingRune.dll --json api-audit.json --assemblies UnityModManager,0Harmony12,0Harmony `
   --profile "0.31.1=<p>\0.31.1\UnityModManager.dll;<p>\0.31.1\0Harmony.dll;<p>\0.31.1\0Harmony12.dll" `
   --profile "0.32.4=<p>\0.32.4\UnityModManager.dll;<p>\0.32.4\0Harmony.dll;<p>\0.32.4\0Harmony12.dll" `
   --profile "0.33.4=<p>\0.33.4\UnityModManager.dll;<p>\0.33.4\0Harmony.dll;<p>\0.33.4\0Harmony12.dll" `
