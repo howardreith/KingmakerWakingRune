@@ -1,0 +1,26 @@
+{
+    "status":  "package-validated",
+    "package":  "<temp>\\kwr-ev2-CpIS\\clone\\artifacts\\KingmakerWakingRune-0.12.3.zip",
+    "package_sha256":  "51be31ccdd5a861096e8c2140ecd06bd0be32e08ce25c659577d6fca0577a24f",
+    "version":  "0.12.3",
+    "manager_version":  "0.31.1",
+    "dll_assembly_name":  "KingmakerWakingRune",
+    "dll_sha256":  "7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904",
+    "dll_mvid":  "ccc59117-f992-44ce-9355-540d35f181f0",
+    "dll_loader_references":  [
+                                  {
+                                      "name":  "UnityModManager",
+                                      "version":  "0.31.1.0"
+                                  },
+                                  {
+                                      "name":  "0Harmony12",
+                                      "version":  "1.2.0.1"
+                                  },
+                                  {
+                                      "name":  "0Harmony",
+                                      "version":  "2.3.1.1"
+                                  }
+                              ],
+    "receipt_checked":  true,
+    "source_provenance":  "verified-current"
+}
