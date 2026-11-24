@@ -448,7 +448,7 @@ try {
     [IO.File]::WriteAllText($failingBuild, $buildText.Replace($anchor, $anchor + "`r`nthrow 'injected failure after the sidecar was written'"))
     $f = Invoke-Isolated @('-File', $failingBuild, '-SkipTests')
     Remove-Item -LiteralPath $failingBuild
-    $leftovers = @(Get-ChildItem -LiteralPath (Join-Path $base 'artifacts') -Force | Where-Object { $_.Name -like '.pending-*' -or $_.Name -like 'KingmakerWakingRune-*.zip*' } | ForEach-Object Name)
+    $leftovers = @(Get-ChildItem -LiteralPath (Join-Path $base 'artifacts') -Force | Where-Object { $_.Name -like '.pending-*' -or $_.Name -like ([IO.Path]::GetFileName($candidateZip) + '*') } | ForEach-Object Name)
     Add-Case 'build-failure-after-sidecar-leaves-no-candidate' ($f.ExitCode -ne 0 -and $f.Output -match 'injected failure' -and $leftovers.Count -eq 0) ("exit $($f.ExitCode); artifacts left: $(if ($leftovers.Count) { $leftovers -join ', ' } else { 'none' })")
     $retry = Invoke-Isolated @('-File', (Join-Path $base 'scripts\Build.ps1'), '-SkipTests')
     $retryReceipt = if (Test-Path -LiteralPath $receiptPath) { Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json } else { $null }

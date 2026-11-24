@@ -228,11 +228,13 @@ if ($ReceiptPath) {
             }
         }
         # The recorded commit must exist and its material inputs must be the files present now.
-        & git -C $Root cat-file -e ($receipt.commit + '^{commit}') 2>$null
-        if ($LASTEXITCODE -ne 0) { throw "Build receipt names a commit this repository does not have ($($receipt.commit)); rebuild." }
+        $previousPreference = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+        try { $null = & git -C $Root cat-file -e ($receipt.commit + '^{commit}') 2>&1; $commitKnown = $LASTEXITCODE -eq 0 } finally { $ErrorActionPreference = $previousPreference }
+        if (-not $commitKnown) { throw "Build receipt names a commit this repository does not have ($($receipt.commit)); rebuild." }
         $materialPaths = @('src', 'Info.json', 'LoaderReferences.targets', 'scripts/loader-reference-pins.json', 'scripts/Get-PinnedLoaderReferences.ps1', 'scripts/Build.ps1', 'scripts/KwrBuild.Common.ps1')
-        & git -C $Root diff --quiet $receipt.commit -- @materialPaths 2>$null
-        if ($LASTEXITCODE -ne 0) { throw "The material inputs differ from the receipt's commit $($receipt.commit); rebuild." }
+        $previousPreference = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+        try { $null = & git -C $Root diff --quiet $receipt.commit -- @materialPaths 2>&1; $materialSame = $LASTEXITCODE -eq 0 } finally { $ErrorActionPreference = $previousPreference }
+        if (-not $materialSame) { throw "Build inputs changed since this package was built: the material inputs differ from the receipt's commit $($receipt.commit); rebuild." }
         if (@($receipt.compilerInputs | Where-Object { [string]$_.sha256 -ceq 'absent' }).Count -ne 0) { throw 'Build receipt has an unidentified compiler input; rebuild.' }
         $currentInputs = @(Get-KwrCompilerInputs)
         if ((ConvertTo-KwrCompilerInventoryText $receipt.compilerInputs) -cne (ConvertTo-KwrCompilerInventoryText $currentInputs) -or
