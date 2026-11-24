@@ -55,18 +55,25 @@ Before installing any ZIP, `scripts/Validate-Package.ps1 -PackagePath <zip>` che
 assembly definition and its actual loader references (`KwrRuntime.ps1` runs it automatically, with current-provenance
 checks when a receipt is beside the ZIP).
 
-Static loader API audit (static evidence only; see [UMM compatibility](docs/UMM-COMPATIBILITY.md)). The tool's source is
-committed as `docs/evidence/umm-0311/loader-api-audit-Program.cs.txt` and `loader-api-audit-csproj.txt`; each profile is
-assembled from the official NuGet packages listed in `docs/evidence/umm-0311/loader-profiles.md`
-(`unitymodmanager.<v>.nupkg` `lib/net35/UnityModManager.dll`, `lib.harmony.<v>.nupkg` `lib/net48/0Harmony.dll`, and the
-pinned `0Harmony12.dll`):
+Static loader API audit (static evidence only; see [UMM compatibility](docs/UMM-COMPATIBILITY.md)). The tool's two
+source files are committed as text under `docs/evidence/umm-0311/`; build it with the .NET 8 SDK:
 ```powershell
-dotnet build -c Release <copy of the LoaderApiAudit project>
-LoaderApiAudit.exe --mod bin\Release\KingmakerWakingRune.dll --json api-audit.json --assemblies UnityModManager,0Harmony12,0Harmony `
+New-Item -ItemType Directory audit | Out-Null
+Copy-Item docs\evidence\umm-0311\loader-api-audit-Program.cs.txt audit\Program.cs
+Copy-Item docs\evidence\umm-0311\loader-api-audit-csproj.txt audit\LoaderApiAudit.csproj
+dotnet build -c Release audit\LoaderApiAudit.csproj
+$audit = 'audit\bin\Release\net8.0\LoaderApiAudit.exe'
+```
+Three profiles are assembled from official NuGet packages (`docs/evidence/umm-0311/loader-profiles.md` lists the
+packages and hashes): `<p>\<v>\UnityModManager.dll` from `unitymodmanager.<v>.nupkg` (`lib/net35`), `0Harmony.dll` from
+the matching `lib.harmony.<v>.nupkg` (`lib/net48`) and the pinned `0Harmony12.dll`. The fourth row is a read-only copy of
+the owner's installed loader folder (`<Kingmaker>\Kingmaker_Data\Managed\UnityModManager`; measured, not assembled):
+```powershell
+& $audit --mod bin\Release\KingmakerWakingRune.dll --json api-audit.json --assemblies UnityModManager,0Harmony12,0Harmony `
   --profile "0.31.1=<p>\0.31.1\UnityModManager.dll;<p>\0.31.1\0Harmony.dll;<p>\0.31.1\0Harmony12.dll" `
   --profile "0.32.4=<p>\0.32.4\UnityModManager.dll;<p>\0.32.4\0Harmony.dll;<p>\0.32.4\0Harmony12.dll" `
-  --profile "owner-0.33.0=<p>\owner-0.33.0\UnityModManager.dll;<p>\owner-0.33.0\0Harmony.dll;<p>\owner-0.33.0\0Harmony12.dll" `
-  --profile "0.33.4=<p>\0.33.4\UnityModManager.dll;<p>\0.33.4\0Harmony.dll;<p>\0.33.4\0Harmony12.dll"
+  --profile "0.33.4=<p>\0.33.4\UnityModManager.dll;<p>\0.33.4\0Harmony.dll;<p>\0.33.4\0Harmony12.dll" `
+  --profile "owner-0.33.0=<owner copy>\UnityModManager.dll;<owner copy>\0Harmony.dll;<owner copy>\0Harmony12.dll"
 ```
 
 ## Repository map
