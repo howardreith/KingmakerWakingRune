@@ -54,25 +54,32 @@ try {
     if ((Get-KwrSha256 $cscOutput) -cne $productDllSha256) { throw 'The copied product DLL differs from the compiler output.' }
     $productDllBytes = [IO.File]::ReadAllBytes($builtDll)
     Write-Host "Product DLL SHA-256 (this invocation's compile): $productDllSha256"
+    if (-not $SkipTests) {
+        # The tests are built into this invocation's folder too and run from there (the evaluated output, never a fixed
+        # path where an older executable could answer).
+        & $msbuild (Join-Path $Root 'tests\KingmakerWakingRune.Tests.csproj') -nologo -v:minimal -p:Configuration=Release "-p:OutDir=$owned\tests\" "-p:OutputPath=$owned\tests\" "-p:IntermediateOutputPath=$owned\tests-obj\"
+        if ($LASTEXITCODE -ne 0) { throw 'Test build failed.' }
+        $testRunner = Join-Path $owned 'tests\KingmakerWakingRune.Tests.exe'
+        if (-not (Test-Path -LiteralPath $testRunner -PathType Leaf)) { throw "The test build did not produce $testRunner." }
+        & $testRunner
+        if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
+    }
 }
 finally { if ([IO.Directory]::Exists($owned)) { [IO.Directory]::Delete($owned, $true) } }
 if ((ConvertTo-KwrCompilerInventoryText $produced) -cne (ConvertTo-KwrCompilerInventoryText $compilerInputs)) {
     throw 'The production compile used different compiler inputs from the evaluated inventory; nothing is packaged.'
 }
 
-if (-not $SkipTests) {
-    & $msbuild (Join-Path $Root 'tests\KingmakerWakingRune.Tests.csproj') -nologo -v:minimal -p:Configuration=Release
-    if ($LASTEXITCODE -ne 0) { throw 'Test build failed.' }
-    & (Join-Path $Root 'bin\Tests\KingmakerWakingRune.Tests.exe')
-    if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
-}
 if ((& git -C $Root rev-parse HEAD).Trim() -cne $commit -or (Get-KwrBuildInputFingerprint) -cne $buildInputs) {
     throw 'HEAD or a build input changed while building; nothing is packaged.'
 }
 
-$stage = Join-Path $Root 'artifacts\stage\KingmakerWakingRune'
-Remove-Item -LiteralPath (Join-Path $Root 'artifacts\stage') -Recurse -Force -ErrorAction SilentlyContinue
+# Staging, the archive, the receipt and their validation all live in a folder private to this invocation.
+$pending = Join-Path $Root ('artifacts\.pending-' + [Guid]::NewGuid().ToString('N'))
+$keepPending = $false
+$stage = Join-Path $pending 'stage\KingmakerWakingRune'
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
+try {
 Copy-Item (Join-Path $Root 'Info.json') $stage
 [IO.File]::WriteAllBytes((Join-Path $stage 'KingmakerWakingRune.dll'), $productDllBytes)
 if ((Get-KwrSha256 (Join-Path $stage 'KingmakerWakingRune.dll')) -cne $productDllSha256) { throw 'The staged DLL differs from this invocation''s compile.' }
@@ -104,14 +111,10 @@ foreach ($path in $expected) {
 }
 Write-Host "Embedded art verified: $($expected.Count) images."
 
-# The ZIP and its receipt are written and validated as a pair in a private staging folder, and only then placed at their
-# final paths; any failure leaves no new file at the candidate paths.
-$pending = Join-Path $Root ('artifacts\.pending-' + [Guid]::NewGuid().ToString('N'))
+# The ZIP and its receipt are written and validated as a pair in the private folder, and only then placed at their final
+# paths; any failure leaves no new file at the candidate paths.
 $pendingZip = Join-Path $pending ([IO.Path]::GetFileName($zip))
 $pendingReceipt = $pendingZip + '.build.json'
-$keepPending = $false
-try {
-    New-Item -ItemType Directory -Path $pending | Out-Null
     # Entries are written with forward slashes (the zip standard): Compress-Archive in Windows PowerShell 5.1 writes
     # backslashes, which some extractors turn into flat file names instead of folders.
     Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
@@ -137,7 +140,7 @@ try {
         })
         buildInputsSha256 = $buildInputs
         compilerInputs = $compilerInputs
-        dllSha256 = (Get-FileHash (Join-Path $stage 'KingmakerWakingRune.dll') -Algorithm SHA256).Hash.ToLowerInvariant()
+        dllSha256 = $productDllSha256
         zip = $zip
         zipSha256 = (Get-FileHash $pendingZip -Algorithm SHA256).Hash.ToLowerInvariant()
     }
@@ -155,6 +158,14 @@ try {
     # overwritten silently. If the rollback itself fails, the staging folder with the previous files is kept and named.
     $previous = Join-Path $pending 'previous'
     $done = [Collections.Generic.List[object]]::new()
+    # One publisher at a time for this destination (an exclusive lock file removed when its handle closes), so placement
+    # and rollback never act on another build's files.
+    $publishLock = $null
+    $deadline = [DateTime]::UtcNow.AddSeconds(300)
+    while ($null -eq $publishLock) {
+        try { $publishLock = [IO.FileStream]::new(($zip + '.publish.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None, 1, [IO.FileOptions]::DeleteOnClose) }
+        catch [IO.IOException] { if ([DateTime]::UtcNow -gt $deadline) { throw "Another build is publishing $zip; nothing was placed." }; Start-Sleep -Milliseconds 200 }
+    }
     try {
         if ($ReplacePackage -or $dirty) {
             New-Item -ItemType Directory -Path $previous | Out-Null
@@ -174,6 +185,7 @@ try {
         }
         throw $placementError
     }
+    finally { $publishLock.Dispose() }
 }
 finally {
     if (-not $keepPending -and [IO.Directory]::Exists($pending)) { [IO.Directory]::Delete($pending, $true) }

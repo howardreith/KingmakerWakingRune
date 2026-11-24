@@ -36,6 +36,8 @@ foreach ($manifest in $pins.manifests) {
 # The complete pin definition (every field of every pin), checked before any cache access and also in -DefinitionOnly.
 # Strings are matched through their absolute end (\z: a trailing line feed is not accepted), and the archive fields come
 # as a pair: both null for a direct download, or an archive entry path together with the archive's SHA-256.
+# The archive entry of a pin, read the same way by the definition check and by acquisition (an omitted key is null).
+function Get-PinArchiveEntry($Pin) { if ($Pin.PSObject.Properties['ArchiveEntry']) { return $Pin.ArchiveEntry } return $null }
 function Assert-PinDefinition($Pin, [hashtable] $Seen) {
     foreach ($field in @('Name', 'File', 'Version', 'Url', 'Sha256')) {
         if (-not $Pin.PSObject.Properties[$field] -or -not ($Pin.$field -is [string])) { throw 'Invalid or duplicate loader reference pin.' }
@@ -48,8 +50,11 @@ function Assert-PinDefinition($Pin, [hashtable] $Seen) {
         -not [Uri]::TryCreate($Pin.Url, [UriKind]::Absolute, [ref]$uri) -or $uri.Scheme -cne 'https' -or
         $Seen.ContainsKey($Pin.File)) { throw 'Invalid or duplicate loader reference pin.' }
     $Seen[$Pin.File] = $true
-    $entry = if ($Pin.PSObject.Properties['ArchiveEntry']) { $Pin.ArchiveEntry } else { $null }
+    $entry = Get-PinArchiveEntry $Pin
     $archiveHash = if ($Pin.PSObject.Properties['ArchiveSha256']) { $Pin.ArchiveSha256 } else { $null }
+    # A NuGet package source is an archive: it needs its entry and archive digest (a raw .dll source needs neither).
+    if ($uri.AbsolutePath.EndsWith('.nupkg', [StringComparison]::OrdinalIgnoreCase) -and ($null -eq $entry -or $null -eq $archiveHash)) { throw "The NuGet package source of $($Pin.File) needs ArchiveEntry and ArchiveSha256." }
+    if ($uri.AbsolutePath.EndsWith('.dll', [StringComparison]::OrdinalIgnoreCase) -and ($null -ne $entry -or $null -ne $archiveHash)) { throw "The direct .dll source of $($Pin.File) must not name archive fields." }
     if ($null -ne $entry -and $null -eq $archiveHash) { throw "Missing archive hash for $($Pin.File)." }
     if ($null -eq $entry -and $null -ne $archiveHash) { throw "Archive hash without an archive entry for $($Pin.File): the archive fields must be given together." }
     if ($null -ne $entry -and (-not ($entry -is [string]) -or $entry -cnotmatch '\A[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*[.]dll\z' -or
@@ -87,7 +92,7 @@ foreach ($pin in $pins.references) {
         $download = Join-Path $work 'source.download'
         $candidate = Join-Path $work $pin.File
         Invoke-WebRequest -Uri $pin.Url -OutFile $download -UseBasicParsing
-        if ($pin.ArchiveEntry) {
+        if ($null -ne (Get-PinArchiveEntry $pin)) {
             if ((Get-FileHash -LiteralPath $download -Algorithm SHA256).Hash.ToLowerInvariant() -cne [string]$pin.ArchiveSha256) { throw "Pinned archive hash mismatch: $($pin.Url)." }
             Add-Type -AssemblyName System.IO.Compression
             Add-Type -AssemblyName System.IO.Compression.FileSystem

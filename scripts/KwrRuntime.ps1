@@ -252,12 +252,14 @@ function Invoke-Reinstall {
     if (-not $PackagePath) { throw 'A -PackagePath is required.' }
     $validated = New-KwrValidatedPackageCopy $PackagePath -Diagnostic:$Diagnostic
     try {
-        $recon = Test-Path -LiteralPath (Join-Path $ModDir 'recon.flag')
+        # An interrupted reinstall resumes with the recon setting recorded before the installed folder was removed.
+        $recon = if ($s.phase -eq 'reinstalling' -and $s.PSObject.Properties['reconEnabled']) { [bool]$s.reconEnabled } else { Test-Path -LiteralPath (Join-Path $ModDir 'recon.flag') }
         # Stage and verify the new folder first; then mark the transaction non-launchable before touching the installed
         # mod, so a failure leaves a 'reinstalling' transaction that Launch refuses and End restores.
         $stagedMod = Expand-KwrValidatedPackageCopy $validated
         $previousPhase = if ($s.phase -eq 'reinstalling') { $(if ($s.PSObject.Properties['resumePhase'] -and [string]$s.resumePhase -in @('installed', 'closed')) { [string]$s.resumePhase } else { 'closed' }) } else { [string]$s.phase }
         $s | Add-Member -NotePropertyName resumePhase -NotePropertyValue $previousPhase -Force
+        $s | Add-Member -NotePropertyName reconEnabled -NotePropertyValue ([bool]$recon) -Force
         $s.phase = 'reinstalling'
         Save-State $s
         if (Test-Path -LiteralPath $ModDir) { Remove-Item -LiteralPath $ModDir -Recurse -Force }

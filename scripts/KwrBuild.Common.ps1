@@ -66,6 +66,9 @@ function ConvertFrom-KwrCompilerInputList([string] $ListPath) {
         $m = [regex]::Match($arg, '^[/-]([A-Za-z0-9_+-]+?)(?::(.*))?$')
         if (-not $m.Success) { [ordered]@{ kind = 'compile'; name = Get-InputName $arg; sha256 = Get-InputDigest $arg }; return }
         $switch = $m.Groups[1].Value.ToLowerInvariant(); $value = $m.Groups[2].Value
+        # Inputs the inventory cannot name file by file are refused, also inside a response file: wildcard source
+        # recursion and linked (embedded-interop) references.
+        if (@('recurse', 'link', 'l') -ccontains $switch) { throw "Unsupported compiler input: $arg (wildcard recursion and linked references cannot be bound to the receipt); remove it from the project or local configuration." }
         if ($outputSwitches -ccontains $switch) { [ordered]@{ kind = 'output'; name = "/$switch" + ':' + [IO.Path]::GetFileName($value.Trim('"')); sha256 = '' } }
         elseif ($switch -ceq 'reference' -or $switch -ceq 'r') {
             $alias, $path = if ($value -match '^[A-Za-z_][A-Za-z0-9_]*=') { $value -split '=', 2 } else { $null, $value }

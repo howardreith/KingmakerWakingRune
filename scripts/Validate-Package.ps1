@@ -70,8 +70,14 @@ $privateDirectory = Join-Path ([IO.Path]::GetTempPath()) ('kwr-validate-' + [Gui
 $inspected = Join-Path $privateDirectory 'package.zip'
 try {
 [void][IO.Directory]::CreateDirectory($privateDirectory)
+# The identities of the protected inputs are taken when they are read (before and after the snapshot copy), and the final
+# report write refuses them as well as the inputs' current identities, so an input moved to the report path after its
+# snapshot is still protected.
+$identitiesNow = { if ($ReportPath) { [string[]]@($protected | Where-Object { [IO.File]::Exists($_) } | ForEach-Object { [KwrFileIdentityV2]::Of($_) }) } else { [string[]]@() } }
+$snapshotIds = @(& $identitiesNow)
 [IO.File]::Copy($PackagePath, $inspected)
 $receiptBytes = if ($ReceiptPath) { [IO.File]::ReadAllBytes($ReceiptPath) } else { $null }
+$snapshotIds = @($snapshotIds + @(& $identitiesNow) | Select-Object -Unique)
 
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -217,7 +223,11 @@ if ($ReceiptPath) {
         if (-not $commitKnown) { throw "Build receipt names a commit this repository does not have ($($receipt.commit)); rebuild." }
         # Material: the fixed build paths plus every tracked repository file the recorded inventory names (the embedded
         # art and any other resource, source or file-valued option).
-        $materialPaths = @(@('src', 'Info.json', 'LoaderReferences.targets', 'scripts/loader-reference-pins.json', 'scripts/Get-PinnedLoaderReferences.ps1', 'scripts/Build.ps1', 'scripts/KwrBuild.Common.ps1') + @(Get-KwrInventoryRepositoryPaths $receipt.compilerInputs) | Select-Object -Unique)
+        # The whole embedded-art tree (assets/) is material, so an added, removed or changed image is detected whether or
+        # not the receipt names it, and an untracked file under any material path refuses current qualification.
+        $materialPaths = @(@('src', 'assets', 'Info.json', 'LoaderReferences.targets', 'scripts/loader-reference-pins.json', 'scripts/Get-PinnedLoaderReferences.ps1', 'scripts/Build.ps1', 'scripts/KwrBuild.Common.ps1') + @(Get-KwrInventoryRepositoryPaths $receipt.compilerInputs) | Select-Object -Unique)
+        $untrackedMaterial = @(& git -C $Root ls-files --others --exclude-standard -- @materialPaths)
+        if ($untrackedMaterial.Count -gt 0) { throw "Untracked files under the material inputs ($($untrackedMaterial -join ', ')); rebuild from a clean commit." }
         $previousPreference = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
         try { $null = & git -C $Root diff --quiet $receipt.commit -- @materialPaths 2>&1; $materialSame = $LASTEXITCODE -eq 0 } finally { $ErrorActionPreference = $previousPreference }
         if (-not $materialSame) { throw "Build inputs changed since this package was built: the material inputs differ from the receipt's commit $($receipt.commit); rebuild." }
@@ -247,7 +257,7 @@ $result = [ordered]@{
 if ($ReportPath) {
     # Bound write: the protected identities are read now, and the destination is opened once, checked through that handle
     # and only then truncated and written, so a destination replaced during validation is refused too.
-    $protectedIds = [string[]]@($protected | Where-Object { [IO.File]::Exists($_) } | ForEach-Object { [KwrFileIdentityV2]::Of($_) })
+    $protectedIds = [string[]]@(@($snapshotIds) + @(& $identitiesNow) | Where-Object { $_ } | Select-Object -Unique)
     $reportText = $result | ConvertTo-Json -Depth 5
     $reportBytes = [byte[]](@([Text.Encoding]::UTF8.GetPreamble()) + @([Text.Encoding]::UTF8.GetBytes($reportText + "`r`n")))
     [void][KwrFileIdentityV2]::WriteChecked($ReportPath, $protectedIds, $reportBytes)
