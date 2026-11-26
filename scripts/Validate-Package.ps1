@@ -259,7 +259,7 @@ if ($ReceiptPath) {
         # lossless listing of tracked files.
         $trackedFiles = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
         foreach ($trackedFile in @(Get-KwrGitPathList @('--cached') @())) { [void]$trackedFiles.Add($trackedFile) }
-        $untrackedSources = @($currentInputs | Where-Object { [string]$_.kind -ceq 'compile' -and $_.PSObject.Properties['repositoryPath'] -and $_.repositoryPath -and -not $trackedFiles.Contains([string]$_.repositoryPath) } | ForEach-Object { [string]$_.repositoryPath })
+        $untrackedSources = @($currentInputs | Where-Object { [string]$_.kind -ceq 'compile' -and -not [string]::IsNullOrEmpty([string]$_.repositoryPath) -and -not $trackedFiles.Contains([string]$_.repositoryPath) } | ForEach-Object { [string]$_.repositoryPath })
         if ($untrackedSources.Count -gt 0) { throw "Compiler sources are not tracked by Git ($($untrackedSources -join ', ')); rebuild from a clean commit." }
         if ((ConvertTo-KwrCompilerInventoryText $receipt.compilerInputs) -cne (ConvertTo-KwrCompilerInventoryText $currentInputs) -or
             [string]$receipt.buildInputsSha256 -cne (Get-KwrBuildInputFingerprint $currentInputs)) {
