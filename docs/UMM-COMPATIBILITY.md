@@ -134,7 +134,7 @@ UnityModManager 0.33.2.0 and 0Harmony 2.3.6.0), the author's UnityModManager 0.3
 the official Lib.Harmony 2.3.6 package (net48), as known distinct wrong fixtures; the owner's
 installation is only measured. The suite starts the clone with an empty reference cache (the clone's own
 resolver downloads and verifies the pins) and a different product version committed in the clone (the
-positive artifact name is derived from the manifest). Its 120 checks cover cache bytes; dropped/misnamed pins and raised
+positive artifact name is derived from the manifest). Its checks (120 in round 5; the dated sections below give each round's count) cover cache bytes; dropped/misnamed pins and raised
 or array-typed manifests; direct and incremental builds (the three pinned paths on the Csc
 command line; manifest-only and pin-only changes refused); Csc-input probes (identical copy
 elsewhere, same-stem or renamed files, both fixtures, a substituted reference assembly); the
@@ -199,6 +199,24 @@ and validates as current); an installer read paused between a dirty publication'
 `-Diagnostic`), and a receiptless ZIP outside `artifacts` (content-inspected); and previous-format journals with
 `recon` true and false (recon flag and journal restored before launch admission). The controller gate on the candidate
 runs this suite.
+
+## Round 7 (2026-11-26)
+
+Build, install and validation tooling only; the product sources are unchanged. Current provenance matches the embedded
+artwork patterns with Windows letter-case semantics (Git `:(glob,icase)` in the tree comparison and the untracked-file
+check) and requires every repository-authored source on the compiler's command line to be tracked by Git, whatever the
+ignore rules say (generated inputs and files outside the repository keep their handling). `KwrPackage.ps1` recognizes the
+build-owned `artifacts` folder by its physical identity (volume serial and file index of the directory, read through the
+existing identity helper, now `KwrFileIdentityV4` with `DirectoryOf`), so a short 8.3 alias or another spelling of the
+same folder takes the publish lock too, and it declines a build-owned ZIP that has no receipt (for example after an
+interrupted publisher released the lock); a receiptless ZIP elsewhere keeps content-only inspection. An interrupted
+reinstall resumes with its journal's `reconEnabled`, or the previous format's `recon`, whether the installed folder is
+gone or a placed replacement without `recon.flag`; an ordinary reinstall reads `recon.flag`. The boundary suite adds: an
+ignored `assets/portraits/obj/LocalOnly.PNG` and an ignored `src/KingmakerWakingRune/Blueprints/obj/LocalOnly.cs`
+(compiled by the project's `**\*.cs` item) refused by the build and by current provenance, and accepted again once
+removed; the paused publication read through the folder's short 8.3 alias (declined); the receiptless dirty output with
+the lock released, by both spellings (declined); and previous-format journals with a placed replacement folder and no
+`recon.flag`, for `recon` true and false.
 
 ## Evidence for this change (2026-11-24, round 5)
 

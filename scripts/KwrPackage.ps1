@@ -13,10 +13,24 @@ function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic
     $source = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($PackagePath)
     if (-not [IO.File]::Exists($source)) { throw "Package not found: $source" }
     $private = Join-Path ([IO.Path]::GetTempPath()) ('KingmakerWakingRune-package-' + [Guid]::NewGuid().ToString('N'))
-    # A package at a build-owned destination (this repository's artifacts folder) is copied with its receipt under that
-    # destination's publish lock, so the pair read is one published pair; while a build is publishing there the read is
-    # declined. A ZIP elsewhere is copied without a lock (content inspection only when it has no receipt).
-    $buildOwned = $source.StartsWith(([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\artifacts')).TrimEnd('\') + '\'), [StringComparison]::OrdinalIgnoreCase)
+    # A package at a build-owned destination (this repository's artifacts folder, recognized by the physical identity of
+    # the folder, whatever spelling the caller used: short 8.3 alias, junction or letter case) is copied with its receipt
+    # under that destination's publish lock, so the pair read is one published pair; while a build is publishing there the
+    # read is declined, and a build-owned ZIP without its receipt (for example after an interrupted publisher released the
+    # lock) is declined too. A ZIP elsewhere is copied without a lock (content inspection only when it has no receipt).
+    $buildOwned = $false
+    $artifactsDirectory = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\artifacts'))
+    if ([IO.Directory]::Exists($artifactsDirectory)) {
+        . (Join-Path $PSScriptRoot 'KwrFileIdentity.ps1')
+        $artifactsId = [KwrFileIdentityV4]::DirectoryOf($artifactsDirectory)
+        $directory = [IO.Path]::GetDirectoryName($source)
+        while ($directory) {
+            if ([IO.Directory]::Exists($directory) -and [KwrFileIdentityV4]::DirectoryOf($directory) -ceq $artifactsId) { $buildOwned = $true; break }
+            $parent = [IO.Path]::GetDirectoryName($directory)
+            if (-not $parent -or $parent -eq $directory) { break }
+            $directory = $parent
+        }
+    }
     try {
         [void][IO.Directory]::CreateDirectory($private)
         $copy = Join-Path $private 'package.zip'
@@ -33,6 +47,7 @@ function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic
             if ($hasReceipt) { [IO.File]::Copy($receiptSource, $copy + '.build.json') }
         }
         finally { if ($null -ne $publishLock) { $publishLock.Dispose() } }
+        if ($buildOwned -and -not $hasReceipt) { throw "A build-owned package has no build receipt ($source); it is not installed. Rebuild it." }
         if ($hasReceipt) {
             if ($Diagnostic) { & (Join-Path $PSScriptRoot 'Validate-Package.ps1') -PackagePath $copy -ReceiptPath ($copy + '.build.json') -ReportPath $report | Out-Host }
             else { & (Join-Path $PSScriptRoot 'Validate-Package.ps1') -PackagePath $copy -ReceiptPath ($copy + '.build.json') -RequireCurrentProvenance -ReportPath $report | Out-Host }

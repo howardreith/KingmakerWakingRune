@@ -252,11 +252,12 @@ function Invoke-Reinstall {
     if (-not $PackagePath) { throw 'A -PackagePath is required.' }
     $validated = New-KwrValidatedPackageCopy $PackagePath -Diagnostic:$Diagnostic
     try {
-        # An interrupted reinstall resumes with the recon setting recorded before the installed folder was removed.
-        # A journal written before reconEnabled existed keeps Begin's recorded recon value; it is used when the installed
-        # folder (and with it recon.flag) is already gone.
+        # An interrupted reinstall resumes with the recon setting its journal recorded: reconEnabled, or, in a journal
+        # written before reconEnabled existed, Begin's recon field. The folder found then may be gone or may be a placed
+        # replacement without recon.flag, so it is not consulted. An ordinary reinstall reads recon.flag of the current
+        # installation.
         $recon = if ($s.phase -eq 'reinstalling' -and $s.PSObject.Properties['reconEnabled']) { [bool]$s.reconEnabled }
-            elseif ($s.phase -eq 'reinstalling' -and -not (Test-Path -LiteralPath $ModDir) -and $s.PSObject.Properties['recon']) { [bool]$s.recon }
+            elseif ($s.phase -eq 'reinstalling' -and $s.PSObject.Properties['recon']) { [bool]$s.recon }
             else { Test-Path -LiteralPath (Join-Path $ModDir 'recon.flag') }
         # Stage and verify the new folder first; then mark the transaction non-launchable before touching the installed
         # mod, so a failure leaves a 'reinstalling' transaction that Launch refuses and End restores.
