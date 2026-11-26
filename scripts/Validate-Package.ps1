@@ -75,6 +75,7 @@ try {
 # snapshot is still protected.
 $identitiesNow = { if ($ReportPath) { [string[]]@($protected | Where-Object { [IO.File]::Exists($_) } | ForEach-Object { [KwrFileIdentityV3]::Of($_) }) } else { [string[]]@() } }
 $snapshotIds = @(& $identitiesNow)
+. (Join-Path $PSScriptRoot 'KwrFileIdentity.ps1')
 # Each supplied input's bytes are read through one open handle together with that handle's identity, so the protected
 # identities include the exact files whose bytes were inspected even if a path was replaced between the samples.
 $readId = $null
