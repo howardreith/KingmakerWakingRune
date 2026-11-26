@@ -856,6 +856,28 @@ try { Invoke-Launch } catch { 'LAUNCH ' + `$_.Exception.Message }
     Expect-Rejected 'provenance-with-ignored-compiled-source-rejected' (& $prov) 'Compiler sources are not tracked by Git \(src/KingmakerWakingRune/Blueprints/obj/LocalOnly\.cs\)'
     Remove-Item -LiteralPath (Split-Path -Parent $ignoredSource) -Recurse -Force
     Expect-Accepted 'provenance-current-after-ignored-source-removed' (& $prov) 'source provenance: verified-current'
+    # R1-F1 (round 8): an ignored authored Blueprints/obj/LocalOnly.AssemblyAttributes.cs (compiled by **\*.cs, named like
+    # MSBuild's generated attribute file) and an ignored repository-root LocalRoot.cs selected through the local props
+    # import (ignored by this clone's .git/info/exclude). Clean publication refuses both, the previous pair survives, and
+    # qualification returns once both are removed.
+    $attrSource = Join-Path $base 'src\KingmakerWakingRune\Blueprints\obj\LocalOnly.AssemblyAttributes.cs'
+    New-Item -ItemType Directory -Path (Split-Path -Parent $attrSource) -Force | Out-Null
+    [IO.File]::WriteAllText($attrSource, "namespace KingmakerWakingRune.LocalOnly { internal static class AttributeNamedMarker { internal const int Value = 8; } }`r`n")
+    $rootSource = Join-Path $base 'LocalRoot.cs'
+    [IO.File]::WriteAllText($rootSource, "namespace KingmakerWakingRune.LocalOnly { internal static class RootMarker { internal const int Value = 9; } }`r`n")
+    $excludeFile = Join-Path $base '.git\info\exclude'; $excludeBefore = if (Test-Path -LiteralPath $excludeFile) { [IO.File]::ReadAllText($excludeFile) } else { '' }
+    [IO.File]::WriteAllText($excludeFile, $excludeBefore + "`nLocalRoot.cs`n")
+    $localPropsPath = Join-Path $base 'LocalGamePaths.props'; $localPropsBefore = [IO.File]::ReadAllText($localPropsPath)
+    [IO.File]::WriteAllText($localPropsPath, $localPropsBefore.Replace('</Project>', "  <ItemGroup><Compile Include=`"`$(MSBuildThisFileDirectory)LocalRoot.cs`" /></ItemGroup>`r`n</Project>"))
+    $hiddenStatus = @(& git -C $base status --porcelain).Count
+    $hiddenBuild = Invoke-Isolated @('-File', (Join-Path $base 'scripts\Build.ps1'), '-SkipTests', '-ReplacePackage')
+    $hiddenText = $hiddenBuild.Output -replace '\s+', ' '
+    Add-Case 'build-with-attribute-named-and-root-sources-not-qualified' ($hiddenStatus -eq 0 -and $hiddenBuild.ExitCode -ne 0 -and $hiddenText -match 'Compiler sources are not tracked by Git \(' -and $hiddenText -match 'src/KingmakerWakingRune/Blueprints/obj/LocalOnly\.AssemblyAttributes\.cs' -and $hiddenText -match 'LocalRoot\.cs' -and (Get-Sha256 $receiptPath) -eq (Get-Sha256 $savedRound5)) ("git status entries $hiddenStatus; build exit $($hiddenBuild.ExitCode); " + (Get-Reason $hiddenBuild.Output) + "; previous pair kept: $((Get-Sha256 $receiptPath) -eq (Get-Sha256 $savedRound5))")
+    $hiddenProv = & $prov
+    Add-Case 'provenance-with-attribute-named-and-root-sources-rejected' ($hiddenProv.ExitCode -ne 0 -and ($hiddenProv.Output -replace '\s+', ' ') -match 'Compiler sources are not tracked by Git \(.*LocalOnly\.AssemblyAttributes\.cs.*LocalRoot\.cs|Compiler sources are not tracked by Git \(.*LocalRoot\.cs.*LocalOnly\.AssemblyAttributes\.cs') (Get-Reason $hiddenProv.Output)
+    [IO.File]::WriteAllText($localPropsPath, $localPropsBefore); [IO.File]::WriteAllText($excludeFile, $excludeBefore)
+    Remove-Item -LiteralPath $rootSource -Force; Remove-Item -LiteralPath (Split-Path -Parent $attrSource) -Recurse -Force
+    Expect-Accepted 'provenance-current-after-attribute-named-and-root-sources-removed' (& $prov) 'source provenance: verified-current'
     # An unchanged response file whose /recurse names external sources: wildcard recursion cannot be bound to the receipt,
     # so the build refuses it and current qualification is declined while it is configured.
     $recurseDir = Join-Path $temp 'recurse sources'; New-Item -ItemType Directory -Path $recurseDir -Force | Out-Null
@@ -981,6 +1003,15 @@ try { Invoke-Launch } catch { 'LAUNCH ' + `$_.Exception.Message }
     $aliasZip = Join-Path $shortDirectory (Split-Path -Leaf $dirtyZipR5)
     $aliasDiffers = -not [string]::Equals($shortDirectory, (Split-Path -Parent $dirtyZipR5), [StringComparison]::OrdinalIgnoreCase)
     $duringPauseAlias = Invoke-Script (". $(Quote $kwrPackage); `$v = New-KwrValidatedPackageCopy $(Quote $aliasZip); 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v")
+    # R7-F1: the complete short (8.3) path of the ZIP itself; R5-F1: a hard link to the live output in another folder.
+    $shortZip = (New-Object -ComObject Scripting.FileSystemObject).GetFile($dirtyZipR5).ShortPath
+    $shortZipDiffers = -not [string]::Equals([IO.Path]::GetFileName($shortZip), [IO.Path]::GetFileName($dirtyZipR5), [StringComparison]::OrdinalIgnoreCase)
+    $duringPauseShortZip = Invoke-Script (". $(Quote $kwrPackage); `$v = New-KwrValidatedPackageCopy $(Quote $shortZip); 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v")
+    $linkDir = Join-Path $temp 'linked output'; New-Item -ItemType Directory -Path $linkDir -Force | Out-Null
+    $linkZip = Join-Path $linkDir 'linked.zip'
+    New-Item -ItemType HardLink -Path $linkZip -Target $dirtyZipR5 | Out-Null
+    $duringPauseLink = Invoke-Script (". $(Quote $kwrPackage); `$v = New-KwrValidatedPackageCopy $(Quote $linkZip); 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v")
+    Remove-Item -LiteralPath $linkDir -Recurse -Force
     [IO.File]::WriteAllText((Join-Path $signal 'receipt-go'), 'go')
     $procP.WaitForExit()
     Remove-Item -LiteralPath $pausing
@@ -1002,6 +1033,17 @@ try { Invoke-Launch } catch { 'LAUNCH ' + `$_.Exception.Message }
         $afterDefault.ExitCode -ne 0 -and ($afterDefault.Output -replace '\s+', ' ') -match 'dirty working tree|not verified as current' -and $afterDiagnostic.ExitCode -eq 0 -and $afterDiagnostic.Output -match 'MODE diagnostic' -and
         $external.ExitCode -eq 0 -and $external.Output -match 'MODE external-content-inspected'
     Add-Case 'installer-read-during-publication-declined-and-rollback-exposes-the-restored-pair' $ok ("paused between placements: $paused (receipt visible: $receiptVisible); during the pause: " + (Get-Reason $duringPause.Output) + "; publisher exit $($procP.ExitCode); restored dirty pair equals the previous: $($dirtyPairAfter -ceq $dirtyPairBefore); after rollback default: " + (Get-Reason $afterDefault.Output) + "; -Diagnostic: " + ([regex]::Match($afterDiagnostic.Output, 'MODE \S+').Value) + "; external receiptless ZIP: " + ([regex]::Match($external.Output, 'MODE \S+').Value))
+    Add-Case 'installer-read-through-the-zip-short-filename-during-publication-declined' ($shortZipDiffers -and $duringPauseShortZip.ExitCode -ne 0 -and ($duringPauseShortZip.Output -replace '\s+', ' ') -match 'A build is publishing' -and $duringPauseShortZip.Output -notmatch 'MODE ') ("short ZIP path $shortZip (short filename differs: $shortZipDiffers); during the pause: " + (Get-Reason $duringPauseShortZip.Output))
+    Add-Case 'installer-read-through-a-hard-link-during-publication-declined' ($duringPauseLink.ExitCode -ne 0 -and ($duringPauseLink.Output -replace '\s+', ' ') -match 'is a file link' -and $duringPauseLink.Output -notmatch 'MODE ') ("hard link in another folder during the pause: " + (Get-Reason $duringPauseLink.Output))
+    # R7-F1 (unlocked): the clean pair through the ZIP's own short filename qualifies; a content-only report aimed at the
+    # long-name receipt is refused and both inputs keep their bytes.
+    $shortCandidate = (New-Object -ComObject Scripting.FileSystemObject).GetFile($candidateZip).ShortPath
+    $candidateShortMode = Invoke-Script (". $(Quote $kwrPackage); `$v = New-KwrValidatedPackageCopy $(Quote $shortCandidate); 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v")
+    $inputsBefore = (Get-Sha256 $candidateZip) + '/' + (Get-Sha256 $receiptPath)
+    $shortReport = Invoke-Isolated @('-File', (Join-Path $base 'scripts\Validate-Package.ps1'), '-PackagePath', $shortCandidate, '-ReportPath', ($candidateZip + '.build.json'))
+    $inputsAfter = (Get-Sha256 $candidateZip) + '/' + (Get-Sha256 $receiptPath)
+    Add-Case 'zip-short-filename-qualifies-and-cannot-overwrite-its-receipt' (-not [string]::Equals([IO.Path]::GetFileName($shortCandidate), [IO.Path]::GetFileName($candidateZip), [StringComparison]::OrdinalIgnoreCase) -and $candidateShortMode.ExitCode -eq 0 -and $candidateShortMode.Output -match 'MODE frozen-candidate' -and
+        $shortReport.ExitCode -ne 0 -and ($shortReport.Output -replace '\s+', ' ') -match 'must not be an input of the validation' -and $inputsAfter -ceq $inputsBefore) ("short $shortCandidate; mode: " + [regex]::Match($candidateShortMode.Output, 'MODE (\S+)').Groups[1].Value + "; report to long-name receipt: " + (Get-Reason $shortReport.Output) + "; inputs unchanged: $($inputsAfter -ceq $inputsBefore)")
     Add-Case 'installer-read-through-a-short-path-alias-during-publication-declined' ($aliasDiffers -and $paused -and -not $receiptVisible -and $duringPauseAlias.ExitCode -ne 0 -and ($duringPauseAlias.Output -replace '\s+', ' ') -match 'A build is publishing' -and $duringPauseAlias.Output -notmatch 'MODE ') ("alias $aliasZip differs from the long spelling: $aliasDiffers; during the pause: " + (Get-Reason $duringPauseAlias.Output))
     Add-Case 'receiptless-build-owned-output-declined-after-the-lock-is-released' ($receiptlessRead.ExitCode -ne 0 -and ($receiptlessRead.Output -replace '\s+', ' ') -match 'A build-owned package has no build receipt' -and $receiptlessRead.Output -notmatch 'MODE ' -and
         $receiptlessAlias.ExitCode -ne 0 -and ($receiptlessAlias.Output -replace '\s+', ' ') -match 'A build-owned package has no build receipt' -and $receiptlessAlias.Output -notmatch 'MODE ') ("canonical: " + (Get-Reason $receiptlessRead.Output) + "; short alias: " + (Get-Reason $receiptlessAlias.Output))
@@ -1040,6 +1082,24 @@ try { Invoke-Launch } catch { 'LAUNCH ' + `$_.Exception.Message }
     $artifactsAfter = @(Get-ChildItem -LiteralPath (Join-Path $source 'artifacts') -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name + '=' + (Get-Sha256 $_.FullName) }) -join ';'
     Add-Case 'repository-artifacts-untouched' ($sourceArtifactsBefore -eq $artifactsAfter) 'this checkout''s artifacts folder is unchanged'
     Add-Case 'legacy-input-preserved' ((Get-Sha256 $legacyZip) -eq $legacySha256) "private copy still $legacySha256"
+
+    # R7-F2 (round 8): a committed non-ASCII C# filename under default Git quoting (core.quotepath on). The real build and
+    # current provenance accept it; the ignored-source control still fails.
+    & git -C $base config core.quotepath true
+    $unicodeName = 'src/KingmakerWakingRune/Blueprints/' + [string][char]0x00C9 + 'valuationMarker.cs'
+    $unicodeSource = Join-Path $base $unicodeName.Replace('/', '\')
+    [IO.File]::WriteAllText($unicodeSource, "namespace KingmakerWakingRune.LocalOnly { internal static class UnicodeNamedMarker { internal const int Value = 10; } }`r`n")
+    & git -C $base add -- $unicodeName
+    & git -C $base -c user.name=loader-baseline -c user.email=loader-baseline@invalid commit -q -m 'test: non-ASCII source name'
+    $quotedListing = @(& git -C $base ls-files -- 'src/KingmakerWakingRune/Blueprints/*valuationMarker.cs') -join ' '
+    $unicodeBuild = Invoke-Isolated @('-File', (Join-Path $base 'scripts\Build.ps1'), '-SkipTests', '-ReplacePackage')
+    Add-Case 'committed-non-ascii-source-builds-and-qualifies' ($quotedListing -match '\\303\\211' -and $unicodeBuild.ExitCode -eq 0) ("git's default listing: $quotedListing; build exit $($unicodeBuild.ExitCode); " + (Get-Reason $unicodeBuild.Output))
+    Expect-Accepted 'provenance-current-with-committed-non-ascii-source' (& $prov) 'source provenance: verified-current'
+    $controlSource = Join-Path $base 'src\KingmakerWakingRune\Blueprints\obj\LocalOnly.cs'
+    New-Item -ItemType Directory -Path (Split-Path -Parent $controlSource) -Force | Out-Null
+    [IO.File]::WriteAllText($controlSource, "namespace KingmakerWakingRune.LocalOnly { internal static class LocalOnlyMarker { internal const int Value = 7; } }`r`n")
+    Expect-Rejected 'provenance-ignored-source-control-still-rejected-beside-non-ascii-source' (& $prov) 'Compiler sources are not tracked by Git \(src/KingmakerWakingRune/Blueprints/obj/LocalOnly\.cs\)'
+    Remove-Item -LiteralPath (Split-Path -Parent $controlSource) -Recurse -Force
 
     $failed = @($cases | Where-Object { -not $_.passed })
     $summary = [ordered]@{

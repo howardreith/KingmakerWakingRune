@@ -27,9 +27,14 @@ $Root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 function Resolve-LiteralFilePath([string] $Path) { return $PSCmdlet.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path) }
 $PackagePath = Resolve-LiteralFilePath $PackagePath
 if (-not [IO.File]::Exists($PackagePath)) { throw "Package not found: $PackagePath" }
+# The real long filename (a short 8.3 spelling expanded), so the conventional receipt beside the package is derived from
+# the name the build wrote.
+. (Join-Path $PSScriptRoot 'KwrFileIdentity.ps1')
+$PackagePath = [KwrFileIdentityV4]::LongPathOf($PackagePath)
 if ($ReceiptPath) {
     $ReceiptPath = Resolve-LiteralFilePath $ReceiptPath
     if (-not [IO.File]::Exists($ReceiptPath)) { throw "Build receipt not found: $ReceiptPath" }
+    $ReceiptPath = [KwrFileIdentityV4]::LongPathOf($ReceiptPath)
 }
 elseif ($RequireCurrentProvenance) { throw '-RequireCurrentProvenance needs the build receipt (-ReceiptPath).' }
 if ($ReportPath) {
@@ -250,10 +255,11 @@ if ($ReceiptPath) {
         # Every repository-authored source the compiler reads must be tracked, whatever the ignore rules say (the project's
         # **\*.cs item compiles an ignored file under a nested obj folder). Generated inputs (the intermediate folder,
         # *.AssemblyAttributes.cs) and files outside the repository keep their existing handling.
+        # Membership is decided on each compile entry's resolved repository path (not its reduced name), against Git's
+        # lossless listing of tracked files.
         $trackedFiles = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-        foreach ($trackedFile in @(& git -C $Root ls-files --cached)) { [void]$trackedFiles.Add($trackedFile) }
-        if ($LASTEXITCODE -ne 0) { throw 'git ls-files failed while checking the compiler sources.' }
-        $untrackedSources = @($currentInputs | Where-Object { [string]$_.kind -ceq 'compile' -and [string]$_.name -match '/' -and [string]$_.name -notmatch '^(obj|generated):' -and -not $trackedFiles.Contains([string]$_.name) } | ForEach-Object { [string]$_.name })
+        foreach ($trackedFile in @(Get-KwrGitPathList @('--cached') @())) { [void]$trackedFiles.Add($trackedFile) }
+        $untrackedSources = @($currentInputs | Where-Object { [string]$_.kind -ceq 'compile' -and $_.PSObject.Properties['repositoryPath'] -and $_.repositoryPath -and -not $trackedFiles.Contains([string]$_.repositoryPath) } | ForEach-Object { [string]$_.repositoryPath })
         if ($untrackedSources.Count -gt 0) { throw "Compiler sources are not tracked by Git ($($untrackedSources -join ', ')); rebuild from a clean commit." }
         if ((ConvertTo-KwrCompilerInventoryText $receipt.compilerInputs) -cne (ConvertTo-KwrCompilerInventoryText $currentInputs) -or
             [string]$receipt.buildInputsSha256 -cne (Get-KwrBuildInputFingerprint $currentInputs)) {

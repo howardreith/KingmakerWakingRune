@@ -4,7 +4,9 @@
 # writes through the same handle, so the file written is the file checked. ReadAll returns a file's bytes together with
 # the identity of the handle they were read through, so an input's recorded identity is the file actually read.
 # DirectoryOf returns the same identity for a directory (opened with backup semantics), so two spellings of one physical
-# directory (a short 8.3 alias, a junction, another case) compare equal.
+# directory (a short 8.3 alias, a junction, another case) compare equal. LongPathOf expands short (8.3) components of an
+# existing path, so names derived from it (a receipt or lock beside a ZIP) use the real long filename. LinkCountOf is the
+# file's hard-link count.
 if (-not ('KwrFileIdentityV4' -as [type])) {
     Add-Type -TypeDefinition @'
 using System;
@@ -19,6 +21,7 @@ public static class KwrFileIdentityV4 {
         public uint VolumeSerialNumber, FileSizeHigh, FileSizeLow, NumberOfLinks, FileIndexHigh, FileIndexLow;
     }
     [DllImport("kernel32.dll", SetLastError = true)] static extern bool GetFileInformationByHandle(SafeFileHandle h, out ByHandleFileInformation i);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern uint GetLongPathNameW(string shortPath, System.Text.StringBuilder longPath, uint size);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern SafeFileHandle CreateFileW(string name, uint access, uint share, IntPtr security, uint disposition, uint flags, IntPtr template);
     static string IdOf(SafeFileHandle handle) {
         ByHandleFileInformation i;
@@ -33,6 +36,18 @@ public static class KwrFileIdentityV4 {
         using (var h = CreateFileW(path, 0x80, 7, IntPtr.Zero, 3, 0x02000000, IntPtr.Zero)) {
             if (h.IsInvalid) throw new IOException("Cannot open directory " + path + ": " + Marshal.GetLastWin32Error());
             return IdOf(h);
+        }
+    }
+    public static string LongPathOf(string path) {
+        var buffer = new System.Text.StringBuilder(32768);
+        uint length = GetLongPathNameW(path, buffer, (uint)buffer.Capacity);
+        return (length == 0 || length >= buffer.Capacity) ? path : buffer.ToString();
+    }
+    public static uint LinkCountOf(string path) {
+        using (var f = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete)) {
+            ByHandleFileInformation i;
+            if (!GetFileInformationByHandle(f.SafeFileHandle, out i)) throw new IOException("GetFileInformationByHandle failed: " + Marshal.GetLastWin32Error());
+            return i.NumberOfLinks;
         }
     }
     public static byte[] ReadAll(string path, out string id) {

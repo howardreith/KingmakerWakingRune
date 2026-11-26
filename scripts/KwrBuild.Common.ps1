@@ -27,8 +27,10 @@ function ConvertFrom-KwrCompilerInputList([string] $ListPath) {
     function Resolve-InputPath([string] $Path) { return [IO.Path]::GetFullPath([IO.Path]::Combine($projectDirectory, $Path.Trim('"'))) }
     function Get-InputName([string] $Path) {
         $full = Resolve-InputPath $Path
-        # MSBuild's generated target-framework attribute file lives in the intermediate or the temporary directory.
-        if ([IO.Path]::GetFileName($full) -like '*.AssemblyAttributes.cs') { return 'generated:' + [IO.Path]::GetFileName($full) }
+        # MSBuild's generated target-framework attribute file lives in the intermediate or the temporary directory; a file of
+        # that name anywhere else in the repository is an authored source and keeps its repository path.
+        $inRepository = $full.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase) -and -not $full.StartsWith($objPrefix, [StringComparison]::OrdinalIgnoreCase)
+        if ([IO.Path]::GetFileName($full) -like '*.AssemblyAttributes.cs' -and -not $inRepository) { return 'generated:' + [IO.Path]::GetFileName($full) }
         if ($full.StartsWith($objPrefix, [StringComparison]::OrdinalIgnoreCase)) { return 'obj:' + $full.Substring($objPrefix.Length).Replace('\', '/') }
         if ($full.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) { return $full.Substring($rootPrefix.Length).Replace('\', '/') }
         return [IO.Path]::GetFileName($full)
@@ -64,7 +66,13 @@ function ConvertFrom-KwrCompilerInputList([string] $ListPath) {
             return
         }
         $m = [regex]::Match($arg, '^[/-]([A-Za-z0-9_+-]+?)(?::(.*))?$')
-        if (-not $m.Success) { [ordered]@{ kind = 'compile'; name = Get-InputName $arg; sha256 = Get-InputDigest $arg }; return }
+        if (-not $m.Success) {
+            # repositoryPath: the source's resolved location inside the repository (outside the intermediate folder), so the
+            # Git membership check never depends on the reduced name; null for generated and external sources.
+            $full = Resolve-InputPath $arg
+            $repositoryPath = if ($full.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase) -and -not $full.StartsWith($objPrefix, [StringComparison]::OrdinalIgnoreCase)) { $full.Substring($rootPrefix.Length).Replace('\', '/') } else { $null }
+            [ordered]@{ kind = 'compile'; name = Get-InputName $arg; sha256 = Get-InputDigest $arg; repositoryPath = $repositoryPath }; return
+        }
         $switch = $m.Groups[1].Value.ToLowerInvariant(); $value = $m.Groups[2].Value
         # Inputs the inventory cannot name file by file are refused, also inside a response file: wildcard source
         # recursion and linked (embedded-interop) references.
@@ -102,9 +110,24 @@ function Get-KwrInventoryRepositoryPaths($Inventory) {
         $name
     })
     if ($candidates.Count -eq 0) { return @() }
-    $tracked = @(& git -C $script:KwrRoot ls-files -- @($candidates | Sort-Object -Unique))
-    if ($LASTEXITCODE -ne 0) { throw 'git ls-files failed while listing the inventory paths.' }
+    $tracked = @(Get-KwrGitPathList @() @($candidates | Sort-Object -Unique | ForEach-Object { ':(literal)' + $_ }))
     return @($tracked | Sort-Object -Unique)
+}
+
+# Git pathnames without C-style quoting: NUL-separated output read as UTF-8 through the process API (Windows PowerShell
+# would decode native output with the console code page), so a non-ASCII tracked name is compared and read exactly.
+function Get-KwrGitPathList([string[]] $Options, [string[]] $Paths) {
+    $quote = { param([string] $a) '"' + ($a -replace '(\\*)"', '$1$1\"' -replace '(\\+)$', '$1$1') + '"' }
+    $arguments = @('-C', $script:KwrRoot, '-c', 'core.quotepath=off', 'ls-files') + @($Options) + @('-z', '--') + @($Paths)
+    $psi = [Diagnostics.ProcessStartInfo]::new('git', ((@($arguments) | ForEach-Object { & $quote $_ }) -join ' '))
+    $psi.UseShellExecute = $false; $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true; $psi.CreateNoWindow = $true
+    $psi.StandardOutputEncoding = [Text.UTF8Encoding]::new($false)
+    $process = [Diagnostics.Process]::Start($psi)
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    $output = $process.StandardOutput.ReadToEnd()
+    $process.WaitForExit()
+    if ($process.ExitCode -ne 0) { throw "git ls-files failed: $($stderrTask.Result)" }
+    return @($output.Split([char]0) | Where-Object { $_ })
 }
 
 function ConvertTo-KwrCompilerInventoryText($Inventory) {
@@ -141,8 +164,7 @@ function Get-KwrCompilerInputs {
 function Get-KwrBuildInputFingerprint($CompilerInputs = $null) {
     $paths = @('src', 'Info.json', 'LoaderReferences.targets', 'scripts/loader-reference-pins.json', 'scripts/Get-PinnedLoaderReferences.ps1',
         'scripts/Build.ps1', 'scripts/KwrBuild.Common.ps1')
-    $files = @(& git -C $script:KwrRoot ls-files --cached --others --exclude-standard -- @paths)
-    if ($LASTEXITCODE -ne 0) { throw 'git ls-files failed while fingerprinting build inputs.' }
+    $files = @(Get-KwrGitPathList @('--cached', '--others', '--exclude-standard') $paths)
     $lines = @(foreach ($file in ($files | Sort-Object -Unique)) {
         $full = Join-Path $script:KwrRoot $file
         if (Test-Path -LiteralPath $full -PathType Leaf) { $file + "`t" + (Get-KwrSha256 $full) }

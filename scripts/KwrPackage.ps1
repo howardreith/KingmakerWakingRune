@@ -12,6 +12,10 @@ Set-StrictMode -Version Latest
 function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic) {
     $source = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($PackagePath)
     if (-not [IO.File]::Exists($source)) { throw "Package not found: $source" }
+    # The real long filename: the receipt and the publish lock beside the ZIP are named from it, so a short 8.3 spelling of
+    # the ZIP itself finds both.
+    . (Join-Path $PSScriptRoot 'KwrFileIdentity.ps1')
+    $source = [KwrFileIdentityV4]::LongPathOf($source)
     $private = Join-Path ([IO.Path]::GetTempPath()) ('KingmakerWakingRune-package-' + [Guid]::NewGuid().ToString('N'))
     # A package at a build-owned destination (this repository's artifacts folder, recognized by the physical identity of
     # the folder, whatever spelling the caller used: short 8.3 alias, junction or letter case) is copied with its receipt
@@ -21,7 +25,6 @@ function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic
     $buildOwned = $false
     $artifactsDirectory = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\artifacts'))
     if ([IO.Directory]::Exists($artifactsDirectory)) {
-        . (Join-Path $PSScriptRoot 'KwrFileIdentity.ps1')
         $artifactsId = [KwrFileIdentityV4]::DirectoryOf($artifactsDirectory)
         $directory = [IO.Path]::GetDirectoryName($source)
         while ($directory) {
@@ -48,6 +51,11 @@ function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic
         }
         finally { if ($null -ne $publishLock) { $publishLock.Dispose() } }
         if ($buildOwned -and -not $hasReceipt) { throw "A build-owned package has no build receipt ($source); it is not installed. Rebuild it." }
+        # Receiptless content inspection is for an independent copy only: a hard link or a reparse point may be another
+        # name of a build-owned output whose publication cannot be established, so it is declined.
+        if (-not $hasReceipt -and ((([IO.File]::GetAttributes($source)) -band [IO.FileAttributes]::ReparsePoint) -or [KwrFileIdentityV4]::LinkCountOf($source) -gt 1)) {
+            throw "The package $source is a file link (hard link or reparse point); its publication cannot be established, so it is not installed. Use an independent copy."
+        }
         if ($hasReceipt) {
             if ($Diagnostic) { & (Join-Path $PSScriptRoot 'Validate-Package.ps1') -PackagePath $copy -ReceiptPath ($copy + '.build.json') -ReportPath $report | Out-Host }
             else { & (Join-Path $PSScriptRoot 'Validate-Package.ps1') -PackagePath $copy -ReceiptPath ($copy + '.build.json') -RequireCurrentProvenance -ReportPath $report | Out-Host }

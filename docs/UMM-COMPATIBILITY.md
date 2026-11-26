@@ -134,7 +134,7 @@ UnityModManager 0.33.2.0 and 0Harmony 2.3.6.0), the author's UnityModManager 0.3
 the official Lib.Harmony 2.3.6 package (net48), as known distinct wrong fixtures; the owner's
 installation is only measured. The suite starts the clone with an empty reference cache (the clone's own
 resolver downloads and verifies the pins) and a different product version committed in the clone (the
-positive artifact name is derived from the manifest). Its checks (120 in round 5; the dated sections below give each round's count) cover cache bytes; dropped/misnamed pins and raised
+positive artifact name is derived from the manifest). Its checks (120 in round 5) cover cache bytes; dropped/misnamed pins and raised
 or array-typed manifests; direct and incremental builds (the three pinned paths on the Csc
 command line; manifest-only and pin-only changes refused); Csc-input probes (identical copy
 elsewhere, same-stem or renamed files, both fixtures, a substituted reference assembly); the
@@ -217,6 +217,15 @@ ignored `assets/portraits/obj/LocalOnly.PNG` and an ignored `src/KingmakerWaking
 removed; the paused publication read through the folder's short 8.3 alias (declined); the receiptless dirty output with
 the lock released, by both spellings (declined); and previous-format journals with a placed replacement folder and no
 `recon.flag`, for `recon` true and false.
+
+Round 8: each compile entry of the compiler inventory carries its resolved repository path (outside the intermediate
+folder), and current provenance checks Git membership on that path, so an authored source named like MSBuild's generated
+`*.AssemblyAttributes.cs` or selected at the repository root through the local props import is checked too; the genuine
+intermediate and temporary attribute file keep their exception. Git path lists (membership, inventory paths and the
+build-input fingerprint) are read NUL-separated as UTF-8, so a tracked non-ASCII source name matches exactly. The
+validator and the install helper expand a short 8.3 spelling of the ZIP itself to its long filename before naming the
+receipt and lock beside it, and the install helper declines a receiptless file link (hard link or reparse point), whose
+publication cannot be established; an independent copy keeps content-only inspection.
 
 ## Evidence for this change (2026-11-24, round 5)
 
