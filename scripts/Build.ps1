@@ -159,14 +159,15 @@ $pendingReceipt = $pendingZip + '.build.json'
     $previous = Join-Path $pending 'previous'
     $done = [Collections.Generic.List[object]]::new()
     # One publisher at a time for this destination (an exclusive lock file removed when its handle closes), so placement
-    # and rollback never act on another build's files.
-    $publishLock = $null
-    $deadline = [DateTime]::UtcNow.AddSeconds(300)
-    while ($null -eq $publishLock) {
-        try { $publishLock = [IO.FileStream]::new(($zip + '.publish.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None, 1, [IO.FileOptions]::DeleteOnClose) }
-        catch [IO.IOException] { if ([DateTime]::UtcNow -gt $deadline) { throw "Another build is publishing $zip; nothing was placed." }; Start-Sleep -Milliseconds 200 }
-    }
+    # and rollback never act on another build's files. A build that finds the destination being published refuses at once
+    # (nothing is queued), and installers read a build-owned pair under the same lock (KwrPackage.ps1).
+    try { $publishLock = [IO.FileStream]::new(($zip + '.publish.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None, 1, [IO.FileOptions]::DeleteOnClose) }
+    catch [IO.IOException] { throw "Another build is publishing $zip; nothing was placed." }
     try {
+        # Under the lock, before any file is moved: the source and material inputs must still be the ones this build used.
+        if ((& git -C $Root rev-parse HEAD).Trim() -cne $commit -or (Get-KwrBuildInputFingerprint) -cne $buildInputs) {
+            throw 'HEAD or a build input changed after this build was validated; nothing was placed.'
+        }
         if ($ReplacePackage -or $dirty) {
             New-Item -ItemType Directory -Path $previous | Out-Null
             foreach ($file in @($zip, $receiptPath)) {

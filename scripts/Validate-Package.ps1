@@ -42,7 +42,7 @@ if ($ReportPath) {
     $protected = @($PackagePath, $ReceiptPath, ($PackagePath + '.build.json')) | Where-Object { $_ } | Select-Object -Unique
     foreach ($inputPath in $protected) {
         $same = [string]::Equals([IO.Path]::GetFullPath($ReportPath), [IO.Path]::GetFullPath($inputPath), [StringComparison]::OrdinalIgnoreCase)
-        if (-not $same -and [IO.File]::Exists($ReportPath) -and [IO.File]::Exists($inputPath)) { $same = [KwrFileIdentityV2]::Of($ReportPath) -ceq [KwrFileIdentityV2]::Of($inputPath) }
+        if (-not $same -and [IO.File]::Exists($ReportPath) -and [IO.File]::Exists($inputPath)) { $same = [KwrFileIdentityV3]::Of($ReportPath) -ceq [KwrFileIdentityV3]::Of($inputPath) }
         if ($same) { throw "The report path must not be an input of the validation: $inputPath" }
     }
 }
@@ -73,10 +73,16 @@ try {
 # The identities of the protected inputs are taken when they are read (before and after the snapshot copy), and the final
 # report write refuses them as well as the inputs' current identities, so an input moved to the report path after its
 # snapshot is still protected.
-$identitiesNow = { if ($ReportPath) { [string[]]@($protected | Where-Object { [IO.File]::Exists($_) } | ForEach-Object { [KwrFileIdentityV2]::Of($_) }) } else { [string[]]@() } }
+$identitiesNow = { if ($ReportPath) { [string[]]@($protected | Where-Object { [IO.File]::Exists($_) } | ForEach-Object { [KwrFileIdentityV3]::Of($_) }) } else { [string[]]@() } }
 $snapshotIds = @(& $identitiesNow)
-[IO.File]::Copy($PackagePath, $inspected)
-$receiptBytes = if ($ReceiptPath) { [IO.File]::ReadAllBytes($ReceiptPath) } else { $null }
+# Each supplied input's bytes are read through one open handle together with that handle's identity, so the protected
+# identities include the exact files whose bytes were inspected even if a path was replaced between the samples.
+$readId = $null
+$packageBytes = [KwrFileIdentityV3]::ReadAll($PackagePath, [ref]$readId)
+$snapshotIds += $readId
+[IO.File]::WriteAllBytes($inspected, $packageBytes)
+$receiptBytes = $null
+if ($ReceiptPath) { $receiptBytes = [KwrFileIdentityV3]::ReadAll($ReceiptPath, [ref]$readId); $snapshotIds += $readId }
 $snapshotIds = @($snapshotIds + @(& $identitiesNow) | Select-Object -Unique)
 
 Add-Type -AssemblyName System.IO.Compression
@@ -223,11 +229,17 @@ if ($ReceiptPath) {
         if (-not $commitKnown) { throw "Build receipt names a commit this repository does not have ($($receipt.commit)); rebuild." }
         # Material: the fixed build paths plus every tracked repository file the recorded inventory names (the embedded
         # art and any other resource, source or file-valued option).
-        # The whole embedded-art tree (assets/) is material, so an added, removed or changed image is detected whether or
+        # The embedded artwork is material through the project's own EmbeddedResource patterns (assets/portraits/*/*.png and
+        # assets/icons/*.png), not the whole assets folder: a documentation file there does not count, while an image the
+        # compiler would embed counts whether Git tracks, ignores or has never seen it.
+        # (Earlier wording, kept for the record:) The whole embedded-art tree (assets/) is material, so an added, removed or changed image is detected whether or
         # not the receipt names it, and an untracked file under any material path refuses current qualification.
-        $materialPaths = @(@('src', 'assets', 'Info.json', 'LoaderReferences.targets', 'scripts/loader-reference-pins.json', 'scripts/Get-PinnedLoaderReferences.ps1', 'scripts/Build.ps1', 'scripts/KwrBuild.Common.ps1') + @(Get-KwrInventoryRepositoryPaths $receipt.compilerInputs) | Select-Object -Unique)
+        $materialPaths = @(@('src', ':(glob)assets/portraits/*/*.png', ':(glob)assets/icons/*.png', 'Info.json', 'LoaderReferences.targets', 'scripts/loader-reference-pins.json', 'scripts/Get-PinnedLoaderReferences.ps1', 'scripts/Build.ps1', 'scripts/KwrBuild.Common.ps1') + @(Get-KwrInventoryRepositoryPaths $receipt.compilerInputs) | Select-Object -Unique)
         $untrackedMaterial = @(& git -C $Root ls-files --others --exclude-standard -- @materialPaths)
         if ($untrackedMaterial.Count -gt 0) { throw "Untracked files under the material inputs ($($untrackedMaterial -join ', ')); rebuild from a clean commit." }
+        $untrackedArt = @(& git -C $Root ls-files --others -- ':(glob)assets/portraits/*/*.png' ':(glob)assets/icons/*.png')
+        if ($LASTEXITCODE -ne 0) { throw 'git ls-files failed while checking the embedded artwork.' }
+        if ($untrackedArt.Count -gt 0) { throw "Untracked or ignored files match the embedded artwork ($($untrackedArt -join ', ')); rebuild from a clean commit." }
         $previousPreference = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
         try { $null = & git -C $Root diff --quiet $receipt.commit -- @materialPaths 2>&1; $materialSame = $LASTEXITCODE -eq 0 } finally { $ErrorActionPreference = $previousPreference }
         if (-not $materialSame) { throw "Build inputs changed since this package was built: the material inputs differ from the receipt's commit $($receipt.commit); rebuild." }
@@ -260,7 +272,7 @@ if ($ReportPath) {
     $protectedIds = [string[]]@(@($snapshotIds) + @(& $identitiesNow) | Where-Object { $_ } | Select-Object -Unique)
     $reportText = $result | ConvertTo-Json -Depth 5
     $reportBytes = [byte[]](@([Text.Encoding]::UTF8.GetPreamble()) + @([Text.Encoding]::UTF8.GetBytes($reportText + "`r`n")))
-    [void][KwrFileIdentityV2]::WriteChecked($ReportPath, $protectedIds, $reportBytes)
+    [void][KwrFileIdentityV3]::WriteChecked($ReportPath, $protectedIds, $reportBytes)
 }
 Write-Host "Package validation passed: $PackagePath"
 Write-Host "Package SHA-256: $packageSha256; DLL SHA-256: $dllSha256; MVID: $mvid; loader references: $(($observed | ForEach-Object { $_.name + ' ' + $_.version }) -join ', '); source provenance: $provenance"

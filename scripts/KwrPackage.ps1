@@ -13,14 +13,27 @@ function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic
     $source = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($PackagePath)
     if (-not [IO.File]::Exists($source)) { throw "Package not found: $source" }
     $private = Join-Path ([IO.Path]::GetTempPath()) ('KingmakerWakingRune-package-' + [Guid]::NewGuid().ToString('N'))
+    # A package at a build-owned destination (this repository's artifacts folder) is copied with its receipt under that
+    # destination's publish lock, so the pair read is one published pair; while a build is publishing there the read is
+    # declined. A ZIP elsewhere is copied without a lock (content inspection only when it has no receipt).
+    $buildOwned = $source.StartsWith(([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\artifacts')).TrimEnd('\') + '\'), [StringComparison]::OrdinalIgnoreCase)
     try {
         [void][IO.Directory]::CreateDirectory($private)
         $copy = Join-Path $private 'package.zip'
-        [IO.File]::Copy($source, $copy)
         $report = Join-Path $private 'validation.json'
         $receiptSource = $source + '.build.json'
-        if ([IO.File]::Exists($receiptSource)) {
-            [IO.File]::Copy($receiptSource, $copy + '.build.json')
+        $publishLock = $null
+        if ($buildOwned) {
+            try { $publishLock = [IO.FileStream]::new(($source + '.publish.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None, 1, [IO.FileOptions]::DeleteOnClose) }
+            catch [IO.IOException] { throw "A build is publishing $source; try again after it finishes." }
+        }
+        try {
+            [IO.File]::Copy($source, $copy)
+            $hasReceipt = [IO.File]::Exists($receiptSource)
+            if ($hasReceipt) { [IO.File]::Copy($receiptSource, $copy + '.build.json') }
+        }
+        finally { if ($null -ne $publishLock) { $publishLock.Dispose() } }
+        if ($hasReceipt) {
             if ($Diagnostic) { & (Join-Path $PSScriptRoot 'Validate-Package.ps1') -PackagePath $copy -ReceiptPath ($copy + '.build.json') -ReportPath $report | Out-Host }
             else { & (Join-Path $PSScriptRoot 'Validate-Package.ps1') -PackagePath $copy -ReceiptPath ($copy + '.build.json') -RequireCurrentProvenance -ReportPath $report | Out-Host }
         }

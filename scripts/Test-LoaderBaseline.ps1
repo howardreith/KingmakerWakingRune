@@ -588,7 +588,7 @@ try {
     Expect-Rejected 'report-path-hard-link-to-package-rejected' (Invoke-Isolated @('-File', $validator, '-PackagePath', $candidateZip, '-ReportPath', $link)) 'must not be an input'
     Add-Case 'report-identity-refusals-leave-inputs-intact' ((Get-Sha256 $candidateZip) -eq $zipBefore -and (Get-Sha256 $receiptPath) -eq $receiptBefore) "package $zipBefore and receipt $receiptBefore unchanged"
     # The identity the validator uses equals a trusted Windows read: vol (volume serial) and fsutil file queryfileid.
-    $idOut = Invoke-Script (". $(Quote (Join-Path $base 'scripts\KwrFileIdentity.ps1')); 'ID ' + [KwrFileIdentityV2]::Of($(Quote $candidateZip))")
+    $idOut = Invoke-Script (". $(Quote (Join-Path $base 'scripts\KwrFileIdentity.ps1')); 'ID ' + [KwrFileIdentityV3]::Of($(Quote $candidateZip))")
     $reported = [regex]::Match($idOut.Output, 'ID ([0-9a-f]{8}:[0-9a-f]{16})').Groups[1].Value
     $previousPreference = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     try { $fsutilText = (& fsutil file queryfileid $candidateZip 2>&1 | ForEach-Object { "$_" }) -join ' ' }
@@ -600,12 +600,12 @@ try {
     Add-Case 'file-identity-matches-trusted-windows-read' ($reported -and $reported -ceq $trusted) "validator $reported; fsutil/CIM $trusted ($fsutilText; volume serial $volSerial)"
     $distinctReport = Join-Path $temp 'distinct existing report.json'
     [IO.File]::WriteAllText($distinctReport, 'placeholder')
-    $distinctIdBefore = [regex]::Match((Invoke-Script (". $(Quote (Join-Path $base 'scripts\KwrFileIdentity.ps1')); 'ID ' + [KwrFileIdentityV2]::Of($(Quote $distinctReport))")).Output, 'ID (\S+)').Groups[1].Value
+    $distinctIdBefore = [regex]::Match((Invoke-Script (". $(Quote (Join-Path $base 'scripts\KwrFileIdentity.ps1')); 'ID ' + [KwrFileIdentityV3]::Of($(Quote $distinctReport))")).Output, 'ID (\S+)').Groups[1].Value
     $dr = Invoke-Isolated @('-File', $validator, '-PackagePath', $candidateZip, '-ReceiptPath', $receiptPath, '-ReportPath', $distinctReport)
     $drJson = try { Get-Content -LiteralPath $distinctReport -Raw | ConvertFrom-Json } catch { $null }
     Add-Case 'report-path-distinct-existing-file-written' ($dr.ExitCode -eq 0 -and $drJson -and $drJson.package_sha256 -eq $zipBefore) "exit $($dr.ExitCode); report written in place of the distinct file (identity $distinctIdBefore); package digest $($drJson.package_sha256)"
     $validatorText = [IO.File]::ReadAllText($validator)
-    $writeAnchor = '    [void][KwrFileIdentityV2]::WriteChecked($ReportPath, $protectedIds, $reportBytes)'
+    $writeAnchor = '    [void][KwrFileIdentityV3]::WriteChecked($ReportPath, $protectedIds, $reportBytes)'
     if ($validatorText.IndexOf($writeAnchor) -lt 0) { throw 'Validate-Package.ps1 write anchor not found.' }
     $racingValidator = Join-Path $base 'scripts\Validate-Package-instrumented.ps1'
     [IO.File]::WriteAllText($racingValidator, $validatorText.Replace($writeAnchor, "    Remove-Item -LiteralPath `$ReportPath -Force; New-Item -ItemType HardLink -Path `$ReportPath -Target `$PackagePath | Out-Null`r`n" + $writeAnchor))
@@ -626,6 +626,25 @@ try {
     Remove-Item -LiteralPath $movingValidator
     $movedNow = if (Test-Path -LiteralPath $movedReport) { Get-Sha256 $movedReport } else { 'missing' }
     Add-Case 'input-moved-to-the-report-destination-after-snapshot-refused' ($moved.ExitCode -ne 0 -and ($moved.Output -replace '\s+', ' ') -match 'must not be an input of the validation' -and $movedNow -eq $movedSha) "exit $($moved.ExitCode); input bytes at the destination unchanged: $($movedNow -eq $movedSha)"
+    # R4-F3: between the identity samples the supplied path is replaced; the replacement is the file read into the snapshot
+    # and is then moved to the initially distinct report destination (the original is put back). Report publication
+    # refuses and the bytes actually read survive at the destination.
+    $readAnchor = '$packageBytes = [KwrFileIdentityV3]::ReadAll($PackagePath, [ref]$readId)'
+    if ($validatorText.IndexOf($readAnchor) -lt 0) { throw 'Validate-Package.ps1 read anchor not found.' }
+    $readInput = Join-Path $temp 'read input.zip'; Copy-Item -LiteralPath $candidateZip -Destination $readInput
+    $replacementSource = Join-Path $temp 'replacement source.zip'; Copy-Item -LiteralPath $candidateZip -Destination $replacementSource
+    Edit-Zip $candidateZip (Join-Path $temp 'replacement distinct.zip') { param($a) $e = $a.GetEntry("$modFolder/Info.json"); $e.LastWriteTime = $e.LastWriteTime.AddMinutes(3) }
+    Move-Item -LiteralPath (Join-Path $temp 'replacement distinct.zip') -Destination $replacementSource -Force
+    $replacementSha = Get-Sha256 $replacementSource
+    $readReport = Join-Path $temp 'read destination report.json'; [IO.File]::WriteAllText($readReport, 'distinct destination')
+    $swapBefore = "Move-Item -LiteralPath `$PackagePath -Destination (`$PackagePath + '.original'); Copy-Item -LiteralPath $(Quote $replacementSource) -Destination `$PackagePath"
+    $swapAfter = "Move-Item -LiteralPath `$PackagePath -Destination `$ReportPath -Force; Move-Item -LiteralPath (`$PackagePath + '.original') -Destination `$PackagePath"
+    $readingValidator = Join-Path $base 'scripts\Validate-Package-instrumented.ps1'
+    [IO.File]::WriteAllText($readingValidator, $validatorText.Replace($readAnchor, $swapBefore + "`r`n" + $readAnchor + "`r`n" + $swapAfter))
+    $readRace = Invoke-Isolated @('-File', $readingValidator, '-PackagePath', $readInput, '-ReportPath', $readReport)
+    Remove-Item -LiteralPath $readingValidator
+    $readNow = if (Test-Path -LiteralPath $readReport) { Get-Sha256 $readReport } else { 'missing' }
+    Add-Case 'replacement-read-between-samples-then-moved-to-the-report-destination-refused' ($readRace.ExitCode -ne 0 -and ($readRace.Output -replace '\s+', ' ') -match 'must not be an input of the validation' -and $readNow -eq $replacementSha -and $replacementSha -ne (Get-Sha256 $readInput)) "exit $($readRace.ExitCode); bytes read (replacement $replacementSha) at the destination unchanged: $($readNow -eq $replacementSha); original back at the input path: $((Get-Sha256 $readInput) -eq (Get-Sha256 $candidateZip)); $(Get-Reason $readRace.Output)"
     Add-Case 'report-destination-replaced-during-validation-refused' ($race.ExitCode -ne 0 -and ($race.Output -replace '\s+', ' ') -match 'must not be an input of the validation \(file identity' -and (Get-Sha256 $candidateZip) -eq $zipBefore -and (Get-Sha256 $receiptPath) -eq $receiptBefore) ("exit $($race.ExitCode); " + (Get-Reason $race.Output) + "; package and receipt unchanged: $((Get-Sha256 $candidateZip) -eq $zipBefore -and (Get-Sha256 $receiptPath) -eq $receiptBefore)")
     Remove-Item -LiteralPath $raceReport -Force
 
@@ -744,6 +763,36 @@ try { Invoke-Launch } catch { 'LAUNCH-2 ' + `$_.Exception.Message }
     # and the resumed reinstall restores recon.flag from the journal.
     Add-Case 'kwrruntime-interrupted-reinstall-keeps-recon-mode' ($rtText -match 'RECON-JOURNAL True' -and $rtText -match 'RECON-AFTER-RECOVERY True JOURNAL True') ((@($rt.Output -split "`n" | Where-Object { $_ -match '^RECON-' }) -join ' / '))
 
+    # R4-F4: an interrupted reinstall journal written by the previous script version (Begin's recon field, no
+    # reconEnabled), phase reinstalling and no installed folder. The resumed Reinstall restores recon.flag from that field
+    # and records reconEnabled before Launch admission; the same journal with recon=false is the control.
+    foreach ($reconValue in @($true, $false)) {
+        $legacyFixture = Join-Path $temp ("legacy journal fixture " + $reconValue)
+        $legacyScript = Join-Path $inputs ("legacy-journal-fixture-$reconValue.ps1")
+        [IO.File]::WriteAllText($legacyScript, @"
+`$ErrorActionPreference = 'Stop'
+`$StateRoot = $(Quote (Join-Path $legacyFixture 'state')); `$StatePath = Join-Path `$StateRoot 'transaction.json'
+`$ModsRoot = $(Quote (Join-Path $legacyFixture 'Mods')); `$ModDir = Join-Path `$ModsRoot 'KingmakerWakingRune'
+`$PackagePath = $(Quote $candidateZip); `$Diagnostic = `$false; `$LaunchArgs = @(); `$AppId = '0'
+New-Item -ItemType Directory -Force -Path `$StateRoot, `$ModsRoot | Out-Null
+. $(Quote $kwrPackage)
+$functionText
+function Get-GameProcesses { @() }
+function Get-OwnedProcess(`$s) { `$null }
+function Assert-SteamCloudOffline { throw 'LAUNCH-ADMITTED (fixture stub stops before Steam)' }
+Save-State ([pscustomobject]@{ runId = 'legacy'; phase = 'reinstalling'; gamePid = `$null; gameStart = `$null; package = 'previous'; packageSha256 = 'previous'; recon = `$$reconValue })
+'MODDIR-BEFORE ' + (Test-Path -LiteralPath `$ModDir)
+Invoke-Reinstall
+'RECON-FLAG ' + (Test-Path -LiteralPath (Join-Path `$ModDir 'recon.flag')) + ' JOURNAL ' + (Get-State).reconEnabled + ' PHASE ' + (Get-State).phase
+try { Invoke-Launch } catch { 'LAUNCH ' + `$_.Exception.Message }
+"@)
+        $legacy = Invoke-Isolated @('-File', $legacyScript)
+        $legacyText = $legacy.Output -replace '\s+', ' '
+        $flagExpected = if ($reconValue) { 'True' } else { 'False' }
+        $ok = $legacyText -match 'MODDIR-BEFORE False' -and $legacyText -match "RECON-FLAG $flagExpected JOURNAL $flagExpected PHASE closed" -and $legacyText -match 'LAUNCH LAUNCH-ADMITTED'
+        Add-Case "kwrruntime-previous-format-journal-recon-$($flagExpected.ToLowerInvariant())-restored" $ok ((@($legacy.Output -split "`n" | Where-Object { $_ -match '^(MODDIR-|RECON-|LAUNCH)' }) -join ' / '))
+    }
+
     # 15b. Round-5 boundary cases.
     # A receipt naming a commit with one extra icon under assets/ (the embedded-art tree is material as a whole, so an
     # added image is detected even though no receipt entry names it); the commit is created without moving HEAD.
@@ -760,6 +809,24 @@ try { Invoke-Launch } catch { 'LAUNCH-2 ' + `$_.Exception.Message }
     Add-Case 'provenance-receipt-commit-with-an-extra-icon-rejected' ($r.ExitCode -ne 0 -and ($r.Output -replace '\s+', ' ') -match 'material inputs differ' -and ($extraDiff -join ',') -ceq $extraIcon) ("commit $extraCommit adds $($extraDiff -join ', '); " + (Get-Reason $r.Output))
     Copy-Item -LiteralPath $savedRound5 -Destination $receiptPath -Force
     Expect-Accepted 'provenance-current-again-after-extra-icon-case' (& $prov) 'source provenance: verified-current'
+    # R1-F1: a valid PNG at an ignored path that the EmbeddedResource pattern assets/portraits/*/*.png embeds
+    # (assets/portraits/obj/LocalOnly.png, ignored by obj/): the build cannot qualify it as a clean frozen candidate and the
+    # existing pair's current provenance is declined; removed, qualification returns. A documentation file in the art tree
+    # does not affect qualification.
+    $ignoredArt = Join-Path $base 'assets\portraits\obj\LocalOnly.png'
+    New-Item -ItemType Directory -Path (Split-Path -Parent $ignoredArt) -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $base 'assets\icons\RefugeToken.png') -Destination $ignoredArt
+    $ignoredStatus = @(& git -C $base status --porcelain).Count
+    $ignoredBuild = Invoke-Isolated @('-File', (Join-Path $base 'scripts\Build.ps1'), '-SkipTests', '-ReplacePackage')
+    $embeddedIgnored = $ignoredBuild.Output -match 'Untracked or ignored files match the embedded artwork \(assets/portraits/obj/LocalOnly\.png\)'
+    Add-Case 'build-with-ignored-embedded-image-not-qualified' ($ignoredStatus -eq 0 -and $ignoredBuild.ExitCode -ne 0 -and $embeddedIgnored -and (Get-Sha256 $receiptPath) -eq (Get-Sha256 $savedRound5)) ("git status entries $ignoredStatus (ignored); build exit $($ignoredBuild.ExitCode); " + (Get-Reason $ignoredBuild.Output) + "; previous pair kept: $((Get-Sha256 $receiptPath) -eq (Get-Sha256 $savedRound5))")
+    Expect-Rejected 'provenance-with-ignored-embedded-image-rejected' (& $prov) 'Untracked or ignored files match the embedded artwork'
+    Remove-Item -LiteralPath (Split-Path -Parent $ignoredArt) -Recurse -Force
+    Expect-Accepted 'provenance-current-after-ignored-image-removed' (& $prov) 'source provenance: verified-current'
+    $artNote = Join-Path $base 'assets\README.md'
+    [IO.File]::WriteAllText($artNote, "Artwork notes (documentation only).`r`n")
+    Expect-Accepted 'provenance-current-with-art-tree-documentation-change' (& $prov) 'source provenance: verified-current'
+    Remove-Item -LiteralPath $artNote
     # An unchanged response file whose /recurse names external sources: wildcard recursion cannot be bound to the receipt,
     # so the build refuses it and current qualification is declined while it is configured.
     $recurseDir = Join-Path $temp 'recurse sources'; New-Item -ItemType Directory -Path $recurseDir -Force | Out-Null
@@ -786,35 +853,116 @@ try { Invoke-Launch } catch { 'LAUNCH-2 ' + `$_.Exception.Message }
     Add-Case 'cold-acquisition-of-the-raw-pin-with-omitted-archive-keys' ($cold.ExitCode -eq 0 -and (Test-Path -LiteralPath (Join-Path $coldCache '0Harmony12.dll')) -and (Get-Sha256 (Join-Path $coldCache '0Harmony12.dll')) -eq [string]$harmonyPin.Sha256) "exit $($cold.ExitCode); 0Harmony12.dll $(if (Test-Path -LiteralPath (Join-Path $coldCache '0Harmony12.dll')) { Get-Sha256 (Join-Path $coldCache '0Harmony12.dll') })"
     & git -C $base checkout -q -- scripts/loader-reference-pins.json
     Move-Item -LiteralPath $cacheAside -Destination $references
-    # The tests that gate packaging are the ones this invocation built: a stale passing runner left at bin\Tests (it
-    # prints STALE TEST RUNNER and exits 0) never answers; the newly built runner's own result line appears.
-    $staleDir = Join-Path $base 'bin\Tests'; New-Item -ItemType Directory -Path $staleDir -Force | Out-Null
+    # R4-F2: one test-enabled Build.ps1 invocation with the test project's OutputPath redirected in the local props
+    # (active: MSBuild evaluates it to the redirected folder) and a stale passing runner (prints STALE TEST RUNNER, exits 0)
+    # both at bin\Tests and at the redirected folder. The packaging gate is the runner this invocation built: its own
+    # result line appears, the stale runners never answer and keep their digests, and the package names this compile.
     $staleSource = Join-Path $inputs 'stale-runner.cs'
     [IO.File]::WriteAllText($staleSource, 'public static class P { public static int Main() { System.Console.WriteLine("STALE TEST RUNNER"); return 0; } }')
     $frameworkCsc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
-    $null = & $frameworkCsc /nologo /target:exe "/out:$(Join-Path $staleDir 'KingmakerWakingRune.Tests.exe')" $staleSource
+    $staleDirs = @((Join-Path $base 'bin\Tests'), (Join-Path $base 'bin\Redirected'))
+    foreach ($dir in $staleDirs) { New-Item -ItemType Directory -Path $dir -Force | Out-Null; $null = & $frameworkCsc /nologo /target:exe "/out:$(Join-Path $dir 'KingmakerWakingRune.Tests.exe')" $staleSource }
+    $staleBefore = @($staleDirs | ForEach-Object { Get-Sha256 (Join-Path $_ 'KingmakerWakingRune.Tests.exe') }) -join '/'
+    [IO.File]::WriteAllText($localPaths, $localOriginal.Replace('</Project>', "  <PropertyGroup><OutputPath>..\bin\Redirected\</OutputPath></PropertyGroup>`r`n</Project>"))
+    $evaluated = Invoke-MSBuildIsolated @((Join-Path $base 'tests\KingmakerWakingRune.Tests.csproj'), '-getProperty:OutputPath', '-p:Configuration=Release')
+    $redirectActive = $evaluated.ExitCode -eq 0 -and $evaluated.Output.Trim() -ceq '..\bin\Redirected\'
     $withTests = Invoke-Isolated @('-File', (Join-Path $base 'scripts\Build.ps1'), '-ReplacePackage')
-    Add-Case 'packaging-gated-by-this-invocations-tests' ($withTests.ExitCode -eq 0 -and $withTests.Output -notmatch 'STALE TEST RUNNER' -and $withTests.Output -match 'Tests: \d+ passed, 0 failed') ("exit $($withTests.ExitCode); " + [regex]::Match($withTests.Output, 'Tests: \d+ passed, \d+ failed').Value + "; stale runner answered: $($withTests.Output -match 'STALE TEST RUNNER')")
-    Remove-Item -LiteralPath $staleDir -Recurse -Force
-    # One publisher per destination: while another holder has the destination's publish lock, a build waits before
-    # placing anything (the previous pair is untouched); after the holder releases, the build places its pair, which
-    # validates together and names this compile.
+    [IO.File]::WriteAllText($localPaths, $localOriginal)
+    $staleAfter = @($staleDirs | ForEach-Object { Get-Sha256 (Join-Path $_ 'KingmakerWakingRune.Tests.exe') }) -join '/'
+    $ownRunner = [regex]::Match($withTests.Output, 'Tests: \d+ passed, 0 failed').Value
+    $producedWithTests = [regex]::Match($withTests.Output, "Product DLL SHA-256 \(this invocation's compile\): ([0-9a-f]{64})").Groups[1].Value
+    $placedWithTests = [string](Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json).dllSha256
+    Add-Case 'packaging-gated-by-this-invocations-tests' ($redirectActive -and $withTests.ExitCode -eq 0 -and $withTests.Output -notmatch 'STALE TEST RUNNER' -and $ownRunner -and $staleAfter -ceq $staleBefore -and $producedWithTests -and $placedWithTests -ceq $producedWithTests) ("evaluated test OutputPath '$($evaluated.Output.Trim())' (redirect active: $redirectActive); exit $($withTests.ExitCode); own runner: '$ownRunner'; stale runners answered: $($withTests.Output -match 'STALE TEST RUNNER'); stale digests unchanged: $($staleAfter -ceq $staleBefore); packaged DLL is this compile: $($placedWithTests -ceq $producedWithTests)")
+    foreach ($dir in $staleDirs) { Remove-Item -LiteralPath $dir -Recurse -Force }
+    # One publisher per destination. While another holder has the destination's publish lock a build refuses at once and
+    # places nothing (no queued publication).
     $pairBefore = (Get-Sha256 $candidateZip) + '/' + (Get-Sha256 $receiptPath)
     $holder = [IO.FileStream]::new(($candidateZip + '.publish.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None, 1, [IO.FileOptions]::DeleteOnClose)
-    $waitLog = Join-Path $inputs 'waiting-build.txt'
-    $waiting = Start-Process -FilePath powershell.exe -ArgumentList @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ('"' + (Join-Path $base 'scripts\Build.ps1') + '"'), '-SkipTests', '-ReplacePackage') -RedirectStandardOutput $waitLog -PassThru
-    $null = $waiting.Handle
+    try { $held = Invoke-Isolated @('-File', (Join-Path $base 'scripts\Build.ps1'), '-SkipTests', '-ReplacePackage') } finally { $holder.Dispose() }
+    Add-Case 'build-refuses-while-the-destination-is-being-published' ($held.ExitCode -ne 0 -and ($held.Output -replace '\s+', ' ') -match 'Another build is publishing' -and ((Get-Sha256 $candidateZip) + '/' + (Get-Sha256 $receiptPath)) -ceq $pairBefore) ("exit $($held.ExitCode); " + (Get-Reason $held.Output) + "; previous pair unchanged: $(((Get-Sha256 $candidateZip) + '/' + (Get-Sha256 $receiptPath)) -ceq $pairBefore)")
+    $buildText = [IO.File]::ReadAllText((Join-Path $base 'scripts\Build.ps1'))
+    $underLock = '        # Under the lock, before any file is moved: the source and material inputs must still be the ones this build used.'
+    if ($buildText.IndexOf($underLock) -lt 0) { throw 'Build.ps1 under-lock anchor not found.' }
+    # R5-F2: a material input changes after this build's private validation and before placement (a disposable
+    # instrumented Build edits a tracked source just before taking the lock): the final check under the lock declines
+    # placement and the previous pair keeps its hashes.
+    $lateSource = @(& git -C $base ls-files 'src/KingmakerWakingRune/*.cs')[0]
+    $lockAnchor = "    try { `$publishLock = [IO.FileStream]::new((`$zip + '.publish.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None, 1, [IO.FileOptions]::DeleteOnClose) }"
+    if ($buildText.IndexOf($lockAnchor) -lt 0) { throw 'Build.ps1 lock anchor not found.' }
+    $lateBuild = Join-Path $base 'scripts\Build-instrumented.ps1'
+    [IO.File]::WriteAllText($lateBuild, $buildText.Replace('$PSScriptRoot', (Quote (Join-Path $base 'scripts'))).Replace($lockAnchor, "    [IO.File]::AppendAllText($(Quote (Join-Path $base $lateSource)), ""``r``n// changed after validation``r``n"")`r`n" + $lockAnchor))
+    $late = Invoke-Isolated @('-File', $lateBuild, '-SkipTests', '-ReplacePackage')
+    Remove-Item -LiteralPath $lateBuild
+    $lateChanged = [bool](& git -C $base status --porcelain -- $lateSource)
+    & git -C $base checkout -q -- $lateSource
+    Add-Case 'build-declines-placement-when-an-input-changed-after-validation' ($late.ExitCode -ne 0 -and ($late.Output -replace '\s+', ' ') -match 'HEAD or a build input changed after this build was validated; nothing was placed' -and $lateChanged -and ((Get-Sha256 $candidateZip) + '/' + (Get-Sha256 $receiptPath)) -ceq $pairBefore) ("source edited after validation: $lateChanged; exit $($late.ExitCode); " + (Get-Reason $late.Output) + "; previous pair unchanged: $(((Get-Sha256 $candidateZip) + '/' + (Get-Sha256 $receiptPath)) -ceq $pairBefore)")
+    # R4-F1: two real overlapping publishers of distinguishable compiles. Publisher A (default settings; a disposable
+    # instrumented Build that pauses right after taking the destination lock) and publisher B (the real Build.ps1 with the
+    # process-local compiler setting CheckForOverflowUnderflow=true, so its DLL differs). B refuses while A holds the
+    # lock; A then places its pair. The surviving ZIP and receipt are A's and validate under A's settings.
+    $signal = Join-Path $temp 'publisher signals'; New-Item -ItemType Directory -Path $signal -Force | Out-Null
+    $holdInsert = "`r`n        [IO.File]::WriteAllText($(Quote (Join-Path $signal 'A-holds-lock')), 'held'); `$waitUntil = [DateTime]::UtcNow.AddMinutes(10); while (-not [IO.File]::Exists($(Quote (Join-Path $signal 'A-continue'))) -and [DateTime]::UtcNow -lt `$waitUntil) { Start-Sleep -Milliseconds 200 }"
+    $publisherA = Join-Path $base 'scripts\Build-publisherA-instrumented.ps1'
+    [IO.File]::WriteAllText($publisherA, $buildText.Replace('$PSScriptRoot', (Quote (Join-Path $base 'scripts'))).Replace($underLock, $underLock + $holdInsert))
+    $logA = Join-Path $inputs 'publisher-a.txt'
+    $procA = Start-Process -FilePath powershell.exe -ArgumentList @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $publisherA + '"'), '-SkipTests', '-ReplacePackage') -RedirectStandardOutput $logA -RedirectStandardError ($logA + '.err') -PassThru -WindowStyle Hidden
+    $null = $procA.Handle
     $deadline = (Get-Date).AddMinutes(10)
-    while (-not $waiting.HasExited -and (Get-Date) -lt $deadline -and -not ((Test-Path -LiteralPath $waitLog) -and ((Get-Content -LiteralPath $waitLog -Raw) -match 'Package validation passed'))) { Start-Sleep -Seconds 2 }
-    Start-Sleep -Seconds 5
-    $pairWhileHeld = (Get-Sha256 $candidateZip) + '/' + (Get-Sha256 $receiptPath)
-    $stillWaiting = -not $waiting.HasExited
-    $holder.Dispose()
-    $waiting.WaitForExit()
-    $published = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
-    $waitText = Get-Content -LiteralPath $waitLog -Raw
-    $producedHere = [regex]::Match($waitText, "Product DLL SHA-256 \(this invocation's compile\): ([0-9a-f]{64})").Groups[1].Value
-    Add-Case 'build-waits-for-the-destination-publisher-and-places-its-own-pair' ($stillWaiting -and $pairWhileHeld -ceq $pairBefore -and $waiting.ExitCode -eq 0 -and $published.dllSha256 -eq $producedHere -and (& $prov).ExitCode -eq 0) "waited while held: $stillWaiting; previous pair untouched while held: $($pairWhileHeld -ceq $pairBefore); exit $($waiting.ExitCode); receipt names this compile: $($published.dllSha256 -eq $producedHere)"
+    while (-not $procA.HasExited -and -not (Test-Path -LiteralPath (Join-Path $signal 'A-holds-lock')) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+    $aHeld = Test-Path -LiteralPath (Join-Path $signal 'A-holds-lock')
+    $env:CheckForOverflowUnderflow = 'true'
+    try { $publisherB = Invoke-Isolated @('-File', (Join-Path $base 'scripts\Build.ps1'), '-SkipTests', '-ReplacePackage') } finally { Remove-Item Env:\CheckForOverflowUnderflow }
+    $pairWhileAHeld = (Get-Sha256 $candidateZip) + '/' + (Get-Sha256 $receiptPath)
+    [IO.File]::WriteAllText((Join-Path $signal 'A-continue'), 'go')
+    $procA.WaitForExit()
+    Remove-Item -LiteralPath $publisherA
+    $textA = Get-Content -LiteralPath $logA -Raw
+    $dllA = [regex]::Match($textA, "Product DLL SHA-256 \(this invocation's compile\): ([0-9a-f]{64})").Groups[1].Value
+    $dllB = [regex]::Match($publisherB.Output, "Product DLL SHA-256 \(this invocation's compile\): ([0-9a-f]{64})").Groups[1].Value
+    $survivor = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
+    $winnerValid = & $prov
+    $ok = $aHeld -and $publisherB.ExitCode -ne 0 -and ($publisherB.Output -replace '\s+', ' ') -match 'Another build is publishing' -and $pairWhileAHeld -ceq $pairBefore -and
+        $procA.ExitCode -eq 0 -and $dllA -and $dllB -and $dllA -cne $dllB -and [string]$survivor.dllSha256 -ceq $dllA -and [string]$survivor.zipSha256 -ceq (Get-Sha256 $candidateZip) -and
+        $winnerValid.ExitCode -eq 0 -and $winnerValid.Output -match 'source provenance: verified-current'
+    Add-Case 'overlapping-publishers-the-lock-holder-owns-the-surviving-pair' $ok ("A held the lock: $aHeld; compiles A $dllA / B $dllB; B exit $($publisherB.ExitCode) (" + (Get-Reason $publisherB.Output) + "); pair while A held unchanged: $($pairWhileAHeld -ceq $pairBefore); A exit $($procA.ExitCode); surviving receipt DLL $($survivor.dllSha256), ZIP $($survivor.zipSha256); winner validates: $($winnerValid.ExitCode -eq 0)")
+    # R5-F1: an installer read during publication. A dirty pair exists; a second dirty build (disposable instrumented
+    # Build) pauses between placing its ZIP and its receipt, then fails the receipt placement and rolls back. During the
+    # pause the real copy helper declines (no default-mode admission of the half-published pair); after the rollback the
+    # restored dirty pair is refused in default mode and admitted only as -Diagnostic. A receiptless ZIP outside the
+    # build-owned folder keeps content-only inspection.
+    [IO.File]::AppendAllText((Join-Path $base 'README.md'), "`r`n<!-- loader-baseline publication read -->`r`n")
+    $firstDirty = Invoke-Isolated @('-File', (Join-Path $base 'scripts\Build.ps1'), '-SkipTests')
+    $dirtyZipR5 = Join-Path $base "artifacts\KingmakerWakingRune-$cloneVersion-dirty.zip"
+    $dirtyPairBefore = if ((Test-Path -LiteralPath $dirtyZipR5) -and (Test-Path -LiteralPath ($dirtyZipR5 + '.build.json'))) { (Get-Sha256 $dirtyZipR5) + '/' + (Get-Sha256 ($dirtyZipR5 + '.build.json')) } else { 'missing' }
+    $zipPlace = '        [IO.File]::Move($pendingZip, $zip); $done.Add(@($zip, $pendingZip))'
+    if ($buildText.IndexOf($zipPlace) -lt 0) { throw 'Build.ps1 ZIP placement anchor not found.' }
+    $pauseInsert = "`r`n        [IO.File]::WriteAllText($(Quote (Join-Path $signal 'zip-placed')), 'placed'); `$waitUntil = [DateTime]::UtcNow.AddMinutes(10); while (-not [IO.File]::Exists($(Quote (Join-Path $signal 'receipt-go'))) -and [DateTime]::UtcNow -lt `$waitUntil) { Start-Sleep -Milliseconds 200 }; throw 'injected receipt placement failure'"
+    $pausing = Join-Path $base 'scripts\Build-pausing-instrumented.ps1'
+    [IO.File]::WriteAllText($pausing, $buildText.Replace('$PSScriptRoot', (Quote (Join-Path $base 'scripts'))).Replace($zipPlace, $zipPlace + $pauseInsert))
+    $logP = Join-Path $inputs 'pausing-publisher.txt'
+    $procP = Start-Process -FilePath powershell.exe -ArgumentList @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $pausing + '"'), '-SkipTests') -RedirectStandardOutput $logP -RedirectStandardError ($logP + '.err') -PassThru -WindowStyle Hidden
+    $null = $procP.Handle
+    $deadline = (Get-Date).AddMinutes(10)
+    while (-not $procP.HasExited -and -not (Test-Path -LiteralPath (Join-Path $signal 'zip-placed')) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+    $paused = Test-Path -LiteralPath (Join-Path $signal 'zip-placed')
+    $receiptVisible = Test-Path -LiteralPath ($dirtyZipR5 + '.build.json')
+    $duringPause = Invoke-Script (". $(Quote $kwrPackage); `$v = New-KwrValidatedPackageCopy $(Quote $dirtyZipR5); 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v")
+    [IO.File]::WriteAllText((Join-Path $signal 'receipt-go'), 'go')
+    $procP.WaitForExit()
+    Remove-Item -LiteralPath $pausing
+    $textP = (Get-Content -LiteralPath $logP -Raw) + "`n" + (Get-Content -LiteralPath ($logP + '.err') -Raw)
+    $dirtyPairAfter = if ((Test-Path -LiteralPath $dirtyZipR5) -and (Test-Path -LiteralPath ($dirtyZipR5 + '.build.json'))) { (Get-Sha256 $dirtyZipR5) + '/' + (Get-Sha256 ($dirtyZipR5 + '.build.json')) } else { 'missing' }
+    $afterDefault = Invoke-Script (". $(Quote $kwrPackage); `$v = New-KwrValidatedPackageCopy $(Quote $dirtyZipR5); 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v")
+    $afterDiagnostic = Invoke-Script (". $(Quote $kwrPackage); `$v = New-KwrValidatedPackageCopy $(Quote $dirtyZipR5) -Diagnostic; 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v")
+    $externalZip = Join-Path $temp 'external package.zip'; Copy-Item -LiteralPath $candidateZip -Destination $externalZip
+    $external = Invoke-Script (". $(Quote $kwrPackage); `$v = New-KwrValidatedPackageCopy $(Quote $externalZip); 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v")
+    $ok = $firstDirty.ExitCode -eq 0 -and $dirtyPairBefore -ne 'missing' -and $paused -and -not $receiptVisible -and $duringPause.ExitCode -ne 0 -and ($duringPause.Output -replace '\s+', ' ') -match 'A build is publishing' -and $duringPause.Output -notmatch 'MODE ' -and
+        $procP.ExitCode -ne 0 -and $textP -match 'injected receipt placement failure' -and $dirtyPairAfter -ceq $dirtyPairBefore -and
+        $afterDefault.ExitCode -ne 0 -and ($afterDefault.Output -replace '\s+', ' ') -match 'dirty working tree|not verified as current' -and $afterDiagnostic.ExitCode -eq 0 -and $afterDiagnostic.Output -match 'MODE diagnostic' -and
+        $external.ExitCode -eq 0 -and $external.Output -match 'MODE external-content-inspected'
+    Add-Case 'installer-read-during-publication-declined-and-rollback-exposes-the-restored-pair' $ok ("paused between placements: $paused (receipt visible: $receiptVisible); during the pause: " + (Get-Reason $duringPause.Output) + "; publisher exit $($procP.ExitCode); restored dirty pair equals the previous: $($dirtyPairAfter -ceq $dirtyPairBefore); after rollback default: " + (Get-Reason $afterDefault.Output) + "; -Diagnostic: " + ([regex]::Match($afterDiagnostic.Output, 'MODE \S+').Value) + "; external receiptless ZIP: " + ([regex]::Match($external.Output, 'MODE \S+').Value))
+    & git -C $base checkout -q -- README.md
+    Remove-Item -LiteralPath $dirtyZipR5, ($dirtyZipR5 + '.build.json'), $externalZip -Force -ErrorAction SilentlyContinue
 
     # 16. Shipping version 0.12.99: the alternate fixture version differs, and both pairs are built and validated without
     #     replacing the shipping pair.
