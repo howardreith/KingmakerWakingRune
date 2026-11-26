@@ -360,7 +360,8 @@ try {
     $callerZip = Join-Path $inputs 'caller.zip'
     Copy-Item -LiteralPath $candidateZip -Destination $callerZip
     $text = [IO.File]::ReadAllText($validator)
-    $anchor = '[IO.File]::Copy($PackagePath, $inspected)'
+    $anchor = '[IO.File]::WriteAllBytes($inspected, $packageBytes)'
+    if ($text.IndexOf($anchor) -lt 0) { throw 'Validate-Package.ps1 snapshot-write anchor not found.' }
     $instrumented = Join-Path $base 'scripts\Validate-Package-instrumented.ps1'
     [IO.File]::WriteAllText($instrumented, $text.Replace($anchor, $anchor + "`r`n[IO.File]::Copy(" + (Quote $repacked) + ', $PackagePath, $true)'))
     $mixReport = Join-Path $inputs 'mix.json'

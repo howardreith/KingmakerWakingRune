@@ -58,7 +58,9 @@ Harmony12 adapter alone does not cover that API surface.
   in a folder private to the invocation (staging, archive, receipt and validation all live there), validates the
   pair (with current provenance for a clean build) and only then moves both to their final paths, holding the
   destination's publish lock (`<zip>.publish.lock`, exclusive and removed when its handle closes), so placement and
-  rollback never act on another build's files; a second build for the same destination waits for it. A failure leaves no new file at the candidate paths; when a package
+  rollback never act on another build's files. A second build that finds the destination being published refuses at
+  once (nothing is queued), and under the lock, before moving any file, a build checks once more that HEAD and its
+  material inputs are still the ones it built and validated. A failure leaves no new file at the candidate paths; when a package
   is replaced (owner-authorized `-ReplacePackage`, or a `-dirty` build), moving the previous ZIP and receipt
   aside and placing the new pair are one rollback scope: every completed move is undone in reverse if any step
   fails (for example a receipt held open by another process), and if the rollback itself fails the staging
@@ -85,13 +87,18 @@ Harmony12 adapter alone does not cover that API surface.
   or Harmony assembly (an extra Harmony adapter reference is refused). With a receipt, the receipt must
   describe the same ZIP and DLL bytes and the pinned identities (fields are type-checked first). With
   `-RequireCurrentProvenance` (the frozen-candidate path) the receipt must also name a clean producing
-  commit that exists in the repository and whose material inputs (the fixed build paths, the whole embedded-art
-  tree `assets/`, plus every tracked file the recorded inventory names) equal the files present now, with no
-  untracked file among them, its version
+  commit that exists in the repository and whose material inputs (the fixed build paths, the embedded artwork
+  matched by the project's own `EmbeddedResource` patterns `assets/portraits/*/*.png` and `assets/icons/*.png`, plus
+  every tracked file the recorded inventory names) equal the files present now, with no untracked file among them and
+  no untracked or ignored file matching the artwork patterns (a documentation file elsewhere under `assets/` does not
+  count), its version
   must equal the packaged manifest, it may contain no unidentified compiler input, and its recorded compiler
   inventory and build inputs must equal what MSBuild and the repository give now; otherwise the old ZIP and receipt lose current-candidate status. The report states
   `source_provenance` (`not-checked` for an external ZIP inspected by content only,
   `receipt-matches-package`, or `verified-current`).
+- The validator reads each supplied input's bytes through one open handle together with that handle's file identity,
+  so the report write refuses the exact file whose bytes were inspected even if the supplied path was replaced
+  between the identity samples.
 - `KwrRuntime.ps1` (`Begin`, `Reinstall`) uses `scripts/KwrPackage.ps1`: it resolves the caller's ZIP once,
   validates a private copy (frozen-candidate mode requires current provenance when a receipt is beside the
   ZIP; `-Diagnostic` stages a receipt-backed diagnostic build with the ZIP, DLL, pin and receipt-match checks
@@ -170,7 +177,28 @@ receipt naming a commit that adds one icon under `assets/` (refused); a response
 current qualification declined); a NuGet pin without archive fields (refused offline) and a raw `.dll` pin with the
 archive keys omitted (accepted offline and acquired cold); a stale passing runner at `bin\Tests` (never answers;
 this invocation's tests gate packaging); and a build waiting for another holder of the destination's publish lock
-(previous pair untouched while held; then its own pair placed and verified current).
+(previous pair untouched while held; then its own pair placed and verified current; round 6 replaced the wait with an
+immediate refusal, see below).
+
+## Round 6 (2026-11-26)
+
+Build, install and validation tooling only; the product sources are unchanged. `KwrPackage.ps1` copies a ZIP in this
+repository's `artifacts` folder together with its receipt under that destination's publish lock and declines the read
+while a build is publishing there (a ZIP elsewhere keeps content-only inspection). An interrupted reinstall journal in
+the previous format (Begin's `recon` field, no `reconEnabled`) whose installed folder is gone resumes with that recorded
+recon value. The boundary suite adds: a replacement read between the validator's identity samples and then moved to the
+report destination (refused, the bytes read kept); an ignored image at `assets/portraits/obj/LocalOnly.png` (the build
+and current provenance refuse it; removed, qualification returns; an `assets/README.md` does not affect it); one
+test-enabled build with the test project's `OutputPath` redirected (MSBuild evaluates `..\bin\Redirected\`) and stale
+passing runners at `bin\Tests` and the redirected folder (never answer, digests unchanged; this invocation's runner
+gates packaging); a build refused at once while the destination's publish lock is held; a source edited after private
+validation (placement declined under the lock, previous pair kept); two overlapping real publishers, A paused holding the
+lock and B compiled with the process-local `CheckForOverflowUnderflow=true` (different DLLs; B refused, A's pair survives
+and validates as current); an installer read paused between a dirty publication's ZIP and receipt placements
+(declined), then the publication's rollback (the restored dirty pair is refused in default mode and admitted only as
+`-Diagnostic`), and a receiptless ZIP outside `artifacts` (content-inspected); and previous-format journals with
+`recon` true and false (recon flag and journal restored before launch admission). The controller gate on the candidate
+runs this suite.
 
 ## Evidence for this change (2026-11-24, round 5)
 
