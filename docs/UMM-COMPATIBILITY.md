@@ -268,6 +268,41 @@ packaged DLL `7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904`,
 provenance before and after the disposable clone was removed. The file symbolic-link report case remains not run on this
 host (Windows: administrator privilege required).
 
+Round 11 (`c4340df`, `859674e`; tooling only, the product sources unchanged). The install helper opens a package classified
+as external with read access that shares delete (`OpenReadShared`), so a handle taken before ownership is confirmed never
+stops a publisher's placement or rollback, and it compares the held file's identity with the classified file before
+anything else: a file reached through a directory junction redirected after classification (or one a publisher has moved
+or deleted meanwhile) is refused, and a folder whose identity cannot be read declines the package. The validator records,
+from the handle that reads the snapshot and before any byte is copied, the identities of the conventional receipts beside
+the ZIP's names, and the report destination is bound to what it was when validation started (its identity, or absent), so
+a receipt moved to the report path at any moment of the snapshot is refused and keeps its bytes; an ordinary independent
+copy still gets its report. Inventory entries are decoded by kind: only a reference loses its alias, a response file its
+`@`, a file-valued option its `/switch:` prefix and, for the resource switches alone, the `,logical name` suffix, so
+`Rules=Base.rsp` keeps its literal name. The producing-commit comparison takes its repository paths from the compiler
+inventory MSBuild evaluates now (the receipt's paths are compared as well), so a receipt recording a tracked source as
+external cannot remove it from the comparison. The identity type is now `KwrFileIdentityV7`.
+In the boundary suite and the focused driver every negative producer is a variant of one producer commit that changes
+exactly its named path (deletion is explicit), and the variant's Git change (path, change type, tree membership) is checked
+before its validator result counts. The round-10 producer rows did not establish what their names said: the "missing"
+variant wrote an empty `Rules=Root.cs` (Windows PowerShell turned the null content into an empty string), so it showed a
+content difference, not an absence; and the two casing controls compared commits taken before `Rules=Root.cs` was added, so
+each differed from the producer in two material files. Those rows and the round-10 counts (166 executed checks passed, one
+not run; focused 10 of 10) are kept as recorded.
+Focused checks (`docs/evidence/umm-0311/focused-r11.json`, 13 of 13 on `859674e`; the first run on `c4340df`, 12 of 13, is
+kept in `focused-r11-first-run.json`): a hard-linked ZIP with no `-ReceiptPath` whose target receipt is moved to the
+initially absent report destination before and after the read, refused with ZIP and receipt unchanged, and the
+independent-copy report control; the junction redirected to the artifacts folder after external classification, the
+reader holding the placed ZIP while the publisher's receipt placement fails, the rollback completing, both previous files
+restored at their final paths and the reader refused; the genuine producer with the tracked `Rules=Base.rsp` response file
+qualifying and the per-kind decoding boundary; a receipt recording `CaseRoot.cs` as external with a producer differing only
+in it refused; six one-path producer variants refused. The corrected production pair was built once with `Build.ps1`
+(tests included) at `<dev>\KingmakerWakingRuneLab\worktrees\umm-0311-final-pair-859674e\producer` (owner machine, not in Git):
+ZIP `78b9106e979a3e1e4032022e05c292ef869959ea40e980dea78277a93cb7380b`, receipt `retained-build-receipt-r11.json`, packaged
+DLL `7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904`, MVID `ccc59117-f992-44ce-9355-540d35f181f0`, validated
+with current provenance. Its DLL has the full SHA-256 and MVID of the DLL in `api-audit.json`, so the existing four-loader
+static audit applies to it unchanged. The round-10 pair (`6869e55`) is kept as historical evidence. The file symbolic-link
+report case remains in the suite and is recorded as not run on this host (Windows: administrator privilege required).
+
 ## Evidence for this change (2026-11-24, round 5)
 
 The build and validation tooling is at `3779b0e`; the product sources are unchanged, so the candidate DLL is

@@ -1,0 +1,76 @@
+{
+    "schema":  "kwr.focused-r11.v1",
+    "mode":  "Focused",
+    "commit":  "c4340df82992959d7d8c9bf2b8be1aa19b53823c",
+    "startedUtc":  "2026-11-27T13:21:20.1264541Z",
+    "disposableRemoved":  true,
+    "passed":  12,
+    "total":  13,
+    "cases":  [
+                  {
+                      "name":  "disposable-clean-build",
+                      "passed":  true,
+                      "detail":  "exit 0"
+                  },
+                  {
+                      "name":  "r10f1-linked-zip-target-receipt-moved-to-the-report-destination-during-the-snapshot-refused",
+                      "passed":  true,
+                      "detail":  "input HardLink (names: <temp>\\kwr-focused-r11-50b4b345b31e49759e5c4420f7e3bf2a\\clone with space\\artifacts\\KingmakerWakingRune-0.12.3.zip | <temp>\\kwr-focused-r11-50b4b345b31e49759e5c4420f7e3bf2a\\moved receipt link\\linked candidate.zip), no -ReceiptPath; before-read: destination absent at start True, receipt moved there True, its bytes unchanged True; destination changed during validation / after-read: destination absent at start True, receipt moved there True, its bytes unchanged True; path must not be an input of the validation (file identity 6cfdfe4e:004b00000029e384).\"; ZIP and receipt unchanged after restoring: True"
+                  },
+                  {
+                      "name":  "r10f1-control-independent-copy-reports-written",
+                      "passed":  true,
+                      "detail":  "new report exit 0; existing distinct report exit 0"
+                  },
+                  {
+                      "name":  "r9f2-reader-through-a-junction-redirected-after-external-classification-does-not-obstruct-rollback-and-is-refused",
+                      "passed":  false,
+                      "detail":  "publisher paused after placing the ZIP: True (receipt visible: False); classified through the junction before the redirect: [final= names=<temp>\\kwr-focused-r11-50b4b345b31e49759e5c4420f7e3bf2a\\junction external target\\KingmakerWakingRune-0.12.3-dirty.zip]; junction redirected to <temp>\\kwr-focused-r11-50b4b345b31e49759e5c4420f7e3bf2a\\clone with space\\artifacts; handle held during the rollback: [held=<temp>\\kwr-focused-r11-50b4b345b31e49759e5c4420f7e3bf2a\\clone with space\\artifacts\\KingmakerWakingRune-0.12.3-dirty.zip]; publisher exit 1: injected receipt placement failure; rollback completed: True; pending folders left: []; previous ZIP/receipt at their final paths before 14b83ab68ecb2ba611e292486aa39d8278794db9d89abcb4e9f1696daa3252e4/c85715d50acde4e884773da42987cfffedb44daf186e667353334f834dbdf6e7 after 14b83ab68ecb2ba611e292486aa39d8278794db9d89abcb4e9f1696daa3252e4/c85715d50acde4e884773da42987cfffedb44daf186e667353334f834dbdf6e7; reader: ERROR: Exception calling \"DirectoryOf\" with \"1\" argument(s): \"Cannot open directory <system-drive>\\$Extend: 5\""
+                  },
+                  {
+                      "name":  "r9f4-genuine-producer-with-tracked-equals-response-file-qualifies",
+                      "passed":  true,
+                      "detail":  "build exit 0; receipt commit 6ffe1943aceabcc238fd1b4a18eedc3f4861e98d (producer 6ffe1943aceabcc238fd1b4a18eedc3f4861e98d); inventory entries [compile:CaseRoot.cs,compile:Rules=Root.cs,response-file:@Rules=Base.rsp]; comparison paths MATERIAL CaseRoot.cs,Rules=Base.rsp,Rules=Root.cs; source provenance: verified-current"
+                  },
+                  {
+                      "name":  "r10f3-producer-casing-source-missing-refused",
+                      "passed":  true,
+                      "detail":  "Git change from the producer: [D CaseRoot.cs] (expected [D CaseRoot.cs]); in the variant tree: False; established: True; Build inputs changed since this package was built: the material inputs differ from the receipt\u0027s commit"
+                  },
+                  {
+                      "name":  "r10f3-producer-casing-source-differing-refused",
+                      "passed":  true,
+                      "detail":  "Git change from the producer: [M CaseRoot.cs] (expected [M CaseRoot.cs]); in the variant tree: True; established: True; Build inputs changed since this package was built: the material inputs differ from the receipt\u0027s commit"
+                  },
+                  {
+                      "name":  "r10f3-producer-equals-source-missing-refused",
+                      "passed":  true,
+                      "detail":  "Git change from the producer: [D Rules=Root.cs] (expected [D Rules=Root.cs]); in the variant tree: False; established: True; Build inputs changed since this package was built: the material inputs differ from the receipt\u0027s commit"
+                  },
+                  {
+                      "name":  "r10f3-producer-equals-source-differing-refused",
+                      "passed":  true,
+                      "detail":  "Git change from the producer: [M Rules=Root.cs] (expected [M Rules=Root.cs]); in the variant tree: True; established: True; Build inputs changed since this package was built: the material inputs differ from the receipt\u0027s commit"
+                  },
+                  {
+                      "name":  "r10f3-producer-equals-response-file-differing-refused",
+                      "passed":  true,
+                      "detail":  "Git change from the producer: [M Rules=Base.rsp] (expected [M Rules=Base.rsp]); in the variant tree: True; established: True; Build inputs changed since this package was built: the material inputs differ from the receipt\u0027s commit"
+                  },
+                  {
+                      "name":  "r10f3-producer-identity-helper-differing-refused",
+                      "passed":  true,
+                      "detail":  "Git change from the producer: [M scripts/KwrFileIdentity.ps1] (expected [M scripts/KwrFileIdentity.ps1]); in the variant tree: True; established: True; Build inputs changed since this package was built: the material inputs differ from the receipt\u0027s commit"
+                  },
+                  {
+                      "name":  "r10f2-receipt-recording-a-tracked-root-source-as-external-with-a-producer-differing-only-in-it-refused",
+                      "passed":  true,
+                      "detail":  "receipt view: RECEIPT repositoryPath= paths=; live view: LIVE repositoryPath=CaseRoot.cs; Git change: [M CaseRoot.cs]; established: True; Build inputs changed since this package was built: the material inputs differ from the receipt\u0027s commit; genuine pair: source provenance: verified-current"
+                  },
+                  {
+                      "name":  "r9f4-inventory-decoding-keeps-literal-equals-signs-outside-reference-aliases",
+                      "passed":  true,
+                      "detail":  "DECODE file-option /additionalfile:Rules=Base.rsp -\u003e [Rules=Base.rsp]; DECODE file-option /resource:Rules=Base.rsp,Logical=Name -\u003e [Rules=Base.rsp]; DECODE file-option /win32res:Rules=Root.cs -\u003e [Rules=Root.cs]; DECODE response-file @Rules=Base.rsp -\u003e [Rules=Base.rsp]; DECODE reference Rules=Base.rsp -\u003e []"
+                  }
+              ]
+}
