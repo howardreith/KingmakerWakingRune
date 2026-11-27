@@ -1,0 +1,32 @@
+{
+    "schema":  "kwr.focused-r13.v1",
+    "mode":  "Reproduce",
+    "commit":  "15590edb523716aebef880203959af735a69660a",
+    "startedUtc":  "2026-11-27T15:13:31.8757529Z",
+    "disposableRemoved":  true,
+    "finishedUtc":  "2026-11-27T15:14:29.7441273Z",
+    "passed":  4,
+    "total":  4,
+    "cases":  [
+                  {
+                      "name":  "r10f1-reproduced-receipt-overwritten",
+                      "passed":  true,
+                      "detail":  "lookup: existence check, receipt substituted, then identity open; validator exit 0: Package SHA-256: 36a3c26364a011b8de698de124c8ea10c552e58fdd05255b7270d31bd46707de; DLL SHA-256: 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; MVID: ccc59117-f992-44ce-9355-540d35f181f0; loader references: UnityModManager 0.31.1.0, 0Harmony12 1.2.0.1, 0Harmony 2.3.1.1; source provenance: not-checked; receipt bytes at the report path afterwards: OVERWRITTEN (c13279b6072f35ef8bda4e060f2559716da7c17617be3a96ff0735c4c393b9ed); original ZIP/receipt after restoring: 36a3c26364a011b8de698de124c8ea10c552e58fdd05255b7270d31bd46707de/missing"
+                  },
+                  {
+                      "name":  "r12f1-reproduced-original-receipt-overwritten",
+                      "passed":  true,
+                      "detail":  "physical path captured from the handle before the replacement: [<temp>\\kwr-focused-r13-6a8db4f1557d433a932a0a8448c0dffd\\r12 input\\input.zip links=2]; 2 names for the replacement now at the opened path; original names 1; validator exit 0: Package SHA-256: 36a3c26364a011b8de698de124c8ea10c552e58fdd05255b7270d31bd46707de; DLL SHA-256: 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; MVID: ccc59117-f992-44ce-9355-540d35f181f0; loader references: UnityModManager 0.31.1.0, 0Harmony12 1.2.0.1, 0Harmony 2.3.1.1; source provenance: not-checked; original ZIP/receipt afterwards: CHANGED 36a3c26364a011b8de698de124c8ea10c552e58fdd05255b7270d31bd46707de/4e40d6826bb50fda8b6a4ead6cddb56aee4a108540f816f242d084ddfa65475a"
+                  },
+                  {
+                      "name":  "r11f2-reproduced-admitted-without-its-receipt",
+                      "passed":  true,
+                      "detail":  "ordinary staging of the stable pair (dirty receipt): ERROR: Build receipt is from a dirty working tree; only a clean build is a frozen candidate.; pair moved away before the receipt probe: True (reader paused there: True); probe saw [hasReceipt=False]; pair restored before the reader continued: True; reader exit 0: MODE external-content-inspected MODE external-content-inspected; stable receiptless control: MODE external-content-inspected"
+                  },
+                  {
+                      "name":  "r12f2-reproduced-old-pair-verified-current-after-the-binding-changed",
+                      "passed":  true,
+                      "detail":  "both paths tracked at producer 1e86fe5 with identical bytes: True; build exit 0; literal arguments [arg|/reference:\"\u003cclone\u003e\\Rules=Local\\Accessibility.dll\"]: source provenance: verified-current; alias arguments [arg|/reference:Rules=\"\u003cclone\u003e\\Local\\Accessibility.dll\"]: source provenance: verified-current; literal restored: source provenance: verified-current"
+                  }
+              ]
+}

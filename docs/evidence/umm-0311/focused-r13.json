@@ -1,0 +1,32 @@
+{
+    "schema":  "kwr.focused-r13.v1",
+    "mode":  "Focused",
+    "commit":  "12bf7d51b3129fa40cff9ca1471eda647ef7bb70",
+    "startedUtc":  "2026-11-27T15:17:45.8984101Z",
+    "disposableRemoved":  true,
+    "finishedUtc":  "2026-11-27T15:18:29.7049968Z",
+    "passed":  4,
+    "total":  4,
+    "cases":  [
+                  {
+                      "name":  "r10f1-existing-report-replaced-by-the-target-receipt-during-lookup-refused",
+                      "passed":  true,
+                      "detail":  "lookup: single identity-bearing open, receipt substituted right after it; validator exit 1: pair\\original.zip); its report is written only to a new file, and the report path; receipt bytes at the report path afterwards: unchanged; original ZIP/receipt after restoring: unchanged; ordinary single-name existing-report control written: True"
+                  },
+                  {
+                      "name":  "r12f1-opened-name-replaced-before-name-enumeration-report-refused-original-pair-preserved",
+                      "passed":  true,
+                      "detail":  "physical path captured from the handle before the replacement: [<temp>\\kwr-focused-r13-3febb1b9e1914403986baf58a4ac479b\\r12 input\\input.zip links=2]; 2 names for the replacement now at the opened path; original names 1; validator exit 1: of <temp>\\kwr-focused-r13-3febb1b9e1914403986baf58a4ac479b\\r12 input\\input.zip cannot be; original ZIP/receipt afterwards: unchanged"
+                  },
+                  {
+                      "name":  "r11f2-receipt-backed-pair-away-during-the-probe-and-restored-refused",
+                      "passed":  true,
+                      "detail":  "ordinary staging of the stable pair (dirty receipt): ERROR: Build receipt is from a dirty working tree; only a clean build is a frozen candidate.; pair moved away before the receipt probe: True (reader paused there: True); probe saw [hasReceipt=False]; pair restored before the reader continued: True; reader exit 1: ERROR: The folder of the package <temp>\\kwr-focused-r13-3febb1b9e1914403986baf58a4ac479b\\r11 external\\pair.zip changed while its receipt was being selected (an entry there was added, moved or removed); it is not installed. ; stable receiptless control: MODE external-content-inspected"
+                  },
+                  {
+                      "name":  "r12f2-reference-binding-change-refused-and-restored-configuration-qualifies",
+                      "passed":  true,
+                      "detail":  "both paths tracked at producer 18a3934 with identical bytes: True; build exit 0; literal arguments [arg|/reference:\"\u003cclone\u003e\\Rules=Local\\Accessibility.dll\"]: source provenance: verified-current; alias arguments [arg|/reference:Rules=\"\u003cclone\u003e\\Local\\Accessibility.dll\"]:  REFUSED: Build inputs changed since this package was built (source, manifest, pins, build scripts, resolved references or; literal restored: source provenance: verified-current"
+                  }
+              ]
+}

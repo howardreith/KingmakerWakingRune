@@ -322,6 +322,31 @@ disposable clone (`focused-r12.txt`, 4 of 4); then, with that clone removed, the
 current provenance (`postcleanup-r12.json`). The round-11 pair's post-cleanup record is exported as `postcleanup-r11.json`.
 The file symbolic-link report case remains in the suite and is recorded as not run on this host.
 
+Round 13 (`12bf7d5`; tooling only, the product sources unchanged). The report destination is observed by one
+identity-bearing open (`IdOrAbsent`: a missing file reported by that open is absent), with no separate existence check,
+and the final write stays bound to that observation. `ReadAllBound` keeps a hard-link name only if that name still
+identifies the file held open; otherwise no report is written. A package reached through a link (more than one hard-link
+name, or a physical path other than the path given) writes its report only to a destination that did not exist when
+validation started, because a receipt moved away from its names before then can no longer be tied to it; an ordinary
+single-name package still overwrites an existing distinct report. The install helper compares the external package's
+folder (identity and last-write time, `DirectoryStampOf`) before its receipt is selected and after it is copied, so a pair
+moved away and restored around the receipt probe is refused rather than staged without its receipt. Reference entries'
+parsed binding (`referencePath`) is part of the inventory comparison and of the build fingerprint (Build.ps1 and
+validation use the same function), so switching a reference between the literal path `Rules=Local/Accessibility.dll` and
+alias `Rules` for `Local/Accessibility.dll` (same bytes) is detected; receipts written before this change no longer
+qualify and need a rebuild. Identity type `KwrFileIdentityV9`. The four round-12 conditions were first reproduced on the
+old reviewed head `15590ed` (`reproduce-r13.json`, 4 of 4: receipt overwritten twice, dirty-receipt pair admitted without
+its receipt, old pair verified-current after the binding change, with the actual Csc arguments recorded), then checked on
+`12bf7d5` in this order: the corrected production pair built once with `Build.ps1` (tests included) at
+`<dev>\KingmakerWakingRuneLab\worktrees\umm-0311-final-pair-12bf7d5\producer` (owner machine, not in Git): ZIP
+`8f757331b42ad157939108702fb59c8c9aae031d0416ee271ac792a0aaa4d344`, receipt `retained-build-receipt-r13.json`, packaged DLL
+`7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904`, MVID `ccc59117-f992-44ce-9355-540d35f181f0` (the DLL of
+`api-audit.json`, same SHA-256 and MVID, so the four-loader audit applies unchanged); focused checks (`focused-r13.json`,
+4 of 4, with the ordinary existing-report and receiptless-copy controls); the retained pair validated again after that
+clone was removed (`postcleanup-r13.json`). The round-12 Retained and Focused JSON summaries remain lost as recorded; their
+console exports are the records. The file symbolic-link report case remains in the suite and is recorded as not run on
+this host. R11-F4 (diagnostic wording) stays deferred.
+
 ## Evidence for this change (2026-11-24, round 5)
 
 The build and validation tooling is at `3779b0e`; the product sources are unchanged, so the candidate DLL is
