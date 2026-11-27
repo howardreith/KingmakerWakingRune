@@ -14,8 +14,11 @@ investigation and rune sabotage. Boss combat is the next milestone, and there is
 - No other mods are required.
 
 ## Install
-1. Use the ZIP produced by the reviewed build of this branch, `artifacts/KingmakerWakingRune-<version>.zip`
-   (`<version>` is the `Version` in `Info.json`; `Build.ps1` writes its receipt beside it as `<zip>.build.json`).
+1. Download `KingmakerWakingRune-0.12.4.zip` and its receipt `KingmakerWakingRune-0.12.4.zip.build.json` from
+   [release v0.12.4](https://github.com/howardreith/KingmakerWakingRune/releases/tag/v0.12.4), the first published
+   build on the UMM 0.31.1 baseline ([release notes](docs/RELEASE-NOTES-0.12.4.md)). To build your own, run
+   `scripts/Build.ps1`: it writes `artifacts/KingmakerWakingRune-<version>.zip` (`<version>` is the `Version` in
+   `Info.json`) and its receipt beside it as `<zip>.build.json`.
    The published prerelease `KingmakerWakingRune-0.12.3.zip` (GitHub release v0.12.3) predates the UMM 0.31.1 baseline:
    its DLL references UnityModManager 0.33.2.0 and Harmony 2.3.6.0 and it declares UMM 0.28.2.
 2. Check it, then extract it into `<Kingmaker>/Mods/` (or install it through the UMM installer). The ZIP holds exactly
