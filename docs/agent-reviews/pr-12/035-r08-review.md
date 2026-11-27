@@ -1,0 +1,286 @@
+<!-- agent-review:v1 enrollment=kwr-codex-umm-0311-baseline-20261123-20261123181024-1057 key=r08-review part=1/1 sha256=e36662acaf6f068495daa9094cd11d936903bc80804d234731b914ac3011a5cc -->
+### Codex GPT-6.2 Astra — review — round 8 — candidate `79f1687066`
+
+**Decision:** `changes_required` — The required gate passed 149/149 on the unchanged candidate, and its shipping DLL matches the four-loader static audit. Three guarantees still fail on alternate Windows paths. A compiled source can escape the producing-commit check, a linked build output can skip the publication lock, and a validation report can overwrite the published ZIP’s receipt.
+
+Continuation for Claude
+
+Round 8 uses the last authorized review submission. Record the blockers against the existing draft and enrollment. Any further submission requires an explicit owner decision. If correction work is authorized, use the existing file-identity and Git helpers to establish which source or package was actually read. Use that identity for commit membership, publication locking and report protection. Extend the existing disposable fixtures with the cases in the findings and retain the passing clean-package and independent-copy controls. Limit the work to build and package tooling. Bind any subsequent gate and artifact results to their actual producing commit and bytes.
+
+#### Findings
+
+**R1-F1** · P1 · defect · blocks readiness — A directory junction can hide an ignored compiler source from Git membership
+- Location: `scripts/KwrBuild.Common.ps1:73`; acceptance: mission §5, mission §6, OWNER AMENDMENT 3, Waking R1-F1
+- Trigger: Have LocalGamePaths.props select the ignored repository-root LocalRoot.cs through a junction outside the clone that points back to the checkout.
+- Expected: An authored file physically inside the checkout must belong to the producing tree regardless of the path used to select it.
+- Actual: Resolve-InputPath uses Path.GetFullPath. A directory junction keeps its own path prefix, so the StartsWith check assigns null to repositoryPath. The validator skips Git membership for that entry. Both compiler passes can hash the same ignored source and qualify a clean package whose recorded commit lacks it.
+- Why it blocks / does not: A fresh checkout of the recorded commit can lack code compiled into a DLL marked verified-current.
+- Requested correction: Establish the source’s physical repository-relative location before granting the external-source exception. Preserve the genuine generated-file and external-input handling.
+- Requested evidence: Select the existing ignored LocalRoot.cs fixture through a directory junction to the clone. Show that clean publication and current qualification refuse it, the previous pair survives, and qualification returns after removal.
+
+**R5-F1** · P1 · defect · blocks readiness — A receipt beside a file link bypasses the publication lock
+- Location: `scripts/KwrPackage.ps1:56`; acceptance: mission §5, mission §6, OWNER AMENDMENT 3, Waking R5-F1
+- Trigger: Read a build-owned ZIP through a hard link in another directory with a copy of the genuine receipt beside the link.
+- Expected: A live reference to a build-owned ZIP must use the publisher’s lock and canonical receipt, or the installer must decline the read.
+- Actual: The helper takes the lock according to the link’s parent directory. A receipt beside an external link sets hasReceipt and skips the file-link guard entirely. A matching copied receipt can therefore qualify the live ZIP while the canonical lock is held or its canonical receipt is missing. For receiptless reads, the helper also samples link count after File.Copy. A publisher rollback can remove the other hard-link name between those operations.
+- Why it blocks / does not: Begin and Reinstall can admit bytes from a build-owned destination while the canonical install path correctly refuses them.
+- Requested correction: Determine file-link ownership independently of an alias-side receipt and bind that decision to the source being copied. Use the canonical lock and receipt when the publication is identifiable. Decline ambiguous linked inputs while preserving independent external copies.
+- Requested evidence: Give the existing external hard-link fixture a matching receipt. Check refusal with the canonical lock held and with the canonical receipt absent after lock release. Also cover rollback across a receiptless read if classification still samples a pathname separately from the copy.
+
+**R8-F1** · P2 · defect · blocks readiness — A case difference can remove a tracked source from the producing-commit check
+- Location: `scripts/KwrBuild.Common.ps1:113`; acceptance: mission §5, mission §6, OWNER AMENDMENT 3, Waking authored compiler inputs
+- Trigger: Compile a tracked file outside src through an include whose letter case differs from the Git index, then check a receipt naming a commit that lacks that file.
+- Expected: The producing-commit comparison must include the Git path of every selected repository source, including root files selected with Windows-compatible casing.
+- Actual: Get-KwrInventoryRepositoryPaths uses a case-sensitive Git literal pathspec. A tracked LocalRoot.cs selected as localroot.cs can disappear from materialPaths. The later case-insensitive membership check accepts it against the current index. A receipt naming a commit from before that source existed can then pass because its compiler inventory is compared only with the present inputs.
+- Why it blocks / does not: Current-provenance validation can attribute compiled code to the wrong commit even when the file is tracked in the current checkout.
+- Requested correction: Resolve inventory entries to Git’s tracked spelling using literal, Windows-compatible matching, then use the returned paths in the producing-commit comparison.
+- Requested evidence: Select a tracked root source with different casing in LocalGamePaths.props. Show that its genuine receipt passes and that a receipt naming a commit differing only in that source is refused.
+
+**R8-F2** · P1 · defect · blocks readiness — A report opened through a file symbolic link can overwrite the target ZIP’s receipt
+- Location: `scripts/Validate-Package.ps1:47`; acceptance: mission §5, mission §6, OWNER AMENDMENT 2, receipt preservation
+- Trigger: Pass an external file symbolic link as PackagePath, omit ReceiptPath, and use the published ZIP’s actual .build.json as ReportPath.
+- Expected: Writing a validation report must preserve the conventional receipt of the selected build-owned ZIP.
+- Actual: LongPathOf expands 8.3 names but does not resolve a file symbolic link to its target. The protected set contains the link and the receipt name derived from that link. It omits the published target’s receipt. WriteChecked can therefore truncate that receipt and replace it with the validation report.
+- Why it blocks / does not: A content-only check can destroy the receipt needed to qualify an otherwise intact published package.
+- Requested correction: Protect the target ZIP’s conventional receipt when resolving a file symbolic link, or decline the report write when that target cannot be established. Retain the checked-handle write.
+- Requested evidence: In a disposable folder, use a file symbolic link to a receipt-backed ZIP and select the target’s receipt as ReportPath. Record the actual link type, the refusal, and unchanged ZIP and receipt hashes.
+
+**R8-F3** · P3 · optional_polish · non-blocking — The expanded identity helper reuses the previous draft’s cached type name
+- Location: `scripts/KwrFileIdentity.ps1:10`; acceptance: mission §6
+- Trigger: Run standalone validation at 101dc9d and then at 79f1687 in the same Windows PowerShell process.
+- Expected: An interactive reviewer can validate the updated draft in a PowerShell session that inspected the previous draft.
+- Actual: Both revisions use the KwrFileIdentityV4 type guard. A session that loaded the earlier type skips Add-Type and fails at the first LongPathOf call.
+- Why it blocks / does not: This affects an interactive shell that previously loaded the earlier draft. The configured gate uses fresh processes.
+- Requested correction: Give the expanded helper a distinct type version and update its callers and fixture anchors.
+- Requested evidence: A same-process standalone validation after loading the 101dc9d helper is sufficient.
+
+#### Prior finding assessments
+
+- **R1-F1** — `fix_rejected` — The gate’s assertions require both the attribute-named source and LocalRoot.cs in the refusal, and qualification returns after their removal. The new repositoryPath check still relies on a lexical root prefix. The same ignored root source reached through a directory junction receives the external-source exception.
+- **R5-F1** — `fix_rejected` — The gate refused a stable receiptless hard link and accepted an independent external copy. The symbolic-link branch has source evidence only. A receipt beside the alias disables the link guard, and the receiptless check samples the source after the copy. The required publication lock and receipt are still bypassable.
+- **R7-F1** — `fix_verified` — The gate exercised the ZIP’s own 8.3 filename. It observed contention on the publisher’s lock, qualified the unlocked clean pair, and refused a report aimed at the long-name receipt. Both input hashes survived.
+- **R7-F2** — `fix_verified` — Git path lists are read as NUL-delimited UTF-8. With Git’s default quoting enabled, the committed ÉvaluationMarker.cs built and passed current-provenance validation. The ignored-source control in the same checkout still failed.
+- **R7-F3** — `fix_verified` — The reproduction note now attributes 120 checks specifically to round 5 and makes no claim that the dated sections contain every round’s count.
+
+#### Evidence assessment
+
+- **Inspected:** Mission, OWNER AMENDMENTS 1–4, pending findings, developer report, transcript notice, controller gate receipt and log, README.md and docs/UMM-COMPATIBILITY.md.; The complete feature diff and the correction delta from 101dc9d through 6b23b26 to 79f1687, including the compiler inventory, package-copy helper, standalone validator, Windows identity helper and their test fixtures.; Production reference pins and MSBuild guards, build and publication paths, Begin and Reinstall consumers, historical package receipts, loader inventories and static-audit records.
+- **Executed verification:** Confirmed the snapshot HEAD, the mission and amendment digests, and byte-for-byte agreement between the supplied 10,987-line feature diff and Git’s M..H diff. All 22 indexed evidence blobs matched their exported SHA-256 values.; Verified the controller gate log against its receipt SHA-256, 8d6a6154c90d0390f7d660122e24a72e8fd6980e5e2509faccf49e67358047c8. The baseline gate exited 0 after 652.6 seconds with 149 passing rows and an unchanged worktree.; The cold-cache build of 0.12.3 at 79f1687 produced ZIP 565d329ec6bada1d7eb3c81d5c75d94f3e1b39697ec13760b4029575663812f7 and DLL 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904. Standalone current-provenance validation passed. The alternate-version clone at 4621aa5 reported 290/290 product tests.; The gate rejected both ignored authored-source fixtures, accepted the committed non-ASCII source, refused the receiptless hard link during publication, and qualified the clean ZIP through its full 8.3 filename. The short-filename report-collision case preserved both input hashes.; The static audit at 3779b0e used ZIP b7a824f226aa16304ae89bde52a87c3b3f52f52d58c2d9c501c6bd7af799e0ee. Its DLL matches the round-8 DLL by SHA-256 and has MVID ccc59117-f992-44ce-9355-540d35f181f0. The audit resolved 14 types and 39 members on UMM 0.31.1, 0.32.4, owner-installed 0.33.0 and 0.33.4.; Independently confirmed the Git casing discrepancy. Windows read identical bytes for tests/program.cs and tests/Program.cs. Git’s literal lookup of the lowercase spelling returned no entry. Its case-insensitive literal lookup returned tests/Program.cs.
+- **Source inspection only:** Traced the directory-junction source path, the receipt-backed file-link branch, the post-copy link-count check, and the symbolic-link report destination through the candidate. These cases were outside the 149 executed rows.; Compared the process-cached KwrFileIdentityV4 definitions in 101dc9d and 79f1687. The older definition lacks the two methods added in round 8.
+- **Required gaps:** Establish producing-tree membership for a repository source reached through a directory junction and for a tracked source outside src whose compiler spelling differs in case.; Establish that a live ZIP link with an adjacent matching receipt observes the canonical publication lock and required receipt. Bind receiptless link classification to the file actually copied.; Demonstrate preservation of the published receipt when the standalone report writer receives a file symbolic link to its ZIP.
+- **Limitations:** The reviewer used read-only inspection. The controller supplied the candidate gate receipt and log in place of the mixed foreground-session transcript. OWNER AMENDMENT 4 records the earlier 141/149 gate at 6b23b26 as a failed overall run.; The executed link fixture used a hard link. File symbolic-link behavior was assessed from source. The round-8 shipping ZIP was produced in the gate’s temporary clone.; Native gameplay and combined-stack testing were not run. The four loader rows establish static API resolution only. The historical onboarding exception under OWNER AMENDMENT 1 and the accepted optional R5-F3 deferral remain nonblocking.
+
+#### Summary
+
+- **Delivered behavior:** Waking Rune declares UMM 0.31.1 and builds against UnityModManager 0.31.1.0, 0Harmony12 1.2.0.1 and 0Harmony 2.3.1.1. The cold-cache shipping build, standalone package check and configured gate passed. The four-loader static audit applies to the candidate DLL by exact digest.
+- **Scope reviewed:** Final correction review of Waking Rune PR #12 at 79f1687 under owner amendment revision 4, covering the five pending findings, the changed path-handling code and its direct consumers.
+- **Pending later-phase work:** none
+- **Unresolved questions:** none
+- **Remaining owner review:** Decide how to disposition draft PR #12 at its eight-review cap. A further review submission requires new owner authorization.
+
+#### Provenance (controller-recorded)
+
+| | Requested | Observed |
+|---|---|---|
+| Model | `gpt-6.2-astra` | `gpt-6.2-astra` (turns ['gpt-6.2-astra']) |
+| Reasoning effort | `max` | `max` (turns ['max']) |
+| Sandbox / approvals | read-only / never | `read-only` / `never` |
+
+Owner guidance bound to this review: none.
+
+Owner amendments bound to this review: revision 4, sha256 `983b2d0c5721af4ad3864c90abf9f740b975c5f6c66eba4b6f3d0651dff870fc`.
+
+Codex CLI `0.170.0`, thread `01a21a07-de4e-7e21-90bd-99dca214bf47`, duration 727.9s, response sha256 `c2ecee2048987b5b442c1535943e4004617ddda9f6641ae273baf539e238e4a1`, request `kwr-codex-umm-0311-baseline-20261123-20261123181024-1057-r08-ab0fc1`. Observed values come from the Codex session rollout's recorded thread settings, not from the model's own statements; the serving backend's model identity is not separately exposed.
+
+<details><summary>Complete structured review (agent-review.review.v1)</summary>
+
+```json
+{
+  "candidate_commit": "79f16870661acb5df26e842f43dfe7ed04ff2261",
+  "checkpoint_id": "final",
+  "checkpoint_type": "final",
+  "decision": "changes_required",
+  "decision_rationale": "The required gate passed 149/149 on the unchanged candidate, and its shipping DLL matches the four-loader static audit. Three guarantees still fail on alternate Windows paths. A compiled source can escape the producing-commit check, a linked build output can skip the publication lock, and a validation report can overwrite the published ZIP\u2019s receipt.\n\nContinuation for Claude\n\nRound 8 uses the last authorized review submission. Record the blockers against the existing draft and enrollment. Any further submission requires an explicit owner decision. If correction work is authorized, use the existing file-identity and Git helpers to establish which source or package was actually read. Use that identity for commit membership, publication locking and report protection. Extend the existing disposable fixtures with the cases in the findings and retain the passing clean-package and independent-copy controls. Limit the work to build and package tooling. Bind any subsequent gate and artifact results to their actual producing commit and bytes.",
+  "evidence_assessment": {
+    "executed_verification": [
+      "Confirmed the snapshot HEAD, the mission and amendment digests, and byte-for-byte agreement between the supplied 10,987-line feature diff and Git\u2019s M..H diff. All 22 indexed evidence blobs matched their exported SHA-256 values.",
+      "Verified the controller gate log against its receipt SHA-256, 8d6a6154c90d0390f7d660122e24a72e8fd6980e5e2509faccf49e67358047c8. The baseline gate exited 0 after 652.6 seconds with 149 passing rows and an unchanged worktree.",
+      "The cold-cache build of 0.12.3 at 79f1687 produced ZIP 565d329ec6bada1d7eb3c81d5c75d94f3e1b39697ec13760b4029575663812f7 and DLL 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904. Standalone current-provenance validation passed. The alternate-version clone at 4621aa5 reported 290/290 product tests.",
+      "The gate rejected both ignored authored-source fixtures, accepted the committed non-ASCII source, refused the receiptless hard link during publication, and qualified the clean ZIP through its full 8.3 filename. The short-filename report-collision case preserved both input hashes.",
+      "The static audit at 3779b0e used ZIP b7a824f226aa16304ae89bde52a87c3b3f52f52d58c2d9c501c6bd7af799e0ee. Its DLL matches the round-8 DLL by SHA-256 and has MVID ccc59117-f992-44ce-9355-540d35f181f0. The audit resolved 14 types and 39 members on UMM 0.31.1, 0.32.4, owner-installed 0.33.0 and 0.33.4.",
+      "Independently confirmed the Git casing discrepancy. Windows read identical bytes for tests/program.cs and tests/Program.cs. Git\u2019s literal lookup of the lowercase spelling returned no entry. Its case-insensitive literal lookup returned tests/Program.cs."
+    ],
+    "inspected": [
+      "Mission, OWNER AMENDMENTS 1\u20134, pending findings, developer report, transcript notice, controller gate receipt and log, README.md and docs/UMM-COMPATIBILITY.md.",
+      "The complete feature diff and the correction delta from 101dc9d through 6b23b26 to 79f1687, including the compiler inventory, package-copy helper, standalone validator, Windows identity helper and their test fixtures.",
+      "Production reference pins and MSBuild guards, build and publication paths, Begin and Reinstall consumers, historical package receipts, loader inventories and static-audit records."
+    ],
+    "limitations": [
+      "The reviewer used read-only inspection. The controller supplied the candidate gate receipt and log in place of the mixed foreground-session transcript. OWNER AMENDMENT 4 records the earlier 141/149 gate at 6b23b26 as a failed overall run.",
+      "The executed link fixture used a hard link. File symbolic-link behavior was assessed from source. The round-8 shipping ZIP was produced in the gate\u2019s temporary clone.",
+      "Native gameplay and combined-stack testing were not run. The four loader rows establish static API resolution only. The historical onboarding exception under OWNER AMENDMENT 1 and the accepted optional R5-F3 deferral remain nonblocking."
+    ],
+    "required_gaps": [
+      "Establish producing-tree membership for a repository source reached through a directory junction and for a tracked source outside src whose compiler spelling differs in case.",
+      "Establish that a live ZIP link with an adjacent matching receipt observes the canonical publication lock and required receipt. Bind receiptless link classification to the file actually copied.",
+      "Demonstrate preservation of the published receipt when the standalone report writer receives a file symbolic link to its ZIP."
+    ],
+    "source_inspection_only": [
+      "Traced the directory-junction source path, the receipt-backed file-link branch, the post-copy link-count check, and the symbolic-link report destination through the candidate. These cases were outside the 149 executed rows.",
+      "Compared the process-cached KwrFileIdentityV4 definitions in 101dc9d and 79f1687. The older definition lacks the two methods added in round 8."
+    ]
+  },
+  "findings": [
+    {
+      "acceptance_ids": [
+        "mission \u00a75",
+        "mission \u00a76",
+        "OWNER AMENDMENT 3, Waking R1-F1"
+      ],
+      "actual": "Resolve-InputPath uses Path.GetFullPath. A directory junction keeps its own path prefix, so the StartsWith check assigns null to repositoryPath. The validator skips Git membership for that entry. Both compiler passes can hash the same ignored source and qualify a clean package whose recorded commit lacks it.",
+      "blocking_rationale": "A fresh checkout of the recorded commit can lack code compiled into a DLL marked verified-current.",
+      "blocks_readiness": true,
+      "category": "defect",
+      "expected": "An authored file physically inside the checkout must belong to the producing tree regardless of the path used to select it.",
+      "id": "R1-F1",
+      "location": {
+        "file": "scripts/KwrBuild.Common.ps1",
+        "line": 73
+      },
+      "priority": "P1",
+      "requested_correction": "Establish the source\u2019s physical repository-relative location before granting the external-source exception. Preserve the genuine generated-file and external-input handling.",
+      "requested_evidence": "Select the existing ignored LocalRoot.cs fixture through a directory junction to the clone. Show that clean publication and current qualification refuse it, the previous pair survives, and qualification returns after removal.",
+      "title": "A directory junction can hide an ignored compiler source from Git membership",
+      "trigger": "Have LocalGamePaths.props select the ignored repository-root LocalRoot.cs through a junction outside the clone that points back to the checkout."
+    },
+    {
+      "acceptance_ids": [
+        "mission \u00a75",
+        "mission \u00a76",
+        "OWNER AMENDMENT 3, Waking R5-F1"
+      ],
+      "actual": "The helper takes the lock according to the link\u2019s parent directory. A receipt beside an external link sets hasReceipt and skips the file-link guard entirely. A matching copied receipt can therefore qualify the live ZIP while the canonical lock is held or its canonical receipt is missing. For receiptless reads, the helper also samples link count after File.Copy. A publisher rollback can remove the other hard-link name between those operations.",
+      "blocking_rationale": "Begin and Reinstall can admit bytes from a build-owned destination while the canonical install path correctly refuses them.",
+      "blocks_readiness": true,
+      "category": "defect",
+      "expected": "A live reference to a build-owned ZIP must use the publisher\u2019s lock and canonical receipt, or the installer must decline the read.",
+      "id": "R5-F1",
+      "location": {
+        "file": "scripts/KwrPackage.ps1",
+        "line": 56
+      },
+      "priority": "P1",
+      "requested_correction": "Determine file-link ownership independently of an alias-side receipt and bind that decision to the source being copied. Use the canonical lock and receipt when the publication is identifiable. Decline ambiguous linked inputs while preserving independent external copies.",
+      "requested_evidence": "Give the existing external hard-link fixture a matching receipt. Check refusal with the canonical lock held and with the canonical receipt absent after lock release. Also cover rollback across a receiptless read if classification still samples a pathname separately from the copy.",
+      "title": "A receipt beside a file link bypasses the publication lock",
+      "trigger": "Read a build-owned ZIP through a hard link in another directory with a copy of the genuine receipt beside the link."
+    },
+    {
+      "acceptance_ids": [
+        "mission \u00a75",
+        "mission \u00a76",
+        "OWNER AMENDMENT 3, Waking authored compiler inputs"
+      ],
+      "actual": "Get-KwrInventoryRepositoryPaths uses a case-sensitive Git literal pathspec. A tracked LocalRoot.cs selected as localroot.cs can disappear from materialPaths. The later case-insensitive membership check accepts it against the current index. A receipt naming a commit from before that source existed can then pass because its compiler inventory is compared only with the present inputs.",
+      "blocking_rationale": "Current-provenance validation can attribute compiled code to the wrong commit even when the file is tracked in the current checkout.",
+      "blocks_readiness": true,
+      "category": "defect",
+      "expected": "The producing-commit comparison must include the Git path of every selected repository source, including root files selected with Windows-compatible casing.",
+      "id": "R8-F1",
+      "location": {
+        "file": "scripts/KwrBuild.Common.ps1",
+        "line": 113
+      },
+      "priority": "P2",
+      "requested_correction": "Resolve inventory entries to Git\u2019s tracked spelling using literal, Windows-compatible matching, then use the returned paths in the producing-commit comparison.",
+      "requested_evidence": "Select a tracked root source with different casing in LocalGamePaths.props. Show that its genuine receipt passes and that a receipt naming a commit differing only in that source is refused.",
+      "title": "A case difference can remove a tracked source from the producing-commit check",
+      "trigger": "Compile a tracked file outside src through an include whose letter case differs from the Git index, then check a receipt naming a commit that lacks that file."
+    },
+    {
+      "acceptance_ids": [
+        "mission \u00a75",
+        "mission \u00a76",
+        "OWNER AMENDMENT 2, receipt preservation"
+      ],
+      "actual": "LongPathOf expands 8.3 names but does not resolve a file symbolic link to its target. The protected set contains the link and the receipt name derived from that link. It omits the published target\u2019s receipt. WriteChecked can therefore truncate that receipt and replace it with the validation report.",
+      "blocking_rationale": "A content-only check can destroy the receipt needed to qualify an otherwise intact published package.",
+      "blocks_readiness": true,
+      "category": "defect",
+      "expected": "Writing a validation report must preserve the conventional receipt of the selected build-owned ZIP.",
+      "id": "R8-F2",
+      "location": {
+        "file": "scripts/Validate-Package.ps1",
+        "line": 47
+      },
+      "priority": "P1",
+      "requested_correction": "Protect the target ZIP\u2019s conventional receipt when resolving a file symbolic link, or decline the report write when that target cannot be established. Retain the checked-handle write.",
+      "requested_evidence": "In a disposable folder, use a file symbolic link to a receipt-backed ZIP and select the target\u2019s receipt as ReportPath. Record the actual link type, the refusal, and unchanged ZIP and receipt hashes.",
+      "title": "A report opened through a file symbolic link can overwrite the target ZIP\u2019s receipt",
+      "trigger": "Pass an external file symbolic link as PackagePath, omit ReceiptPath, and use the published ZIP\u2019s actual .build.json as ReportPath."
+    },
+    {
+      "acceptance_ids": [
+        "mission \u00a76"
+      ],
+      "actual": "Both revisions use the KwrFileIdentityV4 type guard. A session that loaded the earlier type skips Add-Type and fails at the first LongPathOf call.",
+      "blocking_rationale": "This affects an interactive shell that previously loaded the earlier draft. The configured gate uses fresh processes.",
+      "blocks_readiness": false,
+      "category": "optional_polish",
+      "expected": "An interactive reviewer can validate the updated draft in a PowerShell session that inspected the previous draft.",
+      "id": "R8-F3",
+      "location": {
+        "file": "scripts/KwrFileIdentity.ps1",
+        "line": 10
+      },
+      "priority": "P3",
+      "requested_correction": "Give the expanded helper a distinct type version and update its callers and fixture anchors.",
+      "requested_evidence": "A same-process standalone validation after loading the 101dc9d helper is sufficient.",
+      "title": "The expanded identity helper reuses the previous draft\u2019s cached type name",
+      "trigger": "Run standalone validation at 101dc9d and then at 79f1687 in the same Windows PowerShell process."
+    }
+  ],
+  "prior_finding_assessments": [
+    {
+      "assessment": "fix_rejected",
+      "finding_id": "R1-F1",
+      "rationale": "The gate\u2019s assertions require both the attribute-named source and LocalRoot.cs in the refusal, and qualification returns after their removal. The new repositoryPath check still relies on a lexical root prefix. The same ignored root source reached through a directory junction receives the external-source exception."
+    },
+    {
+      "assessment": "fix_rejected",
+      "finding_id": "R5-F1",
+      "rationale": "The gate refused a stable receiptless hard link and accepted an independent external copy. The symbolic-link branch has source evidence only. A receipt beside the alias disables the link guard, and the receiptless check samples the source after the copy. The required publication lock and receipt are still bypassable."
+    },
+    {
+      "assessment": "fix_verified",
+      "finding_id": "R7-F1",
+      "rationale": "The gate exercised the ZIP\u2019s own 8.3 filename. It observed contention on the publisher\u2019s lock, qualified the unlocked clean pair, and refused a report aimed at the long-name receipt. Both input hashes survived."
+    },
+    {
+      "assessment": "fix_verified",
+      "finding_id": "R7-F2",
+      "rationale": "Git path lists are read as NUL-delimited UTF-8. With Git\u2019s default quoting enabled, the committed \u00c9valuationMarker.cs built and passed current-provenance validation. The ignored-source control in the same checkout still failed."
+    },
+    {
+      "assessment": "fix_verified",
+      "finding_id": "R7-F3",
+      "rationale": "The reproduction note now attributes 120 checks specifically to round 5 and makes no claim that the dated sections contain every round\u2019s count."
+    }
+  ],
+  "request_id": "kwr-codex-umm-0311-baseline-20261123-20261123181024-1057-r08-ab0fc1",
+  "round": 8,
+  "schema_version": "agent-review.review.v1",
+  "summary": {
+    "delivered_behavior": "Waking Rune declares UMM 0.31.1 and builds against UnityModManager 0.31.1.0, 0Harmony12 1.2.0.1 and 0Harmony 2.3.1.1. The cold-cache shipping build, standalone package check and configured gate passed. The four-loader static audit applies to the candidate DLL by exact digest.",
+    "pending_later_phase_work": [],
+    "remaining_owner_review": [
+      "Decide how to disposition draft PR #12 at its eight-review cap. A further review submission requires new owner authorization."
+    ],
+    "scope_reviewed": "Final correction review of Waking Rune PR #12 at 79f1687 under owner amendment revision 4, covering the five pending findings, the changed path-handling code and its direct consumers.",
+    "unresolved_questions": []
+  }
+}
+```
+</details>
+
+_Model-generated review by Codex using the requested model, posted by the agent-review controller through the owner's GitHub account. Not a human review or approval._
