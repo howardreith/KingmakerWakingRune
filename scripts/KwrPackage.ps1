@@ -41,7 +41,13 @@ function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic
         $directory = [IO.Path]::GetDirectoryName($Name)
         $depth = 0
         while ($directory) {
-            if ([IO.Directory]::Exists($directory) -and [KwrFileIdentityV7]::DirectoryOf($directory) -ceq $artifactsId) { if ($depth -eq 0) { return 'final' } else { return 'private' } }
+            if ([IO.Directory]::Exists($directory)) {
+                # A folder whose identity cannot be read (for example the volume's \$Extend folder that holds a file deleted
+                # while a handle is open) leaves the file's ownership unknown: declined, not guessed.
+                try { $directoryId = [KwrFileIdentityV7]::DirectoryOf($directory) }
+                catch { throw "The package $requested lies in a folder whose identity cannot be read ($directory); its publication cannot be established, so it is not installed." }
+                if ($directoryId -ceq $artifactsId) { if ($depth -eq 0) { return 'final' } else { return 'private' } }
+            }
             $parent = [IO.Path]::GetDirectoryName($directory)
             if (-not $parent -or $parent -eq $directory) { break }
             $directory = $parent; $depth++
@@ -85,8 +91,11 @@ function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic
             }
             else { $stream = [KwrFileIdentityV7]::OpenReadShared($requested) }
             $held = [KwrFileIdentityV7]::InfoOf($stream)
+            # The handle must hold the file classified (its identity first, so a different file - also one a publisher has
+            # moved or deleted meanwhile - is refused as such), with the same build-owned name and hard-link names.
+            if ($held.Id -cne $classifiedId) { throw "The package $requested was replaced or relinked while it was being read; it is not installed." }
             $recheck = & $classify $held.FinalPath $held.LinkCount
-            if ($held.Id -cne $classifiedId -or [string]$recheck.Final -cne [string]$classified.Final -or (@($recheck.Names | Sort-Object) -join '|') -ine (@($classified.Names | Sort-Object) -join '|')) {
+            if ([string]$recheck.Final -cne [string]$classified.Final -or (@($recheck.Names | Sort-Object) -join '|') -ine (@($classified.Names | Sort-Object) -join '|')) {
                 throw "The package $requested was replaced or relinked while it was being read; it is not installed."
             }
             if (-not $buildOwned) { $source = $held.FinalPath }
