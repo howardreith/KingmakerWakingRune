@@ -1361,16 +1361,17 @@ try { Invoke-Launch } catch { 'LAUNCH ' + `$_.Exception.Message }
     $textPair = (Get-Content -LiteralPath $logPair -Raw) + "`n" + (Get-Content -LiteralPath ($logPair + '.err') -Raw)
     Remove-Item -LiteralPath $pairReader
     Remove-Item -LiteralPath $pairDir, $pairMoved -Recurse -Force
-    # R11-F2 (round 13): a pair whose receipt ordinary staging rejects (a copy marked dirty), moved away before the receipt
-    # probe and restored after it, while the helper holds the ZIP. It must not be staged without that receipt.
+    # R11-F2 (round 13, round 14): a pair whose receipt ordinary staging rejects (a copy marked dirty), moved away before the
+    # receipt probe and restored after it, while the helper holds the ZIP, with the folder's last-write time set back to its
+    # value before the move (so the folder looks unchanged). It must not be staged without that receipt.
     $awayDir = Join-Path $temp 'external pair away'; $awayHome = Join-Path $temp 'external pair home'
     New-Item -ItemType Directory -Path $awayDir, $awayHome -Force | Out-Null
     $awayZip = Join-Path $awayHome 'pair.zip'; Copy-Item -LiteralPath $candidateZip -Destination $awayZip
     Copy-Item -LiteralPath $receiptPath -Destination ($awayZip + '.build.json'); Edit-Json ($awayZip + '.build.json') { param($j) $j.dirty = $true }
     $awayStable = Invoke-Script (". $(Quote $kwrPackage); `$v = New-KwrValidatedPackageCopy $(Quote $awayZip); 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v")
     $awaySha = (Get-Sha256 $awayZip) + '/' + (Get-Sha256 ($awayZip + '.build.json'))
-    $probeLine = '            $hasReceipt = [IO.File]::Exists($receiptSource)'
-    $copyLine = "            if (`$hasReceipt) { [IO.File]::Copy(`$receiptSource, `$copy + '.build.json') }"
+    $probeLine = '            try { $receiptBytes = [KwrFileIdentityV9]::ReadAll($receiptSource, [ref]$receiptId) }'
+    $copyLine = "            if (`$hasReceipt) { [IO.File]::WriteAllBytes(`$copy + '.build.json', `$receiptBytes) }"
     if ($pkgText.IndexOf($probeLine) -lt 0 -or $pkgText.IndexOf($copyLine) -lt 0) { throw 'KwrPackage.ps1 receipt probe anchors not found.' }
     $awayPauseA = "            [IO.File]::WriteAllText($(Quote (Join-Path $inputs 'away-before-probe')), 'x'); `$u = [DateTime]::UtcNow.AddMinutes(5); while (-not [IO.File]::Exists($(Quote (Join-Path $inputs 'away-probe-go'))) -and [DateTime]::UtcNow -lt `$u) { Start-Sleep -Milliseconds 200 }`r`n"
     $awayPauseB = "`r`n            [IO.File]::WriteAllText($(Quote (Join-Path $inputs 'away-after-probe')), ('hasReceipt=' + `$hasReceipt)); `$u = [DateTime]::UtcNow.AddMinutes(5); while (-not [IO.File]::Exists($(Quote (Join-Path $inputs 'away-after-go'))) -and [DateTime]::UtcNow -lt `$u) { Start-Sleep -Milliseconds 200 }"
@@ -1384,19 +1385,50 @@ try { Invoke-Launch } catch { 'LAUNCH ' + `$_.Exception.Message }
     $awayDeadline = (Get-Date).AddMinutes(3)
     while (-not $awayProc.HasExited -and -not (Test-Path -LiteralPath (Join-Path $inputs 'away-before-probe')) -and (Get-Date) -lt $awayDeadline) { Start-Sleep -Milliseconds 200 }
     $awayReached = Test-Path -LiteralPath (Join-Path $inputs 'away-before-probe')
+    $awayHomeTime = [IO.Directory]::GetLastWriteTimeUtc($awayHome)
     Move-Item -LiteralPath $awayZip -Destination (Join-Path $awayDir 'pair.zip'); Move-Item -LiteralPath ($awayZip + '.build.json') -Destination (Join-Path $awayDir 'pair.zip.build.json')
     $awayGone = -not (Test-Path -LiteralPath $awayZip) -and -not (Test-Path -LiteralPath ($awayZip + '.build.json'))
     [IO.File]::WriteAllText((Join-Path $inputs 'away-probe-go'), 'go')
     while (-not $awayProc.HasExited -and -not (Test-Path -LiteralPath (Join-Path $inputs 'away-after-probe')) -and (Get-Date) -lt $awayDeadline) { Start-Sleep -Milliseconds 200 }
     $awayProbe = if (Test-Path -LiteralPath (Join-Path $inputs 'away-after-probe')) { [IO.File]::ReadAllText((Join-Path $inputs 'away-after-probe')) } else { '' }
     Move-Item -LiteralPath (Join-Path $awayDir 'pair.zip') -Destination $awayZip; Move-Item -LiteralPath (Join-Path $awayDir 'pair.zip.build.json') -Destination ($awayZip + '.build.json')
+    [IO.Directory]::SetLastWriteTimeUtc($awayHome, $awayHomeTime)
+    $awayTimePreserved = ([IO.Directory]::GetLastWriteTimeUtc($awayHome)).Ticks -eq $awayHomeTime.Ticks
     $awayRestored = ((Get-Sha256 $awayZip) + '/' + (Get-Sha256 ($awayZip + '.build.json'))) -ceq $awaySha
     [IO.File]::WriteAllText((Join-Path $inputs 'away-after-go'), 'go')
     $awayProc.WaitForExit()
     $awayText = (Get-Content -LiteralPath $awayLog -Raw) + "`n" + (Get-Content -LiteralPath ($awayLog + '.err') -Raw)
     Remove-Item -LiteralPath $awayReader
     Remove-Item -LiteralPath $awayDir, $awayHome -Recurse -Force
-    Add-Case 'external-pair-away-during-the-receipt-probe-and-restored-refused' ($awayStable.ExitCode -ne 0 -and $awayStable.Output -notmatch 'MODE ' -and $awayReached -and $awayGone -and $awayProbe -ceq 'hasReceipt=False' -and $awayRestored -and $awayProc.ExitCode -ne 0 -and $awayText -notmatch 'MODE ' -and $external.ExitCode -eq 0 -and $external.Output -match 'MODE external-content-inspected') ("ordinary staging of the stable pair (receipt marked dirty): " + (Get-Reason $awayStable.Output) + "; pair moved away before the receipt probe: $awayGone; probe saw [$awayProbe]; restored before the helper continued: $awayRestored; helper: " + (Get-Reason $awayText) + "; stable receiptless control: " + [regex]::Match($external.Output, 'MODE \S+').Value)
+    Add-Case 'external-pair-away-during-the-receipt-probe-and-restored-with-the-folder-time-preserved-refused' ($awayStable.ExitCode -ne 0 -and $awayStable.Output -notmatch 'MODE ' -and $awayReached -and $awayGone -and $awayProbe -ceq 'hasReceipt=False' -and $awayRestored -and $awayTimePreserved -and $awayProc.ExitCode -ne 0 -and $awayText -notmatch 'MODE ' -and $external.ExitCode -eq 0 -and $external.Output -match 'MODE external-content-inspected') ("ordinary staging of the stable pair (receipt marked dirty): " + (Get-Reason $awayStable.Output) + "; pair moved away before the receipt probe: $awayGone; probe saw [$awayProbe]; restored before the helper continued: $awayRestored, folder last-write time set back to $($awayHomeTime.ToString('o')): $awayTimePreserved; helper: " + (Get-Reason $awayText) + "; stable receiptless control: " + [regex]::Match($external.Output, 'MODE \S+').Value)
+    # R13-F1 (round 14): an unchanged independent receiptless ZIP while an unrelated sibling in its folder is created and another
+    # renamed during the copy: staged as external-content-inspected with the ZIP's own digest.
+    $sibHome = Join-Path $temp 'external sibling folder'; New-Item -ItemType Directory -Path $sibHome -Force | Out-Null
+    $sibZip = Join-Path $sibHome 'mod.zip'; Copy-Item -LiteralPath $candidateZip -Destination $sibZip
+    [IO.File]::WriteAllText((Join-Path $sibHome 'other download.part'), 'unrelated')
+    $sibSha = Get-Sha256 $sibZip
+    $sibCopyAnchor = '            try { $stream.CopyTo($out) } finally { $out.Dispose() }'
+    $sibPause = "`r`n            [IO.File]::WriteAllText($(Quote (Join-Path $inputs 'sib-copied')), 'x'); `$u = [DateTime]::UtcNow.AddMinutes(5); while (-not [IO.File]::Exists($(Quote (Join-Path $inputs 'sib-go'))) -and [DateTime]::UtcNow -lt `$u) { Start-Sleep -Milliseconds 200 }"
+    $sibReader = Join-Path $base 'scripts\KwrPackage-sibling-instrumented.ps1'
+    [IO.File]::WriteAllText($sibReader, $pkgText.Replace($sibCopyAnchor, $sibCopyAnchor + $sibPause))
+    $sibScript = Join-Path $inputs 'sibling-reader.ps1'
+    [IO.File]::WriteAllText($sibScript, "try { . $(Quote $sibReader); `$v = New-KwrValidatedPackageCopy $(Quote $sibZip); 'MODE ' + `$v.InstallMode + ' SHA ' + `$v.Sha256; Remove-KwrValidatedPackageCopy `$v } catch { 'ERROR: ' + `$_.Exception.Message; exit 1 }")
+    $sibLog = Join-Path $inputs 'sibling-reader.txt'
+    $sibProc = Start-Process -FilePath powershell.exe -ArgumentList @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $sibScript + '"')) -RedirectStandardOutput $sibLog -RedirectStandardError ($sibLog + '.err') -PassThru -WindowStyle Hidden
+    $null = $sibProc.Handle
+    $sibDeadline = (Get-Date).AddMinutes(3)
+    while (-not $sibProc.HasExited -and -not (Test-Path -LiteralPath (Join-Path $inputs 'sib-copied')) -and (Get-Date) -lt $sibDeadline) { Start-Sleep -Milliseconds 200 }
+    $sibPaused = Test-Path -LiteralPath (Join-Path $inputs 'sib-copied')
+    $sibTimeBefore = [IO.Directory]::GetLastWriteTimeUtc($sibHome)
+    [IO.File]::WriteAllText((Join-Path $sibHome 'new download.zip.part'), 'unrelated new file')
+    Rename-Item -LiteralPath (Join-Path $sibHome 'other download.part') -NewName 'other download.zip'
+    $sibFolderChanged = ([IO.Directory]::GetLastWriteTimeUtc($sibHome)).Ticks -ne $sibTimeBefore.Ticks
+    [IO.File]::WriteAllText((Join-Path $inputs 'sib-go'), 'go')
+    $sibProc.WaitForExit()
+    $sibText = (Get-Content -LiteralPath $sibLog -Raw) + "`n" + (Get-Content -LiteralPath ($sibLog + '.err') -Raw)
+    Remove-Item -LiteralPath $sibReader
+    Remove-Item -LiteralPath $sibHome -Recurse -Force
+    Add-Case 'unchanged-receiptless-external-zip-qualifies-while-an-unrelated-sibling-changes' ($sibPaused -and $sibFolderChanged -and $sibProc.ExitCode -eq 0 -and $sibText -match ('MODE external-content-inspected SHA ' + $sibSha)) ("helper paused after copying the ZIP: $sibPaused; sibling created and another renamed, folder last-write time changed: $sibFolderChanged; helper: " + [regex]::Match($sibText, 'MODE \S+ SHA \S+').Value + "; expected ZIP digest $sibSha")
     Add-Case 'external-receipt-backed-pair-moved-during-the-read-refused' ($pairPaused -and $pairMovedOk -and $procPair.ExitCode -ne 0 -and ($textPair -replace '\s+', ' ') -match 'moved while it was being read' -and $textPair -notmatch 'MODE ' -and $external.ExitCode -eq 0 -and $external.Output -match 'MODE external-content-inspected') ("helper paused after copying the ZIP bytes: $pairPaused; ZIP then receipt moved to another folder, bytes unchanged: $pairMovedOk; helper: " + (Get-Reason $textPair) + "; stable receiptless control: " + [regex]::Match($external.Output, 'MODE \S+').Value)
     $ok = $firstDirty.ExitCode -eq 0 -and $dirtyPairBefore -ne 'missing' -and $paused -and -not $receiptVisible -and $duringPause.ExitCode -ne 0 -and ($duringPause.Output -replace '\s+', ' ') -match 'A build is publishing' -and $duringPause.Output -notmatch 'MODE ' -and
         $procP.ExitCode -ne 0 -and $textP -match 'injected receipt placement failure' -and $dirtyPairAfter -ceq $dirtyPairBefore -and

@@ -100,11 +100,6 @@ function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic
             }
             if (-not $buildOwned) { $source = $held.FinalPath }
             $receiptSource = $source + '.build.json'
-            # R11-F2 (round 13): the external package's folder (identity and last-write time, which changes whenever an entry
-            # is added, removed or renamed there) must be unchanged from before the receipt is selected until after it is
-            # copied, so a pair moved away and restored around the probe is refused instead of being staged without its
-            # receipt.
-            $folderStamp = if ($buildOwned) { $null } else { [KwrFileIdentityV9]::DirectoryStampOf([IO.Path]::GetDirectoryName($source)) }
             # R11-F2 (round 12): an external ZIP may be renamed while its delete-sharing handle is open, so its receipt is the
             # one beside it only if the ZIP is still at its physical path before and after the receipt is probed and copied;
             # otherwise the changed input is refused (never admitted without the receipt it had).
@@ -117,12 +112,17 @@ function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic
             $out = [IO.File]::Open($copy, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
             try { $stream.CopyTo($out) } finally { $out.Dispose() }
             & $stillInPlace
-            $hasReceipt = [IO.File]::Exists($receiptSource)
-            if ($hasReceipt) { [IO.File]::Copy($receiptSource, $copy + '.build.json') }
+            # R11-F2/R13-F1 (round 14): the receipt beside the selected ZIP is observed directly: one read returns its bytes
+            # (and identity), and those bytes are what is validated, so a receipt seen here is carried through validation. An
+            # absence seen here is confirmed again before content-only staging is accepted (below). Only the selected ZIP and
+            # its adjacent receipt decide; other entries of the folder do not.
+            $receiptId = $null; $receiptBytes = $null
+            try { $receiptBytes = [KwrFileIdentityV9]::ReadAll($receiptSource, [ref]$receiptId) }
+            catch [IO.FileNotFoundException] { $receiptBytes = $null }
+            catch [IO.DirectoryNotFoundException] { $receiptBytes = $null }
+            $hasReceipt = $null -ne $receiptBytes
+            if ($hasReceipt) { [IO.File]::WriteAllBytes($copy + '.build.json', $receiptBytes) }
             & $stillInPlace
-            if (-not $buildOwned -and [KwrFileIdentityV9]::DirectoryStampOf([IO.Path]::GetDirectoryName($source)) -cne $folderStamp) {
-                throw "The folder of the package $requested changed while its receipt was being selected (an entry there was added, moved or removed); it is not installed."
-            }
         }
         finally {
             if ($null -ne $stream) { $stream.Dispose() }
@@ -144,6 +144,13 @@ function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic
             'receipt-matches-package' { if ($Diagnostic) { 'diagnostic' } else { throw 'A receipt-backed package was not verified as current.' } }
             'not-checked' { 'external-content-inspected' }
             default { throw "Unknown validator provenance: $($validation.source_provenance)" }
+        }
+        # R11-F2 (round 14): content-only staging is accepted only if the selected ZIP is still in place and its receipt is
+        # still absent now that validation is done; a receipt that has appeared (for example a pair moved away during the
+        # probe and restored, whatever the folder's timestamps) makes the read ambiguous and the package is refused.
+        if (-not $hasReceipt) {
+            & $stillInPlace
+            if ([IO.File]::Exists($receiptSource)) { throw "A build receipt appeared beside the package $requested after its receipt was looked for ($receiptSource); which receipt belongs to the bytes read cannot be established, so it is not installed." }
         }
         return [pscustomobject]@{
             Source = $source
