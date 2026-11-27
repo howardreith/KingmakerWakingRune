@@ -347,6 +347,20 @@ clone was removed (`postcleanup-r13.json`). The round-12 Retained and Focused JS
 console exports are the records. The file symbolic-link report case remains in the suite and is recorded as not run on
 this host. R11-F4 (diagnostic wording) stays deferred.
 
+Round 14 (`5fca018`; the install helper and the suite only, so no material build input changed). The round-13 folder
+timestamp check is removed: it could be defeated by a restore that sets the folder's last-write time back, and it refused a
+stable package when an unrelated file in the same folder changed. External staging now observes the receipt beside the
+selected ZIP directly (one read returns its bytes, and those bytes are validated), and an absence seen there is confirmed
+again after validation together with the ZIP still being in place; a receipt that has appeared by then makes the read
+ambiguous and the package is refused. Only the selected ZIP and its adjacent receipt decide. Both conditions were first
+observed on `12bf7d5` (`reproduce-r14.json`), then corrected on `5fca018` (`focused-r14.json`, 2 of 2: the restored
+dirty-receipt pair refused with the folder time preserved; the unchanged receiptless ZIP staged with its own digest while a
+sibling was created and another renamed). The retained `12bf7d5` pair (ZIP
+`8f757331b42ad157939108702fb59c8c9aae031d0416ee271ac792a0aaa4d344`, DLL `7cd3cb09...`, MVID `ccc59117...`) still qualifies
+after the focused clone was removed (`postcleanup-r14.json`), and the material inputs are identical at `12bf7d5` and
+`5fca018`, so it was not rebuilt. (`DirectoryStampOf` stays in the identity helper unused, so that material file is
+unchanged.) The file symbolic-link report case remains recorded as not run on this host.
+
 ## Evidence for this change (2026-11-24, round 5)
 
 The build and validation tooling is at `3779b0e`; the product sources are unchanged, so the candidate DLL is
