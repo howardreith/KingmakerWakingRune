@@ -361,6 +361,24 @@ after the focused clone was removed (`postcleanup-r14.json`), and the material i
 `5fca018`, so it was not rebuilt. (`DirectoryStampOf` stays in the identity helper unused, so that material file is
 unchanged.) The file symbolic-link report case remains recorded as not run on this host.
 
+Round 15 (`41d3a48`; the install helper and the suite only, so no material build input changed). External staging now
+selects the ZIP and the receipt beside it as one pair. Right after the ZIP handle is confirmed, the receipt is opened
+(sharing read and delete, like the ZIP, so a publisher's rename is never obstructed) and its file identity is recorded with
+the ZIP's; its bytes are later read from that same handle, so the receipt validated is the receipt selected. The pair is in
+place only while the ZIP's physical path names the held ZIP and the receipt name names the held receipt (or is still
+absent); that is checked when the selection is made, after the ZIP and receipt bytes are copied, and again after
+validation before any qualification is granted, together with the private receipt copy still holding the bytes read. A
+temporary pair that supplied the receipt therefore fails once the original pair is back (the receipt name names another
+file) and fails while it stays (the ZIP path names another file). Only the selected ZIP and its receipt decide; other
+entries of the folder do not. Build-owned pairs are still read under the canonical publication lock. The condition was
+first observed on `166fbb9` (`reproduce-r15.json`: two independent copies of identical ZIP bytes with distinct receipts;
+the clean pair qualified, the dirty pair was refused, and the dirty pair qualified as a frozen candidate with the other
+pair's receipt observed during the read), then refused on `41d3a48` (`focused-r15.json`, 5 of 5, with the stable
+receiptless, unrelated-sibling and absence-then-restoration controls). The retained `12bf7d5` pair (ZIP
+`8f757331b42ad157939108702fb59c8c9aae031d0416ee271ac792a0aaa4d344`, DLL `7cd3cb09...`, MVID `ccc59117...`) still qualifies
+after the focused clone was removed (`postcleanup-r15.json`) and was not rebuilt. The file symbolic-link report case
+remains recorded as not run on this host.
+
 ## Evidence for this change (2026-11-24, round 5)
 
 The build and validation tooling is at `3779b0e`; the product sources are unchanged, so the candidate DLL is

@@ -1,0 +1,67 @@
+{
+    "schema":  "kwr.focused-r15.v1",
+    "mode":  "Focused",
+    "commit":  "41d3a489d7194e2f04777029422936d5c29c62ba",
+    "startedUtc":  "2026-11-27T17:42:07.6623714Z",
+    "codeShape":  "held-receipt",
+    "r14Inputs":  {
+                      "selectedZip":  {
+                                          "path":  "<temp>\\kwr-focused-r15-79bce277fed14561832059e5560c57af\\r14 home\\pair.zip",
+                                          "id":  "6cfdfe4e:00200000002abe18",
+                                          "sha256":  "8f757331b42ad157939108702fb59c8c9aae031d0416ee271ac792a0aaa4d344"
+                                      },
+                      "selectedReceipt":  {
+                                              "path":  "<temp>\\kwr-focused-r15-79bce277fed14561832059e5560c57af\\r14 home\\pair.zip.build.json",
+                                              "id":  "6cfdfe4e:00220000002abe1b",
+                                              "sha256":  "138ca3fab8f24b709840e3d9fbe2b4f9e7e4643820ac2d61b4ba410139df88bc",
+                                              "dirty":  true
+                                          },
+                      "otherZip":  {
+                                       "path":  "<temp>\\kwr-focused-r15-79bce277fed14561832059e5560c57af\\r14 clean\\pair.zip",
+                                       "id":  "6cfdfe4e:001e0000002abe19",
+                                       "sha256":  "8f757331b42ad157939108702fb59c8c9aae031d0416ee271ac792a0aaa4d344"
+                                   },
+                      "otherReceipt":  {
+                                           "path":  "<temp>\\kwr-focused-r15-79bce277fed14561832059e5560c57af\\r14 clean\\pair.zip.build.json",
+                                           "id":  "6cfdfe4e:001e0000002abe1a",
+                                           "sha256":  "ba8e64d33d79ff474f8675d31c696d41c6da33f79111e6c6e208587a6994e2c8",
+                                           "dirty":  false
+                                       }
+                  },
+    "r14Run":  {
+                   "helperObserved":  "zip=6cfdfe4e:00200000002abe18 receipt=6cfdfe4e:001e0000002abe1a",
+                   "helperExit":  1,
+                   "helperResult":  "ERROR: The build receipt beside the package <temp>\\kwr-focused-r15-79bce277fed14561832059e5560c57af\\r14 home\\pair.zip (<temp>\\kwr-focused-r15-79bce277fed14561832059e5560c57af\\r14 home\\pair.zip.build.json) is no longer the receipt selected with it; the receipt read cannot be tied to the selected package, so it is not installed."
+               },
+    "disposableRemoved":  true,
+    "finishedUtc":  "2026-11-27T17:42:20.0111730Z",
+    "passed":  5,
+    "total":  5,
+    "cases":  [
+                  {
+                      "name":  "r14f1-stable-clean-pair-qualifies-and-stable-dirty-pair-is-refused",
+                      "passed":  true,
+                      "detail":  "independent copies, identical ZIP bytes 8f757331b42ad157939108702fb59c8c9aae031d0416ee271ac792a0aaa4d344: ZIP ids 6cfdfe4e:00200000002abe18 / 6cfdfe4e:001e0000002abe19, receipt ids 6cfdfe4e:00220000002abe1b (dirty, 138ca3fab8f24b709840e3d9fbe2b4f9e7e4643820ac2d61b4ba410139df88bc) / 6cfdfe4e:001e0000002abe1a (clean, ba8e64d33d79ff474f8675d31c696d41c6da33f79111e6c6e208587a6994e2c8); stable clean pair: exit 0 MODE frozen-candidate; stable dirty pair: exit 1 ERROR: Build receipt is from a dirty working tree; only a clean build is a frozen candidate."
+                  },
+                  {
+                      "name":  "r14f1-dirty-pair-with-the-receipt-observed-from-a-temporary-clean-pair-refused",
+                      "passed":  true,
+                      "detail":  "helper selected ZIP 6cfdfe4e:00200000002abe18 (dirty pair); clean pair (ZIP 6cfdfe4e:001e0000002abe19, receipt 6cfdfe4e:001e0000002abe1a) at both paths during the receipt observation: True; helper observed [zip=6cfdfe4e:00200000002abe18 receipt=6cfdfe4e:001e0000002abe1a]; dirty pair (ZIP 6cfdfe4e:00200000002abe18, receipt 6cfdfe4e:00220000002abe1b) restored before the helper continued: True; helper exit 1: ERROR: The build receipt beside the package <temp>\\kwr-focused-r15-79bce277fed14561832059e5560c57af\\r14 home\\pair.zip (<temp>\\kwr-focused-r15-79bce277fed14561832059e5560c57af\\r14 home\\pair.zip.build.json) is no longer the receipt selected with it; the receipt read cannot be tied to the selected package, so it is not installed."
+                  },
+                  {
+                      "name":  "control-stable-receiptless-copy-is-external-content-inspected",
+                      "passed":  true,
+                      "detail":  "exit 0: MODE external-content-inspected SHA 8f757331b42ad157939108702fb59c8c9aae031d0416ee271ac792a0aaa4d344"
+                  },
+                  {
+                      "name":  "control-unchanged-receiptless-zip-qualifies-while-an-unrelated-sibling-changes",
+                      "passed":  true,
+                      "detail":  "helper paused after copying the ZIP: True; sibling created and another renamed, folder last-write time changed: True; helper exit 0: MODE external-content-inspected SHA 8f757331b42ad157939108702fb59c8c9aae031d0416ee271ac792a0aaa4d344; expected ZIP digest 8f757331b42ad157939108702fb59c8c9aae031d0416ee271ac792a0aaa4d344"
+                  },
+                  {
+                      "name":  "control-receipt-absence-followed-by-restoration-refused",
+                      "passed":  true,
+                      "detail":  "pair away during the receipt observation: True; helper observed [hasReceipt=False]; restored before it continued: True; helper exit 1: ERROR: A build receipt appeared beside the package <temp>\\kwr-focused-r15-79bce277fed14561832059e5560c57af\\away home\\pair.zip after its receipt was looked for (<temp>\\kwr-focused-r15-79bce277fed14561832059e5560c57af\\away home\\pair.zip.build.json); which receipt belongs to the bytes read cannot be established, so it is not installed."
+                  }
+              ]
+}

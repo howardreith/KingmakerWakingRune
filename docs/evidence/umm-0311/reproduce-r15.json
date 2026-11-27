@@ -1,0 +1,52 @@
+{
+    "schema":  "kwr.focused-r15.v1",
+    "mode":  "Reproduce",
+    "commit":  "166fbb909da03d1ea98b02868cca53b37eed9191",
+    "startedUtc":  "2026-11-27T17:40:47.4097024Z",
+    "codeShape":  "readall-after-copy",
+    "r14Inputs":  {
+                      "selectedZip":  {
+                                          "path":  "<temp>\\kwr-focused-r15-cc23e026dc914705a0b4959855097dee\\r14 home\\pair.zip",
+                                          "id":  "6cfdfe4e:00170000002abdfc",
+                                          "sha256":  "8f757331b42ad157939108702fb59c8c9aae031d0416ee271ac792a0aaa4d344"
+                                      },
+                      "selectedReceipt":  {
+                                              "path":  "<temp>\\kwr-focused-r15-cc23e026dc914705a0b4959855097dee\\r14 home\\pair.zip.build.json",
+                                              "id":  "6cfdfe4e:00170000002abdff",
+                                              "sha256":  "138ca3fab8f24b709840e3d9fbe2b4f9e7e4643820ac2d61b4ba410139df88bc",
+                                              "dirty":  true
+                                          },
+                      "otherZip":  {
+                                       "path":  "<temp>\\kwr-focused-r15-cc23e026dc914705a0b4959855097dee\\r14 clean\\pair.zip",
+                                       "id":  "6cfdfe4e:00170000002abdfd",
+                                       "sha256":  "8f757331b42ad157939108702fb59c8c9aae031d0416ee271ac792a0aaa4d344"
+                                   },
+                      "otherReceipt":  {
+                                           "path":  "<temp>\\kwr-focused-r15-cc23e026dc914705a0b4959855097dee\\r14 clean\\pair.zip.build.json",
+                                           "id":  "6cfdfe4e:00170000002abdfe",
+                                           "sha256":  "ba8e64d33d79ff474f8675d31c696d41c6da33f79111e6c6e208587a6994e2c8",
+                                           "dirty":  false
+                                       }
+                  },
+    "r14Run":  {
+                   "helperObserved":  "zip=6cfdfe4e:00170000002abdfc receipt=6cfdfe4e:00170000002abdfe",
+                   "helperExit":  0,
+                   "helperResult":  "MODE frozen-candidate"
+               },
+    "disposableRemoved":  true,
+    "finishedUtc":  "2026-11-27T17:40:59.4390815Z",
+    "passed":  2,
+    "total":  2,
+    "cases":  [
+                  {
+                      "name":  "r14f1-stable-clean-pair-qualifies-and-stable-dirty-pair-is-refused",
+                      "passed":  true,
+                      "detail":  "independent copies, identical ZIP bytes 8f757331b42ad157939108702fb59c8c9aae031d0416ee271ac792a0aaa4d344: ZIP ids 6cfdfe4e:00170000002abdfc / 6cfdfe4e:00170000002abdfd, receipt ids 6cfdfe4e:00170000002abdff (dirty, 138ca3fab8f24b709840e3d9fbe2b4f9e7e4643820ac2d61b4ba410139df88bc) / 6cfdfe4e:00170000002abdfe (clean, ba8e64d33d79ff474f8675d31c696d41c6da33f79111e6c6e208587a6994e2c8); stable clean pair: exit 0 MODE frozen-candidate; stable dirty pair: exit 1 ERROR: Build receipt is from a dirty working tree; only a clean build is a frozen candidate."
+                  },
+                  {
+                      "name":  "r14f1-reproduced-dirty-pair-qualified-frozen-candidate-with-a-temporary-pairs-receipt",
+                      "passed":  true,
+                      "detail":  "helper selected ZIP 6cfdfe4e:00170000002abdfc (dirty pair); clean pair (ZIP 6cfdfe4e:00170000002abdfd, receipt 6cfdfe4e:00170000002abdfe) at both paths during the receipt observation: True; helper observed [zip=6cfdfe4e:00170000002abdfc receipt=6cfdfe4e:00170000002abdfe]; dirty pair (ZIP 6cfdfe4e:00170000002abdfc, receipt 6cfdfe4e:00170000002abdff) restored before the helper continued: True; helper exit 0: MODE frozen-candidate"
+                  }
+              ]
+}
