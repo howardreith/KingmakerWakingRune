@@ -1,5 +1,11 @@
 # Status: The Waking Rune
 
+## Release 0.12.4 — stable
+
+0.12.4 is the 0.12.3 gameplay rebuilt on the UMM 0.31.1 loader baseline (PR #12), published as the stable release.
+See [release notes](docs/RELEASE-NOTES-0.12.4.md). Native in-game testing of 0.12.x is still NOT RUN; the WR-PLAYTEST-03
+checks below remain outstanding.
+
 ## WR-PLAYTEST-03 — PARTIAL
 
 Candidate **0.12.3** was packaged from clean source `78aefe218355081eabc14ce520656ca947629c35`. Both Release runs passed **290 tests**. Batch migration preserves valid formations across old saves and reserves space for pending actors. The survivor test now exercises the production Newtonsoft reader and writer. Archive readback verified the manifest, DLL and all 19 images.
