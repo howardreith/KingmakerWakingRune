@@ -101,19 +101,29 @@ function Get-AlternateFixtureVersion([string] $Shipping) {
     if ($Shipping -cnotmatch '\A([0-9]+)\.([0-9]+)\.([0-9]+)\z') { throw "Unexpected shipping version: $Shipping" }
     return '{0}.{1}.{2}' -f $Matches[1], $Matches[2], ([int]$Matches[3] + 1)
 }
-# A commit object differing from HEAD only in one path (removed when Content is $null); HEAD, the index and the working
-# tree are not changed (a temporary index file is used).
-function New-VariantCommit([string] $Repo, [string] $Path, [AllowNull()][string] $Content, [string] $Message) {
+# A commit object differing from the Base commit in exactly one path (R10-F3, round 11): -Delete removes the path (deletion
+# is explicit; a null Content is not a deletion signal, because Windows PowerShell turns it into an empty string), otherwise
+# the path holds Content. HEAD, the index and the working tree are not changed (a temporary index file is used).
+function New-VariantCommit([string] $Repo, [string] $Base, [string] $Path, [string] $Content, [switch] $Delete, [string] $Message) {
+    if ([bool]$Delete -eq $PSBoundParameters.ContainsKey('Content')) { throw 'New-VariantCommit needs exactly one of -Content and -Delete.' }
     $index = Join-Path $temp ('variant-index-' + [Guid]::NewGuid().ToString('N'))
     $env:GIT_INDEX_FILE = $index
     try {
-        & git -C $Repo read-tree HEAD
-        if ($null -eq $Content) { & git -C $Repo update-index --force-remove -- $Path }
+        & git -C $Repo read-tree $Base
+        if ($Delete) { & git -C $Repo update-index --force-remove -- $Path }
         else { $blob = ($Content | & git -C $Repo hash-object -w --stdin).Trim(); & git -C $Repo update-index --add --cacheinfo ('100644,' + $blob + ',' + $Path) }
         $tree = (& git -C $Repo write-tree).Trim()
     }
     finally { Remove-Item -Path Env:GIT_INDEX_FILE -ErrorAction SilentlyContinue; Remove-Item -LiteralPath $index -Force -ErrorAction SilentlyContinue }
-    return (& git -C $Repo -c user.name=loader-baseline -c user.email=loader-baseline@invalid commit-tree $tree -p HEAD -m $Message).Trim()
+    return (& git -C $Repo -c user.name=loader-baseline -c user.email=loader-baseline@invalid commit-tree $tree -p $Base -m $Message).Trim()
+}
+# The Git change a producer variant actually makes relative to its base: every changed path with its change type, and
+# whether the named path is in the variant's tree. A fixture counts its validator result only when this is exactly the
+# one-path change it advertises.
+function Get-VariantChange([string] $Repo, [string] $Base, [string] $Variant, [string] $Path) {
+    $status = @(& git -C $Repo -c core.quotepath=off diff-tree -r --no-renames --name-status $Base $Variant | ForEach-Object { ("$_" -replace "`t", ' ').Trim() })
+    $inTree = @(& git -C $Repo -c core.quotepath=off ls-tree --name-only $Variant -- $Path | Where-Object { "$_" -ceq $Path }).Count -eq 1
+    return [pscustomobject]@{ Status = ($status -join ' | '); InTree = $inTree }
 }
 function Edit-Json([string] $Path, [scriptblock] $Edit) {
     $j = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
@@ -655,7 +665,7 @@ try {
         $lr.ExitCode -ne 0 -and ($lr.Output -replace '\s+', ' ') -match 'hard-link names of .* cannot be established' -and -not (Test-Path -LiteralPath (Join-Path $novol 'linked report.json')) -and $ln.ExitCode -eq 0) ("enumeration fails in this copy; single-name report exit $($sv.ExitCode), install " + [regex]::Match($si.Output, 'MODE \S+').Value + "; linked report: " + (Get-Reason $lr.Output) + "; linked without report exit $($ln.ExitCode)")
     Remove-Item -LiteralPath $novol -Recurse -Force
     # The identity the validator uses equals a trusted Windows read: vol (volume serial) and fsutil file queryfileid.
-    $idOut = Invoke-Script (". $(Quote (Join-Path $base 'scripts\KwrFileIdentity.ps1')); 'ID ' + [KwrFileIdentityV6]::Of($(Quote $candidateZip))")
+    $idOut = Invoke-Script (". $(Quote (Join-Path $base 'scripts\KwrFileIdentity.ps1')); 'ID ' + [KwrFileIdentityV7]::Of($(Quote $candidateZip))")
     $reported = [regex]::Match($idOut.Output, 'ID ([0-9a-f]{8}:[0-9a-f]{16})').Groups[1].Value
     $previousPreference = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     try { $fsutilText = (& fsutil file queryfileid $candidateZip 2>&1 | ForEach-Object { "$_" }) -join ' ' }
@@ -667,12 +677,12 @@ try {
     Add-Case 'file-identity-matches-trusted-windows-read' ($reported -and $reported -ceq $trusted) "validator $reported; fsutil/CIM $trusted ($fsutilText; volume serial $volSerial)"
     $distinctReport = Join-Path $temp 'distinct existing report.json'
     [IO.File]::WriteAllText($distinctReport, 'placeholder')
-    $distinctIdBefore = [regex]::Match((Invoke-Script (". $(Quote (Join-Path $base 'scripts\KwrFileIdentity.ps1')); 'ID ' + [KwrFileIdentityV6]::Of($(Quote $distinctReport))")).Output, 'ID (\S+)').Groups[1].Value
+    $distinctIdBefore = [regex]::Match((Invoke-Script (". $(Quote (Join-Path $base 'scripts\KwrFileIdentity.ps1')); 'ID ' + [KwrFileIdentityV7]::Of($(Quote $distinctReport))")).Output, 'ID (\S+)').Groups[1].Value
     $dr = Invoke-Isolated @('-File', $validator, '-PackagePath', $candidateZip, '-ReceiptPath', $receiptPath, '-ReportPath', $distinctReport)
     $drJson = try { Get-Content -LiteralPath $distinctReport -Raw | ConvertFrom-Json } catch { $null }
     Add-Case 'report-path-distinct-existing-file-written' ($dr.ExitCode -eq 0 -and $drJson -and $drJson.package_sha256 -eq $zipBefore) "exit $($dr.ExitCode); report written in place of the distinct file (identity $distinctIdBefore); package digest $($drJson.package_sha256)"
     $validatorText = [IO.File]::ReadAllText($validator)
-    $writeAnchor = '    [void][KwrFileIdentityV6]::WriteChecked($ReportPath, $protectedIds, $reportBytes)'
+    $writeAnchor = '    [void][KwrFileIdentityV7]::WriteChecked($ReportPath, $protectedIds, $reportStartId, $reportBytes)'
     if ($validatorText.IndexOf($writeAnchor) -lt 0) { throw 'Validate-Package.ps1 write anchor not found.' }
     $racingValidator = Join-Path $base 'scripts\Validate-Package-instrumented.ps1'
     [IO.File]::WriteAllText($racingValidator, $validatorText.Replace($writeAnchor, "    Remove-Item -LiteralPath `$ReportPath -Force; New-Item -ItemType HardLink -Path `$ReportPath -Target `$PackagePath | Out-Null`r`n" + $writeAnchor))
@@ -696,7 +706,7 @@ try {
     # R4-F3: between the identity samples the supplied path is replaced; the replacement is the file read into the snapshot
     # and is then moved to the initially distinct report destination (the original is put back). Report publication
     # refuses and the bytes actually read survive at the destination.
-    $readAnchor = '$packageBytes = [KwrFileIdentityV6]::ReadAllBound($PackagePath, [bool]$ReportPath, [ref]$readId, [ref]$readFinal, [ref]$readNames)'
+    $readAnchor = '$packageBytes = [KwrFileIdentityV7]::ReadAllBound($PackagePath, [bool]$ReportPath, [ref]$readId, [ref]$readFinal, [ref]$readNames, [ref]$readReceiptIds)'
     if ($validatorText.IndexOf($readAnchor) -lt 0) { throw 'Validate-Package.ps1 read anchor not found.' }
     $readInput = Join-Path $temp 'read input.zip'; Copy-Item -LiteralPath $candidateZip -Destination $readInput
     $replacementSource = Join-Path $temp 'replacement source.zip'; Copy-Item -LiteralPath $candidateZip -Destination $replacementSource
@@ -728,6 +738,35 @@ try {
     $pairBAfter = (Get-Sha256 $pairB) + '/' + (Get-Sha256 ($pairB + '.build.json'))
     Add-Case 'input-link-switched-before-the-snapshot-cannot-overwrite-the-read-zips-receipt' ($swapLinkType -ceq 'HardLink' -and $relinked.ExitCode -ne 0 -and ($relinked.Output -replace '\s+', ' ') -match 'must not be an input of the validation' -and $pairBAfter -ceq $pairBBefore) ("input $swapLinkType switched to the second pair before the read; " + (Get-Reason $relinked.Output) + "; second ZIP/receipt unchanged: $($pairBAfter -ceq $pairBBefore)")
     Remove-Item -LiteralPath $swapDir -Recurse -Force
+    # R10-F1 (round 11): the input is a hard link in another folder to the receipt-backed candidate, -ReceiptPath is omitted,
+    # and the candidate's conventional receipt is moved to the initially absent report destination during the snapshot
+    # acquisition: before the read (its identity cannot be sampled at its own path any more) and right after the read (its
+    # identity was taken from the reading handle). Both reports are refused, and the ZIP and receipt bytes are unchanged
+    # (the receipt is put back at its own path after each run).
+    $movedLinkDir = Join-Path $temp 'moved receipt link'; New-Item -ItemType Directory -Path $movedLinkDir -Force | Out-Null
+    $movedLink = Join-Path $movedLinkDir 'linked candidate.zip'
+    New-Item -ItemType HardLink -Path $movedLink -Target $candidateZip | Out-Null
+    $movedLinkType = [string](Get-Item -LiteralPath $movedLink).LinkType
+    $movedRows = foreach ($moment in @('before-read', 'after-read')) {
+        $destination = Join-Path $movedLinkDir "report $moment.json"
+        $destinationAbsent = -not (Test-Path -LiteralPath $destination)
+        $move = "Move-Item -LiteralPath $(Quote $receiptPath) -Destination `$ReportPath"
+        $movingText = if ($moment -ceq 'before-read') { $validatorText.Replace($readAnchor, $move + "`r`n" + $readAnchor) } else { $validatorText.Replace($readAnchor, $readAnchor + "`r`n" + $move) }
+        $movingReceiptValidator = Join-Path $base 'scripts\Validate-Package-instrumented.ps1'
+        [IO.File]::WriteAllText($movingReceiptValidator, $movingText)
+        $run = Invoke-Isolated @('-File', $movingReceiptValidator, '-PackagePath', $movedLink, '-ReportPath', $destination)
+        Remove-Item -LiteralPath $movingReceiptValidator
+        $receiptMoved = -not (Test-Path -LiteralPath $receiptPath)
+        $atDestination = if (Test-Path -LiteralPath $destination) { Get-Sha256 $destination } else { 'missing' }
+        if ($receiptMoved -and $atDestination -ne 'missing') { Move-Item -LiteralPath $destination -Destination $receiptPath }
+        [pscustomobject]@{ Moment = $moment; DestinationAbsent = $destinationAbsent; ReceiptMoved = $receiptMoved; AtDestination = $atDestination; Run = $run }
+    }
+    $movedOk = $movedLinkType -ceq 'HardLink' -and (Get-Sha256 $candidateZip) -eq $zipBefore -and (Get-Sha256 $receiptPath) -eq $receiptBefore
+    foreach ($row in @($movedRows)) {
+        $movedOk = $movedOk -and $row.DestinationAbsent -and $row.ReceiptMoved -and $row.AtDestination -eq $receiptBefore -and $row.Run.ExitCode -ne 0 -and ($row.Run.Output -replace '\s+', ' ') -match 'must not be an input of the validation|report destination changed during validation'
+    }
+    Add-Case 'linked-zip-target-receipt-moved-to-the-report-destination-during-the-snapshot-refused' $movedOk ("input $movedLinkType, no -ReceiptPath; " + (@($movedRows | ForEach-Object { "$($_.Moment): destination absent at start $($_.DestinationAbsent), receipt moved there $($_.ReceiptMoved), its bytes unchanged $($_.AtDestination -eq $receiptBefore); " + (Get-Reason $_.Run.Output) }) -join ' / ') + "; ZIP and receipt unchanged after restoring: $((Get-Sha256 $candidateZip) -eq $zipBefore -and (Get-Sha256 $receiptPath) -eq $receiptBefore)")
+    Remove-Item -LiteralPath $movedLinkDir -Recurse -Force
     Add-Case 'report-destination-replaced-during-validation-refused' ($race.ExitCode -ne 0 -and ($race.Output -replace '\s+', ' ') -match 'must not be an input of the validation \(file identity' -and (Get-Sha256 $candidateZip) -eq $zipBefore -and (Get-Sha256 $receiptPath) -eq $receiptBefore) ("exit $($race.ExitCode); " + (Get-Reason $race.Output) + "; package and receipt unchanged: $((Get-Sha256 $candidateZip) -eq $zipBefore -and (Get-Sha256 $receiptPath) -eq $receiptBefore)")
     Remove-Item -LiteralPath $raceReport -Force
 
@@ -1135,7 +1174,7 @@ try { Invoke-Launch } catch { 'LAUNCH ' + `$_.Exception.Message }
     $duringPausePrevious = Invoke-Script (". $(Quote $kwrPackage); `$v = New-KwrValidatedPackageCopy $(Quote $prevLink) -Diagnostic; 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v")
     # R9-F2 (round 10): a canonical-path reader that has classified the placed ZIP (holding no handle on it) waits before it
     # takes the lock while the publisher's receipt placement fails and rolls back; the reader then proceeds.
-    $classifyAnchor = '        $classified = & $classify ([KwrFileIdentityV6]::FinalPathOf($requested)) ([KwrFileIdentityV6]::LinkCountOf($requested))'
+    $classifyAnchor = '        $classified = & $classify ([KwrFileIdentityV7]::FinalPathOf($requested)) ([KwrFileIdentityV7]::LinkCountOf($requested))'
     $packageText = [IO.File]::ReadAllText($kwrPackage)
     if ($packageText.IndexOf($classifyAnchor) -lt 0) { throw 'KwrPackage.ps1 classification anchor not found.' }
     $readerPause = "`r`n        [IO.File]::WriteAllText($(Quote (Join-Path $signal 'reader-classified')), 'classified'); `$readerUntil = [DateTime]::UtcNow.AddMinutes(5); while (-not [IO.File]::Exists($(Quote (Join-Path $signal 'reader-go'))) -and [DateTime]::UtcNow -lt `$readerUntil) { Start-Sleep -Milliseconds 200 }"
@@ -1149,12 +1188,48 @@ try { Invoke-Launch } catch { 'LAUNCH ' + `$_.Exception.Message }
     $deadlineR = (Get-Date).AddMinutes(3)
     while (-not $procR.HasExited -and -not (Test-Path -LiteralPath (Join-Path $signal 'reader-classified')) -and (Get-Date) -lt $deadlineR) { Start-Sleep -Milliseconds 200 }
     $readerClassified = Test-Path -LiteralPath (Join-Path $signal 'reader-classified')
+    # R9-F2 (round 11): a reader whose path passes through a directory junction. The junction first selects an independent
+    # external ZIP of the same name (classified external: one link, no build-owned name). After that classification the
+    # junction is redirected to the artifacts folder, so the reader's open reaches the placed ZIP, and the reader holds that
+    # handle while the publisher's receipt placement fails and rolls back. The rollback must still move the ZIP (a handle
+    # opened before ownership is confirmed shares delete), both previous files must be back at their final paths, and the
+    # reader must refuse the package.
+    $jExternal = Join-Path $temp 'junction external target'; New-Item -ItemType Directory -Path $jExternal -Force | Out-Null
+    Copy-Item -LiteralPath $candidateZip -Destination (Join-Path $jExternal (Split-Path -Leaf $dirtyZipR5))
+    $jLink = Join-Path $temp 'reader junction'
+    New-Item -ItemType Junction -Path $jLink -Target $jExternal | Out-Null
+    $jRequested = Join-Path $jLink (Split-Path -Leaf $dirtyZipR5)
+    $openAnchor = '            else { $stream = [KwrFileIdentityV7]::OpenReadShared($requested) }'
+    if ($packageText.IndexOf($openAnchor) -lt 0) { throw 'KwrPackage.ps1 external open anchor not found.' }
+    $jClassifiedPause = "`r`n        [IO.File]::WriteAllText($(Quote (Join-Path $signal 'jreader-classified')), ('final=' + [string]`$classified.Final + ' names=' + (@(`$classified.Names) -join ';'))); `$jUntil = [DateTime]::UtcNow.AddMinutes(5); while (-not [IO.File]::Exists($(Quote (Join-Path $signal 'jreader-open'))) -and [DateTime]::UtcNow -lt `$jUntil) { Start-Sleep -Milliseconds 200 }"
+    $jOpenedPause = "`r`n            `$jInfo = [KwrFileIdentityV7]::InfoOf(`$stream); [IO.File]::WriteAllText($(Quote (Join-Path $signal 'jreader-opened')), ('held=' + `$jInfo.FinalPath)); `$jUntil = [DateTime]::UtcNow.AddMinutes(5); while (-not [IO.File]::Exists($(Quote (Join-Path $signal 'jreader-go'))) -and [DateTime]::UtcNow -lt `$jUntil) { Start-Sleep -Milliseconds 200 }"
+    $jReader = Join-Path $base 'scripts\KwrPackage-junction-reader-instrumented.ps1'
+    [IO.File]::WriteAllText($jReader, $packageText.Replace($classifyAnchor, $classifyAnchor + $jClassifiedPause).Replace($openAnchor, $openAnchor + $jOpenedPause))
+    $jReaderScript = Join-Path $inputs 'junction-reader.ps1'
+    [IO.File]::WriteAllText($jReaderScript, "try { . $(Quote $jReader); `$v = New-KwrValidatedPackageCopy $(Quote $jRequested); 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v } catch { 'ERROR: ' + `$_.Exception.Message; exit 1 }")
+    $logJ = Join-Path $inputs 'junction-reader.txt'
+    $procJ = Start-Process -FilePath powershell.exe -ArgumentList @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $jReaderScript + '"')) -RedirectStandardOutput $logJ -RedirectStandardError ($logJ + '.err') -PassThru -WindowStyle Hidden
+    $null = $procJ.Handle
+    $deadlineJ = (Get-Date).AddMinutes(3)
+    while (-not $procJ.HasExited -and -not (Test-Path -LiteralPath (Join-Path $signal 'jreader-classified')) -and (Get-Date) -lt $deadlineJ) { Start-Sleep -Milliseconds 200 }
+    $jClassified = if (Test-Path -LiteralPath (Join-Path $signal 'jreader-classified')) { [IO.File]::ReadAllText((Join-Path $signal 'jreader-classified')) } else { '' }
+    [IO.Directory]::Delete($jLink, $false)
+    New-Item -ItemType Junction -Path $jLink -Target (Join-Path $base 'artifacts') | Out-Null
+    $jTarget = @((Get-Item -LiteralPath $jLink).Target) -join ';'
+    [IO.File]::WriteAllText((Join-Path $signal 'jreader-open'), 'go')
+    while (-not $procJ.HasExited -and -not (Test-Path -LiteralPath (Join-Path $signal 'jreader-opened')) -and (Get-Date) -lt $deadlineJ) { Start-Sleep -Milliseconds 200 }
+    $jOpened = if (Test-Path -LiteralPath (Join-Path $signal 'jreader-opened')) { [IO.File]::ReadAllText((Join-Path $signal 'jreader-opened')) } else { '' }
     [IO.File]::WriteAllText((Join-Path $signal 'receipt-go'), 'go')
     $procP.WaitForExit()
+    [IO.File]::WriteAllText((Join-Path $signal 'jreader-go'), 'go')
+    $procJ.WaitForExit()
+    $textJ = (Get-Content -LiteralPath $logJ -Raw) + "`n" + (Get-Content -LiteralPath ($logJ + '.err') -Raw)
     [IO.File]::WriteAllText((Join-Path $signal 'reader-go'), 'go')
     $procR.WaitForExit()
     $textR = (Get-Content -LiteralPath $logR -Raw) + "`n" + (Get-Content -LiteralPath ($logR + '.err') -Raw)
-    Remove-Item -LiteralPath $pausing, $pausingReader
+    Remove-Item -LiteralPath $pausing, $pausingReader, $jReader
+    [IO.Directory]::Delete($jLink, $false)
+    Remove-Item -LiteralPath $jExternal -Recurse -Force
     $textP = (Get-Content -LiteralPath $logP -Raw) + "`n" + (Get-Content -LiteralPath ($logP + '.err') -Raw)
     $dirtyPairAfter = if ((Test-Path -LiteralPath $dirtyZipR5) -and (Test-Path -LiteralPath ($dirtyZipR5 + '.build.json'))) { (Get-Sha256 $dirtyZipR5) + '/' + (Get-Sha256 ($dirtyZipR5 + '.build.json')) } else { 'missing' }
     $afterDefault = Invoke-Script (". $(Quote $kwrPackage); `$v = New-KwrValidatedPackageCopy $(Quote $dirtyZipR5); 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v")
@@ -1191,6 +1266,10 @@ try { Invoke-Launch } catch { 'LAUNCH ' + `$_.Exception.Message }
     Add-Case 'link-to-the-previous-zip-qualifies-once-rollback-restores-the-pair' ($afterPrevious.ExitCode -eq 0 -and $afterPrevious.Output -match 'MODE diagnostic' -and $afterPrevious.Output -match ('SOURCE ' + [regex]::Escape($dirtyZipR5)) -and $dirtyPairAfter -ceq $dirtyPairBefore) ([regex]::Match($afterPrevious.Output, 'MODE .*').Value + "; restored pair equals the previous: $($dirtyPairAfter -ceq $dirtyPairBefore)")
     Add-Case 'reader-waiting-before-the-lock-does-not-obstruct-rollback-and-is-then-refused' ($readerClassified -and $procP.ExitCode -ne 0 -and $textP -match 'injected receipt placement failure' -and $textP -notmatch 'rollback failed' -and $dirtyPairAfter -ceq $dirtyPairBefore -and
         $procR.ExitCode -ne 0 -and ($textR -replace '\s+', ' ') -match 'replaced or relinked while it was being read' -and $textR -notmatch 'MODE ') ("reader classified the placed ZIP and waited before the lock: $readerClassified; publisher exit $($procP.ExitCode) (rollback completed: $($textP -notmatch 'rollback failed')); previous ZIP and receipt restored at their final names: $($dirtyPairAfter -ceq $dirtyPairBefore); reader: " + (Get-Reason $textR))
+    $jExternalName = [regex]::Escape((Join-Path $jExternal (Split-Path -Leaf $dirtyZipR5)))
+    Add-Case 'reader-through-a-junction-redirected-after-external-classification-does-not-obstruct-rollback-and-is-refused' ($jClassified -match ('^final= names=' + $jExternalName + '$') -and $jOpened -match ('^held=' + [regex]::Escape($dirtyZipR5) + '$') -and
+        $procP.ExitCode -ne 0 -and $textP -match 'injected receipt placement failure' -and $textP -notmatch 'rollback failed' -and $dirtyPairAfter -ceq $dirtyPairBefore -and
+        $procJ.ExitCode -ne 0 -and ($textJ -replace '\s+', ' ') -match 'replaced or relinked while it was being read|private staging or backup area' -and $textJ -notmatch 'MODE ') ("classified through the junction before the redirect: [$jClassified]; junction then redirected to $jTarget; handle held during the rollback: [$jOpened]; publisher exit $($procP.ExitCode) (" + (Get-Reason $textP) + "; rollback completed: $($textP -notmatch 'rollback failed')); previous ZIP and receipt restored at their final names: $($dirtyPairAfter -ceq $dirtyPairBefore); reader: " + (Get-Reason $textJ))
     Add-Case 'installer-read-through-a-hard-link-with-a-matching-alias-receipt-while-the-canonical-lock-is-held-declined' ($aliasReceiptMatches -and $duringPauseLinkReceipt.ExitCode -ne 0 -and ($duringPauseLinkReceipt.Output -replace '\s+', ' ') -match 'A build is publishing' -and $duringPauseLinkReceipt.Output -notmatch 'MODE ') ("alias receipt beside the link matches the linked ZIP: $aliasReceiptMatches; -Diagnostic during the pause: " + (Get-Reason $duringPauseLinkReceipt.Output))
     Add-Case 'installer-read-through-a-hard-link-with-a-matching-alias-receipt-after-release-without-the-canonical-receipt-declined' ($aliasReceiptMatches2 -and $receiptlessLinkReceipt.ExitCode -ne 0 -and ($receiptlessLinkReceipt.Output -replace '\s+', ' ') -match 'A build-owned package has no build receipt' -and $receiptlessLinkReceipt.Output -notmatch 'MODE ' -and
         $canonicalLinkReceipt.ExitCode -eq 0 -and $canonicalLinkReceipt.Output -match 'MODE diagnostic' -and $canonicalLinkReceipt.Output -match ('SOURCE ' + [regex]::Escape($dirtyZipR5))) ("alias receipt matches the linked ZIP: $aliasReceiptMatches2; canonical receipt absent: " + (Get-Reason $receiptlessLinkReceipt.Output) + "; canonical receipt restored: " + [regex]::Match($canonicalLinkReceipt.Output, 'MODE \S+ SOURCE .*').Value)
@@ -1260,56 +1339,70 @@ try { Invoke-Launch } catch { 'LAUNCH ' + `$_.Exception.Message }
     Expect-Rejected 'provenance-ignored-source-control-still-rejected-beside-non-ascii-source' (& $prov) 'Compiler sources are not tracked by Git \(src/KingmakerWakingRune/Blueprints/obj/LocalOnly\.cs\)'
     Remove-Item -LiteralPath (Split-Path -Parent $controlSource) -Recurse -Force
 
-    # R8-F1 (round 9): a tracked repository-root source selected through the local props with different letter casing
-    # (caseroot.cs for the tracked CaseRoot.cs). Two commits: one with other content in that source, then the producer.
-    # The genuine pair qualifies, the producing-commit comparison includes Git's spelling of the source, and receipts
-    # naming the commit before the source existed or the commit with other content in it are refused.
+    # R8-F1 (round 9), R9-F4, R10-F2 and R10-F3 (round 11): one producer commit holds the tracked repository-root sources
+    # CaseRoot.cs (selected through the local props as caseroot.cs) and Rules=Root.cs, and the tracked root response file
+    # Rules=Base.rsp (selected as the CompilerResponseFile; a comment only, so the compiler options are unchanged). The genuine
+    # pair qualifies. Every negative producer is a variant of that producer commit that changes exactly its named path
+    # (deletion explicit), so the casing controls never involve the equals-sign files; the variant's Git change (path,
+    # change type and tree membership) is checked before its validator result is counted.
+    # The round-10 rows of this section built their missing variant with a null Content that Windows PowerShell turned into
+    # an empty file, and took the two casing comparison commits before Rules=Root.cs was added, so those rows did not
+    # establish a deletion or a one-path casing difference; their recorded results are kept as they were.
     $caseSource = Join-Path $base 'CaseRoot.cs'
-    $caseBefore = (& git -C $base rev-parse HEAD).Trim()
-    [IO.File]::WriteAllText($caseSource, "namespace KingmakerWakingRune.LocalOnly { internal static class CaseRootMarker { internal const int Value = 11; } }`r`n")
-    & git -C $base add -- 'CaseRoot.cs'
-    & git -C $base -c user.name=loader-baseline -c user.email=loader-baseline@invalid commit -q -m 'test: tracked root source with other content'
-    $caseOther = (& git -C $base rev-parse HEAD).Trim()
     [IO.File]::WriteAllText($caseSource, "namespace KingmakerWakingRune.LocalOnly { internal static class CaseRootMarker { internal const int Value = 12; } }`r`n")
-    # R9-F4 (round 10): a tracked root source whose file name has a literal equals sign, selected in the same props import.
     $equalsSource = Join-Path $base 'Rules=Root.cs'
     [IO.File]::WriteAllText($equalsSource, "namespace KingmakerWakingRune.LocalOnly { internal static class EqualsRootMarker { internal const int Value = 13; } }`r`n")
-    & git -C $base add -- 'CaseRoot.cs' 'Rules=Root.cs'
-    & git -C $base -c user.name=loader-baseline -c user.email=loader-baseline@invalid commit -q -m 'test: tracked root source'
+    $equalsRsp = Join-Path $base 'Rules=Base.rsp'
+    [IO.File]::WriteAllText($equalsRsp, "# loader-baseline tracked response file with an equals sign in its name`r`n")
+    & git -C $base add -- 'CaseRoot.cs' 'Rules=Root.cs' 'Rules=Base.rsp'
+    & git -C $base -c user.name=loader-baseline -c user.email=loader-baseline@invalid commit -q -m 'test: tracked root sources and response file'
     $caseProducer = (& git -C $base rev-parse HEAD).Trim()
     $casePropsBefore = [IO.File]::ReadAllText($localPropsPath)
-    [IO.File]::WriteAllText($localPropsPath, $casePropsBefore.Replace('</Project>', "  <ItemGroup><Compile Include=`"`$(MSBuildThisFileDirectory)caseroot.cs`" /><Compile Include=`"`$(MSBuildThisFileDirectory)Rules=Root.cs`" /></ItemGroup>`r`n</Project>"))
+    [IO.File]::WriteAllText($localPropsPath, $casePropsBefore.Replace('</Project>', "  <ItemGroup><Compile Include=`"`$(MSBuildThisFileDirectory)caseroot.cs`" /><Compile Include=`"`$(MSBuildThisFileDirectory)Rules=Root.cs`" /></ItemGroup>`r`n  <PropertyGroup><CompilerResponseFile>`$(MSBuildThisFileDirectory)Rules=Base.rsp</CompilerResponseFile></PropertyGroup>`r`n</Project>"))
     $caseBuild = Invoke-Isolated @('-File', (Join-Path $base 'scripts\Build.ps1'), '-SkipTests', '-ReplacePackage')
     $caseReceipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
-    $caseEntry = @($caseReceipt.compilerInputs | Where-Object { [string]$_.kind -ceq 'compile' -and ([string]$_.name -ieq 'CaseRoot.cs') } | ForEach-Object { [string]$_.name }) -join ','
-    $caseMaterial = Invoke-Script (". $(Quote (Join-Path $base 'scripts\KwrBuild.Common.ps1')); `$r = Get-Content -LiteralPath $(Quote $receiptPath) -Raw | ConvertFrom-Json; 'MATERIAL ' + ((Get-KwrInventoryRepositoryPaths `$r.compilerInputs | Where-Object { `$_ -ieq 'CaseRoot.cs' }) -join ',')")
+    $caseEntry = @($caseReceipt.compilerInputs | Where-Object { ([string]$_.kind -ceq 'compile' -and [string]$_.name -ieq 'CaseRoot.cs') -or ([string]$_.kind -ceq 'response-file' -and [string]$_.name -like '@Rules*') } | ForEach-Object { [string]$_.kind + ':' + [string]$_.name }) -join ','
+    $caseMaterial = Invoke-Script (". $(Quote (Join-Path $base 'scripts\KwrBuild.Common.ps1')); `$r = Get-Content -LiteralPath $(Quote $receiptPath) -Raw | ConvertFrom-Json; 'MATERIAL ' + ((Get-KwrInventoryRepositoryPaths `$r.compilerInputs | Where-Object { `$_ -ieq 'CaseRoot.cs' -or `$_ -like 'Rules*' } | Sort-Object) -join ',')")
     $caseGenuine = & $prov
-    Add-Case 'tracked-root-source-selected-with-other-casing-genuine-pair-qualifies' ($caseBuild.ExitCode -eq 0 -and [string]$caseReceipt.commit -ceq $caseProducer -and $caseMaterial.Output -match 'MATERIAL CaseRoot\.cs' -and $caseGenuine.ExitCode -eq 0 -and $caseGenuine.Output -match 'source provenance: verified-current') ("selected as caseroot.cs; build exit $($caseBuild.ExitCode); receipt commit $($caseReceipt.commit) (producer $caseProducer); inventory names [$caseEntry]; producing-commit comparison path: " + [regex]::Match($caseMaterial.Output, 'MATERIAL \S*').Value + '; ' + [regex]::Match(($caseGenuine.Output -replace '\s+', ' '), 'source provenance: \S+').Value)
-    foreach ($variant in @(@('missing', $caseBefore), @('differing', $caseOther))) {
-        $variantReceipt = Join-Path $inputs ("case-receipt-$($variant[0]).json")
-        Copy-Item -LiteralPath $receiptPath -Destination $variantReceipt -Force
-        Edit-Json $variantReceipt { param($j) $j.commit = $variant[1] }
-        $variantResult = Invoke-Isolated @('-File', $validator, '-PackagePath', $candidateZip, '-ReceiptPath', $variantReceipt, '-RequireCurrentProvenance')
-        $variantHas = @(& git -C $base ls-tree --name-only $variant[1] -- 'CaseRoot.cs').Count -eq 1
-        Add-Case ("receipt-naming-a-producer-$($variant[0])-in-the-other-casing-source-refused") ($variantResult.ExitCode -ne 0 -and ($variantResult.Output -replace '\s+', ' ') -match "material inputs differ from the receipt's commit") ("receipt commit $($variant[1]) (has CaseRoot.cs: $variantHas); " + (Get-Reason $variantResult.Output))
-    }
-    # R9-F4 and R9-F5 (round 10): receipts naming commits that differ from the producer only in Rules=Root.cs (missing, or
-    # other content) or only in the identity helper the compiler inventory requires are refused; the genuine pair above
-    # qualifies.
-    $equalsMaterial = Invoke-Script (". $(Quote (Join-Path $base 'scripts\KwrBuild.Common.ps1')); `$r = Get-Content -LiteralPath $(Quote $receiptPath) -Raw | ConvertFrom-Json; 'MATERIAL ' + ((Get-KwrInventoryRepositoryPaths `$r.compilerInputs | Where-Object { `$_ -like 'Rules*' }) -join ',')")
+    Add-Case 'tracked-root-source-selected-with-other-casing-genuine-pair-qualifies' ($caseBuild.ExitCode -eq 0 -and [string]$caseReceipt.commit -ceq $caseProducer -and $caseMaterial.Output -match 'MATERIAL CaseRoot\.cs,Rules=Base\.rsp,Rules=Root\.cs' -and $caseGenuine.ExitCode -eq 0 -and $caseGenuine.Output -match 'source provenance: verified-current') ("selected as caseroot.cs, Rules=Root.cs and response file Rules=Base.rsp; build exit $($caseBuild.ExitCode); receipt commit $($caseReceipt.commit) (producer $caseProducer); inventory entries [$caseEntry]; producing-commit comparison paths: " + [regex]::Match($caseMaterial.Output, 'MATERIAL \S*').Value + '; ' + [regex]::Match(($caseGenuine.Output -replace '\s+', ' '), 'source provenance: \S+').Value)
     $helperText = [IO.File]::ReadAllText((Join-Path $base 'scripts\KwrFileIdentity.ps1'))
     $variants = @(
-        @('equals-source-missing', (New-VariantCommit $base 'Rules=Root.cs' $null 'test: producer without Rules=Root.cs')),
-        @('equals-source-differing', (New-VariantCommit $base 'Rules=Root.cs' 'namespace KingmakerWakingRune.LocalOnly { internal static class EqualsRootMarker { internal const int Value = 14; } }' 'test: producer with other Rules=Root.cs')),
-        @('identity-helper-differing', (New-VariantCommit $base 'scripts/KwrFileIdentity.ps1' ($helperText + "`n# variant producer`n") 'test: producer with another identity helper')))
+        [pscustomobject]@{ Name = 'missing-in-the-other-casing-source'; Path = 'CaseRoot.cs'; Change = 'D'; Commit = (New-VariantCommit -Repo $base -Base $caseProducer -Path 'CaseRoot.cs' -Delete -Message 'test: producer without CaseRoot.cs') },
+        [pscustomobject]@{ Name = 'differing-in-the-other-casing-source'; Path = 'CaseRoot.cs'; Change = 'M'; Commit = (New-VariantCommit -Repo $base -Base $caseProducer -Path 'CaseRoot.cs' -Content 'namespace KingmakerWakingRune.LocalOnly { internal static class CaseRootMarker { internal const int Value = 11; } }' -Message 'test: producer with other CaseRoot.cs') },
+        [pscustomobject]@{ Name = 'equals-source-missing'; Path = 'Rules=Root.cs'; Change = 'D'; Commit = (New-VariantCommit -Repo $base -Base $caseProducer -Path 'Rules=Root.cs' -Delete -Message 'test: producer without Rules=Root.cs') },
+        [pscustomobject]@{ Name = 'equals-source-differing'; Path = 'Rules=Root.cs'; Change = 'M'; Commit = (New-VariantCommit -Repo $base -Base $caseProducer -Path 'Rules=Root.cs' -Content 'namespace KingmakerWakingRune.LocalOnly { internal static class EqualsRootMarker { internal const int Value = 14; } }' -Message 'test: producer with other Rules=Root.cs') },
+        [pscustomobject]@{ Name = 'equals-response-file-differing'; Path = 'Rules=Base.rsp'; Change = 'M'; Commit = (New-VariantCommit -Repo $base -Base $caseProducer -Path 'Rules=Base.rsp' -Content '# another tracked response file' -Message 'test: producer with other Rules=Base.rsp') },
+        [pscustomobject]@{ Name = 'identity-helper-differing'; Path = 'scripts/KwrFileIdentity.ps1'; Change = 'M'; Commit = (New-VariantCommit -Repo $base -Base $caseProducer -Path 'scripts/KwrFileIdentity.ps1' -Content ($helperText + "`n# variant producer`n") -Message 'test: producer with another identity helper') })
     foreach ($variant in $variants) {
-        $variantReceipt = Join-Path $inputs ("case-receipt-$($variant[0]).json")
+        $change = Get-VariantChange $base $caseProducer $variant.Commit $variant.Path
+        $established = $change.Status -ceq ($variant.Change + ' ' + $variant.Path) -and $change.InTree -eq ($variant.Change -cne 'D')
+        $variantReceipt = Join-Path $inputs ("case-receipt-$($variant.Name).json")
         Copy-Item -LiteralPath $receiptPath -Destination $variantReceipt -Force
-        Edit-Json $variantReceipt { param($j) $j.commit = $variant[1] }
+        Edit-Json $variantReceipt { param($j) $j.commit = $variant.Commit }
         $variantResult = Invoke-Isolated @('-File', $validator, '-PackagePath', $candidateZip, '-ReceiptPath', $variantReceipt, '-RequireCurrentProvenance')
-        $changed = (@(& git -C $base diff --name-only $variant[1] HEAD) -join ',')
-        Add-Case ("receipt-naming-a-producer-$($variant[0])-refused") ($equalsMaterial.Output -match 'MATERIAL Rules=Root\.cs' -and $changed -ne '' -and $variantResult.ExitCode -ne 0 -and ($variantResult.Output -replace '\s+', ' ') -match "material inputs differ from the receipt's commit") ("receipt commit $($variant[1]) differs from the producer only in [$changed]; producing-commit comparison path " + [regex]::Match($equalsMaterial.Output, 'MATERIAL \S*').Value + '; ' + (Get-Reason $variantResult.Output))
+        Add-Case ("receipt-naming-a-producer-$($variant.Name)-refused") ($established -and $variantResult.ExitCode -ne 0 -and ($variantResult.Output -replace '\s+', ' ') -match "material inputs differ from the receipt's commit") ("receipt commit $($variant.Commit); Git change from the producer: [$($change.Status)] (expected [$($variant.Change) $($variant.Path)]); $($variant.Path) in the variant tree: $($change.InTree); change established: $established; " + (Get-Reason $variantResult.Output))
     }
+    # R10-F2 (round 11): the genuine receipt edited so that the tracked root source CaseRoot.cs is recorded as external (its
+    # repositoryPath null; name and digest unchanged), naming the producer variant that differs only in that source. The
+    # live inventory still classifies it as a repository source, and the receipt's own inventory no longer names it.
+    $classVariant = @($variants | Where-Object { $_.Name -ceq 'differing-in-the-other-casing-source' })[0]
+    $classReceipt = Join-Path $inputs 'case-receipt-source-classified-external.json'
+    Copy-Item -LiteralPath $receiptPath -Destination $classReceipt -Force
+    Edit-Json $classReceipt { param($j) $j.commit = $classVariant.Commit; foreach ($e in @($j.compilerInputs | Where-Object { [string]$_.kind -ceq 'compile' -and [string]$_.name -ieq 'CaseRoot.cs' })) { $e.repositoryPath = $null } }
+    $classViews = Invoke-Script (". $(Quote (Join-Path $base 'scripts\KwrBuild.Common.ps1')); `$r = Get-Content -LiteralPath $(Quote $classReceipt) -Raw | ConvertFrom-Json; 'RECEIPT ' + ((@(`$r.compilerInputs | Where-Object { [string]`$_.name -ieq 'CaseRoot.cs' } | ForEach-Object { 'repositoryPath=' + [string]`$_.repositoryPath })) -join ',') + ' paths=' + ((Get-KwrInventoryRepositoryPaths `$r.compilerInputs | Where-Object { `$_ -ieq 'CaseRoot.cs' }) -join ','); 'LIVE ' + ((@(Get-KwrCompilerInputs | Where-Object { [string]`$_.kind -ceq 'compile' -and [string]`$_.name -ieq 'CaseRoot.cs' } | ForEach-Object { 'repositoryPath=' + [string]`$_.repositoryPath })) -join ',')")
+    $classChange = Get-VariantChange $base $caseProducer $classVariant.Commit 'CaseRoot.cs'
+    $classEstablished = $classViews.Output -match '(?m)^RECEIPT repositoryPath= paths=\s*$' -and $classViews.Output -match '(?m)^LIVE repositoryPath=CaseRoot\.cs\s*$' -and $classChange.Status -ceq 'M CaseRoot.cs' -and $classChange.InTree
+    $classResult = Invoke-Isolated @('-File', $validator, '-PackagePath', $candidateZip, '-ReceiptPath', $classReceipt, '-RequireCurrentProvenance')
+    Add-Case 'receipt-recording-a-tracked-root-source-as-external-with-a-producer-differing-only-in-it-refused' ($classEstablished -and $classResult.ExitCode -ne 0 -and ($classResult.Output -replace '\s+', ' ') -match "material inputs differ from the receipt's commit" -and $caseGenuine.ExitCode -eq 0) ("receipt view: " + [regex]::Match($classViews.Output, 'RECEIPT [^\r\n]*').Value + "; live view: " + [regex]::Match($classViews.Output, 'LIVE [^\r\n]*').Value + "; Git change from the producer: [$($classChange.Status)]; established: $classEstablished; " + (Get-Reason $classResult.Output) + "; genuine pair: " + [regex]::Match(($caseGenuine.Output -replace '\s+', ' '), 'source provenance: \S+').Value)
+    # R9-F4 (round 11): the decoding boundary per inventory kind on tracked names with an equals sign. A file-valued option
+    # and a response file keep the whole literal name (Rules=Base.rsp, Rules=Root.cs); a resource keeps it up to the
+    # logical-name comma; only a reference loses its alias (Rules=Base.rsp read as alias Rules for Base.rsp, which Git does
+    # not track).
+    $decodeProbe = ". $(Quote (Join-Path $base 'scripts\KwrBuild.Common.ps1')); foreach (`$e in @(@('file-option', '/additionalfile:Rules=Base.rsp'), @('file-option', '/resource:Rules=Base.rsp,Logical=Name'), @('file-option', '/win32res:Rules=Root.cs'), @('response-file', '@Rules=Base.rsp'), @('reference', 'Rules=Base.rsp'))) { 'DECODE ' + `$e[0] + ' ' + `$e[1] + ' -> [' + ((Get-KwrInventoryRepositoryPaths @([ordered]@{ kind = `$e[0]; name = `$e[1]; sha256 = 'x' })) -join ',') + ']' }"
+    $decoded = Invoke-Script $decodeProbe
+    $decodeLines = @($decoded.Output -split "`n" | Where-Object { $_ -match '^DECODE ' } | ForEach-Object { $_.Trim() })
+    $decodeExpected = @('DECODE file-option /additionalfile:Rules=Base.rsp -> [Rules=Base.rsp]', 'DECODE file-option /resource:Rules=Base.rsp,Logical=Name -> [Rules=Base.rsp]', 'DECODE file-option /win32res:Rules=Root.cs -> [Rules=Root.cs]', 'DECODE response-file @Rules=Base.rsp -> [Rules=Base.rsp]', 'DECODE reference Rules=Base.rsp -> []')
+    Add-Case 'inventory-decoding-keeps-literal-equals-signs-outside-reference-aliases' ($decoded.ExitCode -eq 0 -and ($decodeLines -join '|') -ceq ($decodeExpected -join '|')) ($decodeLines -join '; ')
     [IO.File]::WriteAllText($localPropsPath, $casePropsBefore)
 
     $failed = @($cases | Where-Object { -not $_.passed })

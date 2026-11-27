@@ -14,10 +14,16 @@
 # hard-link count and physical path. LinkNamesOf lists every hard-link name of a file (FindFirstFileNameW).
 # ReadAllBound reads a file's bytes through one handle and returns, from that same handle, its identity, physical path and
 # (when asked) every hard-link name, so names protected for a report belong to the bytes read; a file with one link needs
-# no enumeration (its physical path is its only name).
+# no enumeration (its physical path is its only name). With the names it also returns the identities of the conventional
+# receipts (<name>.build.json) that exist beside them, taken before any byte is copied (R10-F1), so a receipt that moves
+# afterwards keeps its protected identity.
+# OpenReadShared opens a file that is not yet known to be build-owned: read access sharing read and delete, so the bytes
+# cannot change while it is open but a publisher can still rename or delete the file during placement or rollback (R9-F2).
+# WriteChecked also takes the identity the report destination had when validation started ('absent' when it did not
+# exist): a destination that was created or replaced since then is refused (R10-F1).
 # The type carries a new version name whenever its members change, so a session that loaded an earlier draft still gets
 # these members.
-if (-not ('KwrFileIdentityV6' -as [type])) {
+if (-not ('KwrFileIdentityV7' -as [type])) {
     Add-Type -TypeDefinition @'
 using System;
 using System.Collections.Generic;
@@ -25,12 +31,12 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
-public sealed class KwrHandleInfoV6 {
+public sealed class KwrHandleInfoV7 {
     public string Id;
     public uint LinkCount;
     public string FinalPath;
 }
-public static class KwrFileIdentityV6 {
+public static class KwrFileIdentityV7 {
     [StructLayout(LayoutKind.Sequential)]
     struct ByHandleFileInformation {
         public uint FileAttributes;
@@ -90,9 +96,12 @@ public static class KwrFileIdentityV6 {
     public static FileStream OpenRead(string path) {
         return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
     }
-    public static KwrHandleInfoV6 InfoOf(FileStream f) {
+    public static FileStream OpenReadShared(string path) {
+        return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+    }
+    public static KwrHandleInfoV7 InfoOf(FileStream f) {
         var i = InformationOf(f.SafeFileHandle);
-        return new KwrHandleInfoV6 {
+        return new KwrHandleInfoV7 {
             Id = i.VolumeSerialNumber.ToString("x8") + ":" + i.FileIndexHigh.ToString("x8") + i.FileIndexLow.ToString("x8"),
             LinkCount = i.NumberOfLinks,
             FinalPath = FinalOf(f.SafeFileHandle)
@@ -120,12 +129,13 @@ public static class KwrFileIdentityV6 {
         finally { FindClose(find); }
         return names.ToArray();
     }
-    public static byte[] ReadAllBound(string path, bool withNames, out string id, out string finalPath, out string[] names) {
+    public static byte[] ReadAllBound(string path, bool withNames, out string id, out string finalPath, out string[] names, out string[] receiptIds) {
         using (var f = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read)) {
             var i = InformationOf(f.SafeFileHandle);
             id = i.VolumeSerialNumber.ToString("x8") + ":" + i.FileIndexHigh.ToString("x8") + i.FileIndexLow.ToString("x8");
             finalPath = FinalOf(f.SafeFileHandle);
             names = null;
+            receiptIds = new string[0];
             if (withNames) {
                 if (i.NumberOfLinks <= 1) names = new[] { finalPath };
                 else {
@@ -133,6 +143,20 @@ public static class KwrFileIdentityV6 {
                     catch (IOException e) { throw new IOException("The hard-link names of " + path + " cannot be established (" + e.Message + "); no report is written for it.", e); }
                     if (names.Length != i.NumberOfLinks) throw new IOException("The hard-link names of " + path + " changed while it was read; no report is written for it.");
                 }
+                // The receipts beside the names, identified now (before the bytes are copied).
+                var found = new List<string>();
+                var seen = new List<string>(names);
+                if (!seen.Contains(finalPath)) seen.Add(finalPath);
+                foreach (var name in seen) {
+                    string receipt = name + ".build.json";
+                    if (!File.Exists(receipt)) continue;
+                    try { found.Add(Of(receipt)); }
+                    catch (FileNotFoundException) { }
+                    catch (DirectoryNotFoundException) { }
+                    catch (IOException e) { throw new IOException("The receipt " + receipt + " of " + path + " cannot be identified (" + e.Message + "); no report is written for it.", e); }
+                    catch (UnauthorizedAccessException e) { throw new IOException("The receipt " + receipt + " of " + path + " cannot be identified (" + e.Message + "); no report is written for it.", e); }
+                }
+                receiptIds = found.ToArray();
             }
             var copy = new MemoryStream();
             f.CopyTo(copy);
@@ -147,10 +171,20 @@ public static class KwrFileIdentityV6 {
             return copy.ToArray();
         }
     }
-    public static string WriteChecked(string path, string[] protectedIds, byte[] content) {
-        using (var f = new FileStream(path, FileMode.OpenOrCreate, FileAccess.Write, FileShare.Read)) {
+    public static string WriteChecked(string path, string[] protectedIds, string expectedId, byte[] content) {
+        FileStream f;
+        try { f = new FileStream(path, string.Equals(expectedId, "absent", StringComparison.Ordinal) ? FileMode.CreateNew : FileMode.Open, FileAccess.Write, FileShare.Read); }
+        catch (IOException) {
+            // CreateNew found a file, or Open found none: the destination is not the one present when validation started.
+            string now = null;
+            try { if (File.Exists(path)) now = Of(path); } catch (IOException) { }
+            if (now != null) foreach (var p in protectedIds) if (p != null && string.Equals(p, now, StringComparison.Ordinal)) throw new InvalidOperationException("The report path must not be an input of the validation (file identity " + now + ").");
+            throw new InvalidOperationException("The report destination changed during validation (" + path + " was " + expectedId + " when validation started); no report is written.");
+        }
+        using (f) {
             string id = IdOf(f.SafeFileHandle);
             foreach (var p in protectedIds) if (p != null && string.Equals(p, id, StringComparison.Ordinal)) throw new InvalidOperationException("The report path must not be an input of the validation (file identity " + id + ").");
+            if (!string.Equals(expectedId, "absent", StringComparison.Ordinal) && !string.Equals(expectedId, id, StringComparison.Ordinal)) throw new InvalidOperationException("The report destination changed during validation (" + path + " was " + expectedId + " when validation started, now " + id + "); no report is written.");
             f.SetLength(0);
             f.Write(content, 0, content.Length);
             return id;

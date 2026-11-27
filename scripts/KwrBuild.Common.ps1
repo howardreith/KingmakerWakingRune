@@ -77,7 +77,7 @@ function ConvertFrom-KwrCompilerInputList([string] $ListPath) {
             # the checkout, whose ownership a path cannot establish: it is refused rather than exempted.
             $full = Resolve-InputPath $arg
             $repositoryPath = if ($full.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase) -and -not $full.StartsWith($objPrefix, [StringComparison]::OrdinalIgnoreCase)) { $full.Substring($rootPrefix.Length).Replace('\', '/') } else { $null }
-            if ($null -eq $repositoryPath -and -not $full.StartsWith($objPrefix, [StringComparison]::OrdinalIgnoreCase) -and [IO.File]::Exists($full) -and [KwrFileIdentityV6]::LinkCountOf($full) -gt 1) {
+            if ($null -eq $repositoryPath -and -not $full.StartsWith($objPrefix, [StringComparison]::OrdinalIgnoreCase) -and [IO.File]::Exists($full) -and [KwrFileIdentityV7]::LinkCountOf($full) -gt 1) {
                 throw "Compiler source $full is a hard link outside the repository; whether it is a repository file cannot be established, so it is refused. Use an independent copy or a tracked source."
             }
             [ordered]@{ kind = 'compile'; name = Get-InputName $arg; sha256 = Get-InputDigest $arg; repositoryPath = $repositoryPath }; return
@@ -120,11 +120,22 @@ function Get-KwrInventoryRepositoryPaths($Inventory) {
             $source
             continue
         }
+        # Each entry is decoded according to its kind (R9-F4, round 11): only a reference loses a leading alias ('alias='),
+        # a response file only its '@', a file-valued option only its '/switch:' prefix and, for the resource switches
+        # alone, the ',logical name' suffix Csc reads there. A literal equals sign in a response-file or option file name
+        # (Rules=Base.rsp) is part of the name.
         $name = [string]$entry.name
-        if ($name.StartsWith('@')) { $name = $name.Substring(1) }
-        $name = $name -replace '^/[A-Za-z0-9_+-]+:', ''
-        $name = $name -replace '^[A-Za-z_][A-Za-z0-9_]*=', ''
-        if ([string]$entry.kind -ceq 'file-option') { $name = ($name -split ',', 2)[0] }
+        switch -CaseSensitive ([string]$entry.kind) {
+            'reference' { $name = $name -replace '^[A-Za-z_][A-Za-z0-9_]*=', '' }
+            'response-file' { if ($name.StartsWith('@')) { $name = $name.Substring(1) } }
+            'file-option' {
+                $option = [regex]::Match($name, '^/([A-Za-z0-9_+-]+):(.*)$')
+                if ($option.Success) {
+                    $name = $option.Groups[2].Value
+                    if (@('resource', 'res', 'linkresource', 'linkres') -ccontains $option.Groups[1].Value.ToLowerInvariant()) { $name = ($name -split ',', 2)[0] }
+                }
+            }
+        }
         if ($name -match '^(obj|generated|implicit):' -or [string]::IsNullOrWhiteSpace($name)) { continue }
         $name
     })
@@ -145,7 +156,7 @@ function Get-KwrInventoryRepositoryPaths($Inventory) {
 # resolved); a path that does not exist is returned in full form, unchanged.
 function Get-KwrPhysicalPath([string] $Path) {
     $full = [IO.Path]::GetFullPath($Path)
-    if ([IO.File]::Exists($full) -or [IO.Directory]::Exists($full)) { return [KwrFileIdentityV6]::FinalPathOf($full) }
+    if ([IO.File]::Exists($full) -or [IO.Directory]::Exists($full)) { return [KwrFileIdentityV7]::FinalPathOf($full) }
     return $full
 }
 

@@ -29,15 +29,19 @@ function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic
     # its canonical receipt is declined too. A file with other hard-link names and no build-owned name is declined as an
     # ambiguous linked input. An independent file (one name, outside the artifacts folder) is copied with the receipt
     # beside its physical path when present (the frozen-candidate path) or inspected by content only.
+    # A file classified as external is opened sharing read and delete (R9-F2, round 11): until the recheck below confirms
+    # that the handle holds the file classified, it may be any file the path now names (a directory junction redirected to
+    # the artifacts folder after classification, for example), so it must never stop a publisher from renaming that file
+    # during placement or rollback; a handle that now names a build-owned or publisher-private file is refused.
     $artifactsDirectory = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\artifacts'))
-    $artifactsId = if ([IO.Directory]::Exists($artifactsDirectory)) { [KwrFileIdentityV6]::DirectoryOf($artifactsDirectory) } else { $null }
+    $artifactsId = if ([IO.Directory]::Exists($artifactsDirectory)) { [KwrFileIdentityV7]::DirectoryOf($artifactsDirectory) } else { $null }
     $classOf = {
         param([string] $Name)
         if ($null -eq $artifactsId) { return 'external' }
         $directory = [IO.Path]::GetDirectoryName($Name)
         $depth = 0
         while ($directory) {
-            if ([IO.Directory]::Exists($directory) -and [KwrFileIdentityV6]::DirectoryOf($directory) -ceq $artifactsId) { if ($depth -eq 0) { return 'final' } else { return 'private' } }
+            if ([IO.Directory]::Exists($directory) -and [KwrFileIdentityV7]::DirectoryOf($directory) -ceq $artifactsId) { if ($depth -eq 0) { return 'final' } else { return 'private' } }
             $parent = [IO.Path]::GetDirectoryName($directory)
             if (-not $parent -or $parent -eq $directory) { break }
             $directory = $parent; $depth++
@@ -47,7 +51,7 @@ function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic
     $namesOf = {
         param([string] $FinalPath, [uint32] $Count)
         if ($Count -le 1) { return , @($FinalPath) }
-        $listed = @([KwrFileIdentityV6]::LinkNamesOf($FinalPath))
+        $listed = @([KwrFileIdentityV7]::LinkNamesOf($FinalPath))
         if ($listed.Count -ne [int]$Count) { throw "The package $requested reports $Count hard-link names but $($listed.Count) were listed; its ownership cannot be established, so it is not installed." }
         return , $listed
     }
@@ -67,20 +71,20 @@ function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic
         $report = Join-Path $private 'validation.json'
         $publishLock = $null
         $stream = $null
-        $classifiedId = [KwrFileIdentityV6]::Of($requested)
-        $classified = & $classify ([KwrFileIdentityV6]::FinalPathOf($requested)) ([KwrFileIdentityV6]::LinkCountOf($requested))
+        $classifiedId = [KwrFileIdentityV7]::Of($requested)
+        $classified = & $classify ([KwrFileIdentityV7]::FinalPathOf($requested)) ([KwrFileIdentityV7]::LinkCountOf($requested))
         try {
             $buildOwned = $null -ne $classified.Final
             if ($buildOwned) {
-                $source = [KwrFileIdentityV6]::LongPathOf($classified.Final)
+                $source = [KwrFileIdentityV7]::LongPathOf($classified.Final)
                 try { $publishLock = [IO.FileStream]::new(($source + '.publish.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None, 1, [IO.FileOptions]::DeleteOnClose) }
                 catch [IO.IOException] { throw "A build is publishing $source; try again after it finishes." }
                 # Under the lock: the canonical name is opened and must still be the file classified, with the same names.
                 if (-not [IO.File]::Exists($source)) { throw "The build-owned package $source was replaced while it was being read; it is not installed." }
-                $stream = [KwrFileIdentityV6]::OpenRead($source)
+                $stream = [KwrFileIdentityV7]::OpenRead($source)
             }
-            else { $stream = [KwrFileIdentityV6]::OpenRead($requested) }
-            $held = [KwrFileIdentityV6]::InfoOf($stream)
+            else { $stream = [KwrFileIdentityV7]::OpenReadShared($requested) }
+            $held = [KwrFileIdentityV7]::InfoOf($stream)
             $recheck = & $classify $held.FinalPath $held.LinkCount
             if ($held.Id -cne $classifiedId -or [string]$recheck.Final -cne [string]$classified.Final -or (@($recheck.Names | Sort-Object) -join '|') -ine (@($classified.Names | Sort-Object) -join '|')) {
                 throw "The package $requested was replaced or relinked while it was being read; it is not installed."
