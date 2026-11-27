@@ -1,6 +1,6 @@
 # UMM 0.31.1 baseline evidence
 
-Machine-generated outputs; the round-9 rows were added for code commit `eec7a901d1223598b5e6b147faa965dbb5a1f63f` (the other rows were exported 2026-11-24 16:43 UTC for candidate commit `3779b0ef0d450e52073000a99ffef7fd0ee7b6cd`). Each row names what produced that output (its
+Machine-generated outputs; the round-10 rows were added for code commit `6869e55d13dd7373a981fb127500964fd4f341c1`, the round-9 rows for code commit `eec7a901d1223598b5e6b147faa965dbb5a1f63f` (the other rows were exported 2026-11-24 16:43 UTC for candidate commit `3779b0ef0d450e52073000a99ffef7fd0ee7b6cd`). Each row names what produced that output (its
 source commit, or the reused input it describes); outputs produced at another commit are identified there.
 Only local path prefixes were replaced: `<repo>` (this checkout or its temporary clone root), `<temp>`, `<game>`
 (the Kingmaker installation, read-only), `<buildtools>`, `<reference-assemblies>`, `<dotnet>`, `<controller>` (the agent-review controller), `<dev>` (the owner's development folder), `<steam>`, `<user-profile>`, `<fleet>` (the owner's fleet mission folder,
@@ -17,6 +17,9 @@ python -c "import hashlib,subprocess,sys; print(hashlib.sha256(subprocess.check_
 
 | File | Produced by | Raw SHA-256 | Exported SHA-256 (Git blob) |
 | --- | --- | --- | --- |
+| `focused-r10.json` | 6869e55 focused driver: the qualified production pair built once with Build.ps1 (tests included) in a retained producer clone and validated with current provenance before and after the disposable clone was removed; R9-F3, R9-F6, R5-F1 (private name), R9-F4 and R9-F5 checks in a disposable clone of 6869e55 | `51ac2a838d73496173cb4bb15e4e80ab38b8d83955149f0731532eace28877b0` | `ea0962d4ab3435cb4068d5d6a20a4baf1795f4f9b0d12e5a5cfa6d0fce523527` |
+| `focused-r10-driver.ps1.txt` | the round-10 focused driver itself (fleet tool, not a repository script) | `785beaa3d67d0de4b80c29856ecc695ec0c0d62c60ef53b07440f78fdcdf4c2e` | `785beaa3d67d0de4b80c29856ecc695ec0c0d62c60ef53b07440f78fdcdf4c2e` |
+| `retained-build-receipt-r10.json` | Build.ps1 receipt of the retained production pair (producer 6869e55), read at its retained location | `a79b0d2906e57712a14e5351c6f916d6e8319c5dd5969db0938c108b52a9d349` | `50c1a8c8c2c9a00f366ad2b5271b306eef7419b9c37ccfe9c5f0d1cae296c39e` |
 | `focused-r9.json` | eec7a90 focused driver: one disposable clone of eec7a90, the real Build.ps1, Validate-Package.ps1 and KwrPackage.ps1 in fresh Windows PowerShell processes (R1-F1 junction, R8-F2 linked report input, R5-F1 alias receipt, R8-F1 casing; the file symbolic-link case recorded as not run with the host's refusal) | `66f254a1c49e22b67a699a364ce56ef3d059776bbde8513b2ceb91f5139ca986` | `fe0911bf3995359392c1629e119b399091de4e641f2166baf283fb3c06908973` |
 | `focused-r9-driver.ps1.txt` | the round-9 focused driver itself (fleet tool, not a repository script) | `4da3a8888d1d988bd3ba16280e897166e4f56e095e2eead0ceb25b750e7469ed` | `4da3a8888d1d988bd3ba16280e897166e4f56e095e2eead0ceb25b750e7469ed` |
 | `identity-probe-r9.txt` | lightweight probe of the KwrFileIdentityV5 members (uncommitted batch, identical to eec7a90): physical path through letter case, a junction and a hard link; hard-link names; another hard-link name could be removed while a read handle without delete sharing was open | `44197e719e04251a3000cf7a9b8a8b78fd20721c0a870ec933375d05d6cb895f` | `4b264572ae93d86044cd428726e950336547d78830f16231e213b6a49c7bccb4` |

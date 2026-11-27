@@ -250,6 +250,24 @@ receipts naming the commit before the source existed or with other content in it
 be created on this host (Windows: administrator privilege required), so the symbolic-link variant of the report case was
 not executed; the boundary suite records it as not run. The earlier 149-of-149 boundary-suite result belongs to `79f1687`.
 
+Round 10 (`6869e55`; tooling only, the product sources unchanged). The install helper classifies a package from short-lived
+handles that share delete access and opens the ZIP only after the canonical publish lock is held, so a reader still
+classifying cannot stop a publisher's placement or rollback; under the lock the canonical name must still be the file
+classified, with the same hard-link names. A file named anywhere below the build-owned `artifacts` folder (the publisher's
+`.pending-*` staging and its `previous` backup) is declined, so a link kept across a replacement cannot select the
+backup's lock. The validator takes the protected names and receipts from the same handle that reads the snapshot
+(`ReadAllBound`), so an input link switched before the read cannot leave the read ZIP's receipt unprotected. A file with one
+link needs no hard-link enumeration (installer and validator). Compiler sources enter the producing-commit comparison by
+their complete literal repository path (`Rules=Root.cs` stays whole), and `scripts/KwrFileIdentity.ps1` (now
+`KwrFileIdentityV6`) is part of the build fingerprint and the producing-commit comparison. Focused checks
+(`docs/evidence/umm-0311/focused-r10.json`, 10 of 10) include the retained production pair: built once with `Build.ps1`
+(tests included) at `<dev>\KingmakerWakingRuneLab\worktrees\umm-0311-final-pair-6869e55\producer` (owner machine, not in
+Git), ZIP `3d7804a92645a08e59c89eddaf56739059d51ead490189fba1da9d37330c97f5`, receipt `retained-build-receipt-r10.json`,
+packaged DLL `7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904`, MVID
+`ccc59117-f992-44ce-9355-540d35f181f0` (the DLL of the existing four-loader audit, same SHA-256), validated with current
+provenance before and after the disposable clone was removed. The file symbolic-link report case remains not run on this
+host (Windows: administrator privilege required).
+
 ## Evidence for this change (2026-11-24, round 5)
 
 The build and validation tooling is at `3779b0e`; the product sources are unchanged, so the candidate DLL is
