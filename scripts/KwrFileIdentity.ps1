@@ -20,10 +20,13 @@
 # OpenReadShared opens a file that is not yet known to be build-owned: read access sharing read and delete, so the bytes
 # cannot change while it is open but a publisher can still rename or delete the file during placement or rollback (R9-F2).
 # WriteChecked also takes the identity the report destination had when validation started ('absent' when it did not
-# exist): a destination that was created or replaced since then is refused (R10-F1).
+# exist): a destination that was created or replaced since then is refused (R10-F1). When the destination cannot be opened
+# but is still the file observed at the start, the original I/O error is kept (R11-F4).
+# ReadAllBound and ReadAll share read and delete (R11-F1, round 12): the bytes cannot change while the handle is open, yet a
+# publisher can still rename a published ZIP or receipt during placement or rollback while a standalone validation reads it.
 # The type carries a new version name whenever its members change, so a session that loaded an earlier draft still gets
 # these members.
-if (-not ('KwrFileIdentityV7' -as [type])) {
+if (-not ('KwrFileIdentityV8' -as [type])) {
     Add-Type -TypeDefinition @'
 using System;
 using System.Collections.Generic;
@@ -31,12 +34,12 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
-public sealed class KwrHandleInfoV7 {
+public sealed class KwrHandleInfoV8 {
     public string Id;
     public uint LinkCount;
     public string FinalPath;
 }
-public static class KwrFileIdentityV7 {
+public static class KwrFileIdentityV8 {
     [StructLayout(LayoutKind.Sequential)]
     struct ByHandleFileInformation {
         public uint FileAttributes;
@@ -99,9 +102,9 @@ public static class KwrFileIdentityV7 {
     public static FileStream OpenReadShared(string path) {
         return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
     }
-    public static KwrHandleInfoV7 InfoOf(FileStream f) {
+    public static KwrHandleInfoV8 InfoOf(FileStream f) {
         var i = InformationOf(f.SafeFileHandle);
-        return new KwrHandleInfoV7 {
+        return new KwrHandleInfoV8 {
             Id = i.VolumeSerialNumber.ToString("x8") + ":" + i.FileIndexHigh.ToString("x8") + i.FileIndexLow.ToString("x8"),
             LinkCount = i.NumberOfLinks,
             FinalPath = FinalOf(f.SafeFileHandle)
@@ -130,7 +133,7 @@ public static class KwrFileIdentityV7 {
         return names.ToArray();
     }
     public static byte[] ReadAllBound(string path, bool withNames, out string id, out string finalPath, out string[] names, out string[] receiptIds) {
-        using (var f = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read)) {
+        using (var f = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete)) {
             var i = InformationOf(f.SafeFileHandle);
             id = i.VolumeSerialNumber.ToString("x8") + ":" + i.FileIndexHigh.ToString("x8") + i.FileIndexLow.ToString("x8");
             finalPath = FinalOf(f.SafeFileHandle);
@@ -164,7 +167,7 @@ public static class KwrFileIdentityV7 {
         }
     }
     public static byte[] ReadAll(string path, out string id) {
-        using (var f = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read)) {
+        using (var f = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete)) {
             id = IdOf(f.SafeFileHandle);
             var copy = new MemoryStream();
             f.CopyTo(copy);
@@ -175,10 +178,12 @@ public static class KwrFileIdentityV7 {
         FileStream f;
         try { f = new FileStream(path, string.Equals(expectedId, "absent", StringComparison.Ordinal) ? FileMode.CreateNew : FileMode.Open, FileAccess.Write, FileShare.Read); }
         catch (IOException) {
-            // CreateNew found a file, or Open found none: the destination is not the one present when validation started.
+            // CreateNew found a file, or Open found none (or could not open it): unless the destination is still the one
+            // observed when validation started, it changed.
             string now = null;
             try { if (File.Exists(path)) now = Of(path); } catch (IOException) { }
             if (now != null) foreach (var p in protectedIds) if (p != null && string.Equals(p, now, StringComparison.Ordinal)) throw new InvalidOperationException("The report path must not be an input of the validation (file identity " + now + ").");
+            if (now != null && string.Equals(now, expectedId, StringComparison.Ordinal)) throw;
             throw new InvalidOperationException("The report destination changed during validation (" + path + " was " + expectedId + " when validation started); no report is written.");
         }
         using (f) {

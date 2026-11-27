@@ -77,7 +77,7 @@ function ConvertFrom-KwrCompilerInputList([string] $ListPath) {
             # the checkout, whose ownership a path cannot establish: it is refused rather than exempted.
             $full = Resolve-InputPath $arg
             $repositoryPath = if ($full.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase) -and -not $full.StartsWith($objPrefix, [StringComparison]::OrdinalIgnoreCase)) { $full.Substring($rootPrefix.Length).Replace('\', '/') } else { $null }
-            if ($null -eq $repositoryPath -and -not $full.StartsWith($objPrefix, [StringComparison]::OrdinalIgnoreCase) -and [IO.File]::Exists($full) -and [KwrFileIdentityV7]::LinkCountOf($full) -gt 1) {
+            if ($null -eq $repositoryPath -and -not $full.StartsWith($objPrefix, [StringComparison]::OrdinalIgnoreCase) -and [IO.File]::Exists($full) -and [KwrFileIdentityV8]::LinkCountOf($full) -gt 1) {
                 throw "Compiler source $full is a hard link outside the repository; whether it is a repository file cannot be established, so it is refused. Use an independent copy or a tracked source."
             }
             [ordered]@{ kind = 'compile'; name = Get-InputName $arg; sha256 = Get-InputDigest $arg; repositoryPath = $repositoryPath }; return
@@ -89,7 +89,10 @@ function ConvertFrom-KwrCompilerInputList([string] $ListPath) {
         if ($outputSwitches -ccontains $switch) { [ordered]@{ kind = 'output'; name = "/$switch" + ':' + [IO.Path]::GetFileName($value.Trim('"')); sha256 = '' } }
         elseif ($switch -ceq 'reference' -or $switch -ceq 'r') {
             $alias, $path = if ($value -match '^[A-Za-z_][A-Za-z0-9_]*=') { $value -split '=', 2 } else { $null, $value }
-            [ordered]@{ kind = 'reference'; name = $(if ($alias) { "$alias=" } else { '' }) + (Get-InputName $path); sha256 = Get-InputDigest $path }
+            # referencePath: the referenced file's name without the alias, kept from the parsed argument (R9-F4, round 12), so
+            # the producing-commit comparison never infers an alias from a path such as Rules=Local/Helper.dll.
+            $referencePath = Get-InputName $path
+            [ordered]@{ kind = 'reference'; name = $(if ($alias) { "$alias=" } else { '' }) + $referencePath; sha256 = Get-InputDigest $path; referencePath = $referencePath }
         }
         elseif ($resourceSwitches -ccontains $switch) {
             $path, $rest = $value -split ',', 2
@@ -120,13 +123,19 @@ function Get-KwrInventoryRepositoryPaths($Inventory) {
             $source
             continue
         }
-        # Each entry is decoded according to its kind (R9-F4, round 11): only a reference loses a leading alias ('alias='),
+        # Each entry is decoded according to its kind (R9-F4, round 11): only a reference loses its alias (round 12: by using
+        # the path parsed from the compiler argument),
         # a response file only its '@', a file-valued option only its '/switch:' prefix and, for the resource switches
         # alone, the ',logical name' suffix Csc reads there. A literal equals sign in a response-file or option file name
         # (Rules=Base.rsp) is part of the name.
         $name = [string]$entry.name
         switch -CaseSensitive ([string]$entry.kind) {
-            'reference' { $name = $name -replace '^[A-Za-z_][A-Za-z0-9_]*=', '' }
+            'reference' {
+                # The parsed path when the inventory records it (every inventory evaluated now does); an older receipt's entry
+                # without it falls back to removing a leading alias (its paths are only ever added to the comparison).
+                $hasPath = if ($entry -is [Collections.IDictionary]) { $entry.Contains('referencePath') } else { $null -ne $entry.PSObject.Properties['referencePath'] }
+                if ($hasPath) { $name = [string]$entry.referencePath } else { $name = $name -replace '^[A-Za-z_][A-Za-z0-9_]*=', '' }
+            }
             'response-file' { if ($name.StartsWith('@')) { $name = $name.Substring(1) } }
             'file-option' {
                 $option = [regex]::Match($name, '^/([A-Za-z0-9_+-]+):(.*)$')
@@ -156,7 +165,7 @@ function Get-KwrInventoryRepositoryPaths($Inventory) {
 # resolved); a path that does not exist is returned in full form, unchanged.
 function Get-KwrPhysicalPath([string] $Path) {
     $full = [IO.Path]::GetFullPath($Path)
-    if ([IO.File]::Exists($full) -or [IO.Directory]::Exists($full)) { return [KwrFileIdentityV7]::FinalPathOf($full) }
+    if ([IO.File]::Exists($full) -or [IO.Directory]::Exists($full)) { return [KwrFileIdentityV8]::FinalPathOf($full) }
     return $full
 }
 
