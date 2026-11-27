@@ -1,6 +1,6 @@
 # UMM 0.31.1 baseline evidence
 
-Machine-generated outputs exported 2026-11-24 16:43 UTC for candidate commit `3779b0ef0d450e52073000a99ffef7fd0ee7b6cd`. Each row names what produced that output (its
+Machine-generated outputs; the round-9 rows were added for code commit `eec7a901d1223598b5e6b147faa965dbb5a1f63f` (the other rows were exported 2026-11-24 16:43 UTC for candidate commit `3779b0ef0d450e52073000a99ffef7fd0ee7b6cd`). Each row names what produced that output (its
 source commit, or the reused input it describes); outputs produced at another commit are identified there.
 Only local path prefixes were replaced: `<repo>` (this checkout or its temporary clone root), `<temp>`, `<game>`
 (the Kingmaker installation, read-only), `<buildtools>`, `<reference-assemblies>`, `<dotnet>`, `<controller>` (the agent-review controller), `<dev>` (the owner's development folder), `<steam>`, `<user-profile>`, `<fleet>` (the owner's fleet mission folder,
@@ -17,6 +17,10 @@ python -c "import hashlib,subprocess,sys; print(hashlib.sha256(subprocess.check_
 
 | File | Produced by | Raw SHA-256 | Exported SHA-256 (Git blob) |
 | --- | --- | --- | --- |
+| `focused-r9.json` | eec7a90 focused driver: one disposable clone of eec7a90, the real Build.ps1, Validate-Package.ps1 and KwrPackage.ps1 in fresh Windows PowerShell processes (R1-F1 junction, R8-F2 linked report input, R5-F1 alias receipt, R8-F1 casing; the file symbolic-link case recorded as not run with the host's refusal) | `66f254a1c49e22b67a699a364ce56ef3d059776bbde8513b2ceb91f5139ca986` | `fe0911bf3995359392c1629e119b399091de4e641f2166baf283fb3c06908973` |
+| `focused-r9-driver.ps1.txt` | the round-9 focused driver itself (fleet tool, not a repository script) | `4da3a8888d1d988bd3ba16280e897166e4f56e095e2eead0ceb25b750e7469ed` | `4da3a8888d1d988bd3ba16280e897166e4f56e095e2eead0ceb25b750e7469ed` |
+| `identity-probe-r9.txt` | lightweight probe of the KwrFileIdentityV5 members (uncommitted batch, identical to eec7a90): physical path through letter case, a junction and a hard link; hard-link names; another hard-link name could be removed while a read handle without delete sharing was open | `44197e719e04251a3000cf7a9b8a8b78fd20721c0a870ec933375d05d6cb895f` | `4b264572ae93d86044cd428726e950336547d78830f16231e213b6a49c7bccb4` |
+| `identity-probe-r9.ps1.txt` | the identity probe script (fleet tool) | `f55ff87b9eeaedb9bc95e10c5441eb302f6538233b80e4564f0a4e904b252f39` | `f55ff87b9eeaedb9bc95e10c5441eb302f6538233b80e4564f0a4e904b252f39` |
 | `pre-enrollment-check-project.json` | transcript summary of the pre-enrollment check (reused) | `5ae3ce0af8f9fe86cdcfd4d3929a5f7556575d1efbe0fa09273b2520b8b8c687` (original output, from its first export) | `3ebd153477e35fbdbfb6bcb76a51f9af726612b443c16f30cfa05a4f2b8ed9c4` |
 | `onboarding-check-project.json` | controller check-project at enrollment (reused) | `62de07c8b77eb26a1d127ac0e2b864237747fb8580eb8afedbe0ccb4277b119f` (original output, from its first export) | `41173a29b581cb70452e4c1ddee0f684b3d0bc022eccb72ed297e5913de3edb3` |
 | `onboarding-preflight.json` | controller preflight at enrollment (reused) | `866b925516364db6a5ca660090f7250b8c34a337b1c9d5e1a98fc8cb3d4a7d25` (original output, from its first export) | `48b7b83c7e2321bd53e392898e5e8cb40f360b943d04247929fbb45824c4b9e4` |

@@ -1,0 +1,140 @@
+param([Parameter(Mandatory = $true)][string]$Worktree, [Parameter(Mandatory = $true)][string]$Commit, [Parameter(Mandatory = $true)][string]$OutFile)
+# Focused round-9 checks for Waking Rune PR #12 before the gate: one disposable clone of the commit under test (warm pinned
+# reference cache copied from the worktree), the real Build.ps1, Validate-Package.ps1 and KwrPackage.ps1, each in a fresh
+# Windows PowerShell process. R1-F1 (ignored LocalRoot.cs through a directory junction back into the clone), R8-F2 (a
+# linked input whose target's receipt is the report path), R5-F1 (a hard link with a matching receipt beside it while the
+# canonical lock is held, and after release without the canonical receipt; controls), R8-F1 (a tracked root source
+# selected with other casing; genuine pair and two refused receipts). Nothing is installed; the clone is removed.
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+$temp = Join-Path ([IO.Path]::GetTempPath()) ('kwr-focused-r9-' + [Guid]::NewGuid().ToString('N'))
+$base = Join-Path $temp 'clone with space'
+$cases = [Collections.Generic.List[object]]::new()
+$notRun = [Collections.Generic.List[object]]::new()
+function Get-Sha256([string] $Path) { (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() }
+function Quote([string] $Value) { "'" + $Value.Replace("'", "''") + "'" }
+function Invoke-Isolated([string[]] $Arguments) {
+    $previous = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try { $records = $null | & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass @Arguments 2>&1 } finally { $ErrorActionPreference = $previous }
+    [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = ((@($records | ForEach-Object { "$_" })) -join "`n") }
+}
+function Invoke-Script([string] $Text) {
+    $wrapped = "try { $Text } catch { [Console]::Out.WriteLine('ERROR: ' + `$_.Exception.Message); exit 1 }"
+    Invoke-Isolated @('-EncodedCommand', [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($wrapped)))
+}
+function Get-Reason([string] $Output) {
+    $line = @($Output -split "`n" | Where-Object { $_ -match '^ERROR: |must|does not|refused|rebuild|declined|not installed|not tracked|differ' } | Select-Object -First 1)
+    if ($line) { $line[0].Trim() } else { ($Output.Trim() -split "`n" | Select-Object -Last 1) }
+}
+function Add-Case([string] $Name, [bool] $Passed, [string] $Detail) {
+    $cases.Add([ordered]@{ name = $Name; passed = $Passed; detail = $Detail })
+    Write-Host ("{0} {1} :: {2}" -f $(if ($Passed) { 'PASS' } else { 'FAIL' }), $Name, $Detail)
+}
+$started = [DateTime]::UtcNow
+try {
+    & git clone -q --no-hardlinks $Worktree $base
+    & git -C $base checkout -q --detach $Commit
+    if ((& git -C $base rev-parse HEAD).Trim() -cne $Commit) { throw 'The clone did not select the commit under test.' }
+    Copy-Item -LiteralPath (Join-Path $Worktree 'LocalGamePaths.props') -Destination $base
+    New-Item -ItemType Directory -Path (Join-Path $base 'obj') -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $Worktree 'obj\loader-references') -Destination (Join-Path $base 'obj\loader-references') -Recurse
+    Set-Location -LiteralPath $base
+    $build = Join-Path $base 'scripts\Build.ps1'; $validator = Join-Path $base 'scripts\Validate-Package.ps1'; $kwrPackage = Join-Path $base 'scripts\KwrPackage.ps1'
+    $version = [string](Get-Content -LiteralPath (Join-Path $base 'Info.json') -Raw | ConvertFrom-Json).Version
+    $candidateZip = Join-Path $base "artifacts\KingmakerWakingRune-$version.zip"; $receiptPath = $candidateZip + '.build.json'
+    $first = Invoke-Isolated @('-File', $build, '-SkipTests')
+    $prov = { Invoke-Isolated @('-File', $validator, '-PackagePath', $candidateZip, '-ReceiptPath', $receiptPath, '-RequireCurrentProvenance') }
+    $p0 = & $prov
+    Add-Case 'clean-build-qualifies' ($first.ExitCode -eq 0 -and $p0.ExitCode -eq 0 -and $p0.Output -match 'source provenance: verified-current') ("build exit $($first.ExitCode); " + [regex]::Match(($p0.Output -replace '\s+', ' '), 'source provenance: \S+').Value)
+    $pairBefore = (Get-Sha256 $candidateZip) + '/' + (Get-Sha256 $receiptPath)
+
+    # R1-F1: the ignored LocalRoot.cs through a directory junction outside the clone that points back to the checkout.
+    $rootSource = Join-Path $base 'LocalRoot.cs'
+    [IO.File]::WriteAllText($rootSource, "namespace KingmakerWakingRune.LocalOnly { internal static class RootMarker { internal const int Value = 9; } }`r`n")
+    $excludeFile = Join-Path $base '.git\info\exclude'; $excludeBefore = [IO.File]::ReadAllText($excludeFile)
+    [IO.File]::WriteAllText($excludeFile, $excludeBefore + "`nLocalRoot.cs`n")
+    $junction = Join-Path $temp 'checkout junction'; New-Item -ItemType Junction -Path $junction -Target $base | Out-Null
+    $junctionType = [string](Get-Item -LiteralPath $junction).LinkType
+    $localProps = Join-Path $base 'LocalGamePaths.props'; $propsBefore = [IO.File]::ReadAllText($localProps)
+    $include = Join-Path $junction 'LocalRoot.cs'
+    [IO.File]::WriteAllText($localProps, $propsBefore.Replace('</Project>', "  <ItemGroup><Compile Include=`"$([Security.SecurityElement]::Escape($include))`" /></ItemGroup>`r`n</Project>"))
+    $status = @(& git -C $base status --porcelain).Count
+    $jb = Invoke-Isolated @('-File', $build, '-SkipTests', '-ReplacePackage')
+    $jp = & $prov
+    $pairNow = (Get-Sha256 $candidateZip) + '/' + (Get-Sha256 $receiptPath)
+    Add-Case 'r1f1-junction-ignored-root-source-refused-by-publication-and-qualification' ($junctionType -ceq 'Junction' -and $status -eq 0 -and $jb.ExitCode -ne 0 -and ($jb.Output -replace '\s+', ' ') -match 'Compiler sources are not tracked by Git \(LocalRoot\.cs\)' -and
+        $jp.ExitCode -ne 0 -and ($jp.Output -replace '\s+', ' ') -match 'Compiler sources are not tracked by Git \(LocalRoot\.cs\)' -and $pairNow -ceq $pairBefore) ("selected as $include ($junctionType); status entries $status; build: " + (Get-Reason $jb.Output) + "; qualification: " + (Get-Reason $jp.Output) + "; previous pair kept: $($pairNow -ceq $pairBefore)")
+    [IO.File]::WriteAllText($localProps, $propsBefore); [IO.File]::WriteAllText($excludeFile, $excludeBefore)
+    Remove-Item -LiteralPath $rootSource -Force; [IO.Directory]::Delete($junction, $false)
+    $jr = & $prov
+    Add-Case 'r1f1-qualification-returns-after-removal' ($jr.ExitCode -eq 0 -and $jr.Output -match 'source provenance: verified-current') ([regex]::Match(($jr.Output -replace '\s+', ' '), 'source provenance: \S+').Value)
+
+    # R8-F2: a linked input package whose target's conventional receipt is the report path.
+    $zipBefore = Get-Sha256 $candidateZip; $receiptBefore = Get-Sha256 $receiptPath
+    $linked = Join-Path $temp 'linked inputs'; New-Item -ItemType Directory -Path $linked | Out-Null
+    $hardInput = Join-Path $linked 'hard link input.zip'; New-Item -ItemType HardLink -Path $hardInput -Target $candidateZip | Out-Null
+    $hr = Invoke-Isolated @('-File', $validator, '-PackagePath', $hardInput, '-ReportPath', $receiptPath)
+    Add-Case 'r8f2-hard-link-input-report-to-target-receipt-refused' ((Get-Item -LiteralPath $hardInput).LinkType -ceq 'HardLink' -and $hr.ExitCode -ne 0 -and ($hr.Output -replace '\s+', ' ') -match 'must not be an input of the validation' -and (Get-Sha256 $candidateZip) -eq $zipBefore -and (Get-Sha256 $receiptPath) -eq $receiptBefore) ("link type $((Get-Item -LiteralPath $hardInput).LinkType); " + (Get-Reason $hr.Output) + "; ZIP $zipBefore and receipt $receiptBefore unchanged: $((Get-Sha256 $candidateZip) -eq $zipBefore -and (Get-Sha256 $receiptPath) -eq $receiptBefore)")
+    $symbolicInput = Join-Path $linked 'symbolic link input.zip'; $symbolicError = $null
+    try { New-Item -ItemType SymbolicLink -Path $symbolicInput -Target $candidateZip -ErrorAction Stop | Out-Null } catch { $symbolicError = $_.Exception.Message }
+    if ($null -eq $symbolicError) {
+        $sr = Invoke-Isolated @('-File', $validator, '-PackagePath', $symbolicInput, '-ReportPath', $receiptPath)
+        Add-Case 'r8f2-symbolic-link-input-report-to-target-receipt-refused' ($sr.ExitCode -ne 0 -and ($sr.Output -replace '\s+', ' ') -match 'must not be an input of the validation' -and (Get-Sha256 $receiptPath) -eq $receiptBefore) ("link type $((Get-Item -LiteralPath $symbolicInput).LinkType); " + (Get-Reason $sr.Output))
+    }
+    else { $notRun.Add([ordered]@{ name = 'r8f2-symbolic-link-input-report-to-target-receipt-refused'; reason = "this host refused to create a file symbolic link: $symbolicError" }); Write-Host "NOT RUN r8f2-symbolic-link :: $symbolicError" }
+    Remove-Item -LiteralPath $linked -Recurse -Force
+
+    # R5-F1: a hard link to the build-owned ZIP in another folder with a matching receipt copied beside it.
+    $linkDir = Join-Path $temp 'linked output'; New-Item -ItemType Directory -Path $linkDir | Out-Null
+    $linkZip = Join-Path $linkDir 'linked.zip'; New-Item -ItemType HardLink -Path $linkZip -Target $candidateZip | Out-Null
+    Copy-Item -LiteralPath $receiptPath -Destination ($linkZip + '.build.json')
+    $read = { param([string] $Zip) Invoke-Script (". $(Quote $kwrPackage); `$v = New-KwrValidatedPackageCopy $(Quote $Zip); 'MODE ' + `$v.InstallMode + ' SOURCE ' + `$v.Source; Remove-KwrValidatedPackageCopy `$v") }
+    $lock = [IO.FileStream]::new(($candidateZip + '.publish.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None, 1, [IO.FileOptions]::DeleteOnClose)
+    try { $locked = & $read $linkZip } finally { $lock.Dispose() }
+    Add-Case 'r5f1-hard-link-with-alias-receipt-while-the-canonical-lock-is-held-declined' ($locked.ExitCode -ne 0 -and ($locked.Output -replace '\s+', ' ') -match 'A build is publishing' -and $locked.Output -notmatch 'MODE ') (Get-Reason $locked.Output)
+    $savedReceipt = Join-Path $temp 'saved receipt.json'; Move-Item -LiteralPath $receiptPath -Destination $savedReceipt
+    $absent = & $read $linkZip
+    Move-Item -LiteralPath $savedReceipt -Destination $receiptPath
+    Add-Case 'r5f1-hard-link-with-alias-receipt-after-release-without-the-canonical-receipt-declined' ($absent.ExitCode -ne 0 -and ($absent.Output -replace '\s+', ' ') -match 'A build-owned package has no build receipt' -and $absent.Output -notmatch 'MODE ') (Get-Reason $absent.Output)
+    $canonical = & $read $linkZip
+    Add-Case 'r5f1-control-hard-link-with-the-canonical-pair-uses-the-canonical-name' ($canonical.ExitCode -eq 0 -and $canonical.Output -match 'MODE frozen-candidate' -and $canonical.Output -match ('SOURCE ' + [regex]::Escape($candidateZip))) ([regex]::Match($canonical.Output, 'MODE .*').Value)
+    Remove-Item -LiteralPath $linkDir -Recurse -Force
+    $externalDir = Join-Path $temp 'external'; New-Item -ItemType Directory -Path $externalDir | Out-Null
+    $externalZip = Join-Path $externalDir 'external package.zip'; Copy-Item -LiteralPath $candidateZip -Destination $externalZip
+    $ext = & $read $externalZip
+    Copy-Item -LiteralPath $receiptPath -Destination ($externalZip + '.build.json')
+    $extReceipt = & $read $externalZip
+    Add-Case 'r5f1-control-independent-external-copies-keep-their-modes' ($ext.ExitCode -eq 0 -and $ext.Output -match 'MODE external-content-inspected' -and $extReceipt.ExitCode -eq 0 -and $extReceipt.Output -match 'MODE frozen-candidate') ("receiptless: " + [regex]::Match($ext.Output, 'MODE \S+').Value + "; with its receipt: " + [regex]::Match($extReceipt.Output, 'MODE \S+').Value)
+    Remove-Item -LiteralPath $externalDir -Recurse -Force
+
+    # R8-F1: a tracked root source selected with other casing.
+    $caseSource = Join-Path $base 'CaseRoot.cs'
+    $caseBefore = (& git -C $base rev-parse HEAD).Trim()
+    [IO.File]::WriteAllText($caseSource, "namespace KingmakerWakingRune.LocalOnly { internal static class CaseRootMarker { internal const int Value = 11; } }`r`n")
+    & git -C $base add -- 'CaseRoot.cs'; & git -C $base -c user.name=focused -c user.email=focused@invalid commit -q -m 'test: tracked root source with other content'
+    $caseOther = (& git -C $base rev-parse HEAD).Trim()
+    [IO.File]::WriteAllText($caseSource, "namespace KingmakerWakingRune.LocalOnly { internal static class CaseRootMarker { internal const int Value = 12; } }`r`n")
+    & git -C $base -c user.name=focused -c user.email=focused@invalid commit -q -am 'test: tracked root source'
+    $caseProducer = (& git -C $base rev-parse HEAD).Trim()
+    [IO.File]::WriteAllText($localProps, $propsBefore.Replace('</Project>', "  <ItemGroup><Compile Include=`"`$(MSBuildThisFileDirectory)caseroot.cs`" /></ItemGroup>`r`n</Project>"))
+    $cb = Invoke-Isolated @('-File', $build, '-SkipTests', '-ReplacePackage')
+    $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
+    $names = @($receipt.compilerInputs | Where-Object { [string]$_.kind -ceq 'compile' -and [string]$_.name -ieq 'CaseRoot.cs' } | ForEach-Object { [string]$_.name }) -join ','
+    $material = Invoke-Script (". $(Quote (Join-Path $base 'scripts\KwrBuild.Common.ps1')); `$r = Get-Content -LiteralPath $(Quote $receiptPath) -Raw | ConvertFrom-Json; 'MATERIAL ' + ((Get-KwrInventoryRepositoryPaths `$r.compilerInputs | Where-Object { `$_ -ieq 'CaseRoot.cs' }) -join ',')")
+    $cg = & $prov
+    Add-Case 'r8f1-other-casing-genuine-pair-qualifies' ($cb.ExitCode -eq 0 -and [string]$receipt.commit -ceq $caseProducer -and $material.Output -match 'MATERIAL CaseRoot\.cs' -and $cg.ExitCode -eq 0 -and $cg.Output -match 'source provenance: verified-current') ("selected as caseroot.cs; build exit $($cb.ExitCode); inventory names [$names]; comparison path " + [regex]::Match($material.Output, 'MATERIAL \S*').Value + '; ' + [regex]::Match(($cg.Output -replace '\s+', ' '), 'source provenance: \S+').Value)
+    foreach ($variant in @(@('missing', $caseBefore), @('differing', $caseOther))) {
+        $vr = Join-Path $temp "case-receipt-$($variant[0]).json"
+        $j = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json; $j.commit = $variant[1]; $j | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $vr -Encoding UTF8
+        $res = Invoke-Isolated @('-File', $validator, '-PackagePath', $candidateZip, '-ReceiptPath', $vr, '-RequireCurrentProvenance')
+        Add-Case "r8f1-receipt-naming-a-producer-$($variant[0])-in-that-source-refused" ($res.ExitCode -ne 0 -and ($res.Output -replace '\s+', ' ') -match "material inputs differ from the receipt's commit") ("commit $($variant[1]); " + (Get-Reason $res.Output))
+    }
+}
+finally {
+    Set-Location -LiteralPath (Split-Path -Parent $OutFile)
+    $failed = @($cases | Where-Object { -not $_.passed })
+    [ordered]@{ schema = 'kwr.focused-r9.v1'; commit = $Commit; startedUtc = $started.ToString('o'); passed = $cases.Count - $failed.Count; total = $cases.Count; not_run = @($notRun); cases = @($cases) } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $OutFile -Encoding UTF8
+    Write-Host ("RESULT {0}/{1}" -f ($cases.Count - $failed.Count), $cases.Count)
+    if (Test-Path -LiteralPath $temp) { try { Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction Stop } catch { Write-Warning "temporary clone not removed: $temp" } }
+}
+if (@($cases | Where-Object { -not $_.passed }).Count -gt 0) { exit 1 }

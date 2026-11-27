@@ -1,0 +1,70 @@
+{
+    "schema":  "kwr.focused-r9.v1",
+    "commit":  "eec7a901d1223598b5e6b147faa965dbb5a1f63f",
+    "startedUtc":  "2026-11-27T02:20:38.4468933Z",
+    "passed":  11,
+    "total":  11,
+    "not_run":  [
+                    {
+                        "name":  "r8f2-symbolic-link-input-report-to-target-receipt-refused",
+                        "reason":  "this host refused to create a file symbolic link: Administrator privilege required for this operation."
+                    }
+                ],
+    "cases":  [
+                  {
+                      "name":  "clean-build-qualifies",
+                      "passed":  true,
+                      "detail":  "build exit 0; source provenance: verified-current"
+                  },
+                  {
+                      "name":  "r1f1-junction-ignored-root-source-refused-by-publication-and-qualification",
+                      "passed":  true,
+                      "detail":  "selected as <temp>\\kwr-focused-r9-ae24038387a245afbe37c4e664ca7501\\checkout junction\\LocalRoot.cs (Junction); status entries 0; build: Compiler sources are not tracked by Git (LocalRoot.cs); rebuild from a clean commit.; qualification: Compiler sources are not tracked by Git (LocalRoot.cs); rebuild from a clean commit.; previous pair kept: True"
+                  },
+                  {
+                      "name":  "r1f1-qualification-returns-after-removal",
+                      "passed":  true,
+                      "detail":  "source provenance: verified-current"
+                  },
+                  {
+                      "name":  "r8f2-hard-link-input-report-to-target-receipt-refused",
+                      "passed":  true,
+                      "detail":  "link type HardLink; The report path must not be an input of the validation:; ZIP 927f5ec31db66832af204c1b95dceb34232dd1cedfd2eaf13d71984ba511c6a8 and receipt f51d3c3079c4fc0554eae8e14c3e566b81eafa27d33e706c5c09ed6237572181 unchanged: True"
+                  },
+                  {
+                      "name":  "r5f1-hard-link-with-alias-receipt-while-the-canonical-lock-is-held-declined",
+                      "passed":  true,
+                      "detail":  "ERROR: A build is publishing <temp>\\kwr-focused-r9-ae24038387a245afbe37c4e664ca7501\\clone with space\\artifacts\\KingmakerWakingRune-0.12.3.zip; try again after it finishes."
+                  },
+                  {
+                      "name":  "r5f1-hard-link-with-alias-receipt-after-release-without-the-canonical-receipt-declined",
+                      "passed":  true,
+                      "detail":  "ERROR: A build-owned package has no build receipt (<temp>\\kwr-focused-r9-ae24038387a245afbe37c4e664ca7501\\clone with space\\artifacts\\KingmakerWakingRune-0.12.3.zip); it is not installed. Rebuild it."
+                  },
+                  {
+                      "name":  "r5f1-control-hard-link-with-the-canonical-pair-uses-the-canonical-name",
+                      "passed":  true,
+                      "detail":  "MODE frozen-candidate SOURCE <temp>\\kwr-focused-r9-ae24038387a245afbe37c4e664ca7501\\clone with space\\artifacts\\KingmakerWakingRune-0.12.3.zip"
+                  },
+                  {
+                      "name":  "r5f1-control-independent-external-copies-keep-their-modes",
+                      "passed":  true,
+                      "detail":  "receiptless: MODE external-content-inspected; with its receipt: MODE frozen-candidate"
+                  },
+                  {
+                      "name":  "r8f1-other-casing-genuine-pair-qualifies",
+                      "passed":  true,
+                      "detail":  "selected as caseroot.cs; build exit 0; inventory names [CaseRoot.cs]; comparison path MATERIAL CaseRoot.cs; source provenance: verified-current"
+                  },
+                  {
+                      "name":  "r8f1-receipt-naming-a-producer-missing-in-that-source-refused",
+                      "passed":  true,
+                      "detail":  "commit eec7a901d1223598b5e6b147faa965dbb5a1f63f; Build inputs changed since this package was built: the material inputs differ from the receipt\u0027s commit"
+                  },
+                  {
+                      "name":  "r8f1-receipt-naming-a-producer-differing-in-that-source-refused",
+                      "passed":  true,
+                      "detail":  "commit eb5597a40bc5811914b5d358d05794b705923d4e; Build inputs changed since this package was built: the material inputs differ from the receipt\u0027s commit"
+                  }
+              ]
+}

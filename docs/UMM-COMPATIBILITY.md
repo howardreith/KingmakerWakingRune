@@ -227,6 +227,29 @@ validator and the install helper expand a short 8.3 spelling of the ZIP itself t
 receipt and lock beside it, and the install helper declines a receiptless file link (hard link or reparse point), whose
 publication cannot be established; an independent copy keeps content-only inspection.
 
+Round 9 (`eec7a90`; build, install and validation tooling only, the product sources unchanged). Compiler inputs are
+classified by their physical location: the repository root, the intermediate folder and each existing input are resolved
+with `GetFinalPathNameByHandle` (identity helper `KwrFileIdentityV5`), so an ignored repository source selected through a
+directory junction outside the checkout is checked for Git membership and refused, and a source outside the repository
+with another hard-link name, whose ownership cannot be established, is refused rather than exempted. Repository paths
+resolve to Git's tracked spelling with Windows-compatible matching, in both the membership check and the
+producing-commit comparison, so a tracked `CaseRoot.cs` selected as `caseroot.cs` is compared with the receipt's commit.
+The install helper decides package ownership from the file actually read: one read handle (no write sharing) supplies its
+identity, physical path, hard-link count and every hard-link name; a file with a name in the build-owned `artifacts`
+folder is read only under that name's publish lock and with that name's receipt, whatever path the caller used and
+whatever receipt lies beside it; the canonical name is re-checked under the lock and the copy is read through the same
+handle while the lock is held (another hard-link name can be removed while a read handle is open, so the lock, not the
+handle, excludes the publisher). A linked file with no build-owned name is declined; an independent copy keeps its
+handling. The validator's report protection covers the package's physical target and every hard-link name of it, each
+with its conventional receipt. Focused checks before the gate (`docs/evidence/umm-0311/focused-r9.json`, 11 of 11): the
+junction case refused by the build and current provenance with the previous pair kept and qualification restored after
+removal; a hard-link input whose report path is the target ZIP's receipt refused with both hashes unchanged; a hard link
+with a matching receipt beside it declined while the canonical lock is held and, after release, while the canonical
+receipt is absent, with the canonical-pair and independent-copy controls; the other-casing genuine pair qualifying and
+receipts naming the commit before the source existed or with other content in it refused. A file symbolic link could not
+be created on this host (Windows: administrator privilege required), so the symbolic-link variant of the report case was
+not executed; the boundary suite records it as not run. The earlier 149-of-149 boundary-suite result belongs to `79f1687`.
+
 ## Evidence for this change (2026-11-24, round 5)
 
 The build and validation tooling is at `3779b0e`; the product sources are unchanged, so the candidate DLL is

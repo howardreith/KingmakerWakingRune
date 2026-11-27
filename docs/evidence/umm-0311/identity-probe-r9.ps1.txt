@@ -1,0 +1,25 @@
+param([string]$Worktree)
+# Lightweight probe of the round-9 KwrFileIdentityV5 members (no build): physical path through letter case, a directory
+# junction and a hard link; hard-link names; a held read handle blocks removal of another name.
+$ErrorActionPreference = 'Stop'
+. (Join-Path $Worktree 'scripts\KwrFileIdentity.ps1')
+$d = Join-Path ([IO.Path]::GetTempPath()) ('kwr-r9-probe-' + [Guid]::NewGuid().ToString('N'))
+try {
+    $real = Join-Path $d 'real dir'; [void][IO.Directory]::CreateDirectory($real)
+    $file = Join-Path $real 'CaseRoot.cs'; [IO.File]::WriteAllText($file, 'x')
+    'CASE ' + [KwrFileIdentityV5]::FinalPathOf((Join-Path $real 'caseroot.cs'))
+    $junction = Join-Path $d 'junction'; New-Item -ItemType Junction -Path $junction -Target $real | Out-Null
+    'JUNCTION ' + [KwrFileIdentityV5]::FinalPathOf((Join-Path $junction 'caseroot.cs')) + ' type=' + (Get-Item -LiteralPath $junction).LinkType
+    $other = Join-Path $d 'other'; [void][IO.Directory]::CreateDirectory($other)
+    $link = Join-Path $other 'link.zip'; New-Item -ItemType HardLink -Path $link -Target $file | Out-Null
+    $s = [KwrFileIdentityV5]::OpenRead($link)
+    try {
+        $i = [KwrFileIdentityV5]::InfoOf($s)
+        'HARDLINK final=' + $i.FinalPath + ' links=' + $i.LinkCount
+        'NAMES ' + (([KwrFileIdentityV5]::LinkNamesOf($i.FinalPath)) -join ' | ')
+        try { [IO.File]::Delete($file); 'DELETE-OTHER-NAME ALLOWED' } catch { 'DELETE-OTHER-NAME REFUSED ' + $_.Exception.GetType().Name }
+    } finally { $s.Dispose() }
+    [IO.Directory]::Delete($junction, $false)
+    'JUNCTION-REMOVED target-intact=' + (Test-Path -LiteralPath $file)
+}
+finally { Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue }

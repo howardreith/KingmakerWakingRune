@@ -1,0 +1,7 @@
+CASE <temp>\kwr-r9-probe-e0d86ef6831d4f77ba6bd3a95a7e4f3b\real dir\CaseRoot.cs
+JUNCTION <temp>\kwr-r9-probe-e0d86ef6831d4f77ba6bd3a95a7e4f3b\real dir\CaseRoot.cs type=Junction
+HARDLINK final=<temp>\kwr-r9-probe-e0d86ef6831d4f77ba6bd3a95a7e4f3b\other\link.zip links=2
+NAMES <temp>\kwr-r9-probe-e0d86ef6831d4f77ba6bd3a95a7e4f3b\real dir\CaseRoot.cs | <temp>\kwr-r9-probe-e0d86ef6831d4f77ba6bd3a95a7e4f3b\other\link.zip
+DELETE-OTHER-NAME ALLOWED
+JUNCTION-REMOVED target-intact=False
+EXIT 0 START 2026-11-27T02:15:29Z MS 471
