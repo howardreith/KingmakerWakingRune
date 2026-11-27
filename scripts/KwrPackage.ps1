@@ -10,52 +10,73 @@ Set-StrictMode -Version Latest
 # -Diagnostic: a receipt-backed diagnostic build (for example a dirty working tree) is staged with the ZIP, DLL and pin
 # checks and the receipt matched to the package, without the frozen-candidate provenance requirement.
 function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic) {
-    $source = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($PackagePath)
-    if (-not [IO.File]::Exists($source)) { throw "Package not found: $source" }
-    # The real long filename: the receipt and the publish lock beside the ZIP are named from it, so a short 8.3 spelling of
-    # the ZIP itself finds both.
+    $requested = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($PackagePath)
+    if (-not [IO.File]::Exists($requested)) { throw "Package not found: $requested" }
     . (Join-Path $PSScriptRoot 'KwrFileIdentity.ps1')
-    $source = [KwrFileIdentityV4]::LongPathOf($source)
     $private = Join-Path ([IO.Path]::GetTempPath()) ('KingmakerWakingRune-package-' + [Guid]::NewGuid().ToString('N'))
-    # A package at a build-owned destination (this repository's artifacts folder, recognized by the physical identity of
-    # the folder, whatever spelling the caller used: short 8.3 alias, junction or letter case) is copied with its receipt
-    # under that destination's publish lock, so the pair read is one published pair; while a build is publishing there the
-    # read is declined, and a build-owned ZIP without its receipt (for example after an interrupted publisher released the
-    # lock) is declined too. A ZIP elsewhere is copied without a lock (content inspection only when it has no receipt).
-    $buildOwned = $false
+    # Ownership is a property of the file actually read, not of the path used to name it (R5-F1). The ZIP is opened once,
+    # without write sharing (its bytes cannot change while the handle is open), and everything that classifies it is
+    # observed through that handle: its identity, its physical path (a file symbolic link or junction resolved to its
+    # target), its hard-link count and every hard-link name; the private copy is read through the same handle.
+    # A file one of whose names lies in this repository's artifacts folder (recognized by the physical identity of the
+    # folder) is build-owned: it is read only under that name's publish lock and with that name's receipt (the canonical
+    # pair), whatever path the caller used and whatever receipt lies beside it. Under the lock the canonical name must
+    # still be the file this handle reads, and the copy and the receipt are taken while the lock is held, so a publisher
+    # cannot place or roll back a pair between the classification and the read (another name of the file can still be
+    # removed while the handle is open; the lock, not the handle, excludes the publisher). While a build is publishing
+    # there the read is declined, and a build-owned ZIP without its canonical receipt is declined too. A ZIP no name of which is
+    # build-owned but which has other hard-link names is declined as an ambiguous linked input. An independent file (one
+    # name, outside the artifacts folder) is copied with the receipt beside its physical path when present (the
+    # frozen-candidate path) or inspected by content only.
     $artifactsDirectory = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\artifacts'))
-    if ([IO.Directory]::Exists($artifactsDirectory)) {
-        $artifactsId = [KwrFileIdentityV4]::DirectoryOf($artifactsDirectory)
-        $directory = [IO.Path]::GetDirectoryName($source)
+    $artifactsId = if ([IO.Directory]::Exists($artifactsDirectory)) { [KwrFileIdentityV5]::DirectoryOf($artifactsDirectory) } else { $null }
+    $isBuildOwnedName = {
+        param([string] $Name)
+        if ($null -eq $artifactsId) { return $false }
+        $directory = [IO.Path]::GetDirectoryName($Name)
         while ($directory) {
-            if ([IO.Directory]::Exists($directory) -and [KwrFileIdentityV4]::DirectoryOf($directory) -ceq $artifactsId) { $buildOwned = $true; break }
+            if ([IO.Directory]::Exists($directory) -and [KwrFileIdentityV5]::DirectoryOf($directory) -ceq $artifactsId) { return $true }
             $parent = [IO.Path]::GetDirectoryName($directory)
             if (-not $parent -or $parent -eq $directory) { break }
             $directory = $parent
         }
+        return $false
     }
     try {
         [void][IO.Directory]::CreateDirectory($private)
         $copy = Join-Path $private 'package.zip'
         $report = Join-Path $private 'validation.json'
-        $receiptSource = $source + '.build.json'
         $publishLock = $null
-        if ($buildOwned) {
-            try { $publishLock = [IO.FileStream]::new(($source + '.publish.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None, 1, [IO.FileOptions]::DeleteOnClose) }
-            catch [IO.IOException] { throw "A build is publishing $source; try again after it finishes." }
-        }
+        $stream = [KwrFileIdentityV5]::OpenRead($requested)
         try {
-            [IO.File]::Copy($source, $copy)
+            $held = [KwrFileIdentityV5]::InfoOf($stream)
+            $names = @([KwrFileIdentityV5]::LinkNamesOf($held.FinalPath))
+            if ($names.Count -ne [int]$held.LinkCount) { throw "The package $requested reports $($held.LinkCount) hard-link names but $($names.Count) were listed; its ownership cannot be established, so it is not installed." }
+            $owned = @($names | Where-Object { & $isBuildOwnedName $_ })
+            if ($owned.Count -gt 1) { throw "The package $requested has more than one name in the build-owned folder ($($owned -join ', ')); its publication cannot be established, so it is not installed." }
+            $buildOwned = $owned.Count -eq 1
+            if ($buildOwned) {
+                $source = [KwrFileIdentityV5]::LongPathOf($owned[0])
+                try { $publishLock = [IO.FileStream]::new(($source + '.publish.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None, 1, [IO.FileOptions]::DeleteOnClose) }
+                catch [IO.IOException] { throw "A build is publishing $source; try again after it finishes." }
+                # Under the lock, the canonical name must still be the file this handle reads.
+                if (-not [IO.File]::Exists($source) -or [KwrFileIdentityV5]::Of($source) -cne $held.Id) { throw "The build-owned package $source was replaced while it was being read; it is not installed." }
+            }
+            elseif ([int]$held.LinkCount -gt 1) {
+                throw "The package $requested is a file link (another hard-link name exists: $(@($names) -join ', ')); its publication cannot be established, so it is not installed. Use an independent copy."
+            }
+            else { $source = $held.FinalPath }
+            $receiptSource = $source + '.build.json'
+            $out = [IO.File]::Open($copy, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+            try { $stream.CopyTo($out) } finally { $out.Dispose() }
             $hasReceipt = [IO.File]::Exists($receiptSource)
             if ($hasReceipt) { [IO.File]::Copy($receiptSource, $copy + '.build.json') }
         }
-        finally { if ($null -ne $publishLock) { $publishLock.Dispose() } }
-        if ($buildOwned -and -not $hasReceipt) { throw "A build-owned package has no build receipt ($source); it is not installed. Rebuild it." }
-        # Receiptless content inspection is for an independent copy only: a hard link or a reparse point may be another
-        # name of a build-owned output whose publication cannot be established, so it is declined.
-        if (-not $hasReceipt -and ((([IO.File]::GetAttributes($source)) -band [IO.FileAttributes]::ReparsePoint) -or [KwrFileIdentityV4]::LinkCountOf($source) -gt 1)) {
-            throw "The package $source is a file link (hard link or reparse point); its publication cannot be established, so it is not installed. Use an independent copy."
+        finally {
+            $stream.Dispose()
+            if ($null -ne $publishLock) { $publishLock.Dispose() }
         }
+        if ($buildOwned -and -not $hasReceipt) { throw "A build-owned package has no build receipt ($source); it is not installed. Rebuild it." }
         if ($hasReceipt) {
             if ($Diagnostic) { & (Join-Path $PSScriptRoot 'Validate-Package.ps1') -PackagePath $copy -ReceiptPath ($copy + '.build.json') -ReportPath $report | Out-Host }
             else { & (Join-Path $PSScriptRoot 'Validate-Package.ps1') -PackagePath $copy -ReceiptPath ($copy + '.build.json') -RequireCurrentProvenance -ReportPath $report | Out-Host }

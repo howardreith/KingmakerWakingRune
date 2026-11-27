@@ -3,6 +3,7 @@
 Set-StrictMode -Version Latest
 
 $script:KwrRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+. (Join-Path $PSScriptRoot 'KwrFileIdentity.ps1')
 
 function Get-KwrMsBuild {
     $vswhere = 'C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe'
@@ -18,13 +19,16 @@ function Get-KwrSha256([string] $Path) { return (Get-FileHash -LiteralPath $Path
 # (repository-relative, obj:<name> for generated files in the intermediate directory, otherwise the file name) and
 # SHA-256; kind option for every other argument verbatim; kind output for output locations (file name only).
 function ConvertFrom-KwrCompilerInputList([string] $ListPath) {
-    $rootPrefix = [IO.Path]::GetFullPath($script:KwrRoot).TrimEnd('\') + '\'
     $lines = @(Get-Content -LiteralPath $ListPath -Encoding UTF8 | Where-Object { $_ })
     if ($lines.Count -lt 4 -or -not $lines[0].StartsWith('intermediate|') -or -not $lines[1].StartsWith('project|') -or -not $lines[2].StartsWith('compiler|')) { throw "Compiler input list is malformed: $ListPath" }
-    $objPrefix = [IO.Path]::GetFullPath($lines[0].Substring('intermediate|'.Length)).TrimEnd('\') + '\'
+    # Every location is compared physically (R1-F1): the repository root, the intermediate folder and each existing input
+    # are resolved to the path the file system stores (Get-KwrPhysicalPath), so a junction, symbolic link, short name or
+    # other letter case cannot make a file inside the checkout look external, or the reverse.
+    $rootPrefix = (Get-KwrPhysicalPath $script:KwrRoot).TrimEnd('\') + '\'
+    $objPrefix = (Get-KwrPhysicalPath $lines[0].Substring('intermediate|'.Length)).TrimEnd('\') + '\'
     $projectDirectory = $lines[1].Substring('project|'.Length)
-    # Csc arguments name files relative to the project directory.
-    function Resolve-InputPath([string] $Path) { return [IO.Path]::GetFullPath([IO.Path]::Combine($projectDirectory, $Path.Trim('"'))) }
+    # Csc arguments name files relative to the project directory; an existing file is named by its physical location.
+    function Resolve-InputPath([string] $Path) { return Get-KwrPhysicalPath ([IO.Path]::Combine($projectDirectory, $Path.Trim('"'))) }
     function Get-InputName([string] $Path) {
         $full = Resolve-InputPath $Path
         # MSBuild's generated target-framework attribute file lives in the intermediate or the temporary directory; a file of
@@ -67,10 +71,15 @@ function ConvertFrom-KwrCompilerInputList([string] $ListPath) {
         }
         $m = [regex]::Match($arg, '^[/-]([A-Za-z0-9_+-]+?)(?::(.*))?$')
         if (-not $m.Success) {
-            # repositoryPath: the source's resolved location inside the repository (outside the intermediate folder), so the
-            # Git membership check never depends on the reduced name; null for generated and external sources.
+            # repositoryPath: the source's physical location inside the repository (outside the intermediate folder), so the
+            # Git membership check never depends on the reduced name or on the spelling used to select it; null for generated
+            # and external sources. An external source with more than one hard-link name may be another name of a file in
+            # the checkout, whose ownership a path cannot establish: it is refused rather than exempted.
             $full = Resolve-InputPath $arg
             $repositoryPath = if ($full.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase) -and -not $full.StartsWith($objPrefix, [StringComparison]::OrdinalIgnoreCase)) { $full.Substring($rootPrefix.Length).Replace('\', '/') } else { $null }
+            if ($null -eq $repositoryPath -and -not $full.StartsWith($objPrefix, [StringComparison]::OrdinalIgnoreCase) -and [IO.File]::Exists($full) -and [KwrFileIdentityV5]::LinkCountOf($full) -gt 1) {
+                throw "Compiler source $full is a hard link outside the repository; whether it is a repository file cannot be established, so it is refused. Use an independent copy or a tracked source."
+            }
             [ordered]@{ kind = 'compile'; name = Get-InputName $arg; sha256 = Get-InputDigest $arg; repositoryPath = $repositoryPath }; return
         }
         $switch = $m.Groups[1].Value.ToLowerInvariant(); $value = $m.Groups[2].Value
@@ -110,8 +119,44 @@ function Get-KwrInventoryRepositoryPaths($Inventory) {
         $name
     })
     if ($candidates.Count -eq 0) { return @() }
-    $tracked = @(Get-KwrGitPathList @() @($candidates | Sort-Object -Unique | ForEach-Object { ':(literal)' + $_ }))
-    return @($tracked | Sort-Object -Unique)
+    # Each name resolves to Git's tracked spelling with Windows-compatible (case-insensitive, literal) matching (R8-F1), so a
+    # source selected as localroot.cs is compared as the tracked LocalRoot.cs; names Git does not track are not paths of
+    # the producing commit.
+    $spellings = Get-KwrTrackedSpellings
+    $tracked = [Collections.Generic.List[string]]::new()
+    foreach ($candidate in $candidates) {
+        $canonical = Resolve-KwrTrackedSpelling $spellings $candidate
+        if ($canonical -and -not $tracked.Contains($canonical)) { $tracked.Add($canonical) }
+    }
+    return @($tracked)
+}
+
+# The physical location of an existing file or directory (junctions, symbolic links, short names and letter case
+# resolved); a path that does not exist is returned in full form, unchanged.
+function Get-KwrPhysicalPath([string] $Path) {
+    $full = [IO.Path]::GetFullPath($Path)
+    if ([IO.File]::Exists($full) -or [IO.Directory]::Exists($full)) { return [KwrFileIdentityV5]::FinalPathOf($full) }
+    return $full
+}
+
+# Git's tracked paths (lossless listing) grouped by their case-insensitive spelling.
+function Get-KwrTrackedSpellings {
+    $spellings = [Collections.Generic.Dictionary[string, Collections.Generic.List[string]]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($path in @(Get-KwrGitPathList @('--cached') @())) {
+        if (-not $spellings.ContainsKey($path)) { $spellings[$path] = [Collections.Generic.List[string]]::new() }
+        $spellings[$path].Add($path)
+    }
+    return , $spellings
+}
+
+# Git's spelling of one repository-relative path: the tracked path equal to it without regard to letter case (Windows
+# opens either), or $null when Git does not track it. Two tracked paths differing only in case are refused as ambiguous.
+function Resolve-KwrTrackedSpelling($Spellings, [string] $Path) {
+    $key = $Path.Replace('\', '/')
+    if (-not $Spellings.ContainsKey($key)) { return $null }
+    $found = $Spellings[$key]
+    if ($found.Count -gt 1) { throw "The repository path $Path matches more than one tracked spelling ($($found -join ', ')); it cannot be attributed to one tracked file." }
+    return $found[0]
 }
 
 # Git pathnames without C-style quoting: NUL-separated output read as UTF-8 through the process API (Windows PowerShell

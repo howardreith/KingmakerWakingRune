@@ -7,13 +7,27 @@
 # directory (a short 8.3 alias, a junction, another case) compare equal. LongPathOf expands short (8.3) components of an
 # existing path, so names derived from it (a receipt or lock beside a ZIP) use the real long filename. LinkCountOf is the
 # file's hard-link count.
-if (-not ('KwrFileIdentityV4' -as [type])) {
+# FinalPathOf is the physical location of an existing file or directory: GetFinalPathNameByHandle on a handle opened
+# through the given path, so directory junctions, symbolic links, short (8.3) names and letter case are resolved to the
+# path the file system stores. OpenRead/InfoOf bind a read to one handle (opened without write sharing, so the file's
+# bytes cannot change while it is open; another hard-link name can still be removed) and report that handle's identity,
+# hard-link count and physical path. LinkNamesOf lists every hard-link name of a file (FindFirstFileNameW).
+# The type carries a new version name whenever its members change, so a session that loaded an earlier draft still gets
+# these members.
+if (-not ('KwrFileIdentityV5' -as [type])) {
     Add-Type -TypeDefinition @'
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using Microsoft.Win32.SafeHandles;
-public static class KwrFileIdentityV4 {
+public sealed class KwrHandleInfoV5 {
+    public string Id;
+    public uint LinkCount;
+    public string FinalPath;
+}
+public static class KwrFileIdentityV5 {
     [StructLayout(LayoutKind.Sequential)]
     struct ByHandleFileInformation {
         public uint FileAttributes;
@@ -21,12 +35,30 @@ public static class KwrFileIdentityV4 {
         public uint VolumeSerialNumber, FileSizeHigh, FileSizeLow, NumberOfLinks, FileIndexHigh, FileIndexLow;
     }
     [DllImport("kernel32.dll", SetLastError = true)] static extern bool GetFileInformationByHandle(SafeFileHandle h, out ByHandleFileInformation i);
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern uint GetLongPathNameW(string shortPath, System.Text.StringBuilder longPath, uint size);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern uint GetLongPathNameW(string shortPath, StringBuilder longPath, uint size);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern SafeFileHandle CreateFileW(string name, uint access, uint share, IntPtr security, uint disposition, uint flags, IntPtr template);
-    static string IdOf(SafeFileHandle handle) {
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern uint GetFinalPathNameByHandleW(SafeFileHandle h, StringBuilder path, uint size, uint flags);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern IntPtr FindFirstFileNameW(string fileName, uint flags, ref uint length, StringBuilder linkName);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern bool FindNextFileNameW(IntPtr find, ref uint length, StringBuilder linkName);
+    [DllImport("kernel32.dll", SetLastError = true)] static extern bool FindClose(IntPtr find);
+    static ByHandleFileInformation InformationOf(SafeFileHandle handle) {
         ByHandleFileInformation i;
         if (!GetFileInformationByHandle(handle, out i)) throw new IOException("GetFileInformationByHandle failed: " + Marshal.GetLastWin32Error());
+        return i;
+    }
+    static string IdOf(SafeFileHandle handle) {
+        var i = InformationOf(handle);
         return i.VolumeSerialNumber.ToString("x8") + ":" + i.FileIndexHigh.ToString("x8") + i.FileIndexLow.ToString("x8");
+    }
+    static string FinalOf(SafeFileHandle handle) {
+        var buffer = new StringBuilder(32768);
+        // FILE_NAME_NORMALIZED | VOLUME_NAME_DOS.
+        uint length = GetFinalPathNameByHandleW(handle, buffer, (uint)buffer.Capacity, 0);
+        if (length == 0 || length >= buffer.Capacity) throw new IOException("GetFinalPathNameByHandle failed: " + Marshal.GetLastWin32Error());
+        string path = buffer.ToString();
+        if (path.StartsWith(@"\\?\UNC\", StringComparison.Ordinal)) return @"\\" + path.Substring(8);
+        if (path.StartsWith(@"\\?\", StringComparison.Ordinal)) return path.Substring(4);
+        return path;
     }
     public static string Of(string path) {
         using (var f = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete)) return IdOf(f.SafeFileHandle);
@@ -38,17 +70,52 @@ public static class KwrFileIdentityV4 {
             return IdOf(h);
         }
     }
+    public static string FinalPathOf(string path) {
+        using (var h = CreateFileW(path, 0x80, 7, IntPtr.Zero, 3, 0x02000000, IntPtr.Zero)) {
+            if (h.IsInvalid) throw new IOException("Cannot open " + path + ": " + Marshal.GetLastWin32Error());
+            return FinalOf(h);
+        }
+    }
     public static string LongPathOf(string path) {
-        var buffer = new System.Text.StringBuilder(32768);
+        var buffer = new StringBuilder(32768);
         uint length = GetLongPathNameW(path, buffer, (uint)buffer.Capacity);
         return (length == 0 || length >= buffer.Capacity) ? path : buffer.ToString();
     }
     public static uint LinkCountOf(string path) {
-        using (var f = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete)) {
-            ByHandleFileInformation i;
-            if (!GetFileInformationByHandle(f.SafeFileHandle, out i)) throw new IOException("GetFileInformationByHandle failed: " + Marshal.GetLastWin32Error());
-            return i.NumberOfLinks;
+        using (var f = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete)) return InformationOf(f.SafeFileHandle).NumberOfLinks;
+    }
+    public static FileStream OpenRead(string path) {
+        return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+    }
+    public static KwrHandleInfoV5 InfoOf(FileStream f) {
+        var i = InformationOf(f.SafeFileHandle);
+        return new KwrHandleInfoV5 {
+            Id = i.VolumeSerialNumber.ToString("x8") + ":" + i.FileIndexHigh.ToString("x8") + i.FileIndexLow.ToString("x8"),
+            LinkCount = i.NumberOfLinks,
+            FinalPath = FinalOf(f.SafeFileHandle)
+        };
+    }
+    public static string[] LinkNamesOf(string path) {
+        string root = Path.GetPathRoot(path).TrimEnd('\\');
+        var names = new List<string>();
+        uint length = 32768;
+        var buffer = new StringBuilder((int)length);
+        IntPtr find = FindFirstFileNameW(path, 0, ref length, buffer);
+        if (find == new IntPtr(-1)) throw new IOException("FindFirstFileNameW failed for " + path + ": " + Marshal.GetLastWin32Error());
+        try {
+            while (true) {
+                names.Add(root + buffer.ToString());
+                length = 32768;
+                buffer = new StringBuilder((int)length);
+                if (!FindNextFileNameW(find, ref length, buffer)) {
+                    int error = Marshal.GetLastWin32Error();
+                    if (error != 38) throw new IOException("FindNextFileNameW failed for " + path + ": " + error);
+                    break;
+                }
+            }
         }
+        finally { FindClose(find); }
+        return names.ToArray();
     }
     public static byte[] ReadAll(string path, out string id) {
         using (var f = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read)) {
