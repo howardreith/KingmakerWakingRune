@@ -101,6 +101,20 @@ function Get-AlternateFixtureVersion([string] $Shipping) {
     if ($Shipping -cnotmatch '\A([0-9]+)\.([0-9]+)\.([0-9]+)\z') { throw "Unexpected shipping version: $Shipping" }
     return '{0}.{1}.{2}' -f $Matches[1], $Matches[2], ([int]$Matches[3] + 1)
 }
+# A commit object differing from HEAD only in one path (removed when Content is $null); HEAD, the index and the working
+# tree are not changed (a temporary index file is used).
+function New-VariantCommit([string] $Repo, [string] $Path, [AllowNull()][string] $Content, [string] $Message) {
+    $index = Join-Path $temp ('variant-index-' + [Guid]::NewGuid().ToString('N'))
+    $env:GIT_INDEX_FILE = $index
+    try {
+        & git -C $Repo read-tree HEAD
+        if ($null -eq $Content) { & git -C $Repo update-index --force-remove -- $Path }
+        else { $blob = ($Content | & git -C $Repo hash-object -w --stdin).Trim(); & git -C $Repo update-index --add --cacheinfo ('100644,' + $blob + ',' + $Path) }
+        $tree = (& git -C $Repo write-tree).Trim()
+    }
+    finally { Remove-Item -Path Env:GIT_INDEX_FILE -ErrorAction SilentlyContinue; Remove-Item -LiteralPath $index -Force -ErrorAction SilentlyContinue }
+    return (& git -C $Repo -c user.name=loader-baseline -c user.email=loader-baseline@invalid commit-tree $tree -p HEAD -m $Message).Trim()
+}
 function Edit-Json([string] $Path, [scriptblock] $Edit) {
     $j = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
     & $Edit $j
@@ -616,8 +630,32 @@ try {
         Write-Host "NOT RUN report-through-a-file-symbolic-link-input-cannot-overwrite-the-target-receipt :: this host refused to create a file symbolic link: $symbolicError"
     }
     Remove-Item -LiteralPath $linkedInputs -Recurse -Force
+    # R9-F6 (round 10): a volume that cannot enumerate hard links, simulated by a disposable copy of the validator, installer
+    # and identity helper whose enumeration always fails. A single-name external copy is validated with a report and
+    # installed as content-inspected without enumeration; a linked package's report is declined because its names cannot
+    # be established, and the same package validates without a report.
+    $novol = Join-Path $temp 'no link enumeration'; $novolScripts = Join-Path $novol 'scripts'
+    New-Item -ItemType Directory -Path $novolScripts -Force | Out-Null
+    foreach ($f in @('Validate-Package.ps1', 'KwrPackage.ps1', 'KwrBuild.Common.ps1', 'Get-PinnedLoaderReferences.ps1', 'loader-reference-pins.json')) { Copy-Item -LiteralPath (Join-Path $base "scripts\$f") -Destination $novolScripts }
+    Copy-Item -LiteralPath (Join-Path $base 'Info.json') -Destination $novol
+    $identityText = [IO.File]::ReadAllText((Join-Path $base 'scripts\KwrFileIdentity.ps1'))
+    $enumAnchor = '    public static string[] LinkNamesOf(string path) {'
+    if ($identityText.IndexOf($enumAnchor) -lt 0) { throw 'KwrFileIdentity.ps1 enumeration anchor not found.' }
+    [IO.File]::WriteAllText((Join-Path $novolScripts 'KwrFileIdentity.ps1'), $identityText.Replace($enumAnchor, $enumAnchor + "`r`n        if (path != null) throw new IOException(`"hard-link enumeration is not supported on this volume (fixture)`");"))
+    $single = Join-Path $novol 'single external.zip'; Copy-Item -LiteralPath $candidateZip -Destination $single
+    $novolValidator = Join-Path $novolScripts 'Validate-Package.ps1'
+    $singleReport = Join-Path $novol 'single report.json'
+    $sv = Invoke-Isolated @('-File', $novolValidator, '-PackagePath', $single, '-ReportPath', $singleReport)
+    $svJson = try { Get-Content -LiteralPath $singleReport -Raw | ConvertFrom-Json } catch { $null }
+    $si = Invoke-Script (". $(Quote (Join-Path $novolScripts 'KwrPackage.ps1')); `$v = New-KwrValidatedPackageCopy $(Quote $single); 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v")
+    $novolLinked = Join-Path $novol 'linked package.zip'; New-Item -ItemType HardLink -Path $novolLinked -Target $single | Out-Null
+    $lr = Invoke-Isolated @('-File', $novolValidator, '-PackagePath', $novolLinked, '-ReportPath', (Join-Path $novol 'linked report.json'))
+    $ln = Invoke-Isolated @('-File', $novolValidator, '-PackagePath', $novolLinked)
+    Add-Case 'single-name-external-copy-validated-reported-and-installed-without-hard-link-enumeration' ($sv.ExitCode -eq 0 -and $svJson -and [string]$svJson.package_sha256 -ceq (Get-Sha256 $single) -and $si.ExitCode -eq 0 -and $si.Output -match 'MODE external-content-inspected' -and
+        $lr.ExitCode -ne 0 -and ($lr.Output -replace '\s+', ' ') -match 'hard-link names of .* cannot be established' -and -not (Test-Path -LiteralPath (Join-Path $novol 'linked report.json')) -and $ln.ExitCode -eq 0) ("enumeration fails in this copy; single-name report exit $($sv.ExitCode), install " + [regex]::Match($si.Output, 'MODE \S+').Value + "; linked report: " + (Get-Reason $lr.Output) + "; linked without report exit $($ln.ExitCode)")
+    Remove-Item -LiteralPath $novol -Recurse -Force
     # The identity the validator uses equals a trusted Windows read: vol (volume serial) and fsutil file queryfileid.
-    $idOut = Invoke-Script (". $(Quote (Join-Path $base 'scripts\KwrFileIdentity.ps1')); 'ID ' + [KwrFileIdentityV5]::Of($(Quote $candidateZip))")
+    $idOut = Invoke-Script (". $(Quote (Join-Path $base 'scripts\KwrFileIdentity.ps1')); 'ID ' + [KwrFileIdentityV6]::Of($(Quote $candidateZip))")
     $reported = [regex]::Match($idOut.Output, 'ID ([0-9a-f]{8}:[0-9a-f]{16})').Groups[1].Value
     $previousPreference = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     try { $fsutilText = (& fsutil file queryfileid $candidateZip 2>&1 | ForEach-Object { "$_" }) -join ' ' }
@@ -629,12 +667,12 @@ try {
     Add-Case 'file-identity-matches-trusted-windows-read' ($reported -and $reported -ceq $trusted) "validator $reported; fsutil/CIM $trusted ($fsutilText; volume serial $volSerial)"
     $distinctReport = Join-Path $temp 'distinct existing report.json'
     [IO.File]::WriteAllText($distinctReport, 'placeholder')
-    $distinctIdBefore = [regex]::Match((Invoke-Script (". $(Quote (Join-Path $base 'scripts\KwrFileIdentity.ps1')); 'ID ' + [KwrFileIdentityV5]::Of($(Quote $distinctReport))")).Output, 'ID (\S+)').Groups[1].Value
+    $distinctIdBefore = [regex]::Match((Invoke-Script (". $(Quote (Join-Path $base 'scripts\KwrFileIdentity.ps1')); 'ID ' + [KwrFileIdentityV6]::Of($(Quote $distinctReport))")).Output, 'ID (\S+)').Groups[1].Value
     $dr = Invoke-Isolated @('-File', $validator, '-PackagePath', $candidateZip, '-ReceiptPath', $receiptPath, '-ReportPath', $distinctReport)
     $drJson = try { Get-Content -LiteralPath $distinctReport -Raw | ConvertFrom-Json } catch { $null }
     Add-Case 'report-path-distinct-existing-file-written' ($dr.ExitCode -eq 0 -and $drJson -and $drJson.package_sha256 -eq $zipBefore) "exit $($dr.ExitCode); report written in place of the distinct file (identity $distinctIdBefore); package digest $($drJson.package_sha256)"
     $validatorText = [IO.File]::ReadAllText($validator)
-    $writeAnchor = '    [void][KwrFileIdentityV5]::WriteChecked($ReportPath, $protectedIds, $reportBytes)'
+    $writeAnchor = '    [void][KwrFileIdentityV6]::WriteChecked($ReportPath, $protectedIds, $reportBytes)'
     if ($validatorText.IndexOf($writeAnchor) -lt 0) { throw 'Validate-Package.ps1 write anchor not found.' }
     $racingValidator = Join-Path $base 'scripts\Validate-Package-instrumented.ps1'
     [IO.File]::WriteAllText($racingValidator, $validatorText.Replace($writeAnchor, "    Remove-Item -LiteralPath `$ReportPath -Force; New-Item -ItemType HardLink -Path `$ReportPath -Target `$PackagePath | Out-Null`r`n" + $writeAnchor))
@@ -658,7 +696,7 @@ try {
     # R4-F3: between the identity samples the supplied path is replaced; the replacement is the file read into the snapshot
     # and is then moved to the initially distinct report destination (the original is put back). Report publication
     # refuses and the bytes actually read survive at the destination.
-    $readAnchor = '$packageBytes = [KwrFileIdentityV5]::ReadAll($PackagePath, [ref]$readId)'
+    $readAnchor = '$packageBytes = [KwrFileIdentityV6]::ReadAllBound($PackagePath, [bool]$ReportPath, [ref]$readId, [ref]$readFinal, [ref]$readNames)'
     if ($validatorText.IndexOf($readAnchor) -lt 0) { throw 'Validate-Package.ps1 read anchor not found.' }
     $readInput = Join-Path $temp 'read input.zip'; Copy-Item -LiteralPath $candidateZip -Destination $readInput
     $replacementSource = Join-Path $temp 'replacement source.zip'; Copy-Item -LiteralPath $candidateZip -Destination $replacementSource
@@ -674,6 +712,22 @@ try {
     Remove-Item -LiteralPath $readingValidator
     $readNow = if (Test-Path -LiteralPath $readReport) { Get-Sha256 $readReport } else { 'missing' }
     Add-Case 'replacement-read-between-samples-then-moved-to-the-report-destination-refused' ($readRace.ExitCode -ne 0 -and ($readRace.Output -replace '\s+', ' ') -match 'must not be an input of the validation' -and $readNow -eq $replacementSha -and $replacementSha -ne (Get-Sha256 $readInput)) "exit $($readRace.ExitCode); bytes read (replacement $replacementSha) at the destination unchanged: $($readNow -eq $replacementSha); original back at the input path: $((Get-Sha256 $readInput) -eq (Get-Sha256 $candidateZip)); $(Get-Reason $readRace.Output)"
+    # R9-F3 (round 10): the input is a hard link switched from the receipt-backed candidate to a second receipt-backed ZIP
+    # just before the snapshot read, and the report is aimed at the second ZIP's receipt. Protection comes from the handle
+    # that reads the bytes: refused, and both of the second pair's hashes are unchanged.
+    $swapDir = Join-Path $temp 'swap pairs'; New-Item -ItemType Directory -Path $swapDir -Force | Out-Null
+    $pairB = Join-Path $swapDir 'second package.zip'; Copy-Item -LiteralPath $candidateZip -Destination $pairB; Copy-Item -LiteralPath $receiptPath -Destination ($pairB + '.build.json')
+    $swapLink = Join-Path $swapDir 'input link.zip'; New-Item -ItemType HardLink -Path $swapLink -Target $candidateZip | Out-Null
+    $swapLinkType = [string](Get-Item -LiteralPath $swapLink).LinkType
+    $pairBBefore = (Get-Sha256 $pairB) + '/' + (Get-Sha256 ($pairB + '.build.json'))
+    $relink = "Remove-Item -LiteralPath `$PackagePath -Force; New-Item -ItemType HardLink -Path `$PackagePath -Target $(Quote $pairB) | Out-Null"
+    $relinkValidator = Join-Path $base 'scripts\Validate-Package-instrumented.ps1'
+    [IO.File]::WriteAllText($relinkValidator, $validatorText.Replace($readAnchor, $relink + "`r`n" + $readAnchor))
+    $relinked = Invoke-Isolated @('-File', $relinkValidator, '-PackagePath', $swapLink, '-ReportPath', ($pairB + '.build.json'))
+    Remove-Item -LiteralPath $relinkValidator
+    $pairBAfter = (Get-Sha256 $pairB) + '/' + (Get-Sha256 ($pairB + '.build.json'))
+    Add-Case 'input-link-switched-before-the-snapshot-cannot-overwrite-the-read-zips-receipt' ($swapLinkType -ceq 'HardLink' -and $relinked.ExitCode -ne 0 -and ($relinked.Output -replace '\s+', ' ') -match 'must not be an input of the validation' -and $pairBAfter -ceq $pairBBefore) ("input $swapLinkType switched to the second pair before the read; " + (Get-Reason $relinked.Output) + "; second ZIP/receipt unchanged: $($pairBAfter -ceq $pairBBefore)")
+    Remove-Item -LiteralPath $swapDir -Recurse -Force
     Add-Case 'report-destination-replaced-during-validation-refused' ($race.ExitCode -ne 0 -and ($race.Output -replace '\s+', ' ') -match 'must not be an input of the validation \(file identity' -and (Get-Sha256 $candidateZip) -eq $zipBefore -and (Get-Sha256 $receiptPath) -eq $receiptBefore) ("exit $($race.ExitCode); " + (Get-Reason $race.Output) + "; package and receipt unchanged: $((Get-Sha256 $candidateZip) -eq $zipBefore -and (Get-Sha256 $receiptPath) -eq $receiptBefore)")
     Remove-Item -LiteralPath $raceReport -Force
 
@@ -1035,6 +1089,13 @@ try { Invoke-Launch } catch { 'LAUNCH ' + `$_.Exception.Message }
     $dirtyPairBefore = if ((Test-Path -LiteralPath $dirtyZipR5) -and (Test-Path -LiteralPath ($dirtyZipR5 + '.build.json'))) { (Get-Sha256 $dirtyZipR5) + '/' + (Get-Sha256 ($dirtyZipR5 + '.build.json')) } else { 'missing' }
     $firstDirtyReceipt = Join-Path $inputs 'first-dirty-receipt-r9.json'
     if (Test-Path -LiteralPath ($dirtyZipR5 + '.build.json')) { Copy-Item -LiteralPath ($dirtyZipR5 + '.build.json') -Destination $firstDirtyReceipt }
+    # R5-F1 (round 10): a hard link to the previous published ZIP, made before the replacement starts, with a copy of that
+    # ZIP's own receipt beside it.
+    $prevLinkDir = Join-Path $temp 'link to previous'; New-Item -ItemType Directory -Path $prevLinkDir -Force | Out-Null
+    $prevLink = Join-Path $prevLinkDir 'previous.zip'
+    New-Item -ItemType HardLink -Path $prevLink -Target $dirtyZipR5 | Out-Null
+    Copy-Item -LiteralPath $firstDirtyReceipt -Destination ($prevLink + '.build.json')
+    $prevReceiptMatches = [string](Get-Content -LiteralPath ($prevLink + '.build.json') -Raw | ConvertFrom-Json).zipSha256 -ceq (Get-Sha256 $prevLink)
     $zipPlace = '        [IO.File]::Move($pendingZip, $zip); $done.Add(@($zip, $pendingZip))'
     if ($buildText.IndexOf($zipPlace) -lt 0) { throw 'Build.ps1 ZIP placement anchor not found.' }
     $pauseInsert = "`r`n        [IO.File]::WriteAllText($(Quote (Join-Path $signal 'zip-placed')), 'placed'); `$waitUntil = [DateTime]::UtcNow.AddMinutes(10); while (-not [IO.File]::Exists($(Quote (Join-Path $signal 'receipt-go'))) -and [DateTime]::UtcNow -lt `$waitUntil) { Start-Sleep -Milliseconds 200 }; throw 'injected receipt placement failure'"
@@ -1061,19 +1122,45 @@ try { Invoke-Launch } catch { 'LAUNCH ' + `$_.Exception.Message }
     $linkZip = Join-Path $linkDir 'linked.zip'
     New-Item -ItemType HardLink -Path $linkZip -Target $dirtyZipR5 | Out-Null
     $duringPauseLink = Invoke-Script (". $(Quote $kwrPackage); `$v = New-KwrValidatedPackageCopy $(Quote $linkZip); 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v")
-    # R5-F1 (round 9): the same hard link with a copy of the genuine receipt beside it, while the publisher holds the
-    # canonical lock (the read is attempted in diagnostic mode, which a dirty pair otherwise satisfies).
-    Copy-Item -LiteralPath $firstDirtyReceipt -Destination ($linkZip + '.build.json')
-    $aliasReceiptMatches = [string](Get-Content -LiteralPath ($linkZip + '.build.json') -Raw | ConvertFrom-Json).zipSha256 -ceq (Get-Sha256 $linkZip)
+    # R5-F1 (round 9), R9-F1 (round 10): the same hard link with the receipt produced for the ZIP under test beside it (the
+    # publisher's pending receipt for the ZIP it has just placed), while the publisher holds the canonical lock (the read is
+    # attempted in diagnostic mode, which a dirty pair otherwise satisfies).
+    $pendingReceipt = @(Get-ChildItem -LiteralPath (Join-Path $base 'artifacts') -Directory -Force -Filter '.pending-*' | ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -File -Force -Filter '*.zip.build.json' }) | Select-Object -First 1
+    if ($pendingReceipt) { Copy-Item -LiteralPath $pendingReceipt.FullName -Destination ($linkZip + '.build.json') }
+    $aliasReceiptMatches = (Test-Path -LiteralPath ($linkZip + '.build.json')) -and [string](Get-Content -LiteralPath ($linkZip + '.build.json') -Raw | ConvertFrom-Json).zipSha256 -ceq (Get-Sha256 $linkZip)
     $duringPauseLinkReceipt = Invoke-Script (". $(Quote $kwrPackage); `$v = New-KwrValidatedPackageCopy $(Quote $linkZip) -Diagnostic; 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v")
     Remove-Item -LiteralPath $linkDir -Recurse -Force
+    # R5-F1 (round 10): the link made before the replacement now names the previous ZIP in the publisher's backup folder.
+    $prevNamesDuring = (@(& fsutil hardlink list $prevLink 2>&1 | ForEach-Object { "$_".Trim() }) -join ' | ')
+    $duringPausePrevious = Invoke-Script (". $(Quote $kwrPackage); `$v = New-KwrValidatedPackageCopy $(Quote $prevLink) -Diagnostic; 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v")
+    # R9-F2 (round 10): a canonical-path reader that has classified the placed ZIP (holding no handle on it) waits before it
+    # takes the lock while the publisher's receipt placement fails and rolls back; the reader then proceeds.
+    $classifyAnchor = '        $classified = & $classify ([KwrFileIdentityV6]::FinalPathOf($requested)) ([KwrFileIdentityV6]::LinkCountOf($requested))'
+    $packageText = [IO.File]::ReadAllText($kwrPackage)
+    if ($packageText.IndexOf($classifyAnchor) -lt 0) { throw 'KwrPackage.ps1 classification anchor not found.' }
+    $readerPause = "`r`n        [IO.File]::WriteAllText($(Quote (Join-Path $signal 'reader-classified')), 'classified'); `$readerUntil = [DateTime]::UtcNow.AddMinutes(5); while (-not [IO.File]::Exists($(Quote (Join-Path $signal 'reader-go'))) -and [DateTime]::UtcNow -lt `$readerUntil) { Start-Sleep -Milliseconds 200 }"
+    $pausingReader = Join-Path $base 'scripts\KwrPackage-reader-instrumented.ps1'
+    [IO.File]::WriteAllText($pausingReader, $packageText.Replace($classifyAnchor, $classifyAnchor + $readerPause))
+    $readerScript = Join-Path $inputs 'pausing-reader.ps1'
+    [IO.File]::WriteAllText($readerScript, "try { . $(Quote $pausingReader); `$v = New-KwrValidatedPackageCopy $(Quote $dirtyZipR5) -Diagnostic; 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v } catch { 'ERROR: ' + `$_.Exception.Message; exit 1 }")
+    $logR = Join-Path $inputs 'pausing-reader.txt'
+    $procR = Start-Process -FilePath powershell.exe -ArgumentList @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $readerScript + '"')) -RedirectStandardOutput $logR -RedirectStandardError ($logR + '.err') -PassThru -WindowStyle Hidden
+    $null = $procR.Handle
+    $deadlineR = (Get-Date).AddMinutes(3)
+    while (-not $procR.HasExited -and -not (Test-Path -LiteralPath (Join-Path $signal 'reader-classified')) -and (Get-Date) -lt $deadlineR) { Start-Sleep -Milliseconds 200 }
+    $readerClassified = Test-Path -LiteralPath (Join-Path $signal 'reader-classified')
     [IO.File]::WriteAllText((Join-Path $signal 'receipt-go'), 'go')
     $procP.WaitForExit()
-    Remove-Item -LiteralPath $pausing
+    [IO.File]::WriteAllText((Join-Path $signal 'reader-go'), 'go')
+    $procR.WaitForExit()
+    $textR = (Get-Content -LiteralPath $logR -Raw) + "`n" + (Get-Content -LiteralPath ($logR + '.err') -Raw)
+    Remove-Item -LiteralPath $pausing, $pausingReader
     $textP = (Get-Content -LiteralPath $logP -Raw) + "`n" + (Get-Content -LiteralPath ($logP + '.err') -Raw)
     $dirtyPairAfter = if ((Test-Path -LiteralPath $dirtyZipR5) -and (Test-Path -LiteralPath ($dirtyZipR5 + '.build.json'))) { (Get-Sha256 $dirtyZipR5) + '/' + (Get-Sha256 ($dirtyZipR5 + '.build.json')) } else { 'missing' }
     $afterDefault = Invoke-Script (". $(Quote $kwrPackage); `$v = New-KwrValidatedPackageCopy $(Quote $dirtyZipR5); 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v")
     $afterDiagnostic = Invoke-Script (". $(Quote $kwrPackage); `$v = New-KwrValidatedPackageCopy $(Quote $dirtyZipR5) -Diagnostic; 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v")
+    $afterPrevious = Invoke-Script (". $(Quote $kwrPackage); `$v = New-KwrValidatedPackageCopy $(Quote $prevLink) -Diagnostic; 'MODE ' + `$v.InstallMode + ' SOURCE ' + `$v.Source; Remove-KwrValidatedPackageCopy `$v")
+    Remove-Item -LiteralPath $prevLinkDir -Recurse -Force
     # The receiptless dirty output with the lock released (as an interrupted publisher leaves it): declined by both
     # spellings.
     $savedDirtyReceipt = Join-Path $inputs 'dirty-receipt-r7.json'; Copy-Item -LiteralPath ($dirtyZipR5 + '.build.json') -Destination $savedDirtyReceipt
@@ -1100,7 +1187,11 @@ try { Invoke-Launch } catch { 'LAUNCH ' + `$_.Exception.Message }
     Add-Case 'installer-read-during-publication-declined-and-rollback-exposes-the-restored-pair' $ok ("paused between placements: $paused (receipt visible: $receiptVisible); during the pause: " + (Get-Reason $duringPause.Output) + "; publisher exit $($procP.ExitCode); restored dirty pair equals the previous: $($dirtyPairAfter -ceq $dirtyPairBefore); after rollback default: " + (Get-Reason $afterDefault.Output) + "; -Diagnostic: " + ([regex]::Match($afterDiagnostic.Output, 'MODE \S+').Value) + "; external receiptless ZIP: " + ([regex]::Match($external.Output, 'MODE \S+').Value))
     Add-Case 'installer-read-through-the-zip-short-filename-during-publication-declined' ($shortZipDiffers -and $duringPauseShortZip.ExitCode -ne 0 -and ($duringPauseShortZip.Output -replace '\s+', ' ') -match 'A build is publishing' -and $duringPauseShortZip.Output -notmatch 'MODE ') ("short ZIP path $shortZip (short filename differs: $shortZipDiffers); during the pause: " + (Get-Reason $duringPauseShortZip.Output))
     Add-Case 'installer-read-through-a-hard-link-during-publication-declined' ($duringPauseLink.ExitCode -ne 0 -and ($duringPauseLink.Output -replace '\s+', ' ') -match 'A build is publishing' -and $duringPauseLink.Output -notmatch 'MODE ') ("hard link in another folder during the pause (its build-owned name selects the canonical lock): " + (Get-Reason $duringPauseLink.Output))
-    Add-Case 'installer-read-through-a-hard-link-with-a-matching-alias-receipt-while-the-canonical-lock-is-held-declined' ($duringPauseLinkReceipt.ExitCode -ne 0 -and ($duringPauseLinkReceipt.Output -replace '\s+', ' ') -match 'A build is publishing' -and $duringPauseLinkReceipt.Output -notmatch 'MODE ') ("alias receipt beside the link matches the linked ZIP: $aliasReceiptMatches; -Diagnostic during the pause: " + (Get-Reason $duringPauseLinkReceipt.Output))
+    Add-Case 'installer-read-through-a-link-to-the-previous-zip-in-the-publisher-backup-declined' ($prevReceiptMatches -and $duringPausePrevious.ExitCode -ne 0 -and ($duringPausePrevious.Output -replace '\s+', ' ') -match "private staging or backup area" -and $duringPausePrevious.Output -notmatch 'MODE ') ("link made before the replacement, its own receipt beside it (matches: $prevReceiptMatches); names during the pause: $prevNamesDuring; " + (Get-Reason $duringPausePrevious.Output))
+    Add-Case 'link-to-the-previous-zip-qualifies-once-rollback-restores-the-pair' ($afterPrevious.ExitCode -eq 0 -and $afterPrevious.Output -match 'MODE diagnostic' -and $afterPrevious.Output -match ('SOURCE ' + [regex]::Escape($dirtyZipR5)) -and $dirtyPairAfter -ceq $dirtyPairBefore) ([regex]::Match($afterPrevious.Output, 'MODE .*').Value + "; restored pair equals the previous: $($dirtyPairAfter -ceq $dirtyPairBefore)")
+    Add-Case 'reader-waiting-before-the-lock-does-not-obstruct-rollback-and-is-then-refused' ($readerClassified -and $procP.ExitCode -ne 0 -and $textP -match 'injected receipt placement failure' -and $textP -notmatch 'rollback failed' -and $dirtyPairAfter -ceq $dirtyPairBefore -and
+        $procR.ExitCode -ne 0 -and ($textR -replace '\s+', ' ') -match 'replaced or relinked while it was being read' -and $textR -notmatch 'MODE ') ("reader classified the placed ZIP and waited before the lock: $readerClassified; publisher exit $($procP.ExitCode) (rollback completed: $($textP -notmatch 'rollback failed')); previous ZIP and receipt restored at their final names: $($dirtyPairAfter -ceq $dirtyPairBefore); reader: " + (Get-Reason $textR))
+    Add-Case 'installer-read-through-a-hard-link-with-a-matching-alias-receipt-while-the-canonical-lock-is-held-declined' ($aliasReceiptMatches -and $duringPauseLinkReceipt.ExitCode -ne 0 -and ($duringPauseLinkReceipt.Output -replace '\s+', ' ') -match 'A build is publishing' -and $duringPauseLinkReceipt.Output -notmatch 'MODE ') ("alias receipt beside the link matches the linked ZIP: $aliasReceiptMatches; -Diagnostic during the pause: " + (Get-Reason $duringPauseLinkReceipt.Output))
     Add-Case 'installer-read-through-a-hard-link-with-a-matching-alias-receipt-after-release-without-the-canonical-receipt-declined' ($aliasReceiptMatches2 -and $receiptlessLinkReceipt.ExitCode -ne 0 -and ($receiptlessLinkReceipt.Output -replace '\s+', ' ') -match 'A build-owned package has no build receipt' -and $receiptlessLinkReceipt.Output -notmatch 'MODE ' -and
         $canonicalLinkReceipt.ExitCode -eq 0 -and $canonicalLinkReceipt.Output -match 'MODE diagnostic' -and $canonicalLinkReceipt.Output -match ('SOURCE ' + [regex]::Escape($dirtyZipR5))) ("alias receipt matches the linked ZIP: $aliasReceiptMatches2; canonical receipt absent: " + (Get-Reason $receiptlessLinkReceipt.Output) + "; canonical receipt restored: " + [regex]::Match($canonicalLinkReceipt.Output, 'MODE \S+ SOURCE .*').Value)
     # R7-F1 (unlocked): the clean pair through the ZIP's own short filename qualifies; a content-only report aimed at the
@@ -1180,10 +1271,14 @@ try { Invoke-Launch } catch { 'LAUNCH ' + `$_.Exception.Message }
     & git -C $base -c user.name=loader-baseline -c user.email=loader-baseline@invalid commit -q -m 'test: tracked root source with other content'
     $caseOther = (& git -C $base rev-parse HEAD).Trim()
     [IO.File]::WriteAllText($caseSource, "namespace KingmakerWakingRune.LocalOnly { internal static class CaseRootMarker { internal const int Value = 12; } }`r`n")
-    & git -C $base -c user.name=loader-baseline -c user.email=loader-baseline@invalid commit -q -am 'test: tracked root source'
+    # R9-F4 (round 10): a tracked root source whose file name has a literal equals sign, selected in the same props import.
+    $equalsSource = Join-Path $base 'Rules=Root.cs'
+    [IO.File]::WriteAllText($equalsSource, "namespace KingmakerWakingRune.LocalOnly { internal static class EqualsRootMarker { internal const int Value = 13; } }`r`n")
+    & git -C $base add -- 'CaseRoot.cs' 'Rules=Root.cs'
+    & git -C $base -c user.name=loader-baseline -c user.email=loader-baseline@invalid commit -q -m 'test: tracked root source'
     $caseProducer = (& git -C $base rev-parse HEAD).Trim()
     $casePropsBefore = [IO.File]::ReadAllText($localPropsPath)
-    [IO.File]::WriteAllText($localPropsPath, $casePropsBefore.Replace('</Project>', "  <ItemGroup><Compile Include=`"`$(MSBuildThisFileDirectory)caseroot.cs`" /></ItemGroup>`r`n</Project>"))
+    [IO.File]::WriteAllText($localPropsPath, $casePropsBefore.Replace('</Project>', "  <ItemGroup><Compile Include=`"`$(MSBuildThisFileDirectory)caseroot.cs`" /><Compile Include=`"`$(MSBuildThisFileDirectory)Rules=Root.cs`" /></ItemGroup>`r`n</Project>"))
     $caseBuild = Invoke-Isolated @('-File', (Join-Path $base 'scripts\Build.ps1'), '-SkipTests', '-ReplacePackage')
     $caseReceipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
     $caseEntry = @($caseReceipt.compilerInputs | Where-Object { [string]$_.kind -ceq 'compile' -and ([string]$_.name -ieq 'CaseRoot.cs') } | ForEach-Object { [string]$_.name }) -join ','
@@ -1197,6 +1292,23 @@ try { Invoke-Launch } catch { 'LAUNCH ' + `$_.Exception.Message }
         $variantResult = Invoke-Isolated @('-File', $validator, '-PackagePath', $candidateZip, '-ReceiptPath', $variantReceipt, '-RequireCurrentProvenance')
         $variantHas = @(& git -C $base ls-tree --name-only $variant[1] -- 'CaseRoot.cs').Count -eq 1
         Add-Case ("receipt-naming-a-producer-$($variant[0])-in-the-other-casing-source-refused") ($variantResult.ExitCode -ne 0 -and ($variantResult.Output -replace '\s+', ' ') -match "material inputs differ from the receipt's commit") ("receipt commit $($variant[1]) (has CaseRoot.cs: $variantHas); " + (Get-Reason $variantResult.Output))
+    }
+    # R9-F4 and R9-F5 (round 10): receipts naming commits that differ from the producer only in Rules=Root.cs (missing, or
+    # other content) or only in the identity helper the compiler inventory requires are refused; the genuine pair above
+    # qualifies.
+    $equalsMaterial = Invoke-Script (". $(Quote (Join-Path $base 'scripts\KwrBuild.Common.ps1')); `$r = Get-Content -LiteralPath $(Quote $receiptPath) -Raw | ConvertFrom-Json; 'MATERIAL ' + ((Get-KwrInventoryRepositoryPaths `$r.compilerInputs | Where-Object { `$_ -like 'Rules*' }) -join ',')")
+    $helperText = [IO.File]::ReadAllText((Join-Path $base 'scripts\KwrFileIdentity.ps1'))
+    $variants = @(
+        @('equals-source-missing', (New-VariantCommit $base 'Rules=Root.cs' $null 'test: producer without Rules=Root.cs')),
+        @('equals-source-differing', (New-VariantCommit $base 'Rules=Root.cs' 'namespace KingmakerWakingRune.LocalOnly { internal static class EqualsRootMarker { internal const int Value = 14; } }' 'test: producer with other Rules=Root.cs')),
+        @('identity-helper-differing', (New-VariantCommit $base 'scripts/KwrFileIdentity.ps1' ($helperText + "`n# variant producer`n") 'test: producer with another identity helper')))
+    foreach ($variant in $variants) {
+        $variantReceipt = Join-Path $inputs ("case-receipt-$($variant[0]).json")
+        Copy-Item -LiteralPath $receiptPath -Destination $variantReceipt -Force
+        Edit-Json $variantReceipt { param($j) $j.commit = $variant[1] }
+        $variantResult = Invoke-Isolated @('-File', $validator, '-PackagePath', $candidateZip, '-ReceiptPath', $variantReceipt, '-RequireCurrentProvenance')
+        $changed = (@(& git -C $base diff --name-only $variant[1] HEAD) -join ',')
+        Add-Case ("receipt-naming-a-producer-$($variant[0])-refused") ($equalsMaterial.Output -match 'MATERIAL Rules=Root\.cs' -and $changed -ne '' -and $variantResult.ExitCode -ne 0 -and ($variantResult.Output -replace '\s+', ' ') -match "material inputs differ from the receipt's commit") ("receipt commit $($variant[1]) differs from the producer only in [$changed]; producing-commit comparison path " + [regex]::Match($equalsMaterial.Output, 'MATERIAL \S*').Value + '; ' + (Get-Reason $variantResult.Output))
     }
     [IO.File]::WriteAllText($localPropsPath, $casePropsBefore)
 

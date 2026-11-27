@@ -30,11 +30,11 @@ if (-not [IO.File]::Exists($PackagePath)) { throw "Package not found: $PackagePa
 # The real long filename (a short 8.3 spelling expanded), so the conventional receipt beside the package is derived from
 # the name the build wrote.
 . (Join-Path $PSScriptRoot 'KwrFileIdentity.ps1')
-$PackagePath = [KwrFileIdentityV5]::LongPathOf($PackagePath)
+$PackagePath = [KwrFileIdentityV6]::LongPathOf($PackagePath)
 if ($ReceiptPath) {
     $ReceiptPath = Resolve-LiteralFilePath $ReceiptPath
     if (-not [IO.File]::Exists($ReceiptPath)) { throw "Build receipt not found: $ReceiptPath" }
-    $ReceiptPath = [KwrFileIdentityV5]::LongPathOf($ReceiptPath)
+    $ReceiptPath = [KwrFileIdentityV6]::LongPathOf($ReceiptPath)
 }
 elseif ($RequireCurrentProvenance) { throw '-RequireCurrentProvenance needs the build receipt (-ReceiptPath).' }
 if ($ReportPath) {
@@ -42,23 +42,23 @@ if ($ReportPath) {
     # Protected inputs: the package, the receipt given, and the conventional receipt beside the package even when it is
     # not given. An existing report destination is compared by file identity (volume and file index), so another
     # spelling, a short name or a hard link of a protected input is refused too.
-    # The package is protected as the file actually read (R8-F2): its physical path (a file symbolic link or junction
-    # resolved to its target) and every hard-link name of that file, each with the conventional receipt beside it, so a
-    # report cannot overwrite the receipt of the ZIP a link selects. When those names cannot be established, no report is
-    # written.
+    # The package is also protected as the file actually read (R8-F2, R9-F3): the snapshot read below returns, from the
+    # same handle that reads the bytes, the file's physical path (a file symbolic link or junction resolved to its target)
+    # and every hard-link name, and each of them with the conventional receipt beside it is protected before the report is
+    # written, so a link changed before the read cannot leave the read ZIP's receipt unprotected. A file with one link
+    # needs no enumeration (R9-F6); when the names of a linked file cannot be established, no report is written.
     # The final write is bound to the checked identity as well (see the end of this script).
     . (Join-Path $PSScriptRoot 'KwrFileIdentity.ps1')
-    try {
-        $packageFinal = [KwrFileIdentityV5]::FinalPathOf($PackagePath)
-        $packageNames = @([KwrFileIdentityV5]::LinkNamesOf($packageFinal))
+    $protected = @(@($PackagePath, $ReceiptPath, ($PackagePath + '.build.json')) | Where-Object { $_ } | Select-Object -Unique)
+    $refuseProtectedReport = {
+        param([string[]] $Paths)
+        foreach ($inputPath in $Paths) {
+            $same = [string]::Equals([IO.Path]::GetFullPath($ReportPath), [IO.Path]::GetFullPath($inputPath), [StringComparison]::OrdinalIgnoreCase)
+            if (-not $same -and [IO.File]::Exists($ReportPath) -and [IO.File]::Exists($inputPath)) { $same = [KwrFileIdentityV6]::Of($ReportPath) -ceq [KwrFileIdentityV6]::Of($inputPath) }
+            if ($same) { throw "The report path must not be an input of the validation: $inputPath" }
+        }
     }
-    catch { throw "The package's physical file and names cannot be established ($($_.Exception.Message)); the report is not written, because the receipts of a linked package could not be protected." }
-    $protected = @(@($PackagePath, $ReceiptPath, ($PackagePath + '.build.json'), $packageFinal, ($packageFinal + '.build.json')) + @($packageNames | ForEach-Object { $_; $_ + '.build.json' }) | Where-Object { $_ } | Select-Object -Unique)
-    foreach ($inputPath in $protected) {
-        $same = [string]::Equals([IO.Path]::GetFullPath($ReportPath), [IO.Path]::GetFullPath($inputPath), [StringComparison]::OrdinalIgnoreCase)
-        if (-not $same -and [IO.File]::Exists($ReportPath) -and [IO.File]::Exists($inputPath)) { $same = [KwrFileIdentityV5]::Of($ReportPath) -ceq [KwrFileIdentityV5]::Of($inputPath) }
-        if ($same) { throw "The report path must not be an input of the validation: $inputPath" }
-    }
+    & $refuseProtectedReport $protected
 }
 # The same pin-definition and manifest contract as the build (offline; no download, no cache needed).
 [void](& (Join-Path $PSScriptRoot 'Get-PinnedLoaderReferences.ps1') -DefinitionOnly)
@@ -87,17 +87,22 @@ try {
 # The identities of the protected inputs are taken when they are read (before and after the snapshot copy), and the final
 # report write refuses them as well as the inputs' current identities, so an input moved to the report path after its
 # snapshot is still protected.
-$identitiesNow = { if ($ReportPath) { [string[]]@($protected | Where-Object { [IO.File]::Exists($_) } | ForEach-Object { [KwrFileIdentityV5]::Of($_) }) } else { [string[]]@() } }
+$identitiesNow = { if ($ReportPath) { [string[]]@($protected | Where-Object { [IO.File]::Exists($_) } | ForEach-Object { [KwrFileIdentityV6]::Of($_) }) } else { [string[]]@() } }
 $snapshotIds = @(& $identitiesNow)
 . (Join-Path $PSScriptRoot 'KwrFileIdentity.ps1')
 # Each supplied input's bytes are read through one open handle together with that handle's identity, so the protected
 # identities include the exact files whose bytes were inspected even if a path was replaced between the samples.
-$readId = $null
-$packageBytes = [KwrFileIdentityV5]::ReadAll($PackagePath, [ref]$readId)
+$readId = $null; $readFinal = $null; $readNames = $null
+$packageBytes = [KwrFileIdentityV6]::ReadAllBound($PackagePath, [bool]$ReportPath, [ref]$readId, [ref]$readFinal, [ref]$readNames)
 $snapshotIds += $readId
+if ($ReportPath) {
+    $readProtected = @(@($readFinal, ($readFinal + '.build.json')) + @($readNames | ForEach-Object { $_; $_ + '.build.json' }) | Select-Object -Unique)
+    & $refuseProtectedReport $readProtected
+    $protected = @(@($protected) + $readProtected | Select-Object -Unique)
+}
 [IO.File]::WriteAllBytes($inspected, $packageBytes)
 $receiptBytes = $null
-if ($ReceiptPath) { $receiptBytes = [KwrFileIdentityV5]::ReadAll($ReceiptPath, [ref]$readId); $snapshotIds += $readId }
+if ($ReceiptPath) { $receiptBytes = [KwrFileIdentityV6]::ReadAll($ReceiptPath, [ref]$readId); $snapshotIds += $readId }
 $snapshotIds = @($snapshotIds + @(& $identitiesNow) | Select-Object -Unique)
 
 Add-Type -AssemblyName System.IO.Compression
@@ -249,7 +254,7 @@ if ($ReceiptPath) {
         # compiler would embed counts whether Git tracks, ignores or has never seen it.
         # (Earlier wording, kept for the record:) The whole embedded-art tree (assets/) is material, so an added, removed or changed image is detected whether or
         # not the receipt names it, and an untracked file under any material path refuses current qualification.
-        $materialPaths = @(@('src', ':(glob,icase)assets/portraits/*/*.png', ':(glob,icase)assets/icons/*.png', 'Info.json', 'LoaderReferences.targets', 'scripts/loader-reference-pins.json', 'scripts/Get-PinnedLoaderReferences.ps1', 'scripts/Build.ps1', 'scripts/KwrBuild.Common.ps1') + @(Get-KwrInventoryRepositoryPaths $receipt.compilerInputs) | Select-Object -Unique)
+        $materialPaths = @(@('src', ':(glob,icase)assets/portraits/*/*.png', ':(glob,icase)assets/icons/*.png', 'Info.json', 'LoaderReferences.targets', 'scripts/loader-reference-pins.json', 'scripts/Get-PinnedLoaderReferences.ps1', 'scripts/Build.ps1', 'scripts/KwrBuild.Common.ps1', 'scripts/KwrFileIdentity.ps1') + @(Get-KwrInventoryRepositoryPaths $receipt.compilerInputs | ForEach-Object { ':(literal)' + $_ }) | Select-Object -Unique)
         $untrackedMaterial = @(& git -C $Root ls-files --others --exclude-standard -- @materialPaths)
         if ($untrackedMaterial.Count -gt 0) { throw "Untracked files under the material inputs ($($untrackedMaterial -join ', ')); rebuild from a clean commit." }
         # Windows matches the EmbeddedResource patterns in any letter case (LocalOnly.PNG is embedded), so Git matches with icase.
@@ -297,7 +302,7 @@ if ($ReportPath) {
     $protectedIds = [string[]]@(@($snapshotIds) + @(& $identitiesNow) | Where-Object { $_ } | Select-Object -Unique)
     $reportText = $result | ConvertTo-Json -Depth 5
     $reportBytes = [byte[]](@([Text.Encoding]::UTF8.GetPreamble()) + @([Text.Encoding]::UTF8.GetBytes($reportText + "`r`n")))
-    [void][KwrFileIdentityV5]::WriteChecked($ReportPath, $protectedIds, $reportBytes)
+    [void][KwrFileIdentityV6]::WriteChecked($ReportPath, $protectedIds, $reportBytes)
 }
 Write-Host "Package validation passed: $PackagePath"
 Write-Host "Package SHA-256: $packageSha256; DLL SHA-256: $dllSha256; MVID: $mvid; loader references: $(($observed | ForEach-Object { $_.name + ' ' + $_.version }) -join ', '); source provenance: $provenance"

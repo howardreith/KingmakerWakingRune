@@ -77,7 +77,7 @@ function ConvertFrom-KwrCompilerInputList([string] $ListPath) {
             # the checkout, whose ownership a path cannot establish: it is refused rather than exempted.
             $full = Resolve-InputPath $arg
             $repositoryPath = if ($full.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase) -and -not $full.StartsWith($objPrefix, [StringComparison]::OrdinalIgnoreCase)) { $full.Substring($rootPrefix.Length).Replace('\', '/') } else { $null }
-            if ($null -eq $repositoryPath -and -not $full.StartsWith($objPrefix, [StringComparison]::OrdinalIgnoreCase) -and [IO.File]::Exists($full) -and [KwrFileIdentityV5]::LinkCountOf($full) -gt 1) {
+            if ($null -eq $repositoryPath -and -not $full.StartsWith($objPrefix, [StringComparison]::OrdinalIgnoreCase) -and [IO.File]::Exists($full) -and [KwrFileIdentityV6]::LinkCountOf($full) -gt 1) {
                 throw "Compiler source $full is a hard link outside the repository; whether it is a repository file cannot be established, so it is refused. Use an independent copy or a tracked source."
             }
             [ordered]@{ kind = 'compile'; name = Get-InputName $arg; sha256 = Get-InputDigest $arg; repositoryPath = $repositoryPath }; return
@@ -110,6 +110,16 @@ function ConvertFrom-KwrCompilerInputList([string] $ListPath) {
 function Get-KwrInventoryRepositoryPaths($Inventory) {
     $candidates = @(foreach ($entry in @($Inventory)) {
         if ([string]$entry.kind -notin @('compile', 'reference', 'file-option', 'response-file')) { continue }
+        if ([string]$entry.kind -ceq 'compile') {
+            # A compiler source is identified by its complete literal repository path (R9-F4): the entry's physical
+            # repositoryPath when the inventory records one (null for generated and external sources), otherwise its
+            # literal name; no option or reference-alias decoding applies to a source file name (Rules=Root.cs stays whole).
+            $recorded = if ($entry -is [Collections.IDictionary]) { $entry.Contains('repositoryPath') } else { $null -ne $entry.PSObject.Properties['repositoryPath'] }
+            $source = if ($recorded) { [string]$entry.repositoryPath } else { [string]$entry.name }
+            if ([string]::IsNullOrWhiteSpace($source) -or $source -match '^(obj|generated|implicit):') { continue }
+            $source
+            continue
+        }
         $name = [string]$entry.name
         if ($name.StartsWith('@')) { $name = $name.Substring(1) }
         $name = $name -replace '^/[A-Za-z0-9_+-]+:', ''
@@ -135,7 +145,7 @@ function Get-KwrInventoryRepositoryPaths($Inventory) {
 # resolved); a path that does not exist is returned in full form, unchanged.
 function Get-KwrPhysicalPath([string] $Path) {
     $full = [IO.Path]::GetFullPath($Path)
-    if ([IO.File]::Exists($full) -or [IO.Directory]::Exists($full)) { return [KwrFileIdentityV5]::FinalPathOf($full) }
+    if ([IO.File]::Exists($full) -or [IO.Directory]::Exists($full)) { return [KwrFileIdentityV6]::FinalPathOf($full) }
     return $full
 }
 
@@ -208,7 +218,7 @@ function Get-KwrCompilerInputs {
 # and MSBuild guard, the build scripts, and the compiler inventory (which covers ignored local references and settings).
 function Get-KwrBuildInputFingerprint($CompilerInputs = $null) {
     $paths = @('src', 'Info.json', 'LoaderReferences.targets', 'scripts/loader-reference-pins.json', 'scripts/Get-PinnedLoaderReferences.ps1',
-        'scripts/Build.ps1', 'scripts/KwrBuild.Common.ps1')
+        'scripts/Build.ps1', 'scripts/KwrBuild.Common.ps1', 'scripts/KwrFileIdentity.ps1')
     $files = @(Get-KwrGitPathList @('--cached', '--others', '--exclude-standard') $paths)
     $lines = @(foreach ($file in ($files | Sort-Object -Unique)) {
         $full = Join-Path $script:KwrRoot $file

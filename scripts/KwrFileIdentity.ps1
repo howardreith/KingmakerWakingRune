@@ -12,9 +12,12 @@
 # path the file system stores. OpenRead/InfoOf bind a read to one handle (opened without write sharing, so the file's
 # bytes cannot change while it is open; another hard-link name can still be removed) and report that handle's identity,
 # hard-link count and physical path. LinkNamesOf lists every hard-link name of a file (FindFirstFileNameW).
+# ReadAllBound reads a file's bytes through one handle and returns, from that same handle, its identity, physical path and
+# (when asked) every hard-link name, so names protected for a report belong to the bytes read; a file with one link needs
+# no enumeration (its physical path is its only name).
 # The type carries a new version name whenever its members change, so a session that loaded an earlier draft still gets
 # these members.
-if (-not ('KwrFileIdentityV5' -as [type])) {
+if (-not ('KwrFileIdentityV6' -as [type])) {
     Add-Type -TypeDefinition @'
 using System;
 using System.Collections.Generic;
@@ -22,12 +25,12 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
-public sealed class KwrHandleInfoV5 {
+public sealed class KwrHandleInfoV6 {
     public string Id;
     public uint LinkCount;
     public string FinalPath;
 }
-public static class KwrFileIdentityV5 {
+public static class KwrFileIdentityV6 {
     [StructLayout(LayoutKind.Sequential)]
     struct ByHandleFileInformation {
         public uint FileAttributes;
@@ -87,9 +90,9 @@ public static class KwrFileIdentityV5 {
     public static FileStream OpenRead(string path) {
         return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
     }
-    public static KwrHandleInfoV5 InfoOf(FileStream f) {
+    public static KwrHandleInfoV6 InfoOf(FileStream f) {
         var i = InformationOf(f.SafeFileHandle);
-        return new KwrHandleInfoV5 {
+        return new KwrHandleInfoV6 {
             Id = i.VolumeSerialNumber.ToString("x8") + ":" + i.FileIndexHigh.ToString("x8") + i.FileIndexLow.ToString("x8"),
             LinkCount = i.NumberOfLinks,
             FinalPath = FinalOf(f.SafeFileHandle)
@@ -116,6 +119,25 @@ public static class KwrFileIdentityV5 {
         }
         finally { FindClose(find); }
         return names.ToArray();
+    }
+    public static byte[] ReadAllBound(string path, bool withNames, out string id, out string finalPath, out string[] names) {
+        using (var f = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read)) {
+            var i = InformationOf(f.SafeFileHandle);
+            id = i.VolumeSerialNumber.ToString("x8") + ":" + i.FileIndexHigh.ToString("x8") + i.FileIndexLow.ToString("x8");
+            finalPath = FinalOf(f.SafeFileHandle);
+            names = null;
+            if (withNames) {
+                if (i.NumberOfLinks <= 1) names = new[] { finalPath };
+                else {
+                    try { names = LinkNamesOf(finalPath); }
+                    catch (IOException e) { throw new IOException("The hard-link names of " + path + " cannot be established (" + e.Message + "); no report is written for it.", e); }
+                    if (names.Length != i.NumberOfLinks) throw new IOException("The hard-link names of " + path + " changed while it was read; no report is written for it.");
+                }
+            }
+            var copy = new MemoryStream();
+            f.CopyTo(copy);
+            return copy.ToArray();
+        }
     }
     public static byte[] ReadAll(string path, out string id) {
         using (var f = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read)) {
