@@ -1370,11 +1370,11 @@ try { Invoke-Launch } catch { 'LAUNCH ' + `$_.Exception.Message }
     Copy-Item -LiteralPath $receiptPath -Destination ($awayZip + '.build.json'); Edit-Json ($awayZip + '.build.json') { param($j) $j.dirty = $true }
     $awayStable = Invoke-Script (". $(Quote $kwrPackage); `$v = New-KwrValidatedPackageCopy $(Quote $awayZip); 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v")
     $awaySha = (Get-Sha256 $awayZip) + '/' + (Get-Sha256 ($awayZip + '.build.json'))
-    $probeLine = '            try { $receiptBytes = [KwrFileIdentityV9]::ReadAll($receiptSource, [ref]$receiptId) }'
-    $copyLine = "            if (`$hasReceipt) { [IO.File]::WriteAllBytes(`$copy + '.build.json', `$receiptBytes) }"
+    $probeLine = '            try { $receiptHandle = [KwrFileIdentityV9]::OpenReadShared($receiptSource) }'
+    $copyLine = "            `$receiptId = if (`$null -ne `$receiptHandle) { [KwrFileIdentityV9]::InfoOf(`$receiptHandle).Id } else { 'absent' }"
     if ($pkgText.IndexOf($probeLine) -lt 0 -or $pkgText.IndexOf($copyLine) -lt 0) { throw 'KwrPackage.ps1 receipt probe anchors not found.' }
     $awayPauseA = "            [IO.File]::WriteAllText($(Quote (Join-Path $inputs 'away-before-probe')), 'x'); `$u = [DateTime]::UtcNow.AddMinutes(5); while (-not [IO.File]::Exists($(Quote (Join-Path $inputs 'away-probe-go'))) -and [DateTime]::UtcNow -lt `$u) { Start-Sleep -Milliseconds 200 }`r`n"
-    $awayPauseB = "`r`n            [IO.File]::WriteAllText($(Quote (Join-Path $inputs 'away-after-probe')), ('hasReceipt=' + `$hasReceipt)); `$u = [DateTime]::UtcNow.AddMinutes(5); while (-not [IO.File]::Exists($(Quote (Join-Path $inputs 'away-after-go'))) -and [DateTime]::UtcNow -lt `$u) { Start-Sleep -Milliseconds 200 }"
+    $awayPauseB = "`r`n            [IO.File]::WriteAllText($(Quote (Join-Path $inputs 'away-after-probe')), ('hasReceipt=' + (`$receiptId -cne 'absent'))); `$u = [DateTime]::UtcNow.AddMinutes(5); while (-not [IO.File]::Exists($(Quote (Join-Path $inputs 'away-after-go'))) -and [DateTime]::UtcNow -lt `$u) { Start-Sleep -Milliseconds 200 }"
     $awayReader = Join-Path $base 'scripts\KwrPackage-away-instrumented.ps1'
     [IO.File]::WriteAllText($awayReader, $pkgText.Replace($probeLine, $awayPauseA + $probeLine).Replace($copyLine, $copyLine + $awayPauseB))
     $awayScript = Join-Path $inputs 'away-reader.ps1'
@@ -1401,6 +1401,50 @@ try { Invoke-Launch } catch { 'LAUNCH ' + `$_.Exception.Message }
     Remove-Item -LiteralPath $awayReader
     Remove-Item -LiteralPath $awayDir, $awayHome -Recurse -Force
     Add-Case 'external-pair-away-during-the-receipt-probe-and-restored-with-the-folder-time-preserved-refused' ($awayStable.ExitCode -ne 0 -and $awayStable.Output -notmatch 'MODE ' -and $awayReached -and $awayGone -and $awayProbe -ceq 'hasReceipt=False' -and $awayRestored -and $awayTimePreserved -and $awayProc.ExitCode -ne 0 -and $awayText -notmatch 'MODE ' -and $external.ExitCode -eq 0 -and $external.Output -match 'MODE external-content-inspected') ("ordinary staging of the stable pair (receipt marked dirty): " + (Get-Reason $awayStable.Output) + "; pair moved away before the receipt probe: $awayGone; probe saw [$awayProbe]; restored before the helper continued: $awayRestored, folder last-write time set back to $($awayHomeTime.ToString('o')): $awayTimePreserved; helper: " + (Get-Reason $awayText) + "; stable receiptless control: " + [regex]::Match($external.Output, 'MODE \S+').Value)
+    # R14-F1 (round 15): two independent copies of the same ZIP bytes, each with its own receipt: a clean current pair (it
+    # qualifies) and a pair whose receipt is marked dirty (default staging refuses it). While the helper selects the dirty
+    # pair, the clean pair occupies both paths during the receipt observation, and the dirty pair is restored before the
+    # helper continues. The receipt observed is not the selected pair's receipt, so the package must be refused.
+    $mixHome = Join-Path $temp 'external mixed home'; $mixClean = Join-Path $temp 'external mixed clean'; $mixAside = Join-Path $temp 'external mixed aside'
+    New-Item -ItemType Directory -Path $mixHome, $mixClean, $mixAside -Force | Out-Null
+    $mixZip = Join-Path $mixHome 'pair.zip'; $mixCleanZip = Join-Path $mixClean 'pair.zip'
+    Copy-Item -LiteralPath $candidateZip -Destination $mixZip; Copy-Item -LiteralPath $candidateZip -Destination $mixCleanZip
+    Copy-Item -LiteralPath $receiptPath -Destination ($mixCleanZip + '.build.json')
+    Copy-Item -LiteralPath $receiptPath -Destination ($mixZip + '.build.json'); Edit-Json ($mixZip + '.build.json') { param($j) $j.dirty = $true }
+    $mixIdText = (Invoke-Script (". $(Quote (Join-Path $base 'scripts\KwrFileIdentity.ps1')); foreach (`$p in @($(Quote $mixZip), $(Quote ($mixZip + '.build.json')), $(Quote $mixCleanZip), $(Quote ($mixCleanZip + '.build.json')))) { 'ID ' + [KwrFileIdentityV9]::Of(`$p) }")).Output
+    $mixIds = @([regex]::Matches($mixIdText, 'ID (\S+)') | ForEach-Object { $_.Groups[1].Value })
+    $mixSha = @((Get-Sha256 $mixZip), (Get-Sha256 ($mixZip + '.build.json')), (Get-Sha256 $mixCleanZip), (Get-Sha256 ($mixCleanZip + '.build.json')))
+    $mixIndependent = $mixIds.Count -eq 4 -and $mixSha[0] -ceq $mixSha[2] -and $mixIds[0] -cne $mixIds[2] -and $mixIds[1] -cne $mixIds[3] -and $mixSha[1] -cne $mixSha[3]
+    $mixCleanStable = Invoke-Script (". $(Quote $kwrPackage); `$v = New-KwrValidatedPackageCopy $(Quote $mixCleanZip); 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v")
+    $mixDirtyStable = Invoke-Script (". $(Quote $kwrPackage); `$v = New-KwrValidatedPackageCopy $(Quote $mixZip); 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v")
+    $mixPauseA = "            [IO.File]::WriteAllText($(Quote (Join-Path $inputs 'mix-before')), 'x'); `$u = [DateTime]::UtcNow.AddMinutes(5); while (-not [IO.File]::Exists($(Quote (Join-Path $inputs 'mix-go-a'))) -and [DateTime]::UtcNow -lt `$u) { Start-Sleep -Milliseconds 200 }`r`n"
+    $mixPauseB = "`r`n            [IO.File]::WriteAllText($(Quote (Join-Path $inputs 'mix-observed')), ('zip=' + `$held.Id + ' receipt=' + `$receiptId)); `$u = [DateTime]::UtcNow.AddMinutes(5); while (-not [IO.File]::Exists($(Quote (Join-Path $inputs 'mix-go-b'))) -and [DateTime]::UtcNow -lt `$u) { Start-Sleep -Milliseconds 200 }"
+    $mixReader = Join-Path $base 'scripts\KwrPackage-mixed-instrumented.ps1'
+    [IO.File]::WriteAllText($mixReader, $pkgText.Replace($probeLine, $mixPauseA + $probeLine).Replace($copyLine, $copyLine + $mixPauseB))
+    $mixScript = Join-Path $inputs 'mixed-reader.ps1'
+    [IO.File]::WriteAllText($mixScript, "try { . $(Quote $mixReader); `$v = New-KwrValidatedPackageCopy $(Quote $mixZip); 'MODE ' + `$v.InstallMode; Remove-KwrValidatedPackageCopy `$v } catch { 'ERROR: ' + `$_.Exception.Message; exit 1 }")
+    $mixLog = Join-Path $inputs 'mixed-reader.txt'
+    $mixProc = Start-Process -FilePath powershell.exe -ArgumentList @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $mixScript + '"')) -RedirectStandardOutput $mixLog -RedirectStandardError ($mixLog + '.err') -PassThru -WindowStyle Hidden
+    $null = $mixProc.Handle
+    $mixDeadline = (Get-Date).AddMinutes(3)
+    while (-not $mixProc.HasExited -and -not (Test-Path -LiteralPath (Join-Path $inputs 'mix-before')) -and (Get-Date) -lt $mixDeadline) { Start-Sleep -Milliseconds 200 }
+    $mixReached = Test-Path -LiteralPath (Join-Path $inputs 'mix-before')
+    Move-Item -LiteralPath $mixZip -Destination (Join-Path $mixAside 'pair.zip'); Move-Item -LiteralPath ($mixZip + '.build.json') -Destination (Join-Path $mixAside 'pair.zip.build.json')
+    Move-Item -LiteralPath $mixCleanZip -Destination $mixZip; Move-Item -LiteralPath ($mixCleanZip + '.build.json') -Destination ($mixZip + '.build.json')
+    $mixSubstituted = (Get-Sha256 ($mixZip + '.build.json')) -ceq $mixSha[3]
+    [IO.File]::WriteAllText((Join-Path $inputs 'mix-go-a'), 'go')
+    while (-not $mixProc.HasExited -and -not (Test-Path -LiteralPath (Join-Path $inputs 'mix-observed')) -and (Get-Date) -lt $mixDeadline) { Start-Sleep -Milliseconds 200 }
+    $mixSaw = if (Test-Path -LiteralPath (Join-Path $inputs 'mix-observed')) { [IO.File]::ReadAllText((Join-Path $inputs 'mix-observed')) } else { '' }
+    Move-Item -LiteralPath $mixZip -Destination $mixCleanZip; Move-Item -LiteralPath ($mixZip + '.build.json') -Destination ($mixCleanZip + '.build.json')
+    Move-Item -LiteralPath (Join-Path $mixAside 'pair.zip') -Destination $mixZip; Move-Item -LiteralPath (Join-Path $mixAside 'pair.zip.build.json') -Destination ($mixZip + '.build.json')
+    $mixRestored = (Get-Sha256 ($mixZip + '.build.json')) -ceq $mixSha[1] -and (Get-Sha256 ($mixCleanZip + '.build.json')) -ceq $mixSha[3]
+    [IO.File]::WriteAllText((Join-Path $inputs 'mix-go-b'), 'go')
+    $mixProc.WaitForExit()
+    $mixText = (Get-Content -LiteralPath $mixLog -Raw) + "`n" + (Get-Content -LiteralPath ($mixLog + '.err') -Raw)
+    Remove-Item -LiteralPath $mixReader
+    Remove-Item -LiteralPath $mixHome, $mixClean, $mixAside -Recurse -Force
+    $mixSawMixed = $mixIds.Count -eq 4 -and $mixSaw -ceq ('zip=' + $mixIds[0] + ' receipt=' + $mixIds[3])
+    Add-Case 'external-dirty-pair-with-the-receipt-observed-from-a-temporary-clean-pair-refused' ($mixIndependent -and $mixCleanStable.ExitCode -eq 0 -and $mixCleanStable.Output -match 'MODE frozen-candidate' -and $mixDirtyStable.ExitCode -ne 0 -and $mixDirtyStable.Output -notmatch 'MODE ' -and $mixReached -and $mixSubstituted -and $mixSawMixed -and $mixRestored -and $mixProc.ExitCode -ne 0 -and $mixText -notmatch 'MODE ') ("independent copies of ZIP $($mixSha[0]): file ids $($mixIds -join ' ') (selected ZIP, its dirty receipt, other ZIP, its clean receipt); receipts $($mixSha[1]) / $($mixSha[3]); stable clean pair: " + [regex]::Match($mixCleanStable.Output, 'MODE \S+').Value + "; stable dirty pair: " + (Get-Reason $mixDirtyStable.Output) + "; clean pair at both paths during the receipt observation: $mixSubstituted; helper observed [$mixSaw]; dirty pair restored before the helper continued: $mixRestored; helper: " + (Get-Reason $mixText))
     # R13-F1 (round 14): an unchanged independent receiptless ZIP while an unrelated sibling in its folder is created and another
     # renamed during the copy: staged as external-content-inspected with the ZIP's own digest.
     $sibHome = Join-Path $temp 'external sibling folder'; New-Item -ItemType Directory -Path $sibHome -Force | Out-Null

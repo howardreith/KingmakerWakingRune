@@ -77,6 +77,7 @@ function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic
         $report = Join-Path $private 'validation.json'
         $publishLock = $null
         $stream = $null
+        $receiptHandle = $null
         $classifiedId = [KwrFileIdentityV9]::Of($requested)
         $classified = & $classify ([KwrFileIdentityV9]::FinalPathOf($requested)) ([KwrFileIdentityV9]::LinkCountOf($requested))
         try {
@@ -100,31 +101,43 @@ function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic
             }
             if (-not $buildOwned) { $source = $held.FinalPath }
             $receiptSource = $source + '.build.json'
-            # R11-F2 (round 12): an external ZIP may be renamed while its delete-sharing handle is open, so its receipt is the
-            # one beside it only if the ZIP is still at its physical path before and after the receipt is probed and copied;
-            # otherwise the changed input is refused (never admitted without the receipt it had).
-            $stillInPlace = {
+            # R14-F1 (round 15): the selected pair is the ZIP held above and the receipt beside its physical path, both
+            # observed as part of the selection. The receipt is opened (sharing read and delete, like an external ZIP, so a
+            # publisher's rename is never obstructed) right after the ZIP handle was confirmed, and its file identity is
+            # recorded with the ZIP's. Its bytes are read later from that same handle, so the receipt validated is the
+            # receipt selected, whatever its name points to meanwhile. The pair is in place only while the ZIP's physical
+            # path names the held ZIP and the receipt name names the held receipt (or is still absent, R11-F2). That is
+            # checked when the selection is made, after the ZIP and receipt bytes are copied, and again after validation,
+            # before any provenance is granted: a temporary pair that supplied the receipt cannot pass once the original pair
+            # is back (the receipt name then names another file), nor while it stays (the ZIP path names another file). Only
+            # the selected ZIP and its adjacent receipt decide; other entries of the folder do not (R13-F1). A build-owned
+            # pair is read under its publish lock instead (the lock, not these checks, keeps that pair together).
+            try { $receiptHandle = [KwrFileIdentityV9]::OpenReadShared($receiptSource) }
+            catch [IO.FileNotFoundException] { $receiptHandle = $null }
+            catch [IO.DirectoryNotFoundException] { $receiptHandle = $null }
+            $receiptId = if ($null -ne $receiptHandle) { [KwrFileIdentityV9]::InfoOf($receiptHandle).Id } else { 'absent' }
+            $pairInPlace = {
                 if ($buildOwned) { return }
                 $now = $null
                 try { if ([IO.File]::Exists($source)) { $now = [KwrFileIdentityV9]::Of($source) } } catch [IO.IOException] { $now = $null }
                 if ($now -cne $held.Id) { throw "The package $requested moved while it was being read; it is not installed." }
+                $receiptNow = [KwrFileIdentityV9]::IdOrAbsent($receiptSource)
+                if ($receiptNow -ceq $receiptId) { return }
+                if ($receiptId -ceq 'absent') { throw "A build receipt appeared beside the package $requested after its receipt was looked for ($receiptSource); which receipt belongs to the bytes read cannot be established, so it is not installed." }
+                throw "The build receipt beside the package $requested ($receiptSource) is no longer the receipt selected with it; the receipt read cannot be tied to the selected package, so it is not installed."
             }
+            & $pairInPlace
             $out = [IO.File]::Open($copy, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
             try { $stream.CopyTo($out) } finally { $out.Dispose() }
-            & $stillInPlace
-            # R11-F2/R13-F1 (round 14): the receipt beside the selected ZIP is observed directly: one read returns its bytes
-            # (and identity), and those bytes are what is validated, so a receipt seen here is carried through validation. An
-            # absence seen here is confirmed again before content-only staging is accepted (below). Only the selected ZIP and
-            # its adjacent receipt decide; other entries of the folder do not.
-            $receiptId = $null; $receiptBytes = $null
-            try { $receiptBytes = [KwrFileIdentityV9]::ReadAll($receiptSource, [ref]$receiptId) }
-            catch [IO.FileNotFoundException] { $receiptBytes = $null }
-            catch [IO.DirectoryNotFoundException] { $receiptBytes = $null }
+            $receiptBytes = $null
+            if ($null -ne $receiptHandle) { $receiptBuffer = [IO.MemoryStream]::new(); $receiptHandle.CopyTo($receiptBuffer); $receiptBytes = $receiptBuffer.ToArray() }
             $hasReceipt = $null -ne $receiptBytes
             if ($hasReceipt) { [IO.File]::WriteAllBytes($copy + '.build.json', $receiptBytes) }
-            & $stillInPlace
+            $receiptSha = if ($hasReceipt) { [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash($receiptBytes)).Replace('-', '') } else { $null }
+            & $pairInPlace
         }
         finally {
+            if ($null -ne $receiptHandle) { $receiptHandle.Dispose() }
             if ($null -ne $stream) { $stream.Dispose() }
             if ($null -ne $publishLock) { $publishLock.Dispose() }
         }
@@ -136,6 +149,11 @@ function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic
         else { & (Join-Path $PSScriptRoot 'Validate-Package.ps1') -PackagePath $copy -ReportPath $report | Out-Host }
         $validation = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
         if ((Get-FileHash -LiteralPath $copy -Algorithm SHA256).Hash.ToLowerInvariant() -cne [string]$validation.package_sha256) { throw 'The validated copy changed after validation.' }
+        # R14-F1 (round 15), R11-F2: before any qualification is granted, the receipt validated must still be the bytes read
+        # from the selected receipt, and the selected pair must still be in place (the held ZIP at its physical path, the
+        # receipt name naming the receipt read, or still absent when none was there).
+        if ($hasReceipt -and (Get-FileHash -LiteralPath ($copy + '.build.json') -Algorithm SHA256).Hash -cne $receiptSha) { throw 'The validated receipt copy changed after validation.' }
+        & $pairInPlace
         # The recorded qualification follows from what the validator established: a clean pair with current provenance is
         # a frozen candidate; a receipt matched to its package under -Diagnostic is a diagnostic build; a ZIP without a
         # receipt had its contents inspected only.
@@ -144,13 +162,6 @@ function New-KwrValidatedPackageCopy([string] $PackagePath, [switch] $Diagnostic
             'receipt-matches-package' { if ($Diagnostic) { 'diagnostic' } else { throw 'A receipt-backed package was not verified as current.' } }
             'not-checked' { 'external-content-inspected' }
             default { throw "Unknown validator provenance: $($validation.source_provenance)" }
-        }
-        # R11-F2 (round 14): content-only staging is accepted only if the selected ZIP is still in place and its receipt is
-        # still absent now that validation is done; a receipt that has appeared (for example a pair moved away during the
-        # probe and restored, whatever the folder's timestamps) makes the read ambiguous and the package is refused.
-        if (-not $hasReceipt) {
-            & $stillInPlace
-            if ([IO.File]::Exists($receiptSource)) { throw "A build receipt appeared beside the package $requested after its receipt was looked for ($receiptSource); which receipt belongs to the bytes read cannot be established, so it is not installed." }
         }
         return [pscustomobject]@{
             Source = $source
