@@ -30,11 +30,11 @@ if (-not [IO.File]::Exists($PackagePath)) { throw "Package not found: $PackagePa
 # The real long filename (a short 8.3 spelling expanded), so the conventional receipt beside the package is derived from
 # the name the build wrote.
 . (Join-Path $PSScriptRoot 'KwrFileIdentity.ps1')
-$PackagePath = [KwrFileIdentityV8]::LongPathOf($PackagePath)
+$PackagePath = [KwrFileIdentityV9]::LongPathOf($PackagePath)
 if ($ReceiptPath) {
     $ReceiptPath = Resolve-LiteralFilePath $ReceiptPath
     if (-not [IO.File]::Exists($ReceiptPath)) { throw "Build receipt not found: $ReceiptPath" }
-    $ReceiptPath = [KwrFileIdentityV8]::LongPathOf($ReceiptPath)
+    $ReceiptPath = [KwrFileIdentityV9]::LongPathOf($ReceiptPath)
 }
 elseif ($RequireCurrentProvenance) { throw '-RequireCurrentProvenance needs the build receipt (-ReceiptPath).' }
 if ($ReportPath) {
@@ -42,7 +42,8 @@ if ($ReportPath) {
     # R10-F1: the first observation of the report destination (its identity, or 'absent'), taken before any other check, is
     # the one the final write is bound to; a destination created or replaced after it (a receipt moved there at any later
     # moment, also before its own identity could be sampled) is refused.
-    $reportStartId = if ([IO.File]::Exists($ReportPath)) { [KwrFileIdentityV8]::Of($ReportPath) } else { 'absent' }
+    # Round 13: one identity-bearing open (a missing file reported by that open is 'absent'); no separate existence check.
+    $reportStartId = [KwrFileIdentityV9]::IdOrAbsent($ReportPath)
     # Protected inputs: the package, the receipt given, and the conventional receipt beside the package even when it is
     # not given. An existing report destination is compared by file identity (volume and file index), so another
     # spelling, a short name or a hard link of a protected input is refused too.
@@ -61,7 +62,7 @@ if ($ReportPath) {
         param([string[]] $Paths)
         foreach ($inputPath in $Paths) {
             $same = [string]::Equals([IO.Path]::GetFullPath($ReportPath), [IO.Path]::GetFullPath($inputPath), [StringComparison]::OrdinalIgnoreCase)
-            if (-not $same -and [IO.File]::Exists($ReportPath) -and [IO.File]::Exists($inputPath)) { $same = [KwrFileIdentityV8]::Of($ReportPath) -ceq [KwrFileIdentityV8]::Of($inputPath) }
+            if (-not $same -and [IO.File]::Exists($ReportPath) -and [IO.File]::Exists($inputPath)) { $same = [KwrFileIdentityV9]::Of($ReportPath) -ceq [KwrFileIdentityV9]::Of($inputPath) }
             if ($same) { throw "The report path must not be an input of the validation: $inputPath" }
         }
     }
@@ -94,23 +95,31 @@ try {
 # The identities of the protected inputs are taken when they are read (before and after the snapshot copy), and the final
 # report write refuses them as well as the inputs' current identities, so an input moved to the report path after its
 # snapshot is still protected.
-$identitiesNow = { if ($ReportPath) { [string[]]@($protected | Where-Object { [IO.File]::Exists($_) } | ForEach-Object { [KwrFileIdentityV8]::Of($_) }) } else { [string[]]@() } }
+$identitiesNow = { if ($ReportPath) { [string[]]@($protected | Where-Object { [IO.File]::Exists($_) } | ForEach-Object { [KwrFileIdentityV9]::Of($_) }) } else { [string[]]@() } }
 $snapshotIds = @(& $identitiesNow)
 . (Join-Path $PSScriptRoot 'KwrFileIdentity.ps1')
 # Each supplied input's bytes are read through one open handle together with that handle's identity, so the protected
 # identities include the exact files whose bytes were inspected even if a path was replaced between the samples.
 $readId = $null; $readFinal = $null; $readNames = $null; $readReceiptIds = $null
-$packageBytes = [KwrFileIdentityV8]::ReadAllBound($PackagePath, [bool]$ReportPath, [ref]$readId, [ref]$readFinal, [ref]$readNames, [ref]$readReceiptIds)
+$packageBytes = [KwrFileIdentityV9]::ReadAllBound($PackagePath, [bool]$ReportPath, [ref]$readId, [ref]$readFinal, [ref]$readNames, [ref]$readReceiptIds)
 $snapshotIds += $readId
 $snapshotIds += @($readReceiptIds)
 if ($ReportPath) {
     $readProtected = @(@($readFinal, ($readFinal + '.build.json')) + @($readNames | ForEach-Object { $_; $_ + '.build.json' }) | Select-Object -Unique)
     & $refuseProtectedReport $readProtected
     $protected = @(@($protected) + $readProtected | Select-Object -Unique)
+    # R10-F1/R12-F1 (round 13): a package reached through a link (more than one hard-link name, or a physical path other
+    # than the path given) may have had a receipt moved away from its names before validation first observed the report
+    # destination, and such a receipt can no longer be tied to it; its report is written only to a destination that did not
+    # exist then. An ordinary single-name package keeps writing over an existing distinct report.
+    $linkedInput = @($readNames).Count -gt 1 -or -not [string]::Equals([string]$readFinal, $PackagePath, [StringComparison]::OrdinalIgnoreCase)
+    if ($linkedInput -and $reportStartId -cne 'absent') {
+        throw "The package $PackagePath is reached through a link (names: $(@($readNames) -join ', ')); its report is written only to a new file, and the report path $ReportPath already existed when validation started."
+    }
 }
 [IO.File]::WriteAllBytes($inspected, $packageBytes)
 $receiptBytes = $null
-if ($ReceiptPath) { $receiptBytes = [KwrFileIdentityV8]::ReadAll($ReceiptPath, [ref]$readId); $snapshotIds += $readId }
+if ($ReceiptPath) { $receiptBytes = [KwrFileIdentityV9]::ReadAll($ReceiptPath, [ref]$readId); $snapshotIds += $readId }
 $snapshotIds = @($snapshotIds + @(& $identitiesNow) | Select-Object -Unique)
 
 Add-Type -AssemblyName System.IO.Compression
@@ -314,7 +323,7 @@ if ($ReportPath) {
     $protectedIds = [string[]]@(@($snapshotIds) + @(& $identitiesNow) | Where-Object { $_ } | Select-Object -Unique)
     $reportText = $result | ConvertTo-Json -Depth 5
     $reportBytes = [byte[]](@([Text.Encoding]::UTF8.GetPreamble()) + @([Text.Encoding]::UTF8.GetBytes($reportText + "`r`n")))
-    [void][KwrFileIdentityV8]::WriteChecked($ReportPath, $protectedIds, $reportStartId, $reportBytes)
+    [void][KwrFileIdentityV9]::WriteChecked($ReportPath, $protectedIds, $reportStartId, $reportBytes)
 }
 Write-Host "Package validation passed: $PackagePath"
 Write-Host "Package SHA-256: $packageSha256; DLL SHA-256: $dllSha256; MVID: $mvid; loader references: $(($observed | ForEach-Object { $_.name + ' ' + $_.version }) -join ', '); source provenance: $provenance"

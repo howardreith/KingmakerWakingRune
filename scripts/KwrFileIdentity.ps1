@@ -22,11 +22,18 @@
 # WriteChecked also takes the identity the report destination had when validation started ('absent' when it did not
 # exist): a destination that was created or replaced since then is refused (R10-F1). When the destination cannot be opened
 # but is still the file observed at the start, the original I/O error is kept (R11-F4).
+# Round 13: IdOrAbsent identifies a file with one open (FILE_READ_ATTRIBUTES, all sharing), or returns 'absent' when the
+# open reports that the file does not exist, so an observation is never an existence check followed by a second open
+# (R10-F1). ReadAllBound keeps a hard-link name only if that name still identifies the file held open (R12-F1): names are
+# listed by pathname, and with delete sharing the opened name can be replaced by another file between the identity sample
+# and the listing, so a name that names another file (or nothing) declines the report. DirectoryStampOf returns a folder's
+# identity and last-write time from one handle; the install helper compares it before and after selecting an external
+# package's receipt (R11-F2).
 # ReadAllBound and ReadAll share read and delete (R11-F1, round 12): the bytes cannot change while the handle is open, yet a
 # publisher can still rename a published ZIP or receipt during placement or rollback while a standalone validation reads it.
 # The type carries a new version name whenever its members change, so a session that loaded an earlier draft still gets
 # these members.
-if (-not ('KwrFileIdentityV8' -as [type])) {
+if (-not ('KwrFileIdentityV9' -as [type])) {
     Add-Type -TypeDefinition @'
 using System;
 using System.Collections.Generic;
@@ -34,12 +41,12 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
-public sealed class KwrHandleInfoV8 {
+public sealed class KwrHandleInfoV9 {
     public string Id;
     public uint LinkCount;
     public string FinalPath;
 }
-public static class KwrFileIdentityV8 {
+public static class KwrFileIdentityV9 {
     [StructLayout(LayoutKind.Sequential)]
     struct ByHandleFileInformation {
         public uint FileAttributes;
@@ -75,6 +82,24 @@ public static class KwrFileIdentityV8 {
     public static string Of(string path) {
         using (var f = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete)) return IdOf(f.SafeFileHandle);
     }
+    public static string IdOrAbsent(string path) {
+        // FILE_READ_ATTRIBUTES, share read/write/delete, OPEN_EXISTING.
+        using (var h = CreateFileW(path, 0x80, 7, IntPtr.Zero, 3, 0, IntPtr.Zero)) {
+            if (h.IsInvalid) {
+                int error = Marshal.GetLastWin32Error();
+                if (error == 2 || error == 3) return "absent";
+                throw new IOException("Cannot open " + path + ": " + error);
+            }
+            return IdOf(h);
+        }
+    }
+    public static string DirectoryStampOf(string path) {
+        using (var h = CreateFileW(path, 0x80, 7, IntPtr.Zero, 3, 0x02000000, IntPtr.Zero)) {
+            if (h.IsInvalid) throw new IOException("Cannot open directory " + path + ": " + Marshal.GetLastWin32Error());
+            var i = InformationOf(h);
+            return i.VolumeSerialNumber.ToString("x8") + ":" + i.FileIndexHigh.ToString("x8") + i.FileIndexLow.ToString("x8") + "@" + i.LastWriteTimeHigh.ToString("x8") + i.LastWriteTimeLow.ToString("x8");
+        }
+    }
     public static string DirectoryOf(string path) {
         // FILE_READ_ATTRIBUTES, share read/write/delete, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS (required for a directory).
         using (var h = CreateFileW(path, 0x80, 7, IntPtr.Zero, 3, 0x02000000, IntPtr.Zero)) {
@@ -102,9 +127,9 @@ public static class KwrFileIdentityV8 {
     public static FileStream OpenReadShared(string path) {
         return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
     }
-    public static KwrHandleInfoV8 InfoOf(FileStream f) {
+    public static KwrHandleInfoV9 InfoOf(FileStream f) {
         var i = InformationOf(f.SafeFileHandle);
-        return new KwrHandleInfoV8 {
+        return new KwrHandleInfoV9 {
             Id = i.VolumeSerialNumber.ToString("x8") + ":" + i.FileIndexHigh.ToString("x8") + i.FileIndexLow.ToString("x8"),
             LinkCount = i.NumberOfLinks,
             FinalPath = FinalOf(f.SafeFileHandle)
@@ -145,6 +170,13 @@ public static class KwrFileIdentityV8 {
                     try { names = LinkNamesOf(finalPath); }
                     catch (IOException e) { throw new IOException("The hard-link names of " + path + " cannot be established (" + e.Message + "); no report is written for it.", e); }
                     if (names.Length != i.NumberOfLinks) throw new IOException("The hard-link names of " + path + " changed while it was read; no report is written for it.");
+                    // Each listed name must still identify the file held open (R12-F1).
+                    foreach (var name in names) {
+                        string nameId;
+                        try { nameId = IdOrAbsent(name); }
+                        catch (IOException e) { throw new IOException("The hard-link names of " + path + " cannot be tied to the file read (" + e.Message + "); no report is written for it.", e); }
+                        if (!string.Equals(nameId, id, StringComparison.Ordinal)) throw new IOException("The hard-link names of " + path + " cannot be tied to the file read (" + name + " is " + (nameId == "absent" ? "absent" : "another file") + "); no report is written for it.");
+                    }
                 }
                 // The receipts beside the names, identified now (before the bytes are copied).
                 var found = new List<string>();

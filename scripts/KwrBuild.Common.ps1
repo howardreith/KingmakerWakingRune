@@ -77,7 +77,7 @@ function ConvertFrom-KwrCompilerInputList([string] $ListPath) {
             # the checkout, whose ownership a path cannot establish: it is refused rather than exempted.
             $full = Resolve-InputPath $arg
             $repositoryPath = if ($full.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase) -and -not $full.StartsWith($objPrefix, [StringComparison]::OrdinalIgnoreCase)) { $full.Substring($rootPrefix.Length).Replace('\', '/') } else { $null }
-            if ($null -eq $repositoryPath -and -not $full.StartsWith($objPrefix, [StringComparison]::OrdinalIgnoreCase) -and [IO.File]::Exists($full) -and [KwrFileIdentityV8]::LinkCountOf($full) -gt 1) {
+            if ($null -eq $repositoryPath -and -not $full.StartsWith($objPrefix, [StringComparison]::OrdinalIgnoreCase) -and [IO.File]::Exists($full) -and [KwrFileIdentityV9]::LinkCountOf($full) -gt 1) {
                 throw "Compiler source $full is a hard link outside the repository; whether it is a repository file cannot be established, so it is refused. Use an independent copy or a tracked source."
             }
             [ordered]@{ kind = 'compile'; name = Get-InputName $arg; sha256 = Get-InputDigest $arg; repositoryPath = $repositoryPath }; return
@@ -133,8 +133,8 @@ function Get-KwrInventoryRepositoryPaths($Inventory) {
             'reference' {
                 # The parsed path when the inventory records it (every inventory evaluated now does); an older receipt's entry
                 # without it falls back to removing a leading alias (its paths are only ever added to the comparison).
-                $hasPath = if ($entry -is [Collections.IDictionary]) { $entry.Contains('referencePath') } else { $null -ne $entry.PSObject.Properties['referencePath'] }
-                if ($hasPath) { $name = [string]$entry.referencePath } else { $name = $name -replace '^[A-Za-z_][A-Za-z0-9_]*=', '' }
+                $binding = Get-KwrReferenceBinding $entry
+                if ($binding) { $name = $binding } else { $name = $name -replace '^[A-Za-z_][A-Za-z0-9_]*=', '' }
             }
             'response-file' { if ($name.StartsWith('@')) { $name = $name.Substring(1) } }
             'file-option' {
@@ -165,7 +165,7 @@ function Get-KwrInventoryRepositoryPaths($Inventory) {
 # resolved); a path that does not exist is returned in full form, unchanged.
 function Get-KwrPhysicalPath([string] $Path) {
     $full = [IO.Path]::GetFullPath($Path)
-    if ([IO.File]::Exists($full) -or [IO.Directory]::Exists($full)) { return [KwrFileIdentityV8]::FinalPathOf($full) }
+    if ([IO.File]::Exists($full) -or [IO.Directory]::Exists($full)) { return [KwrFileIdentityV9]::FinalPathOf($full) }
     return $full
 }
 
@@ -205,8 +205,18 @@ function Get-KwrGitPathList([string[]] $Options, [string[]] $Paths) {
     return @($output.Split([char]0) | Where-Object { $_ })
 }
 
+# The parsed reference binding of an inventory entry (R12-F2, round 13): for a reference, the referenced file's path
+# without the alias ('' when an older receipt's entry does not record it); '' for every other kind. The display name keeps
+# the alias, so name plus binding distinguishes alias Rules for Local/Accessibility.dll from the literal path
+# Rules=Local/Accessibility.dll. The inventory comparison and the build fingerprint both include it.
+function Get-KwrReferenceBinding($Entry) {
+    if ([string]$Entry.kind -cne 'reference') { return '' }
+    $has = if ($Entry -is [Collections.IDictionary]) { $Entry.Contains('referencePath') } else { $null -ne $Entry.PSObject.Properties['referencePath'] }
+    if ($has) { return [string]$Entry.referencePath } else { return '' }
+}
+
 function ConvertTo-KwrCompilerInventoryText($Inventory) {
-    return (@($Inventory | ForEach-Object { [string]$_.kind + '|' + [string]$_.name + '|' + [string]$_.sha256 }) -join "`n")
+    return (@($Inventory | ForEach-Object { [string]$_.kind + '|' + [string]$_.name + '|' + [string]$_.sha256 + $(if ([string]$_.kind -ceq 'reference') { '|' + (Get-KwrReferenceBinding $_) } else { '' }) }) -join "`n")
 }
 
 # The compiler inputs of the production project as MSBuild evaluates them (LocalGamePaths.props and every other import
@@ -245,7 +255,7 @@ function Get-KwrBuildInputFingerprint($CompilerInputs = $null) {
         if (Test-Path -LiteralPath $full -PathType Leaf) { $file + "`t" + (Get-KwrSha256 $full) }
     })
     if ($null -eq $CompilerInputs) { $CompilerInputs = @(Get-KwrCompilerInputs) }
-    foreach ($entry in @($CompilerInputs)) { $lines += 'compiler-' + [string]$entry.kind + ':' + [string]$entry.name + "`t" + [string]$entry.sha256 }
+    foreach ($entry in @($CompilerInputs)) { $lines += 'compiler-' + [string]$entry.kind + ':' + [string]$entry.name + "`t" + [string]$entry.sha256 + $(if ([string]$entry.kind -ceq 'reference') { "`t" + (Get-KwrReferenceBinding $entry) } else { '' }) }
     $hasher = [Security.Cryptography.SHA256]::Create()
     try { $digest = $hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes(($lines -join "`n"))) }
     finally { $hasher.Dispose() }
