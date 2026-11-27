@@ -303,6 +303,25 @@ with current provenance. Its DLL has the full SHA-256 and MVID of the DLL in `ap
 static audit applies to it unchanged. The round-10 pair (`6869e55`) is kept as historical evidence. The file symbolic-link
 report case remains in the suite and is recorded as not run on this host (Windows: administrator privilege required).
 
+Round 12 (`d93c56e`; tooling only, the product sources unchanged). The validator binds the report write to its first
+observation of the report destination, taken before any other check, so a receipt moved there at any later moment is
+refused. The snapshot and receipt reads (`ReadAllBound`, `ReadAll`) share delete, so a standalone validation of a published
+ZIP never stops a publisher renaming it during placement or rollback; the bytes still cannot change while the handle is
+open. The install helper admits an external ZIP's receipt only if the ZIP is still at its physical path before and after
+the receipt is probed and copied, and otherwise refuses the moved input. Reference entries record the referenced file's
+path parsed from the compiler argument (`referencePath`), and the producing-commit comparison uses it, so an unaliased
+reference such as `Rules=Local/Accessibility.dll` is compared whole (an older receipt without the field falls back to
+removing a leading alias; its paths are only ever added). An unchanged report destination that cannot be opened keeps its
+original I/O error. The identity type is now `KwrFileIdentityV8`. Order of the round-12 checks: the corrected production
+pair was built once with `Build.ps1` (tests included) at
+`<dev>\KingmakerWakingRuneLab\worktrees\umm-0311-final-pair-d93c56e\producer` (owner machine, not in Git): ZIP
+`36a3c26364a011b8de698de124c8ea10c552e58fdd05255b7270d31bd46707de`, receipt `retained-build-receipt-r12.json`, packaged DLL
+`7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904`, MVID `ccc59117-f992-44ce-9355-540d35f181f0` (the DLL of
+`api-audit.json`, same SHA-256 and MVID, so the four-loader audit applies unchanged); then the focused checks in a
+disposable clone (`focused-r12.txt`, 4 of 4); then, with that clone removed, the retained pair validated again with
+current provenance (`postcleanup-r12.json`). The round-11 pair's post-cleanup record is exported as `postcleanup-r11.json`.
+The file symbolic-link report case remains in the suite and is recorded as not run on this host.
+
 ## Evidence for this change (2026-11-24, round 5)
 
 The build and validation tooling is at `3779b0e`; the product sources are unchanged, so the candidate DLL is
