@@ -1,0 +1,37 @@
+{
+ "schema": "kingmaker.build-record.v1",
+ "source_commit": "3779b0ef0d450e52073000a99ffef7fd0ee7b6cd",
+ "product": "KingmakerWakingRune.dll",
+ "product_compilations": [
+  {
+   "out": "<temp>\\kwr-ev5-YWe2\\direct-obj\\KingmakerWakingRune.dll",
+   "references": [
+    "<temp>\\kwr-ev5-YWe2\\clone\\obj\\loader-references\\0Harmony.dll",
+    "<temp>\\kwr-ev5-YWe2\\clone\\obj\\loader-references\\0Harmony12.dll",
+    "<game>\\Kingmaker_Data\\Managed\\Assembly-CSharp-firstpass.dll",
+    "<game>\\Kingmaker_Data\\Managed\\Assembly-CSharp.dll",
+    "<reference-assemblies>\\Microsoft\\Framework\\.NETFramework\\v4.7\\mscorlib.dll",
+    "<game>\\Kingmaker_Data\\Managed\\Newtonsoft.Json.dll",
+    "<game>\\Kingmaker_Data\\Managed\\Pathfinding.Poly2Tri.dll",
+    "<reference-assemblies>\\Microsoft\\Framework\\.NETFramework\\v4.7\\System.Core.dll",
+    "<reference-assemblies>\\Microsoft\\Framework\\.NETFramework\\v4.7\\System.dll",
+    "<game>\\Kingmaker_Data\\Managed\\UnityEngine.AnimationModule.dll",
+    "<game>\\Kingmaker_Data\\Managed\\UnityEngine.CoreModule.dll",
+    "<game>\\Kingmaker_Data\\Managed\\UnityEngine.dll",
+    "<game>\\Kingmaker_Data\\Managed\\UnityEngine.ImageConversionModule.dll",
+    "<game>\\Kingmaker_Data\\Managed\\UnityEngine.ParticleSystemModule.dll",
+    "<game>\\Kingmaker_Data\\Managed\\UnityEngine.PhysicsModule.dll",
+    "<game>\\Kingmaker_Data\\Managed\\UnityEngine.ScreenCaptureModule.dll",
+    "<game>\\Kingmaker_Data\\Managed\\UnityEngine.UI.dll",
+    "<game>\\Kingmaker_Data\\Managed\\UnityEngine.UIModule.dll",
+    "<temp>\\kwr-ev5-YWe2\\clone\\obj\\loader-references\\UnityModManager.dll"
+   ]
+  }
+ ],
+ "other_compilations": [],
+ "summary_lines": [
+  "Build succeeded.",
+  "0 Warning(s)",
+  "0 Error(s)"
+ ]
+}

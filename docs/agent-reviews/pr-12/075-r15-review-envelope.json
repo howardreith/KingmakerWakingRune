@@ -1,0 +1,128 @@
+{
+  "B": "480cdbd31425c8855f5856936aeaff60ae236d88",
+  "H": "7de6a0d57ed0f3ca59ededf6d1e17caf74bfca8e",
+  "M": "480cdbd31425c8855f5856936aeaff60ae236d88",
+  "amendment_revision": 9,
+  "amendment_sha256": "40434ffc57b6ea28b5e4600c5b724c85c8831eab3014419806bf9d80caa1a919",
+  "checkpoint_id": "final",
+  "checkpoint_type": "final",
+  "fatal": false,
+  "guidance_revision": null,
+  "guidance_sha256": "none",
+  "invocation": {
+    "completed": true,
+    "duration_s": 520.9,
+    "errors": [],
+    "exit_code": 0,
+    "failed": false,
+    "observed": {
+      "approval_policy": "never",
+      "cli_version": "0.170.0",
+      "network": "restricted",
+      "observed_effort": "max",
+      "observed_model": "gpt-6.2-astra",
+      "plan_type": "pro",
+      "rollout_found": true,
+      "sandbox": "read-only",
+      "source": "Codex session rollout (CLI-recorded thread settings; not model-authored)",
+      "subagent_suspected": false,
+      "turn_efforts": [
+        "max"
+      ],
+      "turn_models": [
+        "gpt-6.2-astra"
+      ],
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 2084480,
+        "input_tokens": 2238197,
+        "output_tokens": 20664,
+        "reasoning_output_tokens": 13337,
+        "total_tokens": 2258861
+      }
+    },
+    "requested": {
+      "effort": "max",
+      "model": "gpt-6.2-astra",
+      "sandbox": "read-only"
+    },
+    "thread_id": "01a21e27-7ea6-7a71-a2fc-5883f3b9bcb9",
+    "timed_out": false
+  },
+  "mission": {
+    "id": "kingmaker-umm-0311-mission-20261123",
+    "sha256": "f7d990f396c858ad663020133baba66e0cefb57f2b8be54a26d96186f86b24d5"
+  },
+  "ok": true,
+  "path": "~\\.agent-review\\state\\kwr-codex-umm-0311-baseline-20261123-20261123181024-1057\\rounds\\r15\\envelope-1.json",
+  "pr": 12,
+  "project_sha256": "ea61dac052f6213408ee506f84abe68976890811a9ab23b9da7c07779a86df19",
+  "protocol": "agent-review.v1",
+  "publication": "r15-review",
+  "published": [
+    {
+      "comment_id": 7225120683,
+      "of": 1,
+      "part": 1,
+      "url": "https://github.com/howardreith/KingmakerWakingRune/pull/12#issuecomment-7225120683"
+    }
+  ],
+  "raw_result_if_rejected": null,
+  "reasons": [],
+  "repository": "howardreith/KingmakerWakingRune",
+  "request_id": "kwr-codex-umm-0311-baseline-20261123-20261123181024-1057-r15-358d61",
+  "response_sha256": "b51825817f5000260aa2576021011d26e47a672fcbf546c94d7cf91d4650eb4a",
+  "result": {
+    "candidate_commit": "7de6a0d57ed0f3ca59ededf6d1e17caf74bfca8e",
+    "checkpoint_id": "final",
+    "checkpoint_type": "final",
+    "decision": "ready_for_owner_review",
+    "decision_rationale": "R14-F1 is fixed. The candidate refused the restored dirty pair when staging had observed the replacement\u2019s clean receipt. Stable external copies kept their expected behavior, and publisher rollback restored both files. The required gate passed at the reviewed commit. The retained production DLL matches the binary covered by the four-loader static audit.",
+    "evidence_assessment": {
+      "executed_verification": [
+        "The controller ran the baseline gate at 7de6a0d. It exited 0 in 756 seconds. I verified the log digest and counted 180 passes, zero failures and one separately recorded NOT RUN case.",
+        "The gate built shipping version 0.12.3 from an empty reference cache and validated its package with current provenance. Direct MSBuild selected all three pinned compiler inputs. The standalone validator rejected the genuine 0.33.2 DLL repackaged with a 0.31.1 manifest.",
+        "The focused records show the defect on 166fbb9 and five passing checks on 41d3a48. Gate log lines 177\u2013190 independently confirm mixed-pair refusal, stable receiptless staging during unrelated sibling changes, refusal after an absent receipt returned, and publisher rollback.",
+        "After fixture cleanup, postcleanup-r15.json records validator exit 0 and verified-current for producer 12bf7d51b3129fa40cff9ca1471eda647ef7bb70. Its ZIP SHA-256 is 8f757331b42ad157939108702fb59c8c9aae031d0416ee271ac792a0aaa4d344 and its receipt SHA-256 is ba8e64d33d79ff474f8675d31c696d41c6da33f79111e6c6e208587a6994e2c8. Both match the retained production record."
+      ],
+      "inspected": [
+        "The mission, all nine owner amendments, prior findings ledger, developer report, transcript notice, README.md and docs/UMM-COMPATIBILITY.md. The supplied feature diff matched Git\u2019s diff from the stated merge base to the candidate.",
+        "The round-15 changes to scripts/KwrPackage.ps1 and scripts/Test-LoaderBaseline.ps1, the file-identity helper, standalone validator, and the Begin and Reinstall consumers.",
+        "The focused driver, reproduction and post-cleanup records, retained build receipt, static audit and candidate-bound controller receipt. The round-15 evidence exports matched their indexed Git-blob digests."
+      ],
+      "limitations": [
+        "The controller withheld the mixed foreground transcript. The focused and retained-pair results come from the indexed machine outputs. The first focused attempt exited 1 while saving its result. The successful rerun has a separate record.",
+        "The real Windows file-symbolic-link case was NOT RUN because the host required administrator privilege. OWNER AMENDMENT 6 accepted that execution gap, and OWNER AMENDMENT 9 retained it.",
+        "Native gameplay on all four loaders and combined-stack testing were NOT RUN. The pre-enrollment evidence limitation accepted under OWNER AMENDMENT 1 and the optional deferrals R5-F3 and R11-F4 remain documented."
+      ],
+      "required_gaps": [],
+      "source_inspection_only": [
+        "The staging helper reads the receipt bytes from the handle whose identity it recorded. It checks both external names at selection, after copying and before returning qualification. The external handles share delete access, and build-owned reads use the canonical publication lock.",
+        "Git showed identical material build inputs and standalone validation code at the retained producer and the reviewed commit. The retained DLL SHA-256, 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904, and MVID, ccc59117-f992-44ce-9355-540d35f181f0, both match api-audit.json. This supports reuse of its static results for 0.31.1, 0.32.4, the owner\u2019s 0.33.0 and 0.33.4."
+      ]
+    },
+    "findings": [],
+    "prior_finding_assessments": [
+      {
+        "assessment": "fix_verified",
+        "finding_id": "R14-F1",
+        "rationale": "On 166fbb9, the fixture recorded the original ZIP identity and the temporary pair\u2019s clean receipt identity, then returned frozen-candidate after the dirty pair was restored. On the corrected code, the same restoration made the receipt path identify a different file from the opened receipt. The helper refused it at that comparison. The candidate gate also showed that the stable clean pair qualified and the stable dirty pair failed for dirty provenance."
+      }
+    ],
+    "request_id": "kwr-codex-umm-0311-baseline-20261123-20261123181024-1057-r15-358d61",
+    "round": 15,
+    "schema_version": "agent-review.review.v1",
+    "summary": {
+      "delivered_behavior": "Waking Rune declares UMM 0.31.1 and compiles against UnityModManager 0.31.1.0, Harmony12 1.2.0.1 and Harmony2 2.3.1.1. External staging rejects the reproduced ZIP/receipt substitution before granting frozen-candidate provenance.",
+      "pending_later_phase_work": [],
+      "remaining_owner_review": [
+        "Owner acceptance of draft PR #12 after the controller verifies the final handoff."
+      ],
+      "scope_reviewed": "Waking Rune PR #12 at the final checkpoint, with correction review limited to R14-F1, its consumers and the evidence required by OWNER AMENDMENT 9.",
+      "unresolved_questions": []
+    }
+  },
+  "round": 15,
+  "validated_at": "2026-11-27T18:05:55Z",
+  "workflow_fingerprint": "6d613defe7bfe2f01a5818a2cd41b281965f438c45a0ca37ce15957e4dcffe19"
+}

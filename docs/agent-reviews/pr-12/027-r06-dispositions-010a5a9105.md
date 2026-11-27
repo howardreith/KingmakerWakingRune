@@ -1,0 +1,24 @@
+<!-- agent-review:v1 enrollment=kwr-codex-umm-0311-baseline-20261123-20261123181024-1057 key=r06-dispositions-010a5a9105 part=1/1 sha256=010a5a91055fac0d0f8346fdd568ab7b9b5e40521721519a7ed41e24823591c0 -->
+### Claude Opus — finding dispositions — round 6
+
+Candidate after corrections: `101dc9d3f53b5a590dc45e404968c13c4533e16e`
+
+- **R1-F1** — `fixed` — commits: `101dc9d`
+  controller gate baseline on 101dc9d (gate-baseline-101dc9d3f53b-d4433dcb35e-ac9ec8ca62a-20261126T170731167051Z.log): scripts/Test-LoaderBaseline.ps1 140/140 on a temporary clone: build-with-ignored-mixed-case-embedded-image-not-qualified (an ignored assets/portraits/obj/LocalOnly.PNG with git status clean: Build.ps1 refuses 'Untracked or ignored files match the embedded artwork (assets/portraits/obj/LocalOnly.PNG)', previous pair kept), provenance-with-ignored-mixed-case-embedded-image-rejected, provenance-current-after-mixed-case-image-removed; build-with-ignored-compiled-source-not-qualified (an ignored src/KingmakerWakingRune/Blueprints/obj/LocalOnly.cs, git check-ignore confirms it is ignored, compiled by the project's **\*.cs item: Build.ps1 refuses 'Compiler sources are not tracked by Git (src/KingmakerWakingRune/Blueprints/obj/LocalOnly.cs)', previous pair kept), provenance-with-ignored-compiled-source-rejected, provenance-current-after-ignored-source-removed; the restored-build control provenance-current-after-ignored-image-removed, the committed-icon control provenance-receipt-commit-with-an-extra-icon-rejected and the documentation-only control provenance-current-with-art-tree-documentation-change still pass.
+- **R5-F1** — `fixed` — commits: `101dc9d`
+  controller gate baseline on 101dc9d (gate-baseline-101dc9d3f53b-d4433dcb35e-ac9ec8ca62a-20261126T170731167051Z.log): scripts/Test-LoaderBaseline.ps1 140/140 on a temporary clone: installer-read-through-a-short-path-alias-during-publication-declined (the paused publication fixture; the real New-KwrValidatedPackageCopy called with the folder's Windows short alias ...\KWR-LO~1\CLONEW~1\ARTIFA~1\KingmakerWakingRune-0.12.4-dirty.zip, verified different from the long spelling: declined 'A build is publishing'), receiptless-build-owned-output-declined-after-the-lock-is-released (the dirty output with its receipt removed and no lock held: declined 'A build-owned package has no build receipt' by the canonical path and by the short alias); installer-read-during-publication-declined-and-rollback-exposes-the-restored-pair still shows the restored pair refused in default mode and admitted as -Diagnostic and a receiptless ZIP outside artifacts content-inspected; install-helper-modes-follow-the-validator keeps external-content-inspected for the receiptless external copy.
+- **R4-F4** — `fixed` — commits: `101dc9d`
+  controller gate baseline on 101dc9d (gate-baseline-101dc9d3f53b-d4433dcb35e-ac9ec8ca62a-20261126T170731167051Z.log): scripts/Test-LoaderBaseline.ps1 140/140 on a temporary clone: kwrruntime-previous-format-journal-with-placed-replacement-recon-true-restored and -false-restored (KwrRuntime's own Reinstall/Launch against a previous-format journal, phase reinstalling, no reconEnabled, a replacement folder already present and no recon.flag: 'MODDIR-BEFORE True FLAG-BEFORE False', then 'RECON-FLAG <value> JOURNAL <value> PHASE closed' and launch admission reached for both values); the folder-gone variants kwrruntime-previous-format-journal-recon-true/false-restored and the ordinary interrupted-reinstall cases still pass.
+- **R6-F1** — `fixed` — commits: `101dc9d`
+  docs/UMM-COMPATIBILITY.md at 101dc9d: the reproduction instructions say 'Its checks (120 in round 5; the dated sections below give each round's count)'; the round-5 section still records 120/120 and the gate for this round records 140/140.
+- **R5-F3** — `deferred_optional` — commits: —
+  Accepted deferral (optional, owner amendments 2 and 3). Follow-up note: type-check ArchiveEntry and ArchiveSha256 before PowerShell enumerates a one-element array.
+
+**Validation (developer-reported):**
+
+| Command | Required | Result | Duration | Scope and limits |
+|---|---|---|---|---|
+| python C:/Dev/agent-review/agent_review.py verify --enrollment kwr-codex-umm-0311-baseline-20261123-20261123181024-1057 --gate baseline | yes | pass | 597.2s | controller gate baseline on 101dc9d (gate-baseline-101dc9d3f53b-d4433dcb35e-ac9ec8ca62a-20261126T170731167051Z.log): scripts/Test-LoaderBaseline.ps1 140/140 on a temporary clone; every case cited below is in that receipt's log. No separate direct run (the gate runs the same suite on a temporary clone of the candidate). |
+| Native checks | no | not_run | 0 | Not authorized. |
+
+_Model-generated developer response (Claude opus / high), posted by the agent-review controller through the owner's GitHub account; not a human review._

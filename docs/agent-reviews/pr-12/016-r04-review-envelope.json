@@ -1,0 +1,375 @@
+{
+  "B": "480cdbd31425c8855f5856936aeaff60ae236d88",
+  "H": "35dc80db3d3e173d4369a65aad97bf1f803c693d",
+  "M": "480cdbd31425c8855f5856936aeaff60ae236d88",
+  "amendment_revision": 1,
+  "amendment_sha256": "82f5267951845e0da430ab1251c2ff7a86a75e72bee16193ef6936f3dd5b6f2d",
+  "checkpoint_id": "final",
+  "checkpoint_type": "final",
+  "fatal": false,
+  "guidance_revision": null,
+  "guidance_sha256": "none",
+  "invocation": {
+    "completed": true,
+    "duration_s": 880.7,
+    "errors": [],
+    "exit_code": 0,
+    "failed": false,
+    "observed": {
+      "approval_policy": "never",
+      "cli_version": "0.170.0",
+      "network": "restricted",
+      "observed_effort": "max",
+      "observed_model": "gpt-6.2-astra",
+      "plan_type": "pro",
+      "rollout_found": true,
+      "sandbox": "read-only",
+      "source": "Codex session rollout (CLI-recorded thread settings; not model-authored)",
+      "subagent_suspected": false,
+      "turn_efforts": [
+        "max"
+      ],
+      "turn_models": [
+        "gpt-6.2-astra"
+      ],
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 2213760,
+        "input_tokens": 2364942,
+        "output_tokens": 34695,
+        "reasoning_output_tokens": 22786,
+        "total_tokens": 2399637
+      }
+    },
+    "requested": {
+      "effort": "max",
+      "model": "gpt-6.2-astra",
+      "sandbox": "read-only"
+    },
+    "thread_id": "01a20e22-d9d3-7ab0-945f-b79d09a7f449",
+    "timed_out": false
+  },
+  "mission": {
+    "id": "kingmaker-umm-0311-mission-20261123",
+    "sha256": "f7d990f396c858ad663020133baba66e0cefb57f2b8be54a26d96186f86b24d5"
+  },
+  "ok": true,
+  "path": "~\\.agent-review\\state\\kwr-codex-umm-0311-baseline-20261123-20261123181024-1057\\rounds\\r04\\envelope-1.json",
+  "pr": 12,
+  "project_sha256": "ea61dac052f6213408ee506f84abe68976890811a9ab23b9da7c07779a86df19",
+  "protocol": "agent-review.v1",
+  "publication": "r04-review",
+  "published": [
+    {
+      "comment_id": 7136211952,
+      "of": 1,
+      "part": 1,
+      "url": "https://github.com/howardreith/KingmakerWakingRune/pull/12#issuecomment-7136211952"
+    }
+  ],
+  "raw_result_if_rejected": null,
+  "reasons": [],
+  "repository": "howardreith/KingmakerWakingRune",
+  "request_id": "kwr-codex-umm-0311-baseline-20261123-20261123181024-1057-r04-96b7b1",
+  "response_sha256": "03f919aad7464e7c925e3155793bba9f5fb547864232d866cd6556a468638878",
+  "result": {
+    "candidate_commit": "35dc80db3d3e173d4369a65aad97bf1f803c693d",
+    "checkpoint_id": "final",
+    "checkpoint_type": "final",
+    "decision": "changes_required",
+    "decision_rationale": "The controller\u2019s 108 checks passed for shipping version 0.12.3, and the packaged DLL has the required loader references. Current-provenance validation can still accept a mismatched build. The gate also still fails when 0.12.99 is the shipping version at entry. Package publication, test selection, report writing and reinstall recovery have additional correctness defects.\n\n## Continuation for Claude\n\nKeep the corrections within Waking Rune\u2019s build scripts, validator, runtime helper, focused gate and evidence. Compare the full set of embedded inputs across commits and account for file-consuming compiler options or decline current qualification for them. Use one archive-definition contract for offline checking and cold acquisition.\n\nKeep compiled bytes and the test executable tied to their producing invocation. Protect package staging, placement and rollback from overlapping builds. Retain the identities of the original validator inputs through report publication, and preserve the recon setting in the reinstall journal. Isolate the version-collision fixture from the shipping artifacts.\n\nRun the full gate from a temporary commit whose shipping version is already 0.12.99, then run the configured baseline gate on the submitted correction commit. Retain the targeted observations requested in the findings. Use temporary directories for recovery tests and keep the game outside them. OWNER AMENDMENT 1 resolves the historical onboarding evidence requirement.",
+    "evidence_assessment": {
+      "executed_verification": [
+        "The reviewer verified HEAD, the merge base, both controller-supplied mission hashes, and byte equality between the supplied 7,584-line feature diff and Git\u2019s M..H diff. All 21 indexed evidence files matched their published Git-blob SHA-256 values.",
+        "The controller receipt binds the baseline gate to 35dc80db3d3e173d4369a65aad97bf1f803c693d. Its log hash matched. The gate exited 0 after 322.4 seconds and reported 108/108 checks.",
+        "The gate cold-built shipping version 0.12.3 and validated ZIP 8979b8e33045c723e0b490a6649ab0bd59b5d918efa9a4b23715f1aef80ee2c3 with current provenance. The DLL SHA-256 was 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904. The separate alternate-version build reported 290 passing tests.",
+        "The gate confirmed the three pinned direct compiler references, rejected corrupt cache bytes and the lowered-manifest legacy DLL, preserved the pair across a locked receipt, and exercised reinstall recovery in temporary directories.",
+        "The retained README run at 5b91fa1 records the audit build, executable invocation and four successful static rows. Its DLL digest matches the standalone validator and the gate at H. The build and audit sources are identical between those commits.",
+        "A read-only PowerShell check on an in-memory copy of the Harmony12 pin confirmed that omitted archive fields normalize to null in the definition check and that direct ArchiveEntry access raises a missing-property error under StrictMode."
+      ],
+      "inspected": [
+        "The mission, OWNER AMENDMENT 1, developer report, transcript notice, controller gate receipt and log, and all twelve pending ledger entries.",
+        "The full feature diff, correction delta from dbc715c, production and test projects, pin definitions and MSBuild targets, build and package scripts, validator, file-identity helper, affected runtime transitions and baseline suite.",
+        "README.md, docs/UMM-COMPATIBILITY.md, the build and validation receipts, compiler inventory, loader-profile records, audit source and output, draft PR readback, and historical and current onboarding records."
+      ],
+      "limitations": [
+        "The reviewer used the read-only snapshot. The controller withheld the mixed-project foreground transcript. The README audit, PR readback and onboarding checks are supported by their retained exports.",
+        "Native startup, new-game and Refuge travel, dialogue finalizers, fresh-process reload and combined-stack behavior were not run. The available harness targets the live installation, and the mission permits these rows to remain NOT RUN without a disposable copy."
+      ],
+      "required_gaps": [
+        "Demonstrate correct frozen qualification for a commit with an additional embedded image and for files consumed through a response-file compiler option.",
+        "Show agreement between offline pin validation and cold acquisition, and run the complete gate with 0.12.99 as its initial shipping version.",
+        "Verify overlapping builds, redirected test output, original-input protection during report publication, and recon-enabled reinstall recovery in disposable fixtures."
+      ],
+      "source_inspection_only": [
+        "The opposite-tree asset omission, untracked compiler-option inputs, version-fixture collision, overlapping publisher sequence and redirected test-executable selection follow from the code paths. The submitted gate does not exercise those cases.",
+        "The loss of an original file identity after an input rename and the loss of recon mode on retry were traced through the affected consumers. The gate exercises a stable input identity and a recovery fixture without recon."
+      ]
+    },
+    "findings": [
+      {
+        "acceptance_ids": [
+          "mission \u00a75",
+          "mission \u00a76"
+        ],
+        "actual": "The Git comparison at line 220 includes only the artwork named by the current receipt. A commit containing one additional assets/icons/*.png differs in a file the project would embed, yet the comparison omits it. Separately, KwrBuild.Common.ps1 records a response-file /recurse option as text with an empty digest. Editing an external source matched by that option leaves the inventory unchanged.",
+        "blocking_rationale": "The validator can report verified-current for a producing commit or compiler input set that would yield a different DLL.",
+        "blocks_readiness": true,
+        "category": "defect",
+        "expected": "Current qualification detects changes in both the membership and the contents of material compiler inputs.",
+        "id": "R1-F1",
+        "location": {
+          "file": "scripts/Validate-Package.ps1",
+          "line": 220
+        },
+        "priority": "P1",
+        "requested_correction": "Compare the project\u2019s embedded-resource paths across both trees, including additions and deletions. Inventory files consumed through supported compiler switches, or decline current qualification when their inputs cannot be identified.",
+        "requested_evidence": "Reject a receipt naming a commit with one extra wildcard-matched icon. Exercise an unchanged response file whose /recurse source changes. Retain the rebuilt-pair and documentation-only controls.",
+        "title": "Frozen provenance still misses changes to the compiler\u2019s input set",
+        "trigger": "Validate a receipt naming a commit with an additional embedded icon, or change an external source selected by /recurse in a response file."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a75",
+          "mission \u00a76"
+        ],
+        "actual": "Every invocation uses artifacts\\stage. After checking its own DLL at line 78, Build.ps1 rereads that shared path for both the ZIP and receipt digest. A competing build can supply both reads. Publication also rolls back by pathname at line 170. If a second replacement completes after the first placed its ZIP, the first publisher\u2019s failed sidecar move can move the second publisher\u2019s ZIP away.",
+        "blocking_rationale": "A receipt can qualify another invocation\u2019s DLL, and a successful publisher can lose its ZIP during another publisher\u2019s rollback.",
+        "blocks_readiness": true,
+        "category": "defect",
+        "expected": "Each published pair contains its producer\u2019s compiled bytes and survives failure of a competing publication.",
+        "id": "R4-F1",
+        "location": {
+          "file": "scripts/Build.ps1",
+          "line": 73
+        },
+        "priority": "P1",
+        "requested_correction": "Keep staging private through archive creation, bind the receipt to the captured compiler-output digest, and give one publisher exclusive access to placement and rollback for a destination.",
+        "requested_evidence": "Interleave two builds with distinguishable DLL digests in a temporary checkout. Exercise a sidecar-placement conflict and verify that the winning ZIP and receipt remain present, validate together and identify the winning compile.",
+        "title": "Overlapping builds can mix compiled bytes or remove a published ZIP",
+        "trigger": "Two Build.ps1 invocations overlap in one checkout while staging different outputs or replacing the same version."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a75",
+          "mission \u00a76"
+        ],
+        "actual": "Clearing both archive fields on the existing UMM .nupkg URL passes DefinitionOnly. Cold acquisition then treats the package itself as the DLL and fails its digest check. For raw Harmony12, omitting both optional keys also passes definition validation, but line 90 reads the missing ArchiveEntry property under StrictMode.",
+        "blocking_rationale": "The standalone validator accepts a source definition that the same repository cannot use to populate a cold cache.",
+        "blocks_readiness": true,
+        "category": "defect",
+        "expected": "Offline checking and acquisition agree on which definitions describe a raw DLL and which require archive extraction.",
+        "id": "R1-F2",
+        "location": {
+          "file": "scripts/Get-PinnedLoaderReferences.ps1",
+          "line": 51
+        },
+        "priority": "P2",
+        "requested_correction": "Require archive metadata for the repository\u2019s NuGet package sources and use the same normalized raw/archive fields in the acquisition path.",
+        "requested_evidence": "With an empty cache, show that clearing both fields on the UMM package definition is rejected offline and that the raw Harmony12 definition with omitted keys is handled consistently by both paths.",
+        "title": "Offline and cold-cache checks still disagree on archive definitions",
+        "trigger": "Clear both archive fields on a NuGet pin or omit both null keys on the raw Harmony12 pin."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a76"
+        ],
+        "actual": "Starting at 0.12.99 creates the 0.12.99 and 0.12.100 pairs at lines 170\u2013189. The later regression case uses the same clone and builds those same filenames again at lines 731 and 739. Build.ps1 correctly refuses both occupied clean paths. The passing controller run started at 0.12.3.",
+        "blocking_rationale": "The configured gate still rejects the valid shipping version named in the prior finding.",
+        "blocks_readiness": true,
+        "category": "defect",
+        "expected": "The complete gate succeeds with 0.12.99 as the submitted version and preserves its original shipping pair.",
+        "id": "R3-F4",
+        "location": {
+          "file": "scripts/Test-LoaderBaseline.ps1",
+          "line": 731
+        },
+        "priority": "P2",
+        "requested_correction": "Run the fixed-version regression in a separate temporary checkout or otherwise isolate its artifacts from those created at gate entry. Preserve the clean-package replacement guard.",
+        "requested_evidence": "Run Test-LoaderBaseline.ps1 end to end from a temporary commit whose initial Info.json Version is 0.12.99. Show the successful result and unchanged shipping-pair hashes.",
+        "title": "The gate still collides with its own shipping 0.12.99 artifacts",
+        "trigger": "Start the full baseline suite on a commit whose shipping Version is 0.12.99."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a76"
+        ],
+        "actual": "The test project imports LocalGamePaths.props after setting its default OutputPath. Build.ps1 builds that project with the redirected setting, then executes the fixed bin\\Tests path. On a fresh checkout the executable can be missing. On a warm checkout an older executable can report passing tests. The new redirection case uses -SkipTests.",
+        "blocking_rationale": "A normal package build can report success without running the tests it just compiled.",
+        "blocks_readiness": true,
+        "category": "defect",
+        "expected": "The default build runs the test executable produced by that invocation.",
+        "id": "R4-F2",
+        "location": {
+          "file": "scripts/Build.ps1",
+          "line": 66
+        },
+        "priority": "P2",
+        "requested_correction": "Run the evaluated test TargetPath or build the tests and their dependencies into an invocation-owned output directory and launch them there.",
+        "requested_evidence": "Use the existing output-redirection fixture without -SkipTests. Leave an older passing executable at bin\\Tests and show that a distinguishable result from the newly built tests controls packaging.",
+        "title": "Redirected output can run a stale test executable",
+        "trigger": "Use the round-4 fixture\u2019s OutputPath override with Build.ps1\u2019s normal test-enabled entry point."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a75",
+          "mission \u00a76"
+        ],
+        "actual": "The writer checks the destination handle correctly, but line 250 reconstructs the protected identities from the current input pathnames. If the original ZIP moves to the report destination after snapshotting, its old pathname is absent or names a replacement. WriteChecked then truncates the original ZIP because its identity is missing from the protected set.",
+        "blocking_rationale": "Writing a validation report can destroy the archive or receipt supplied for that validation.",
+        "blocks_readiness": true,
+        "category": "defect",
+        "expected": "The identities of the actual input files stay protected through report publication, including when their names change.",
+        "id": "R4-F3",
+        "location": {
+          "file": "scripts/Validate-Package.ps1",
+          "line": 250
+        },
+        "priority": "P2",
+        "requested_correction": "Retain protected input identities when taking the snapshots and include them in the final checked-handle write alongside any current input identities.",
+        "requested_evidence": "In a temporary directory, move an original input to an initially distinct report destination after snapshotting. Show that report publication refuses and preserves the input bytes.",
+        "title": "Report publication forgets the original input when its pathname changes",
+        "trigger": "An input ZIP or receipt is renamed to the intended report destination while validation is in progress."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a76",
+          "mission \u00a77"
+        ],
+        "actual": "Reinstall reads recon.flag from the installed directory on every attempt. After a placement failure removes that directory, the retry reads false and finishes without restoring the flag. The journal can still say recon is enabled, while Recon.cs disables collection.",
+        "blocking_rationale": "A recovered transaction can become launchable with different diagnostic behavior from the transaction recorded for the run.",
+        "blocks_readiness": true,
+        "category": "defect",
+        "expected": "Resuming a reinstall restores the active diagnostic setting along with the verified package and previous transaction phase.",
+        "id": "R4-F4",
+        "location": {
+          "file": "scripts/KwrRuntime.ps1",
+          "line": 255
+        },
+        "priority": "P2",
+        "requested_correction": "Persist the effective recon setting before removing the installed folder and restore it from the journal when resuming an interrupted reinstall.",
+        "requested_evidence": "Start the temporary journal fixture with recon enabled, induce the existing placement failure, retry, and check both recon.flag and the journal before launch admission.",
+        "title": "Reinstall recovery loses recon mode",
+        "trigger": "Retry an interrupted reinstall after a transaction started with recon enabled and the previous mod directory was removed."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a78"
+        ],
+        "actual": "The note calls ZIP 22b95777 the last rebuild in the suite. The later successful retry records ZIP bd614bf1. The section-11 receipt itself is correctly preserved.",
+        "blocking_rationale": "The clone build and section-11 rebuild are separately identifiable by their correct commits and digests.",
+        "blocks_readiness": false,
+        "category": "optional_polish",
+        "expected": "The note identifies the particular rebuild whose receipt was retained.",
+        "id": "R4-F5",
+        "location": {
+          "file": "scripts/Test-LoaderBaseline.ps1",
+          "line": 757
+        },
+        "priority": "P3",
+        "requested_correction": "Describe this as the rebuild after restoring the section-11 compiler settings.",
+        "requested_evidence": "The next routine suite export uses the precise description.",
+        "title": "Clarify which rebuild the evidence note describes",
+        "trigger": "Read rebuild_receipt beside the later replacement-retry result."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a76"
+        ],
+        "actual": "The trusted-ID comparison extracts the volume serial using the exact English words \u201cSerial Number is\u201d. A localized vol result leaves the expected ID empty.",
+        "blocking_rationale": "The enrolled Windows host produced a matching independent file ID. This affects portability of the test.",
+        "blocks_readiness": false,
+        "category": "optional_polish",
+        "expected": "The comparison reads the same numeric volume serial across Windows display languages.",
+        "id": "R4-F6",
+        "location": {
+          "file": "scripts/Test-LoaderBaseline.ps1",
+          "line": 597
+        },
+        "priority": "P3",
+        "requested_correction": "Read the volume serial in a locale-independent form.",
+        "requested_evidence": "The independent numeric comparison still agrees with the validator on the enrolled host.",
+        "title": "The file-ID test depends on English Windows output",
+        "trigger": "Run the boundary suite where vol prints a localized serial-number label."
+      }
+    ],
+    "prior_finding_assessments": [
+      {
+        "assessment": "fix_rejected",
+        "finding_id": "R1-F1",
+        "rationale": "The gate rejected a changed existing icon and a changed resource named by an explicit /resource option. The commit comparison still misses an additional wildcard-matched icon, and /recurse files can change without changing the response-file inventory."
+      },
+      {
+        "assessment": "fix_rejected",
+        "finding_id": "R1-F2",
+        "rationale": "The absolute-end digest check and half-pair checks pass their regressions. Offline acceptance and cold acquisition still disagree when both archive fields are cleared on the NuGet pin or omitted on the raw pin."
+      },
+      {
+        "assessment": "fix_verified",
+        "finding_id": "R1-F8",
+        "rationale": "The retained clean-checkout run built the audit tool with SDK 8.0.424, invoked the documented executable on the extracted package, resolved all four profiles and recorded the same DLL digest as standalone validation."
+      },
+      {
+        "assessment": "rebuttal_accepted",
+        "finding_id": "R1-F9",
+        "rationale": "OWNER AMENDMENT 1 withdrew the requirement to produce contemporaneous pre-enrollment check-project evidence for Waking after verification of the current enrolled configuration. The dated comparison records profile d67f653b matching the enrollment snapshot, check-project reports no problems, and both preflight roles passed. The record preserves the earlier one-line summary and dates the first retained full result after enrollment. This covers the historical finding."
+      },
+      {
+        "assessment": "fix_verified",
+        "finding_id": "R2-F1",
+        "rationale": "The product now comes from the invocation-owned output and matches Csc\u2019s /out file. With redirected output, the gate left the older 7cd3cb09 DLL in place and recorded 21ec80e3 for both the newly produced and packaged DLL."
+      },
+      {
+        "assessment": "fix_verified",
+        "finding_id": "R2-F2",
+        "rationale": "Backup moves are inside the rollback scope. Holding the existing receipt open preserved both original hashes on failure. The pair passed current validation and replacement succeeded after release. R4-F1 covers competing publishers."
+      },
+      {
+        "assessment": "fix_verified",
+        "finding_id": "R2-F5",
+        "rationale": "The temporary journal remained reinstalling after placement failure and Close. Launch refused it. A successful retry restored the previous closed phase and verified DLL before the fixture admitted launch."
+      },
+      {
+        "assessment": "fix_verified",
+        "finding_id": "R3-F1",
+        "rationale": "The helper derives its label from validator provenance. The gate recorded external-content-inspected for both receiptless modes, diagnostic for the dirty diagnostic pair and frozen-candidate for the verified clean pair."
+      },
+      {
+        "assessment": "fix_verified",
+        "finding_id": "R3-F2",
+        "rationale": "The corrected native layout matched the Windows file ID, a distinct existing report was writable, and the checked destination handle refused a hard link substituted before publication. R4-F3 concerns loss of the protected input identity when the input itself moves."
+      },
+      {
+        "assessment": "fix_verified",
+        "finding_id": "R3-F3",
+        "rationale": "The exported clone_build_receipt names test_clone_commit 5609b015 and ZIP 6abb3957, both matching the positive clone-build case. The section-11 rebuild has its own receipt at 186f3448."
+      },
+      {
+        "assessment": "fix_rejected",
+        "finding_id": "R3-F4",
+        "rationale": "The initial alternate-version selector works. The new fixed 0.12.99 regression then reuses the same artifacts directory. Starting the whole suite at 0.12.99 occupies both filenames before that regression runs."
+      },
+      {
+        "assessment": "fix_verified",
+        "finding_id": "R3-F5",
+        "rationale": "The dated draft PR readback distinguishes receipt byte matching from current-source qualification with -RequireCurrentProvenance and describes all three installation modes."
+      }
+    ],
+    "request_id": "kwr-codex-umm-0311-baseline-20261123-20261123181024-1057-r04-96b7b1",
+    "round": 4,
+    "schema_version": "agent-review.review.v1",
+    "summary": {
+      "delivered_behavior": "Waking Rune declares UMM 0.31.1. The shipping DLL references UnityModManager 0.31.1.0, Harmony12 1.2.0.1 and Harmony2 2.3.1.1. Static metadata checks resolved 14 types and 39 members on 0.31.1, 0.32.4, the measured owner installation at 0.33.0 and the selected 0.33.4 profile. Native behavior remains unobserved on all four.",
+      "pending_later_phase_work": [],
+      "remaining_owner_review": [
+        "Decide whether to provide a disposable game copy and fixtures for native qualification before making runtime-support claims.",
+        "Make the merge or release decision after the draft has a current controller handoff."
+      ],
+      "scope_reviewed": "Final correction review of Waking Rune draft PR #12 at the fixed commit, including the twelve pending findings, affected build and runtime consumers, evidence and OWNER AMENDMENT 1.",
+      "unresolved_questions": []
+    }
+  },
+  "round": 4,
+  "validated_at": "2026-11-24T15:32:55Z",
+  "workflow_fingerprint": "6d613defe7bfe2f01a5818a2cd41b281965f438c45a0ca37ce15957e4dcffe19"
+}

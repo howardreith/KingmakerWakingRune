@@ -1,0 +1,26 @@
+{
+ "schema": "kingmaker.docs-link-check.v1",
+ "files": [
+  "README.md",
+  "docs/UMM-COMPATIBILITY.md"
+ ],
+ "links": 3,
+ "broken": [],
+ "results": [
+  {
+   "file": "README.md",
+   "link": "docs/UMM-COMPATIBILITY.md",
+   "ok": true
+  },
+  {
+   "file": "README.md",
+   "link": "docs/UMM-COMPATIBILITY.md",
+   "ok": true
+  },
+  {
+   "file": "docs/UMM-COMPATIBILITY.md",
+   "link": "evidence/umm-0311/INDEX.md",
+   "ok": true
+  }
+ ]
+}

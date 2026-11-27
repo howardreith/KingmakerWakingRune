@@ -1,0 +1,150 @@
+{
+  "at": "2026-11-24T14:58:34Z",
+  "project": "kwr",
+  "developer": {
+    "cli": "2.1.331 (Claude Code)",
+    "requested": {
+      "model": "opus",
+      "effort": "high"
+    },
+    "session_id": "c0839339-854d-494c-ae9a-82e9c572935f",
+    "observed_model_init": "claude-opus-5-5",
+    "observed_models_api": [
+      "claude-opus-5-5"
+    ],
+    "observed_models_transcript": [
+      "claude-opus-5-5"
+    ],
+    "observed_effort_transcript": [
+      "high"
+    ],
+    "api_key_source": "none",
+    "model_usage": {
+      "claude-opus-5-5": {
+        "inputTokens": 2,
+        "outputTokens": 321,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 24887,
+        "webSearchRequests": 0,
+        "costUSD": 0.20552399999999998,
+        "contextWindow": 1000000,
+        "maxOutputTokens": 128000,
+        "thinkingTokens": 0,
+        "cacheCreationEphemeral5mInputTokens": 0,
+        "cacheCreationEphemeral1hInputTokens": 24887,
+        "canonicalModel": "claude-opus-5-5",
+        "provider": "firstParty",
+        "costBasis": "list"
+      }
+    },
+    "structured_output_ok": true,
+    "ok": true,
+    "permission_isolation": {
+      "user_level_allowance": "Bash(python <controller>/agent_review.py status *)",
+      "probe_commands": [
+        "python <controller>/agent_review.py status --help",
+        "python <controller>/versions/85dece1ca3547fddf67d378f54779e7bade47f36fb3ac91c9314393b35397916/agent_review.py verify --enrollment agent-review-permission-probe --help",
+        "git status --short"
+      ],
+      "production": {
+        "session_id": "974c2ee7-7303-4767-9761-830bd5f6f701",
+        "cli_completed": true,
+        "outcomes": [
+          [
+            "python <controller>/agent_review.py status --help",
+            "denied"
+          ],
+          [
+            "python <controller>/versions/85dece1ca3547fddf67d378f54779e7bade47f36fb3ac91c9314393b35397916/agent_review.py verify --enrollment agent-review-permission-probe --help",
+            "ran"
+          ],
+          [
+            "git status --short",
+            "ran"
+          ]
+        ],
+        "permission_denials": [
+          "python <controller>/agent_review.py status --help"
+        ],
+        "ambient": "denied",
+        "helper": "ran",
+        "composed": "ran"
+      },
+      "control_without_isolation": {
+        "session_id": "e27701ff-87da-4e3f-b1ed-195c5a97d5b6",
+        "cli_completed": true,
+        "outcomes": [
+          [
+            "python <controller>/agent_review.py status --help",
+            "ran"
+          ],
+          [
+            "python <controller>/versions/85dece1ca3547fddf67d378f54779e7bade47f36fb3ac91c9314393b35397916/agent_review.py verify --enrollment agent-review-permission-probe --help",
+            "ran"
+          ],
+          [
+            "git status --short",
+            "ran"
+          ]
+        ],
+        "permission_denials": [],
+        "ambient": "ran",
+        "helper": "ran",
+        "composed": "ran"
+      },
+      "ok": true,
+      "source": "Claude Code stream-json tool_use/tool_result records and result permission_denials (CLI-recorded)"
+    }
+  },
+  "reviewer": {
+    "cli": "codex-cli 0.170.0",
+    "auth": "Logged in using ChatGPT",
+    "requested": {
+      "model": "gpt-6.2-astra",
+      "effort": "max",
+      "sandbox": "read-only"
+    },
+    "run": {
+      "exit_code": 0,
+      "timed_out": false,
+      "thread_id": "01a20e11-3ce2-7090-9da3-3abb414dc0fb",
+      "completed": true,
+      "failed": false,
+      "errors": [],
+      "duration_s": 6.2
+    },
+    "observed": {
+      "rollout_found": true,
+      "observed_model": "gpt-6.2-astra",
+      "observed_effort": "max",
+      "turn_models": [
+        "gpt-6.2-astra"
+      ],
+      "turn_efforts": [
+        "max"
+      ],
+      "sandbox": "read-only",
+      "approval_policy": "never",
+      "network": "restricted",
+      "cli_version": "0.170.0",
+      "usage": {
+        "input_tokens": 14691,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 29,
+        "reasoning_output_tokens": 12,
+        "total_tokens": 14720
+      },
+      "plan_type": "pro",
+      "subagent_suspected": false,
+      "source": "Codex session rollout (CLI-recorded thread settings; not model-authored)"
+    },
+    "problems": [],
+    "ok": true
+  },
+  "limitations": [
+    "Claude: model observed from API response message metadata; effort observed from the session transcript's recorded effort setting (the init event does not report effort).",
+    "Codex: model/effort observed from the session rollout's recorded thread settings; the serving backend's model identity is not separately exposed by the CLI.",
+    "Cost: Claude reports list-price cost even on subscription auth; Codex reports tokens and plan type only. No precise combined cost is claimed."
+  ]
+}

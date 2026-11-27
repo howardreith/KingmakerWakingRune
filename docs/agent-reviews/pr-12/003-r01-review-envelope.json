@@ -1,0 +1,339 @@
+{
+  "B": "480cdbd31425c8855f5856936aeaff60ae236d88",
+  "H": "8ae782f6acbe53553e37dcb5f7a9d9c216a69981",
+  "M": "480cdbd31425c8855f5856936aeaff60ae236d88",
+  "amendment_revision": null,
+  "amendment_sha256": "none",
+  "checkpoint_id": "final",
+  "checkpoint_type": "final",
+  "fatal": false,
+  "guidance_revision": null,
+  "guidance_sha256": "none",
+  "invocation": {
+    "completed": true,
+    "duration_s": 695.2,
+    "errors": [],
+    "exit_code": 0,
+    "failed": false,
+    "observed": {
+      "approval_policy": "never",
+      "cli_version": "0.170.0",
+      "network": "restricted",
+      "observed_effort": "max",
+      "observed_model": "gpt-6.2-astra",
+      "plan_type": "pro",
+      "rollout_found": true,
+      "sandbox": "read-only",
+      "source": "Codex session rollout (CLI-recorded thread settings; not model-authored)",
+      "subagent_suspected": false,
+      "turn_efforts": [
+        "max"
+      ],
+      "turn_models": [
+        "gpt-6.2-astra"
+      ],
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 1211136,
+        "input_tokens": 1338131,
+        "output_tokens": 29581,
+        "reasoning_output_tokens": 20518,
+        "total_tokens": 1367712
+      }
+    },
+    "requested": {
+      "effort": "max",
+      "model": "gpt-6.2-astra",
+      "sandbox": "read-only"
+    },
+    "thread_id": "01a20ab1-5702-7201-9ff2-66d884c4419e",
+    "timed_out": false
+  },
+  "mission": {
+    "id": "kingmaker-umm-0311-mission-20261123",
+    "sha256": "f7d990f396c858ad663020133baba66e0cefb57f2b8be54a26d96186f86b24d5"
+  },
+  "ok": true,
+  "path": "~\\.agent-review\\state\\kwr-codex-umm-0311-baseline-20261123-20261123181024-1057\\rounds\\r01\\envelope-1.json",
+  "pr": 12,
+  "project_sha256": "ea61dac052f6213408ee506f84abe68976890811a9ab23b9da7c07779a86df19",
+  "protocol": "agent-review.v1",
+  "publication": "r01-review",
+  "published": [
+    {
+      "comment_id": 7116965088,
+      "of": 1,
+      "part": 1,
+      "url": "https://github.com/howardreith/KingmakerWakingRune/pull/12#issuecomment-7116965088"
+    }
+  ],
+  "raw_result_if_rejected": null,
+  "reasons": [],
+  "repository": "howardreith/KingmakerWakingRune",
+  "request_id": "kwr-codex-umm-0311-baseline-20261123-20261123181024-1057-r01-13aac7",
+  "response_sha256": "0c14076e1648e8fc4a73f65364556d890ef8a03d800cf47779ee4a14a241d9df",
+  "result": {
+    "candidate_commit": "8ae782f6acbe53553e37dcb5f7a9d9c216a69981",
+    "checkpoint_id": "final",
+    "checkpoint_type": "final",
+    "decision": "changes_required",
+    "decision_rationale": "The controller verified that this commit builds against UMM 0.31.1.0 and both pinned Harmony assemblies. Readiness is blocked because an older package can pass receipt validation after material build inputs change, and the standalone validator can approve the wrong file or assembly.\n\n## Continuation for Claude\n\nBind frozen-candidate reuse to the inputs that actually produced the DLL. Share the pin-contract checks between the build and standalone validator, verify the product assembly identity, and resolve the caller's ZIP path once. Make packaging and private-copy cleanup recoverable on failure. Exercise these paths with real files in a temporary checkout, including a cold cache and a product-version change. Correct the installation and audit instructions and supply the Waking Rune onboarding and draft-PR evidence identified below.\n\nRun the configured baseline gate on the corrected commit and report its ZIP hash, DLL hash and MVID. Reuse the static audit when its DLL digest matches. Preserve the historical release fixture, existing runtime guards and native NOT RUN results. The corrections fit within the Waking Rune draft PR and require no live-game transaction.",
+    "evidence_assessment": {
+      "executed_verification": [
+        "Reviewer confirmed the requested HEAD, merge base and mission SHA-256. The controller log matched its receipt SHA-256, and git diff --check passed.",
+        "The controller ran scripts/Test-LoaderBaseline.ps1 at 8ae782f. It exited 0 in 60.5 seconds with 51/51 checks. Its clean temporary build passed 290 tests, the embedded-art check and standalone package validation.",
+        "The gate recorded all three pinned paths on the production Csc command line. It rejected corrupt and substituted references, mismatched receipts, extra package files and the genuine v0.12.3 DLL compiled against UMM 0.33.2.0 with its manifest lowered to 0.31.1.",
+        "The gate recorded ZIP SHA-256 b02cb7f1d07383018a60473e4007b52cf370ae54b703cf713669ae162882f778, DLL SHA-256 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904 and MVID ccc59117-f992-44ce-9355-540d35f181f0. It measured the installed UMM as 0.33.0.0.",
+        "Reviewer verified all ten exported evidence digests against the committed Git blobs and confirmed that PowerShell's current location can differ from the process working directory after Set-Location."
+      ],
+      "inspected": [
+        "The mission, checkpoint report, transcript notice, empty prior ledger, complete feature diff, README and compatibility instructions.",
+        "The shipping manifest, production project, reference pins and resolver, MSBuild targets, build wrapper, validator, gate and both KwrRuntime installation paths.",
+        "The build and static-audit records from 3ca53fc, including the audit source, profile inventories and newest-stable selection. The audit records 14 types and 39 members resolved on 0.31.1, 0.32.4, owner 0.33.0 and 0.33.4. Its DLL digest and MVID match the reviewed commit's gate output."
+      ],
+      "limitations": [
+        "The reviewer used read-only inspection and controller receipts. The supplied transcript withholds the other foreground shell commands.",
+        "Native startup, Refuge Token travel, dialogue finalizers and save/reload remain NOT RUN on all four loaders. The repository harness targets the live installation, and the developer reported no approved disposable copy. The mission permits this limitation. Combined-stack behavior was also untested.",
+        "The static audit establishes referenced names and signatures for the recorded DLL. Assembly binding, Harmony behavior and Unity integration require native observations."
+      ],
+      "required_gaps": [
+        "Establish current-source provenance for frozen reuse and enforce the complete product and loader contract on supplied ZIPs.",
+        "Correct file selection, transaction bookkeeping and failure cleanup. Exercise the private-copy behavior with real temporary files.",
+        "Make the gate reproducible across clean checkouts and product-version changes, correct the current instructions, and supply the missing repository-specific process evidence."
+      ],
+      "source_inspection_only": [
+        "KwrRuntime's Begin and Reinstall paths were traced in source. The gate counts matching script expressions for its installation check.",
+        "The stale-source receipt, incomplete pin configuration, wrong product identity and partial-output findings follow from the current code paths. The recorded gate covers other failure cases."
+      ]
+    },
+    "findings": [
+      {
+        "acceptance_ids": [
+          "mission \u00a75",
+          "mission \u00a76"
+        ],
+        "actual": "The validator compares the ZIP hash, DLL hash, minimum and three pin identities. It never reads the receipt's commit, dirty state or product version, and the receipt contains no material build-input fingerprint. The old ZIP and its original receipt still satisfy every comparison after a source, helper or project-reference change. The package overwrite guard protects the old file but does not invalidate its reuse.",
+        "blocking_rationale": "A successful receipt check cannot establish that the frozen DLL qualifies the checkout under review. The mission explicitly requires material changes to invalidate affected reuse.",
+        "blocks_readiness": true,
+        "category": "defect",
+        "expected": "Current-candidate qualification checks both the artifact bytes and the relevant source, helper, project and resolved reference inputs that produced them.",
+        "id": "R1-F1",
+        "location": {
+          "file": "scripts/Validate-Package.ps1",
+          "line": 134
+        },
+        "priority": "P1",
+        "requested_correction": "Record and verify the producing source and material build inputs on the frozen-candidate path. Keep content inspection available for externally supplied ZIPs and identify when source provenance has been verified.",
+        "requested_evidence": "In a temporary repository, qualify a clean package, change a reference helper or resolved project input while keeping the mod and loader versions fixed, and show that the original ZIP plus its original receipt loses current-candidate qualification. Show the rebuilt candidate passing.",
+        "title": "An old ZIP and its receipt can qualify a changed checkout",
+        "trigger": "Keep a built ZIP and receipt, change a material build input without changing Info.json.Version or the loader identities, then validate the saved pair."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a75",
+          "mission \u00a76"
+        ],
+        "actual": "The build helper checks the canonical three-pin set and the relationship between the minimum and the UMM assembly version. The standalone validator reads the JSON independently and loops over whatever entries remain. Dropping 0Harmony removes its check from receiptless validation. The loop also accepts additional loader references alongside the expected three, including the 0Harmony-1.2 identity recorded in the owner profile.",
+        "blocking_rationale": "The pre-install entry point can certify a loader contract that the production build refuses or that requires an additional adapter.",
+        "blocks_readiness": true,
+        "category": "defect",
+        "expected": "Standalone validation enforces the shipping manifest, the complete canonical pin definition and the expected loader AssemblyRef set.",
+        "id": "R1-F2",
+        "location": {
+          "file": "scripts/Validate-Package.ps1",
+          "line": 121
+        },
+        "priority": "P1",
+        "requested_correction": "Share pin-definition and manifest validation with the build helper without requiring a download for package inspection. Compare the observed loader references against the complete supported set.",
+        "requested_evidence": "Run standalone negative cases for a dropped Harmony2 pin, disagreement between the minimum and UMM compiler version, and an additional Harmony adapter reference. Retain a passing genuine package.",
+        "title": "Standalone validation skips part of the loader contract",
+        "trigger": "Run the validator directly with an incomplete pin file or a supplied DLL that references an additional Harmony adapter."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a75",
+          "mission \u00a76"
+        ],
+        "actual": "Both metadata readers collect the MVID and referenced assemblies. Neither reads the packaged DLL's own assembly name. A different mod with the same three baseline references can pass under the expected ZIP entry name and manifest.",
+        "blocking_rationale": "The standalone check can approve a package whose payload is a different product before KwrRuntime replaces the installed mod.",
+        "blocks_readiness": true,
+        "category": "defect",
+        "expected": "The DLL stored as KingmakerWakingRune.dll identifies itself as the Waking Rune assembly declared by the package.",
+        "id": "R1-F3",
+        "location": {
+          "file": "scripts/Validate-Package.ps1",
+          "line": 94
+        },
+        "priority": "P2",
+        "requested_correction": "Read the assembly definition in both metadata-reader paths and compare its simple name with the expected product assembly.",
+        "requested_evidence": "Show that a benign, differently named assembly with the three correct loader references is rejected when placed under the mod DLL's filename, while the genuine candidate passes.",
+        "title": "The validator checks the DLL's dependencies but never identifies the DLL itself",
+        "trigger": "Validate a receiptless ZIP containing the correct manifest and a different baseline-built assembly under the expected filename."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a75",
+          "mission \u00a76"
+        ],
+        "actual": "GetFullPath resolves PackagePath against the process working directory. After Set-Location, that can select a different same-named ZIP or report a valid relative path missing. ReportPath is also written without checking whether it names the ZIP or its receipt, so a successful validation can overwrite its own input.",
+        "blocking_rationale": "The documented manual pre-install check can report success for different bytes from the ones the user intends to install, or damage a frozen artifact.",
+        "blocks_readiness": true,
+        "category": "defect",
+        "expected": "Relative paths follow the caller's PowerShell location, and writing a validation report preserves the validated ZIP and build receipt.",
+        "id": "R1-F4",
+        "location": {
+          "file": "scripts/Validate-Package.ps1",
+          "line": 23
+        },
+        "priority": "P2",
+        "requested_correction": "Resolve input paths through PowerShell's literal filesystem path handling before snapshotting. Reject report destinations that collide with the package or its build receipt.",
+        "requested_evidence": "From a changed PowerShell location, validate a relative ZIP with a same-named file in the process directory and confirm the intended digest. Show that report-path collisions leave both input hashes intact.",
+        "title": "Resolve and protect the standalone validator's file paths",
+        "trigger": "Invoke the validator with a relative ZIP after changing directory, or select the ZIP or build receipt as ReportPath."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a76",
+          "mission \u00a77"
+        ],
+        "actual": "Reinstall resolves the original caller path again after extraction and before Save-State. If that path has disappeared or contains wildcard characters, the new DLL can be installed while the transaction retains its previous package record. Private ZIPs and receipts are also removed only on the success path. Rejected validation, a failed Steam preflight or failed extraction leaves them behind.",
+        "blocking_rationale": "A later runtime observation can be attributed to the previous package. The gate's source-pattern check does not exercise this failure path.",
+        "blocks_readiness": true,
+        "category": "defect",
+        "expected": "After snapshotting, transaction bookkeeping uses the captured literal source path and validated bytes. Temporary copies are released on success and failure.",
+        "id": "R1-F5",
+        "location": {
+          "file": "scripts/KwrRuntime.ps1",
+          "line": 272
+        },
+        "priority": "P2",
+        "requested_correction": "Capture the source path and package digest once, carry them through Begin and Reinstall, and place private-copy cleanup under guaranteed failure handling.",
+        "requested_evidence": "Exercise the actual copy and staging helper in a temporary filesystem destination. Cover a moved caller ZIP, a literal filename containing brackets, and a rejected receipt. Check the recorded digest and cleanup without accessing the live game.",
+        "title": "Reinstall can record the previous package after installing the new one",
+        "trigger": "The caller ZIP moves after validation, or staging fails after the private copy has been created."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a75",
+          "mission \u00a76"
+        ],
+        "actual": "Build.ps1 creates the ZIP at its final name and writes its final receipt before running standalone validation. A receipt-write or validator failure leaves a partial or failed result at the immutable candidate path. The next clean build then refuses to replace it.",
+        "blocking_rationale": "A recoverable packaging failure leaves the same visible artifact names as a successful build and blocks an ordinary retry.",
+        "blocks_readiness": true,
+        "category": "defect",
+        "expected": "A successful validation establishes the frozen ZIP and receipt together. Failure preserves any existing candidate and permits a normal retry.",
+        "id": "R1-F6",
+        "location": {
+          "file": "scripts/Build.ps1",
+          "line": 104
+        },
+        "priority": "P2",
+        "requested_correction": "Stage the new ZIP and sidecar privately, validate the pair, then place them at their final paths with the existing overwrite protection. Clean up partial outputs on failure.",
+        "requested_evidence": "Induce a final-validation or sidecar-write failure in a temporary checkout. Show that it leaves no new frozen candidate and that a clean retry succeeds without an overwrite override.",
+        "title": "A failed build can occupy the immutable candidate filename",
+        "trigger": "Packaging reaches ZIP creation and then fails while writing the receipt or validating the archive."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a74",
+          "mission \u00a76"
+        ],
+        "actual": "The gate unconditionally copies three ignored cache files from the invoking checkout before Build.ps1 can acquire them. It also hard-codes 0.12.3 in the positive ZIP path and success assertion. After a version bump, the historical negative case can fail at the product-version comparison before reaching the legacy DLL's AssemblyRefs.",
+        "blocking_rationale": "The configured project gate depends on state outside a fresh worktree and breaks on the repository's documented version-bump workflow.",
+        "blocks_readiness": true,
+        "category": "defect",
+        "expected": "A configured checkout can run the gate with an empty reference cache. The positive package follows the current manifest, while the historical fixture stays fixed to v0.12.3.",
+        "id": "R1-F7",
+        "location": {
+          "file": "scripts/Test-LoaderBaseline.ps1",
+          "line": 161
+        },
+        "priority": "P2",
+        "requested_correction": "Let the clone's normal resolver populate missing pins. Derive the positive artifact name from the current manifest or build output, and keep the legacy regression checking the actual newer UMM reference across mod-version changes.",
+        "requested_evidence": "Run the suite from a configured temporary checkout with an empty source cache and a different test product version. Show the positive build passing and the genuine historical DLL failing for its UMM reference.",
+        "title": "The baseline gate requires a warmed 0.12.3 checkout",
+        "trigger": "Run the configured gate in a new worktree, or bump the mod version for the next immutable package."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a78"
+        ],
+        "actual": "The README directs installation of KingmakerWakingRune-0.4.0.zip and lists loose Icons and Portraits. This candidate builds version 0.12.3 with two files and embedded art. The compatibility guide's reproduction commands also stop at build, package and boundary checks. The four-profile audit is supplied as two .txt source files without a build and invocation example.",
+        "blocking_rationale": "The primary installation instructions select a historical artifact, and the required compatibility-check instructions omit how to reproduce the reported static audit.",
+        "blocks_readiness": true,
+        "category": "required_gap",
+        "expected": "Current instructions identify the receipt-backed baseline artifact, describe its actual layout and let a developer reproduce the reported compatibility checks.",
+        "id": "R1-F8",
+        "location": {
+          "file": "README.md",
+          "line": 17
+        },
+        "priority": "P2",
+        "requested_correction": "Refer to the ZIP produced by the reviewed build and distinguish it from the published pre-baseline v0.12.3 ZIP. Show its two-file layout and add a runnable audit example using the documented profile components and candidate DLL.",
+        "requested_evidence": "Follow the revised instructions against a clean candidate and show the selected package digest and the audit output for all four profiles.",
+        "title": "The current instructions point to a historical package and omit the audit invocation",
+        "trigger": "Follow the README to install the baseline build or the compatibility guide to repeat the four-profile assessment."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a74",
+          "mission \u00a78"
+        ],
+        "actual": "The report says a new user-local profile was created. The supplied transcript identifies only the baseline gate receipt. The fixed inputs establish the draft PR and candidate but contain neither the profile validation results and effective protections nor the updated PR description.",
+        "blocking_rationale": "The gate receipt proves the build check ran. It cannot establish the required pre-enrollment checks, shared runtime locks or draft-PR handoff content.",
+        "blocks_readiness": true,
+        "category": "evidence_gap",
+        "expected": "Reviewable records establish Waking Rune's required profile checks and protections and show the adopted draft's validation and limitations.",
+        "id": "R1-F9",
+        "location": {
+          "file": null,
+          "line": null
+        },
+        "priority": "P2",
+        "requested_correction": "Supply the existing repository-specific onboarding and PR records through the review evidence process. Keep the profile user-local and identify any historical step whose execution cannot be confirmed.",
+        "requested_evidence": "Provide the dated check-project and preflight results, effective origin, gates, push/protected-path policy and shared runtime locks, plus a read-only record of draft PR #12's description.",
+        "title": "The new profile and adopted draft lack the required supporting records",
+        "trigger": "Assess the Waking Rune onboarding and draft-PR requirements at the final checkpoint."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a78"
+        ],
+        "actual": "All ten exported SHA-256 values match the Git blobs. A Windows checkout that expands LF to CRLF produces different Get-FileHash values for those files.",
+        "blocking_rationale": "The committed evidence is verifiable. This clarification would make the result easier to reproduce on the documented platform.",
+        "blocks_readiness": false,
+        "category": "optional_polish",
+        "expected": "The index identifies the byte representation covered by its exported digest column.",
+        "id": "R1-F10",
+        "location": {
+          "file": "docs/evidence/umm-0311/INDEX.md",
+          "line": 6
+        },
+        "priority": "P3",
+        "requested_correction": "Describe the exported values as hashes of the committed blobs and give a byte-preserving verification example.",
+        "requested_evidence": "One example that reproduces an indexed digest from the Git blob on Windows is sufficient.",
+        "title": "Clarify how to verify the evidence hashes on Windows",
+        "trigger": "Hash an evidence file directly from a CRLF worktree and compare it with the exported column."
+      }
+    ],
+    "prior_finding_assessments": [],
+    "request_id": "kwr-codex-umm-0311-baseline-20261123-20261123181024-1057-r01-13aac7",
+    "round": 1,
+    "schema_version": "agent-review.review.v1",
+    "summary": {
+      "delivered_behavior": "Waking Rune declares UMM 0.31.1. The reviewed DLL references UnityModManager 0.31.1.0, 0Harmony12 1.2.0.1 and 0Harmony 2.3.1.1. Its Windows build, unit tests and recorded package checks passed. Static audit results cover the same DLL on four loader profiles.",
+      "pending_later_phase_work": [],
+      "remaining_owner_review": [
+        "Disposition of draft PR #12 after correction and independent review.",
+        "Whether to provide an approved disposable game setup for native qualification before making runtime compatibility claims."
+      ],
+      "scope_reviewed": "Waking Rune draft PR #12 from 480cdbd through 8ae782f, including production reference resolution, package creation and reuse, pre-install checks, gate behavior, compatibility evidence, current instructions and repository-specific onboarding.",
+      "unresolved_questions": [
+        "The fixed inputs do not establish which runtime locks the new user-local profile claims or what validation and limitations the current draft description records."
+      ]
+    }
+  },
+  "round": 1,
+  "validated_at": "2026-11-23T23:26:59Z",
+  "workflow_fingerprint": "6d613defe7bfe2f01a5818a2cd41b281965f438c45a0ca37ce15957e4dcffe19"
+}

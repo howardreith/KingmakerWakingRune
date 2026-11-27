@@ -1,0 +1,38 @@
+{
+    "schema":  "kwr.focused-r12.v1",
+    "mode":  "PostCleanup",
+    "commit":  "d93c56e13493c4e97888c73c97253ab27ba723aa",
+    "startedUtc":  "2026-11-27T14:07:04.8603566Z",
+    "retainedProducer":  "<dev>\\KingmakerWakingRuneLab\\worktrees\\umm-0311-final-pair-d93c56e\\producer",
+    "retainedPair":  {
+                         "location":  "<dev>\\KingmakerWakingRuneLab\\worktrees\\umm-0311-final-pair-d93c56e\\producer",
+                         "zip":  "<dev>\\KingmakerWakingRuneLab\\worktrees\\umm-0311-final-pair-d93c56e\\producer\\artifacts\\KingmakerWakingRune-0.12.3.zip",
+                         "zipSha256":  "36a3c26364a011b8de698de124c8ea10c552e58fdd05255b7270d31bd46707de",
+                         "receipt":  "<dev>\\KingmakerWakingRuneLab\\worktrees\\umm-0311-final-pair-d93c56e\\producer\\artifacts\\KingmakerWakingRune-0.12.3.zip.build.json",
+                         "receiptSha256":  "b8d5102bcceb513bfa67fb02bf10120d8db2034dc4cd4d5097717f74ec1af37e",
+                         "producingCommit":  "d93c56e13493c4e97888c73c97253ab27ba723aa",
+                         "dirty":  false,
+                         "receiptDllSha256":  "7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904",
+                         "validateExit":  0,
+                         "dllSha256":  "7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904",
+                         "dllMvid":  "ccc59117-f992-44ce-9355-540d35f181f0",
+                         "provenance":  "verified-current",
+                         "validatedZipSha256":  "36a3c26364a011b8de698de124c8ea10c552e58fdd05255b7270d31bd46707de",
+                         "producerStatusEntries":  0,
+                         "measuredUtc":  "2026-11-27T14:07:09.6762441Z"
+                     },
+    "disposableClonesLeft":  [
+
+                             ],
+    "disposableRemoved":  true,
+    "finishedUtc":  "2026-11-27T14:07:09.7377687Z",
+    "passed":  1,
+    "total":  1,
+    "cases":  [
+                  {
+                      "name":  "retained-pair-after-fixture-cleanup-qualifies-with-current-provenance",
+                      "passed":  true,
+                      "detail":  "disposable focused clones left: 0; producer status entries 0; ZIP 36a3c26364a011b8de698de124c8ea10c552e58fdd05255b7270d31bd46707de; receipt b8d5102bcceb513bfa67fb02bf10120d8db2034dc4cd4d5097717f74ec1af37e; DLL 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; MVID ccc59117-f992-44ce-9355-540d35f181f0; producing commit d93c56e13493c4e97888c73c97253ab27ba723aa; validator exit 0; provenance verified-current"
+                  }
+              ]
+}

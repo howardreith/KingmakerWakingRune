@@ -1,0 +1,346 @@
+{
+  "B": "480cdbd31425c8855f5856936aeaff60ae236d88",
+  "H": "855a86a39f6d6e0c28162ca70a827abb15be9a25",
+  "M": "480cdbd31425c8855f5856936aeaff60ae236d88",
+  "amendment_revision": 5,
+  "amendment_sha256": "f863cbdbe93acb6edfaf9b2e6a26d1feb3c516b27eaa3929b286b07d4223e3b4",
+  "checkpoint_id": "final",
+  "checkpoint_type": "final",
+  "fatal": false,
+  "guidance_revision": null,
+  "guidance_sha256": "none",
+  "invocation": {
+    "completed": true,
+    "duration_s": 959.6,
+    "errors": [],
+    "exit_code": 0,
+    "failed": false,
+    "observed": {
+      "approval_policy": "never",
+      "cli_version": "0.170.0",
+      "network": "restricted",
+      "observed_effort": "max",
+      "observed_model": "gpt-6.2-astra",
+      "plan_type": "pro",
+      "rollout_found": true,
+      "sandbox": "read-only",
+      "source": "Codex session rollout (CLI-recorded thread settings; not model-authored)",
+      "subagent_suspected": false,
+      "turn_efforts": [
+        "max"
+      ],
+      "turn_models": [
+        "gpt-6.2-astra"
+      ],
+      "usage": {
+        "cache_write_input_tokens": 0,
+        "cached_input_tokens": 1907456,
+        "input_tokens": 2052868,
+        "output_tokens": 34975,
+        "reasoning_output_tokens": 23396,
+        "total_tokens": 2087843
+      }
+    },
+    "requested": {
+      "effort": "max",
+      "model": "gpt-6.2-astra",
+      "sandbox": "read-only"
+    },
+    "thread_id": "01a21aea-a52c-72f1-bb67-7efd08a91e9d",
+    "timed_out": false
+  },
+  "mission": {
+    "id": "kingmaker-umm-0311-mission-20261123",
+    "sha256": "f7d990f396c858ad663020133baba66e0cefb57f2b8be54a26d96186f86b24d5"
+  },
+  "ok": true,
+  "path": "~\\.agent-review\\state\\kwr-codex-umm-0311-baseline-20261123-20261123181024-1057\\rounds\\r09\\envelope-1.json",
+  "pr": 12,
+  "project_sha256": "ea61dac052f6213408ee506f84abe68976890811a9ab23b9da7c07779a86df19",
+  "protocol": "agent-review.v1",
+  "publication": "r09-review",
+  "published": [
+    {
+      "comment_id": 7208731520,
+      "of": 1,
+      "part": 1,
+      "url": "https://github.com/howardreith/KingmakerWakingRune/pull/12#issuecomment-7208731520"
+    }
+  ],
+  "raw_result_if_rejected": null,
+  "reasons": [],
+  "repository": "howardreith/KingmakerWakingRune",
+  "request_id": "kwr-codex-umm-0311-baseline-20261123-20261123181024-1057-r09-9a2381",
+  "response_sha256": "859caf05b8269bb864a8f19cc4f31a0145d124a983312215abfa5634153970e8",
+  "result": {
+    "candidate_commit": "855a86a39f6d6e0c28162ca70a827abb15be9a25",
+    "checkpoint_id": "final",
+    "checkpoint_type": "final",
+    "decision": "changes_required",
+    "decision_rationale": "The Windows gate built and validated the UMM 0.31.1 package. It also skipped the required file-symbolic-link case and counted a held-lock case whose receipt did not match the ZIP. Source inspection found paths that can overwrite a receipt, interfere with publication rollback, or qualify a package against the wrong producing commit.\n\n## Continuation for Claude\n\nFirst establish whether an authorized Windows fixture can supply an actual file symbolic link, and identify a durable location for the corrected ZIP and receipt. If the host still refuses link creation, preserve the exact denial and the open finding.\n\nBatch the corrections in the existing helpers. Use the publisher\u2019s final destination to identify its lock, decline private staging and backup inputs, and ensure an installer probing the ZIP cannot obstruct rollback. Bind report protection to the ZIP actually read. Preserve ordinary single-name external copies. Use literal repository paths for compiler sources and include the newly imported file-identity helper in both provenance checks.\n\nReuse the existing paused-publisher, input-swap and producer-comparison fixtures. Make receipt equality a condition of the held-lock test. Run the focused checks before the candidate gate, retain one qualified pair through cleanup, and record its location and identities. Keep native gameplay and combined-stack testing at NOT RUN. OWNER AMENDMENT 5 limits Waking to 10 total submissions and 85 total validation minutes for this assignment.",
+    "evidence_assessment": {
+      "executed_verification": [
+        "Read-only checks confirmed the detached HEAD, the mission and amendment hashes, and a byte-for-byte match between the supplied feature diff and Git\u2019s M..H diff. All 26 indexed evidence exports matched their recorded Git-blob SHA-256 values.",
+        "The controller\u2019s baseline receipt names 855a86a39f6d6e0c28162ca70a827abb15be9a25. Its log hash matches the receipt. The gate exited 0 in 687.9 seconds and printed 158 PASS rows and one NOT RUN row.",
+        "The cold-cache shipping build at H produced ZIP SHA-256 f2dd53304287f75f85b88a783e06156e4ef49fa456a9df9b2bffe6661c3d1ffe and DLL SHA-256 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904. Standalone current-provenance validation passed. The alternate-version build reported 290 tests passed and zero failed. The direct MSBuild row identified all three pinned compiler inputs.",
+        "The gate recorded refusal of the ignored junction-selected source, recovery after its removal, successful qualification of CaseRoot.cs selected as caseroot.cs, and refusal of both incorrect producers. It also recorded a real HardLink report-input refusal with both files preserved.",
+        "The historical static audit covers the identical DLL SHA-256 and MVID ccc59117-f992-44ce-9355-540d35f181f0. It resolved 14 types and 39 members against 0.31.1, 0.32.4, the measured owner 0.33.0 installation and the selected 0.33.4 profile."
+      ],
+      "inspected": [
+        "The mission, all five owner amendments, both repository instruction documents, the feature diff, developer report, prior ledger, controller transcript notice, gate receipt and gate log.",
+        "The correction from 79f1687 through H, including compiler inventory and Git path handling, package copying, report writing, Build.ps1 placement and rollback, and the Begin and Reinstall consumers.",
+        "The focused driver and its 11/11 export at eec7a90, the identity probe and the evidence index. The changes from eec7a90 to H are confined to documentation and evidence."
+      ],
+      "limitations": [
+        "The review used read-only inspection. The controller withheld the mixed foreground transcript. The focused results are attributable to the committed export at eec7a90, while the controller receipt independently identifies the gate at H.",
+        "The 149/149 result belongs to 79f1687. The static audit was produced at 3779b0e and applies here through the matching DLL digest.",
+        "Native gameplay and combined-stack testing are NOT RUN under OWNER AMENDMENT 5."
+      ],
+      "required_gaps": [
+        "Actual file-symbolic-link execution and preservation of the target pair.",
+        "A truthful held-lock gate row with a matching alias receipt, plus coverage of the backup-name and overlapping-rollback paths.",
+        "Coverage of receipt protection when the input changes before the snapshot, literal source attribution, the new build helper dependency and ordinary single-name external copies.",
+        "A retained corrected ZIP and matching receipt identified and checked after fixture cleanup."
+      ],
+      "source_inspection_only": [
+        "The backup-lock selection, pre-lock sharing conflict, changed-target receipt write and omitted material inputs follow from the candidate code. The supplied gate did not execute those interleavings or producer variants.",
+        "The V5 type and caller update is verifiable in source. The supplied records cover fresh processes and contain no same-process V4-to-V5 run."
+      ]
+    },
+    "findings": [
+      {
+        "acceptance_ids": [
+          "mission \u00a76",
+          "OWNER AMENDMENT 5, Waking R5-F1"
+        ],
+        "actual": "Build.ps1 moves the previous pair into artifacts/.pending-*/previous under the final ZIP\u2019s lock. The installer recognizes that descendant as build-owned, then creates a different lock beside the backup ZIP. Its identity check succeeds against the backup, and diagnostic mode can admit that pair while the publisher still holds the final lock.",
+        "blocking_rationale": "An external hard link to the published ZIP can still bypass the active publisher during ordinary replacement.",
+        "blocks_readiness": true,
+        "category": "defect",
+        "expected": "A read of a build-owned package must use the canonical publication lock and receipt, or be declined when its remaining name is private to a publisher.",
+        "id": "R5-F1",
+        "location": {
+          "file": "scripts/KwrPackage.ps1",
+          "line": 59
+        },
+        "priority": "P1",
+        "requested_correction": "Distinguish final publication names from the publisher\u2019s private staging and backup names. Decline a link whose build-owned name is in that private area, or verify it against the actual final destination under its lock.",
+        "requested_evidence": "Create the external hard link before replacement. In the existing paused-publisher fixture, attempt the read after the previous pair has moved aside. Record refusal while the canonical lock is held and successful qualification of the restored pair afterward.",
+        "title": "A hard link to the previous ZIP can select the backup folder\u2019s lock",
+        "trigger": "Keep a hard link to a published ZIP while Build.ps1 replaces it, then read that link after the previous ZIP and receipt have moved into the backup directory."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a76",
+          "OWNER AMENDMENT 5, Waking R8-F2"
+        ],
+        "actual": "Gate log line 103 records NOT RUN because Windows returned \u201cAdministrator privilege required for this operation.\u201d The focused export records the same denial. The successful report-input case used a HardLink.",
+        "blocking_rationale": "OWNER AMENDMENT 5 expressly requires an actual file symbolic link, its observed type, refusal and preservation of both target files.",
+        "blocks_readiness": true,
+        "category": "evidence_gap",
+        "expected": "The standalone validator refuses ReportPath aimed at the target ZIP\u2019s receipt when PackagePath is a file symbolic link and ReceiptPath is omitted.",
+        "id": "R8-F2",
+        "location": {
+          "file": "scripts/Test-LoaderBaseline.ps1",
+          "line": 607
+        },
+        "priority": "P1",
+        "requested_correction": "Exercise the existing case with an actual file symbolic link in an authorized disposable Windows fixture. Keep the requirement open if that fixture remains unavailable.",
+        "requested_evidence": "Record LinkType SymbolicLink, the validator\u2019s refusal, and matching before-and-after SHA-256 values for the target ZIP and its conventional receipt.",
+        "title": "The required file-symbolic-link report check was skipped",
+        "trigger": "Run the round-nine gate on the supplied host."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a76",
+          "OWNER AMENDMENT 5, Waking R5-F1"
+        ],
+        "actual": "The fixture copies the first dirty build\u2019s receipt next to a link to the second build\u2019s ZIP. Gate log line 171 reports that the match is False. The assertion checks the lock refusal but omits $aliasReceiptMatches. The focused driver separately covers a matching pair with a held lock.",
+        "blocking_rationale": "The configured gate reports PASS for a required fixture even when its defining precondition fails.",
+        "blocks_readiness": true,
+        "category": "defect",
+        "expected": "The gate counts the matching-receipt row only when the alias receipt identifies the exact linked ZIP.",
+        "id": "R9-F1",
+        "location": {
+          "file": "scripts/Test-LoaderBaseline.ps1",
+          "line": 1103
+        },
+        "priority": "P2",
+        "requested_correction": "Use the receipt produced for the ZIP under test and require digest equality in the pass predicate.",
+        "requested_evidence": "A candidate gate row showing a true receipt-to-ZIP match and refusal on the canonical lock. Preserve the successful post-release missing-receipt control.",
+        "title": "The held-lock gate passes with the wrong alias receipt",
+        "trigger": "The paused publisher has placed its new ZIP after moving the previous pair aside."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a76",
+          "OWNER AMENDMENT 2, rollback integrity",
+          "OWNER AMENDMENT 5, direct regressions"
+        ],
+        "actual": "The installer opens the canonical ZIP with FileShare.Read before it attempts the publication lock. During that interval, Build.ps1 cannot move that same ZIP name. If receipt placement fails then, the rollback move at Build.ps1 line 182 can fail, leaving the new ZIP at the destination and the previous pair in the recovery folder.",
+        "blocking_rationale": "A reader that should simply be refused can prevent restoration of the previous publication.",
+        "blocks_readiness": true,
+        "category": "defect",
+        "expected": "A reader arriving while the publisher owns the lock must allow that publisher to complete placement or rollback.",
+        "id": "R9-F2",
+        "location": {
+          "file": "scripts/KwrPackage.ps1",
+          "line": 50
+        },
+        "priority": "P1",
+        "requested_correction": "Arrange the read and lock acquisition so a reader awaiting classification cannot block the publisher\u2019s rename. Verify the selected file identity under the canonical lock before copying.",
+        "requested_evidence": "Overlap the existing receipt-placement failure with a reader at the pre-lock open. Verify reader refusal and automatic restoration of both previous hashes at their final names.",
+        "title": "Opening the ZIP before lock admission can obstruct publisher rollback",
+        "trigger": "A canonical-path installer read overlaps rollback of a newly placed ZIP."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a76",
+          "OWNER AMENDMENT 5, actual target receipt protection"
+        ],
+        "actual": "The validator collects target names at lines 52\u201356, closes that handle, then reopens PackagePath at line 96. If the alias changes from ZIP A to ZIP B in between, the snapshot adds B\u2019s ZIP identity. The protected receipt names still belong to A. WriteChecked can consequently truncate B\u2019s receipt.",
+        "blocking_rationale": "A successful content-only validation can destroy the build receipt of the ZIP it actually inspected.",
+        "blocks_readiness": true,
+        "category": "defect",
+        "expected": "The protected conventional receipt belongs to the ZIP whose bytes entered the validation snapshot.",
+        "id": "R9-F3",
+        "location": {
+          "file": "scripts/Validate-Package.ps1",
+          "line": 52
+        },
+        "priority": "P1",
+        "requested_correction": "Bind target and receipt protection to the same opened ZIP used for the snapshot, or decline the report when that binding changes. Retain the checked-handle destination write.",
+        "requested_evidence": "Use the existing input-swap fixture with two valid receipt-backed ZIPs. Change the input link before the snapshot and select the second ZIP\u2019s receipt as ReportPath. Show refusal and preserved hashes.",
+        "title": "Changing the input link before the snapshot leaves the new target\u2019s receipt unprotected",
+        "trigger": "An input alias is updated between target-name discovery and the ZIP read."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a75",
+          "OWNER AMENDMENT 5, literal Git spelling"
+        ],
+        "actual": "Get-KwrInventoryRepositoryPaths decodes every entry\u2019s display name as if it could contain a reference alias. For a tracked root source named Rules=Root.cs, it looks up Root.cs. Membership checks the correct repositoryPath, but the producing-commit comparison can omit Rules=Root.cs and accept a receipt naming a commit that lacks it.",
+        "blocking_rationale": "A clean package can still be attributed to a commit missing compiled source.",
+        "blocks_readiness": true,
+        "category": "defect",
+        "expected": "The producer comparison uses the complete literal tracked path of each authored compiler source.",
+        "id": "R9-F4",
+        "location": {
+          "file": "scripts/KwrBuild.Common.ps1",
+          "line": 116
+        },
+        "priority": "P2",
+        "requested_correction": "For compile entries, resolve the actual repositoryPath to Git\u2019s spelling and pass it as a literal pathspec. Apply reference-alias decoding only to entries that encode a reference alias.",
+        "requested_evidence": "Use the existing root-source fixture with a literal equals sign in its filename. Show that the genuine pair qualifies and a receipt naming a producer missing or differing in that source is refused.",
+        "title": "Reference-alias parsing strips part of a literal compiler source name",
+        "trigger": "LocalGamePaths.props selects a tracked repository-root source whose filename starts with an identifier followed by an equals sign."
+      },
+      {
+        "acceptance_ids": [
+          "mission \u00a75, material build inputs",
+          "OWNER AMENDMENT 5, accurate receipts"
+        ],
+        "actual": "KwrBuild.Common.ps1 now imports KwrFileIdentity.ps1 and uses its V5 methods to identify compiler inputs. Both the fingerprint list and the validator\u2019s material-path list omit that helper. A receipt can name an otherwise identical commit lacking the required helper and still pass in the current checkout.",
+        "blocking_rationale": "The claimed producing tree can be incapable of running the build that the receipt attributes to it.",
+        "blocks_readiness": true,
+        "category": "defect",
+        "expected": "The producing-commit comparison and build fingerprint include the helper required to construct the compiler inventory.",
+        "id": "R9-F5",
+        "location": {
+          "file": "scripts/KwrBuild.Common.ps1",
+          "line": 210
+        },
+        "priority": "P2",
+        "requested_correction": "Add scripts/KwrFileIdentity.ps1 to the existing fingerprint and producing-commit material paths.",
+        "requested_evidence": "Use the existing helper-change or producer-comparison fixture to show refusal when only this required helper differs, followed by qualification for the genuine producer.",
+        "title": "The new compiler-inventory dependency is absent from build provenance",
+        "trigger": "Compare the corrected package against a producer differing only in scripts/KwrFileIdentity.ps1."
+      },
+      {
+        "acceptance_ids": [
+          "OWNER AMENDMENT 5, preserve independent ordinary external copies"
+        ],
+        "actual": "The installer always calls LinkNamesOf, even when the open handle reports one link. Report generation does the same. On a volume without hard-link enumeration, such as FAT32, FindFirstFileNameW fails and the ordinary external ZIP is refused before content validation.",
+        "blocking_rationale": "The correction adds a filesystem requirement to a supported independent-copy path.",
+        "blocks_readiness": true,
+        "category": "defect",
+        "expected": "An ordinary independent external ZIP retains its receipt-backed or content-only handling when its single physical name is established.",
+        "id": "R9-F6",
+        "location": {
+          "file": "scripts/KwrPackage.ps1",
+          "line": 53
+        },
+        "priority": "P2",
+        "requested_correction": "Use the physical target from the held handle when it establishes a single name. Reserve hard-link enumeration or explicit ambiguity refusal for cases that need it, including in report protection.",
+        "requested_evidence": "Show that a single-name external copy can be validated and reported without hard-link enumeration, while the existing multi-link publication checks still hold.",
+        "title": "Ordinary external ZIPs now require hard-link enumeration",
+        "trigger": "Validate an independent ZIP on a volume that permits normal file reads but does not implement hard-link enumeration."
+      },
+      {
+        "acceptance_ids": [
+          "OWNER AMENDMENT 5, corrected candidate freeze and retention"
+        ],
+        "actual": "The gate identifies the shipping ZIP and receipt inside its temporary clone. Both the gate and the focused driver clean up their fixture trees. The supplied records identify no retained corrected pair or post-cleanup measurement. The indexed production receipt is attributed to 3779b0e.",
+        "blocking_rationale": "The hashes establish what was built. The handoff still lacks evidence that a qualified corrected package is available after cleanup, as the owner required.",
+        "blocks_readiness": true,
+        "category": "evidence_gap",
+        "expected": "One corrected production ZIP and its matching receipt survive fixture cleanup at a known location.",
+        "id": "R9-F7",
+        "location": {
+          "file": "scripts/Test-LoaderBaseline.ps1",
+          "line": 1223
+        },
+        "priority": "P2",
+        "requested_correction": "Identify and verify an existing retained pair if available. Otherwise retain the final qualified pair outside fixture cleanup using the existing workflow.",
+        "requested_evidence": "Record the durable location, producing commit, post-cleanup ZIP and receipt hashes, packaged DLL SHA-256 and MVID, and successful current-provenance validation of that pair.",
+        "title": "The corrected production freeze has no evidenced surviving location",
+        "trigger": "Trace the candidate artifacts from the reported runs through fixture cleanup."
+      }
+    ],
+    "prior_finding_assessments": [
+      {
+        "assessment": "fix_verified",
+        "finding_id": "R1-F1",
+        "rationale": "The gate selected ignored LocalRoot.cs through an actual directory junction with a clean Git status. Publication and current qualification refused that source. Qualification returned after removal, and the focused driver compared both previous publication hashes."
+      },
+      {
+        "assessment": "fix_rejected",
+        "finding_id": "R5-F1",
+        "rationale": "Stable links to the final ZIP now consult the canonical lock and receipt independently of the alias-side receipt. A link held across the publisher\u2019s backup move still selects a different lock. The gate\u2019s held-lock receipt mismatch is recorded separately under R9-F1."
+      },
+      {
+        "assessment": "fix_verified",
+        "finding_id": "R8-F1",
+        "rationale": "The gate showed caseroot.cs resolving to Git\u2019s CaseRoot.cs, a successful genuine pair, and refusals for producers missing the file or containing different bytes. R9-F4 concerns separate parsing of literal filename characters."
+      },
+      {
+        "assessment": "fix_rejected",
+        "finding_id": "R8-F2",
+        "rationale": "Physical target resolution is present and the hard-link control preserved both files. OWNER AMENDMENT 5 requires the actual file-symbolic-link observation. Both recorded runs skipped it after the host refused creation."
+      },
+      {
+        "assessment": "fix_verified",
+        "finding_id": "R8-F3",
+        "rationale": "The type guard, helper, callers and fixture anchors consistently use KwrFileIdentityV5. A previously loaded V4 type cannot satisfy the V5 guard. This optional fix is verified by source inspection."
+      }
+    ],
+    "request_id": "kwr-codex-umm-0311-baseline-20261123-20261123181024-1057-r09-9a2381",
+    "round": 9,
+    "schema_version": "agent-review.review.v1",
+    "summary": {
+      "delivered_behavior": "Waking Rune declares UMM 0.31.1 and builds against UnityModManager 0.31.1.0, Harmony12 1.2.0.1 and Harmony2 2.3.1.1. The gate validated the packaged DLL and confirmed the junction and ordinary case-spelling corrections.",
+      "pending_later_phase_work": [],
+      "remaining_owner_review": [
+        "Final disposition of draft PR #12 after the required corrections and evidence are complete."
+      ],
+      "scope_reviewed": "Final correction review of Waking Rune PR #12 at 855a86a against the mission and owner amendments through revision 5.",
+      "unresolved_questions": [
+        "Whether an authorized Windows fixture can supply the required file symbolic link.",
+        "Where a qualifying corrected ZIP and receipt have been retained after cleanup."
+      ]
+    }
+  },
+  "round": 9,
+  "validated_at": "2026-11-27T03:07:54Z",
+  "workflow_fingerprint": "6d613defe7bfe2f01a5818a2cd41b281965f438c45a0ca37ce15957e4dcffe19"
+}

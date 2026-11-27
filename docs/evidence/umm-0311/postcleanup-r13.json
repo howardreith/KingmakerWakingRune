@@ -1,0 +1,37 @@
+{
+    "schema":  "kwr.focused-r13.v1",
+    "mode":  "PostCleanup",
+    "commit":  "12bf7d51b3129fa40cff9ca1471eda647ef7bb70",
+    "startedUtc":  "2026-11-27T15:18:30.2207506Z",
+    "retainedPair":  {
+                         "location":  "<dev>\\KingmakerWakingRuneLab\\worktrees\\umm-0311-final-pair-12bf7d5\\producer",
+                         "zip":  "<dev>\\KingmakerWakingRuneLab\\worktrees\\umm-0311-final-pair-12bf7d5\\producer\\artifacts\\KingmakerWakingRune-0.12.3.zip",
+                         "zipSha256":  "8f757331b42ad157939108702fb59c8c9aae031d0416ee271ac792a0aaa4d344",
+                         "receipt":  "<dev>\\KingmakerWakingRuneLab\\worktrees\\umm-0311-final-pair-12bf7d5\\producer\\artifacts\\KingmakerWakingRune-0.12.3.zip.build.json",
+                         "receiptSha256":  "ba8e64d33d79ff474f8675d31c696d41c6da33f79111e6c6e208587a6994e2c8",
+                         "producingCommit":  "12bf7d51b3129fa40cff9ca1471eda647ef7bb70",
+                         "dirty":  false,
+                         "receiptDllSha256":  "7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904",
+                         "validateExit":  0,
+                         "dllSha256":  "7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904",
+                         "dllMvid":  "ccc59117-f992-44ce-9355-540d35f181f0",
+                         "provenance":  "verified-current",
+                         "validatedZipSha256":  "8f757331b42ad157939108702fb59c8c9aae031d0416ee271ac792a0aaa4d344",
+                         "producerStatusEntries":  0,
+                         "measuredUtc":  "2026-11-27T15:18:34.7040223Z"
+                     },
+    "disposableClonesLeft":  [
+
+                             ],
+    "disposableRemoved":  true,
+    "finishedUtc":  "2026-11-27T15:18:34.7643606Z",
+    "passed":  1,
+    "total":  1,
+    "cases":  [
+                  {
+                      "name":  "retained-pair-after-fixture-cleanup-qualifies-with-current-provenance",
+                      "passed":  true,
+                      "detail":  "disposable focused clones left: 0; producer status entries 0; ZIP 8f757331b42ad157939108702fb59c8c9aae031d0416ee271ac792a0aaa4d344; receipt ba8e64d33d79ff474f8675d31c696d41c6da33f79111e6c6e208587a6994e2c8; DLL 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; MVID ccc59117-f992-44ce-9355-540d35f181f0; producing commit 12bf7d51b3129fa40cff9ca1471eda647ef7bb70; validator exit 0; provenance verified-current"
+                  }
+              ]
+}

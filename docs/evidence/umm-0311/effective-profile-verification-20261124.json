@@ -1,0 +1,14 @@
+{
+ "schema": "kwr.effective-profile-verification.v1",
+ "recorded_at_utc": "2026-11-24T15:11:07Z",
+ "enrollment_id": "kwr-codex-umm-0311-baseline-20261123-20261123181024-1057",
+ "enrollment_created_at_utc": "2026-11-23T23:10:25Z",
+ "profile_file": "<user-profile>/.agent-review/projects/kingmaker-waking-rune.json",
+ "profile_sha256": "d67f653b7751488361a431d7ad408a3160df44ad6d658efa5cca48776dd26b3f",
+ "profile_equals_enrollment_snapshot": true,
+ "workflow_fingerprint": "6d613defe7bfe2f01a5818a2cd41b281965f438c45a0ca37ce15957e4dcffe19",
+ "check_project_2026_11_24": "onboarding-check-project-20261124.json (problems [])",
+ "preflight_2026_11_24": "onboarding-preflight-20261124.json (ok true)",
+ "chronology": "The profile was written 2026-11-23 before enrollment (2026-11-23T23:10:25Z). The earliest retained full controller check-project JSON is dated 2026-11-24T01:01:16Z, after enrollment; the pre-enrollment run survives only as a one-line summary in the developer transcript (pre-enrollment-check-project.json). These 2026-11-24 records verify the current effective configuration; they are not contemporaneous pre-enrollment evidence.",
+ "owner_disposition": "Owner amendment 2026-11-24 (controller-recorded, resume --amend-mission): the absence of contemporaneous pre-enrollment check-project evidence is accepted as a documented historical process gap; it waives no current code, configuration or validation defect."
+}

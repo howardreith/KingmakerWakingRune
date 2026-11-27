@@ -3,7 +3,7 @@
   "DisplayName": "The Waking Rune (opening prototype)",
   "Author": "Howie Reith",
   "Version": "0.12.3",
-  "ManagerVersion": "0.28.2",
+  "ManagerVersion": "0.31.1",
   "GameVersion": "2.1.7",
   "AssemblyName": "KingmakerWakingRune.dll",
   "EntryMethod": "KingmakerWakingRune.Main.Load",

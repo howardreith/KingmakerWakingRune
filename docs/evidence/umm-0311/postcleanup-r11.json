@@ -1,0 +1,32 @@
+{
+    "schema":  "kwr.focused-r11.v1",
+    "mode":  "PostCleanup",
+    "commit":  "859674ea58cd9e1982050cca32a080ff6fb55ee6",
+    "startedUtc":  "2026-11-27T13:42:19.0808418Z",
+    "retainedPair":  {
+                         "location":  "<dev>\\KingmakerWakingRuneLab\\worktrees\\umm-0311-final-pair-859674e\\producer",
+                         "zip":  "<dev>\\KingmakerWakingRuneLab\\worktrees\\umm-0311-final-pair-859674e\\producer\\artifacts\\KingmakerWakingRune-0.12.3.zip",
+                         "zipSha256":  "78b9106e979a3e1e4032022e05c292ef869959ea40e980dea78277a93cb7380b",
+                         "receipt":  "<dev>\\KingmakerWakingRuneLab\\worktrees\\umm-0311-final-pair-859674e\\producer\\artifacts\\KingmakerWakingRune-0.12.3.zip.build.json",
+                         "receiptSha256":  "d45f9cdf0d027b06c3e62ec675fa7f76da117781a761a543871553c709a695a5",
+                         "producingCommit":  "859674ea58cd9e1982050cca32a080ff6fb55ee6",
+                         "dirty":  false,
+                         "receiptDllSha256":  "7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904",
+                         "validateExit":  0,
+                         "dllSha256":  "7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904",
+                         "dllMvid":  "ccc59117-f992-44ce-9355-540d35f181f0",
+                         "provenance":  "verified-current",
+                         "validatedZipSha256":  "78b9106e979a3e1e4032022e05c292ef869959ea40e980dea78277a93cb7380b",
+                         "producerStatusEntries":  0
+                     },
+    "disposableRemoved":  true,
+    "passed":  1,
+    "total":  1,
+    "cases":  [
+                  {
+                      "name":  "retained-pair-after-fixture-cleanup-qualifies-with-current-provenance",
+                      "passed":  true,
+                      "detail":  "producer status entries 0; ZIP 78b9106e979a3e1e4032022e05c292ef869959ea40e980dea78277a93cb7380b; receipt d45f9cdf0d027b06c3e62ec675fa7f76da117781a761a543871553c709a695a5; DLL 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; MVID ccc59117-f992-44ce-9355-540d35f181f0; producing commit 859674ea58cd9e1982050cca32a080ff6fb55ee6; provenance verified-current"
+                  }
+              ]
+}

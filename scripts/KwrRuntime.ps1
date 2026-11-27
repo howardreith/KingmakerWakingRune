@@ -24,6 +24,8 @@ param(
     [string] $RunId,
     [string] $PackagePath,
     [switch] $Recon,
+    # Begin/Reinstall: stage a receipt-backed diagnostic build without the frozen-candidate provenance requirement.
+    [switch] $Diagnostic,
     [string[]] $LaunchArgs = @(),
     [string] $Name,
     [int] $X,
@@ -184,20 +186,28 @@ function Assert-SteamCloudOffline {
     Write-Step "Steam cloud preflight: $last"
 }
 
+# Every install path resolves the caller's package once, validates a private copy (scripts\KwrPackage.ps1: files,
+# manifest, assembly definition and the DLL's actual AssemblyRefs; with a build receipt beside the zip, also the clean
+# producing commit and current build inputs) and installs that same copy. The state records the resolved source path and
+# the validated digest captured before installing; the private copy is removed in every outcome.
+. (Join-Path $PSScriptRoot 'KwrPackage.ps1')
+
 function Get-RunDir($s) { Join-Path $EvidenceRoot $s.runId }
 
 function Invoke-Begin {
     if (Get-State) { throw "A transaction is already open: $StatePath. Run End (or inspect) first." }
     if (@(Get-GameProcesses).Count -gt 0) { throw 'Kingmaker is running; it may be an owner session. Refusing to start.' }
     if (-not $RunId -or $RunId -notmatch '^[A-Za-z0-9._-]{3,80}$') { throw 'A -RunId of 3-80 safe characters is required.' }
-    if (-not $PackagePath -or -not (Test-Path -LiteralPath $PackagePath)) { throw 'A -PackagePath to the built zip is required.' }
+    if (-not $PackagePath) { throw 'A -PackagePath to the built zip is required.' }
+    $validated = New-KwrValidatedPackageCopy $PackagePath -Diagnostic:$Diagnostic
+    try {
     Assert-SteamCloudOffline
 
     $tx = Join-Path $BackupRoot $RunId
     $run = Join-Path $EvidenceRoot $RunId
     if ((Test-Path $tx) -or (Test-Path $run)) { throw "RunId $RunId was already used." }
     New-Item -ItemType Directory -Force -Path $tx, $run | Out-Null
-    $s = [ordered]@{ runId = $RunId; createdUtc = (Get-Date).ToUniversalTime().ToString('o'); phase = 'snapshotting'; gamePid = $null; gameStart = $null; package = (Resolve-Path $PackagePath).Path; packageSha256 = (Get-FileHash -LiteralPath $PackagePath -Algorithm SHA256).Hash.ToLowerInvariant(); recon = [bool]$Recon }
+    $s = [ordered]@{ runId = $RunId; createdUtc = (Get-Date).ToUniversalTime().ToString('o'); phase = 'snapshotting'; gamePid = $null; gameStart = $null; package = $validated.Source; packageSha256 = $validated.Sha256; sourceProvenance = $validated.SourceProvenance; installMode = $validated.InstallMode; recon = [bool]$Recon }
     Save-State $s
 
     Write-Step 'Snapshotting Kingmaker profile and Steam save mirror...'
@@ -224,29 +234,55 @@ function Invoke-Begin {
     $params.Param.ShowOnStart = '0'
     $params.Save($UmmParams)
 
-    Expand-Archive -LiteralPath $PackagePath -DestinationPath $ModsRoot
-    if (-not (Test-Path -LiteralPath (Join-Path $ModDir 'KingmakerWakingRune.dll'))) { throw 'Package did not install the expected mod folder.' }
+    Install-KwrValidatedPackageCopy $validated $ModsRoot
     if ($Recon) { Set-Content -LiteralPath (Join-Path $ModDir 'recon.flag') -Value 'recon' }
     Set-Content -LiteralPath (Join-Path $ModDir 'capture.flag') -Value 'harness'
     $s.phase = 'installed'
     Save-State $s
     Write-Step "Installed package $($s.packageSha256) into $ModDir (recon=$([bool]$Recon))."
+    }
+    finally { Remove-KwrValidatedPackageCopy $validated }
 }
 
 function Invoke-Reinstall {
     $s = Get-State
-    if (-not $s -or $s.phase -notin @('installed', 'closed')) { throw 'Reinstall needs an open transaction with the game closed.' }
+    # 'reinstalling' (an interrupted reinstall) is resumed here; End restores the transaction in every phase.
+    if (-not $s -or $s.phase -notin @('installed', 'closed', 'reinstalling')) { throw 'Reinstall needs an open transaction with the game closed.' }
     if (@(Get-GameProcesses).Count -gt 0) { throw 'Kingmaker is running; never hot-replace the DLL.' }
-    if (-not $PackagePath -or -not (Test-Path -LiteralPath $PackagePath)) { throw 'A -PackagePath is required.' }
-    $recon = Test-Path -LiteralPath (Join-Path $ModDir 'recon.flag')
-    if (Test-Path -LiteralPath $ModDir) { Remove-Item -LiteralPath $ModDir -Recurse -Force }
-    Expand-Archive -LiteralPath $PackagePath -DestinationPath $ModsRoot
-    if ($recon) { Set-Content -LiteralPath (Join-Path $ModDir 'recon.flag') -Value 'recon' }
-    Set-Content -LiteralPath (Join-Path $ModDir 'capture.flag') -Value 'harness'
-    $s.package = (Resolve-Path $PackagePath).Path
-    $s.packageSha256 = (Get-FileHash -LiteralPath $PackagePath -Algorithm SHA256).Hash.ToLowerInvariant()
-    Save-State $s
-    Write-Step "Reinstalled package $($s.packageSha256) (recon=$recon)."
+    if (-not $PackagePath) { throw 'A -PackagePath is required.' }
+    $validated = New-KwrValidatedPackageCopy $PackagePath -Diagnostic:$Diagnostic
+    try {
+        # An interrupted reinstall resumes with the recon setting its journal recorded: reconEnabled, or, in a journal
+        # written before reconEnabled existed, Begin's recon field. The folder found then may be gone or may be a placed
+        # replacement without recon.flag, so it is not consulted. An ordinary reinstall reads recon.flag of the current
+        # installation.
+        $recon = if ($s.phase -eq 'reinstalling' -and $s.PSObject.Properties['reconEnabled']) { [bool]$s.reconEnabled }
+            elseif ($s.phase -eq 'reinstalling' -and $s.PSObject.Properties['recon']) { [bool]$s.recon }
+            else { Test-Path -LiteralPath (Join-Path $ModDir 'recon.flag') }
+        # Stage and verify the new folder first; then mark the transaction non-launchable before touching the installed
+        # mod, so a failure leaves a 'reinstalling' transaction that Launch refuses and End restores.
+        $stagedMod = Expand-KwrValidatedPackageCopy $validated
+        $previousPhase = if ($s.phase -eq 'reinstalling') { $(if ($s.PSObject.Properties['resumePhase'] -and [string]$s.resumePhase -in @('installed', 'closed')) { [string]$s.resumePhase } else { 'closed' }) } else { [string]$s.phase }
+        $s | Add-Member -NotePropertyName resumePhase -NotePropertyValue $previousPhase -Force
+        $s | Add-Member -NotePropertyName reconEnabled -NotePropertyValue ([bool]$recon) -Force
+        $s.phase = 'reinstalling'
+        Save-State $s
+        if (Test-Path -LiteralPath $ModDir) { Remove-Item -LiteralPath $ModDir -Recurse -Force }
+        Move-Item -LiteralPath $stagedMod -Destination $ModDir
+        if ((Get-FileHash -LiteralPath (Join-Path $ModDir 'KingmakerWakingRune.dll') -Algorithm SHA256).Hash.ToLowerInvariant() -cne $validated.DllSha256) { throw 'Installed DLL differs from the validated package.' }
+        if ($recon) { Set-Content -LiteralPath (Join-Path $ModDir 'recon.flag') -Value 'recon' }
+        Set-Content -LiteralPath (Join-Path $ModDir 'capture.flag') -Value 'harness'
+        # Recorded from the identities captured before installing (never re-resolved from the caller's path).
+        $s.package = $validated.Source
+        $s.packageSha256 = $validated.Sha256
+        $s | Add-Member -NotePropertyName sourceProvenance -NotePropertyValue $validated.SourceProvenance -Force
+        $s | Add-Member -NotePropertyName installMode -NotePropertyValue $validated.InstallMode -Force
+        $s.phase = $previousPhase
+        $s.PSObject.Properties.Remove('resumePhase')
+        Save-State $s
+        Write-Step "Reinstalled package $($s.packageSha256) (recon=$recon)."
+    }
+    finally { Remove-KwrValidatedPackageCopy $validated }
 }
 
 function Invoke-Uninstall {
@@ -495,8 +531,10 @@ function Invoke-Close {
         }
         Write-Step "Owned game process $($s.gamePid) exited."
     }
-    $s.phase = 'closed'; $s.gamePid = $null; $s.gameStart = $null
-    Save-State $s
+    # Only a running transaction becomes 'closed'; a recovery phase such as 'reinstalling' is kept, so Close never makes
+    # an interrupted reinstall launchable.
+    if ($s -and $s.phase -eq 'running') { $s.phase = 'closed' }
+    if ($s) { $s.gamePid = $null; $s.gameStart = $null; Save-State $s }
 }
 
 function Invoke-Collect {

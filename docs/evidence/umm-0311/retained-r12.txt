@@ -1,0 +1,3 @@
+PASS retained-production-pair-built-with-tests-and-qualifies :: build (tests included) exit 0; ZIP 36a3c26364a011b8de698de124c8ea10c552e58fdd05255b7270d31bd46707de; receipt b8d5102bcceb513bfa67fb02bf10120d8db2034dc4cd4d5097717f74ec1af37e; DLL 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; MVID ccc59117-f992-44ce-9355-540d35f181f0; producing commit d93c56e13493c4e97888c73c97253ab27ba723aa; provenance verified-current
+RESULT 1/1
+Retained commit=d93c56e13493c4e97888c73c97253ab27ba723aa exit=0 start=2026-11-27T14:05:35Z seconds=35

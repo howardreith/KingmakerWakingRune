@@ -2,6 +2,7 @@
   <PropertyGroup>
     <KingmakerInstallDir>C:\Path\To\Pathfinder Kingmaker</KingmakerInstallDir>
     <KingmakerManagedDir>$(KingmakerInstallDir)\Kingmaker_Data\Managed</KingmakerManagedDir>
-    <UnityModManagerDir>$(KingmakerManagedDir)\UnityModManager</UnityModManagerDir>
+    <!-- Loader build references are fetched separately into obj/loader-references;
+         the installed UMM version does not select the compile-time API. -->
   </PropertyGroup>
 </Project>

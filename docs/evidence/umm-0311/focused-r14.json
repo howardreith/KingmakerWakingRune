@@ -1,0 +1,22 @@
+{
+    "schema":  "kwr.focused-r14.v1",
+    "mode":  "Focused",
+    "commit":  "5fca01851d42e7c9f15e28e6255d4d467d510647",
+    "startedUtc":  "2026-11-27T15:50:21.5286749Z",
+    "disposableRemoved":  true,
+    "finishedUtc":  "2026-11-27T15:50:28.0448049Z",
+    "passed":  2,
+    "total":  2,
+    "cases":  [
+                  {
+                      "name":  "r11f2-restored-pair-with-folder-time-preserved-refused",
+                      "passed":  true,
+                      "detail":  "ordinary staging of the stable pair (dirty receipt): ERROR: Build receipt is from a dirty working tree; only a clean build is a frozen candidate.; moved away before the probe: True; probe saw [hasReceipt=False]; restored: True; folder last-write time set back to 2026-11-27T15:50:22.2694738Z: True; helper exit 1: ERROR: A build receipt appeared beside the package <temp>\\kwr-focused-r14-b7e689a02048465da688cf1912c895f4\\r11 home\\pair.zip after its receipt was looked for (<temp>\\kwr-focused-r14-b7e689a02048465da688cf1912c895f4\\r11 home\\pair.zip.build.json); which receipt belongs to the bytes read cannot be established, so it is not installed. "
+                  },
+                  {
+                      "name":  "r13f1-unchanged-receiptless-zip-qualifies-while-an-unrelated-sibling-changes",
+                      "passed":  true,
+                      "detail":  "helper paused after copying the ZIP: True; sibling created and another renamed, folder last-write time changed: True; helper exit 0: MODE external-content-inspected SHA 8f757331b42ad157939108702fb59c8c9aae031d0416ee271ac792a0aaa4d344; expected ZIP digest 8f757331b42ad157939108702fb59c8c9aae031d0416ee271ac792a0aaa4d344"
+                  }
+              ]
+}

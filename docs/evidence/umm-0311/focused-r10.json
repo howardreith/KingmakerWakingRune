@@ -1,0 +1,79 @@
+{
+    "schema":  "kwr.focused-r10.v1",
+    "commit":  "6869e55d13dd7373a981fb127500964fd4f341c1",
+    "startedUtc":  "2026-11-27T03:40:42.0947552Z",
+    "retainedProducer":  "<dev>\\KingmakerWakingRuneLab\\worktrees\\umm-0311-final-pair-6869e55\\producer",
+    "retainedBuild":  {
+                          "buildExit":  0,
+                          "validateExit":  0,
+                          "zip":  "<dev>\\KingmakerWakingRuneLab\\worktrees\\umm-0311-final-pair-6869e55\\producer\\artifacts\\KingmakerWakingRune-0.12.3.zip",
+                          "receipt":  "<dev>\\KingmakerWakingRuneLab\\worktrees\\umm-0311-final-pair-6869e55\\producer\\artifacts\\KingmakerWakingRune-0.12.3.zip.build.json"
+                      },
+    "disposableRemoved":  true,
+    "retainedPair":  {
+                         "location":  "<dev>\\KingmakerWakingRuneLab\\worktrees\\umm-0311-final-pair-6869e55\\producer",
+                         "zip":  "<dev>\\KingmakerWakingRuneLab\\worktrees\\umm-0311-final-pair-6869e55\\producer\\artifacts\\KingmakerWakingRune-0.12.3.zip",
+                         "zipSha256":  "3d7804a92645a08e59c89eddaf56739059d51ead490189fba1da9d37330c97f5",
+                         "receipt":  "<dev>\\KingmakerWakingRuneLab\\worktrees\\umm-0311-final-pair-6869e55\\producer\\artifacts\\KingmakerWakingRune-0.12.3.zip.build.json",
+                         "receiptSha256":  "a79b0d2906e57712a14e5351c6f916d6e8319c5dd5969db0938c108b52a9d349",
+                         "producingCommit":  "6869e55d13dd7373a981fb127500964fd4f341c1",
+                         "dirty":  false,
+                         "dllSha256":  "7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904",
+                         "dllMvid":  "ccc59117-f992-44ce-9355-540d35f181f0",
+                         "provenance":  "verified-current"
+                     },
+    "passed":  10,
+    "total":  10,
+    "cases":  [
+                  {
+                      "name":  "retained-production-pair-built-with-tests-and-qualifies",
+                      "passed":  true,
+                      "detail":  "build (tests included) exit 0; Package SHA-256: 3d7804a92645a08e59c89eddaf56739059d51ead490189fba1da9d37330c97f5; DLL SHA-256: 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; MVID: ccc59117-f992-44ce-9355-540d35f181f0; loader references: UnityModManager 0.31.1.0, 0Harmony12 1.2.0.1, 0Harmony 2.3.1.1; source provenance: verified-current"
+                  },
+                  {
+                      "name":  "disposable-clean-build",
+                      "passed":  true,
+                      "detail":  "exit 0"
+                  },
+                  {
+                      "name":  "r9f3-input-link-switched-before-the-snapshot-refused-and-second-pair-unchanged",
+                      "passed":  true,
+                      "detail":  "The report path must not be an input of the validation:; second pair unchanged: True"
+                  },
+                  {
+                      "name":  "r9f6-single-name-copy-without-enumeration-and-linked-report-declined",
+                      "passed":  true,
+                      "detail":  "single report exit 0; install MODE external-content-inspected; linked report: package.zip cannot be established (hard-link enumeration is not supported on this volume (fixture)); no report is"
+                  },
+                  {
+                      "name":  "r5f1-link-to-a-publisher-private-name-declined-canonical-read-unchanged",
+                      "passed":  true,
+                      "detail":  "ERROR: The package <temp>\\kwr-focused-r10-14de825bfff34e10a0f4deed019d37ec\\external link\\linked.zip is a file in a publisher\u0027s private staging or backup area (<temp>\\kwr-focused-r10-14de825bfff34e10a0f4deed019d37ec\\clone with space\\artifacts\\.pending-focused\\previous\\KingmakerWakingRune-0.12.3.zip); its publication cannot be established, so it is not installed.; canonical read: MODE frozen-candidate"
+                  },
+                  {
+                      "name":  "r9f4-equals-sign-source-genuine-pair-qualifies",
+                      "passed":  true,
+                      "detail":  "build exit 0; source provenance: verified-current"
+                  },
+                  {
+                      "name":  "producer-equals-source-missing-refused",
+                      "passed":  true,
+                      "detail":  "differs only in [Rules=Root.cs]; Build inputs changed since this package was built: the material inputs differ from the receipt\u0027s commit"
+                  },
+                  {
+                      "name":  "producer-equals-source-differing-refused",
+                      "passed":  true,
+                      "detail":  "differs only in [Rules=Root.cs]; Build inputs changed since this package was built: the material inputs differ from the receipt\u0027s commit"
+                  },
+                  {
+                      "name":  "producer-identity-helper-differing-refused",
+                      "passed":  true,
+                      "detail":  "differs only in [scripts/KwrFileIdentity.ps1]; Build inputs changed since this package was built: the material inputs differ from the receipt\u0027s commit"
+                  },
+                  {
+                      "name":  "retained-pair-after-cleanup-qualifies-with-current-provenance",
+                      "passed":  true,
+                      "detail":  "disposable removed: True; producer status entries 0; Package SHA-256: 3d7804a92645a08e59c89eddaf56739059d51ead490189fba1da9d37330c97f5; DLL SHA-256: 7cd3cb09f12f75a7247c1b401673528a0773a139e59dc3a940da860c28f24904; MVID: ccc59117-f992-44ce-9355-540d35f181f0; loader references: UnityModManager 0.31.1.0, 0Harmony12 1.2.0.1, 0Harmony 2.3.1.1; source provenance: verified-current; receipt commit 6869e55d13dd7373a981fb127500964fd4f341c1"
+                  }
+              ]
+}
