@@ -6,7 +6,7 @@
   runs) and scripts/KwrReservation.ps1, points every root at the stand-in lab, and calls the script's dispatcher
   (Invoke-KwrOperation) exactly as the script's last line does. Only the boundaries that would reach the real machine are
   replaced: package validation and installation (a fixed stand-in DLL), the Steam cloud check, game-process lookup and
-  registry import/export (a file). Hooks pause the operation at named points until the test releases them; a barrier
+  registry import/export (a file), and the Steam client (a stand-in launcher that runs -LauncherSeconds). Hooks pause the operation at named points until the test releases them; a barrier
   makes several contenders start together. Outcome: <Label>.done or <Label>.refused (with the message) in the signals
   folder.
 #>
@@ -23,7 +23,8 @@ param(
     [string] $Barrier = '',
     [switch] $KeepInstalled,
     [switch] $FakeGameAfterAdmission,
-    [switch] $FailExistingSnapshot
+    [switch] $FailExistingSnapshot,
+    [int] $LauncherSeconds = 1
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -43,10 +44,15 @@ $RegKey = 'stand-in'
 $AppId = '640820'
 $SteamUserDataRoot = Join-Path $LabRoot 'steam\userdata'
 $PackagePath = Join-Path $LabRoot 'candidate.zip'
+$SteamExe = Join-Path $LabRoot 'stand-in-steam.cmd'
+Set-Content -LiteralPath $SteamExe -Value "@ping -n $($LauncherSeconds + 1) 127.0.0.1 > nul" -Encoding ASCII
 $Recon = $false; $Diagnostic = $false; $LaunchArgs = @(); $TimeoutSeconds = 5; $Seconds = 1; $Name = $null; $FaultName = $null
 $Keys = $null; $Text = $null; $X = 0; $Y = 0; $X2 = 0; $Y2 = 0; $Button = 'Left'; $Delta = -120
 
 . (Join-Path $PSScriptRoot 'KwrReservation.ps1')
+# Hooks inside the close: after the journal is retired (before the lease is released) and after the lease is released.
+${function:Exit-KwrReservationOriginal} = ${function:Exit-KwrReservation}
+function Exit-KwrReservation($Convention, $Admitted) { Wait-Hook 'before-lease-release'; Exit-KwrReservationOriginal $Convention $Admitted; Wait-Hook 'after-lease-release' }
 $ReservationConvention = [pscustomobject]@{ MutexName = $MutexName; RecordPath = $RecordPath }
 
 $tokens = $null; $errors = $null
@@ -56,7 +62,7 @@ $functions = $functions.Replace('function Invoke-Collect {', 'function Invoke-Co
 . ([scriptblock]::Create($functions))
 
 function Wait-Hook([string] $Hook) {
-    if ($PauseAt -cne $Hook) { return }
+    if (@($PauseAt -split ',') -cnotcontains $Hook) { return }
     Set-Content -LiteralPath (Join-Path $Signals "$Label.paused-$Hook") -Value ''
     $go = Join-Path $Signals "$Label.go-$Hook"
     $until = (Get-Date).AddSeconds(120)
@@ -66,7 +72,10 @@ function Wait-Hook([string] $Hook) {
 # The real machine's boundaries, replaced.
 $candidateBytes = [Text.Encoding]::ASCII.GetBytes('stand-in candidate dll')
 $candidateSha = ([BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash($candidateBytes))).Replace('-', '').ToLowerInvariant()
-function Get-GameProcesses { if ($FakeGameAfterAdmission) { @([pscustomobject]@{ Id = 4242 }) } else { @() } }
+function Get-GameProcesses {
+    Add-Content -LiteralPath (Join-Path $LabRoot 'game-probes.log') -Value $Label
+    if ($FakeGameAfterAdmission -or (Test-Path -LiteralPath (Join-Path $LabRoot 'fake-game.flag'))) { @([pscustomobject]@{ Id = 4242 }) } else { @() }
+}
 function Get-OwnedProcess($s) { $null }
 function Assert-SteamCloudOffline { }
 function New-KwrValidatedPackageCopy { param([string] $Path, [switch] $Diagnostic) [pscustomobject]@{ Source = $Path; Sha256 = 'stand-in-zip'; DllSha256 = $candidateSha; SourceProvenance = 'stand-in'; InstallMode = 'stand-in'; PrivateDirectory = $null } }
@@ -76,11 +85,13 @@ function Install-KwrValidatedPackageCopy($v, [string] $Root) {
     $mod = Join-Path $Root 'KingmakerWakingRune'
     New-Item -ItemType Directory -Path $mod | Out-Null
     [IO.File]::WriteAllBytes((Join-Path $mod 'KingmakerWakingRune.dll'), $candidateBytes)
+    Set-Content -LiteralPath (Join-Path $mod 'Info.json') -Value '{"Id":"KingmakerWakingRune"}'
 }
 function Expand-KwrValidatedPackageCopy($v) {
     $staged = Join-Path $LabRoot ('staged-' + [guid]::NewGuid().ToString('N') + '\KingmakerWakingRune')
     New-Item -ItemType Directory -Path $staged | Out-Null
     [IO.File]::WriteAllBytes((Join-Path $staged 'KingmakerWakingRune.dll'), $candidateBytes)
+    Set-Content -LiteralPath (Join-Path $staged 'Info.json') -Value '{"Id":"KingmakerWakingRune"}'
     Wait-Hook 'reinstall-before-placement'
     return $staged
 }

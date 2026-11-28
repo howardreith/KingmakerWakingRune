@@ -87,23 +87,31 @@ its own process). Every transaction holds the machine-wide **Kingmaker native-te
 ([protocol](docs/NATIVE-RESERVATION.md), implemented in `scripts/KwrReservation.ps1`) from Begin until End has verified
 its restoration:
 - Begin acquires it before reading or writing anything (Steam discovery included), then this lab's operation lock
-  (`runtime-state\operation.lock`) and journal (`transaction.json`, which records the lease token and the Steam mirror it
-  snapshotted). Nothing shared changes before the journal says `snapshotted`.
-- Every other operation except Status (which only reads the journal) proves the journal and lease are still the same run
-  and token and holds the operation lock for its whole duration, so two Waking Rune operations never overlap.
-- End restores only when every required baseline is present and the Steam mirror is the one snapshotted, rechecks
-  ownership before each restore step, and releases the lease last (journal renamed to `transaction.closed.json`, lease
-  released, closed journal deleted). With `-KeepInstalled` it also requires the recorded candidate installed intact.
-- A lost or replaced lease stops the operation; the first incident is kept as `reservation-incident.json` in the run's
-  evidence. Each Collect writes a new `collect-<time>` folder.
-- A journal without a token (written before the reservation) is refused. A lease left by an interrupted Begin, with no
-  journal, is released only by the owner-supervised `ReleaseOrphan -RunId <run>`; a close interrupted after verified
-  restoration is finished automatically from its closed journal.
+  (`runtime-state\operation.lock`) and journal (`transaction.json`, published atomically, which records the run, the
+  lease token, the Steam mirror it snapshotted and digests of every baseline). Nothing shared changes before the journal
+  says `snapshotted`; until then only Collect, Close and End run.
+- Every other operation except Status (which only reads the journal) needs an open transaction whose journal and lease
+  are the same run, token and journal path, and holds the operation lock for its whole duration, so two Waking Rune
+  operations never overlap. The admitted identity is rechecked immediately before every shared change; a lost or
+  replaced journal or lease stops the operation and the first incident is kept as `reservation-incident.json` in the
+  run's evidence. Each Collect writes a new `collect-<time>` folder.
+- End waits for processes the transaction started (the Steam launcher, recorders), restores only when every baseline
+  matches its recorded digest and inventory and the Steam mirror is the one snapshotted, and with `-KeepInstalled`
+  requires the recorded candidate files intact. Holding the operation lock for the whole close, it retires the journal
+  (renamed to `transaction.closed.json`), releases the lease, then deletes the closed journal.
+- A journal without a token (written before the reservation) is refused.
+
+Nothing in this lab ever removes a reservation it did not just acquire in the same process. If Begin or End is
+interrupted between taking or releasing the lease and its journal, the lease (or a `transaction.closed.json`) is left
+for the owner. To clear it by hand: confirm that `runtime-state` holds no `transaction.json`, that no `Kingmaker`
+process runs, that the record at `%ProgramData%\KingmakerNativeTest\reservation.v1.json` names `KingmakerWakingRune` and
+this lab's journal path, and, for a closed journal, that its run's End verified restoration; then delete the record
+and the closed journal.
 
 Other Kingmaker labs that implement the same protocol cannot start a native transaction meanwhile. This lab needs none of
-them to be installed, and none needs this lab. A record left by another lab, an unreadable or malformed record, or one
-whose writer may still be running is never removed. `scripts/Test-NativeReservation.ps1` runs KwrRuntime's own functions
-in separate processes against stand-in labs only.
+them to be installed, and none needs this lab. A record left by another lab, or an unreadable or malformed record, is
+never removed. `scripts/Test-NativeReservation.ps1` runs KwrRuntime's own functions in separate processes against
+disposable stand-in labs only.
 
 ## Repository map
 - `src/KingmakerWakingRune` — the mod (blueprints, selection, lodge, thin Harmony patches).
