@@ -87,43 +87,46 @@ its own process). Every transaction holds the machine-wide **Kingmaker native-te
 ([protocol](docs/NATIVE-RESERVATION.md), implemented in `scripts/KwrReservation.ps1`) from Begin until End has verified
 its restoration:
 - Begin acquires it before reading or writing anything (Steam discovery included), then this lab's operation lock
-  (`runtime-state\operation.lock`), and publishes its journal (`transaction.json`, UTF-8) create-only while the lease is
-  still its own. The journal records the run, the lease token, the Steam mirror, digests of every baseline, SHA-256
-  manifests of the snapshot trees, and the windows in which the transaction acts: its operations, its owned game
-  sessions (observed start and exit) and any Kingmaker process it did not start. The complete baseline set exists
-  before the journal says `snapshotted`, and the game-process check is repeated right before the first installation
-  change.
-- Every other operation except Status (which only reads the journal) needs an open transaction whose journal and lease
-  are the same run, token and journal path (compared ordinally), and holds the operation lock for its whole duration.
-  The admitted identity is rechecked before every shared change, journal update and forced game exit; a loss stops the
-  operation and records an incident (in the run's evidence, or in `runtime-state\incidents` when the journal itself is
-  rejected).
-- Launches and recordings are journaled before they are dispatched and stay pending until an observed outcome: the game
-  observed (then tracked as an owned session) and its exit observed, a recorder's exit, or, through `Reconcile`, a
-  failed launch (launcher exited, no game process, Steam reports the app idle). Elapsed time never resolves them; a
-  request interrupted before its process was recorded stays pending for the owner. While anything is pending, End and
-  conflicting operations refuse.
-- Before any rollback, End preserves the current state in the run's evidence and classifies every difference from the
-  baselines (profile and Steam mirror by content, registry, UMM settings and Mods) by the windows above. If any
-  difference is not accounted for by an owned window free of unowned activity, or anything could not be observed, End
-  rolls back nothing, records the first incident with the classified differences and keeps the journal and the lease.
-  Otherwise it restores and verifies the restored bytes. Once restoration starts only End is admitted; End then records
-  its close in the journal, retires it in one step to `transaction.closed.<lease token>.json`, releases the operation
-  lock, and releases the lease last.
+  (`runtime-state\operation.lock`), and publishes its journal (`transaction.json`, strict UTF-8) create-only while the
+  lease is still its own. Later journal updates replace the journal only while the lease, the journal's identity and its
+  exact previous bytes are still this transaction's; a missing journal is never recreated. The complete baseline set
+  exists before the journal says `snapshotted`, and the game-process check is repeated right before every shared move
+  (after the candidate is staged).
+- Every other operation except Status needs an open transaction whose journal and lease are the same run, token and
+  journal path, and holds the operation lock for its whole duration. A journal without a valid reservation token is
+  refused by every operation, with nothing written and an incident in `runtime-state\incidents`.
+- A launch carries a per-request nonce on the game's command line (`-kwrLaunchNonce=...`). Only the game carrying it is
+  the transaction's; the launch stays pending until that game's exit is observed (`Reconcile` records it). Steam's idle
+  state and elapsed time never resolve a launch, an independently started game is never adopted, and a request
+  interrupted before its process was recorded stays pending for the owner. A recording stays pending until its
+  recorder's exit is observed. While anything is pending, End and conflicting operations refuse.
+- End restores only what it can tie to this transaction's own recorded actions: UMM settings whose content equals what
+  Begin wrote (journaled at write time) and the installation folder the transaction created; the prior installation
+  comes back from its verified copy. Nothing the transaction does writes the profile, the Steam mirror, the registry or
+  another mod, so any difference there, including saves or logs the game wrote, is not rolled back: End preserves the
+  current state in the run's evidence, leaves the differences in place, records the first incident, keeps the journal
+  and the lease, and admits only End, Collect, Reconcile and Status until a later End succeeds. In practice a game
+  session that writes to the profile ends in such an incident for the owner to resolve. Before each restoring step the
+  live state is rechecked against what was classified, and the whole state is verified before the close.
+- End then records its close in the journal (a resuming End publishes its own identity), retires it in one step to
+  `transaction.closed.<lease token>.json`, releases the operation lock, and removes the lease and that marker together.
 
 Waking Rune releases only its own transaction's lease: a refused Begin before its journal exists, End after verified
 restoration, and the next Begin finishing a close that End interrupted after retiring its journal (the close marker
-names the lease's run and token, and neither the lease writer nor the closer is still running). A journal written
-before the reservation (no token, and none of the current fields) is recovered only by `End -RunId <run>`: it is bound
-to a free reservation before anything else, then recovered only if its own evidence identifies the Steam mirror and the
-prior installation; otherwise everything is kept and only recovery operations are admitted.
+names the lease's run and token, and neither the lease writer nor the closer is still running). A lease without its
+journal, or a close marker whose release cannot be proved, is an incident: the tool never clears it, and the owner
+investigates before anything else runs.
 
-A lease without its journal or close marker (for example a Begin or recovery interrupted before publishing its
-journal) is an incident: the tool never clears it, and the owner investigates before anything else runs. Other Kingmaker
-labs that implement the same protocol cannot start a native transaction while any lease exists. This lab needs none of
-them to be installed, and none needs this lab. A record left by another lab, or an unreadable or malformed record, is
-never removed. `scripts/Test-NativeReservation.ps1` runs KwrRuntime's own functions in separate processes against
-disposable stand-in labs only.
+**Activation precondition.** A transaction opened by an earlier `KwrRuntime.ps1` (a journal without a reservation token)
+must be closed with that earlier runtime before this one is used; this runtime never recovers it. The coordination
+gate (`scripts/Test-CoordinationGate.ps1`) observes, read-only, that this lab's `runtime-state` holds no
+`transaction.json`, no `transaction.closed*.json` and no `operation.lock`. Once activated, every transaction carries a
+token, so no such journal can arise.
+
+Other Kingmaker labs that implement the same protocol cannot start a native transaction while any lease exists. This lab
+needs none of them to be installed, and none needs this lab. A record left by another lab, or an unreadable or malformed
+record, is never removed. `scripts/Test-NativeReservation.ps1` runs KwrRuntime's own functions in separate processes
+against disposable stand-in labs only.
 
 ## Repository map
 - `src/KingmakerWakingRune` — the mod (blueprints, selection, lodge, thin Harmony patches).

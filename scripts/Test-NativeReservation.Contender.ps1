@@ -57,23 +57,27 @@ $FfmpegExe = Join-Path $LabRoot 'stand-in-recorder.cmd'
 Set-Content -LiteralPath $FfmpegExe -Value "@ping -n $($RecorderSeconds + 1) 127.0.0.1 > nul" -Encoding ASCII
 $SteamExe = Join-Path $LabRoot 'stand-in-steam.cmd'
 # A launcher stand-in; with -DelegateAfterSeconds it exits at once after starting a detached child that, after the delay,
-# starts the game stand-in (a ping with the marker -w 4173, found by Get-GameProcesses below).
-$launcherLine = if ($DelegateAfterSeconds -gt 0) { "@start `"`" /min cmd /c `"ping -n $($DelegateAfterSeconds + 1) 127.0.0.1 >nul & ping -n 40 -w 4173 127.0.0.1 >nul`"" } else { "@ping -n $($LauncherSeconds + 1) 127.0.0.1 > nul" }
+# starts this lab's game stand-in (stand-in-game.cmd in the lab root) with the launch arguments, nonce included, on its
+# command line. Only processes running this lab's stand-in-game.cmd are this lab's games (Get-GameProcesses below).
+$standInGame = Join-Path $LabRoot 'stand-in-game.cmd'
+Set-Content -LiteralPath $standInGame -Value '@ping -n 41 127.0.0.1 > nul' -Encoding ASCII
+$launcherLine = if ($DelegateAfterSeconds -gt 0) { "@start `"`" /min cmd /c `"ping -n $($DelegateAfterSeconds + 1) 127.0.0.1 >nul & start `"`" /min $standInGame %*`"" } else { "@ping -n $($LauncherSeconds + 1) 127.0.0.1 > nul" }
 Set-Content -LiteralPath $SteamExe -Value $launcherLine -Encoding ASCII
+if ($DelegateAfterSeconds -gt 0) { Set-Content -LiteralPath (Join-Path $LabRoot 'delegated.flag') -Value '' }
 $Recon = $false; $Diagnostic = $false; $LaunchArgs = @(); $TimeoutSeconds = 5; $Seconds = 1; $Name = $null; $FaultName = $null
 $Keys = $null; $Text = $null; $X = 0; $Y = 0; $X2 = 0; $Y2 = 0; $Button = 'Left'; $Delta = -120
 
 . (Join-Path $PSScriptRoot 'KwrReservation.ps1')
 # Hooks inside the close: after the journal is retired (before the lease is released) and after the lease is released.
-${function:Exit-KwrReservationOriginal} = ${function:Exit-KwrReservation}
-function Exit-KwrReservation($Convention, $Admitted) { Wait-Hook 'before-lease-release'; Exit-KwrReservationOriginal $Convention $Admitted; Wait-Hook 'after-lease-release' }
+${function:Exit-KwrCloseOriginal} = ${function:Exit-KwrClose}
+function Exit-KwrClose($Convention, $Admitted, [string] $MarkerPath) { Wait-Hook 'before-lease-release'; Exit-KwrCloseOriginal $Convention $Admitted $MarkerPath; Wait-Hook 'after-lease-release' }
 $ReservationConvention = [pscustomobject]@{ MutexName = $MutexName; RecordPath = $RecordPath }
 
 $tokens = $null; $errors = $null
 $runtime = if ($RuntimeScript) { $RuntimeScript } else { Join-Path $PSScriptRoot 'KwrRuntime.ps1' }
 $ast = [Management.Automation.Language.Parser]::ParseFile($runtime, [ref] $tokens, [ref] $errors)
 $functions = @($ast.FindAll({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] }, $false) | ForEach-Object { $_.Extent.Text }) -join "`r`n"
-$functions = $functions.Replace('function Publish-KwrInitialJournal(', 'function Publish-KwrInitialJournalOriginal(').Replace('function Update-KwrOutstanding(', 'function Update-KwrOutstandingOriginal(').Replace('function Invoke-Collect {', 'function Invoke-CollectOriginal {').Replace('function Get-SteamMirror {', 'function Get-SteamMirrorOriginal {').Replace('function Assert-KwrSharedMutation(', 'function Assert-KwrSharedMutationOriginal(')
+$functions = $functions.Replace('function Publish-KwrInitialJournal(', 'function Publish-KwrInitialJournalOriginal(').Replace('function Update-KwrOutstanding(', 'function Update-KwrOutstandingOriginal(').Replace('function Publish-KwrJournal(', 'function Publish-KwrJournalOriginal(').Replace('function Invoke-Collect {', 'function Invoke-CollectOriginal {').Replace('function Get-SteamMirror {', 'function Get-SteamMirrorOriginal {').Replace('function Assert-KwrSharedMutation(', 'function Assert-KwrSharedMutationOriginal(')
 . ([scriptblock]::Create($functions))
 
 function Wait-Hook([string] $Hook) {
@@ -94,8 +98,8 @@ function Get-GameProcesses {
     $found = @()
     $pidFile = Join-Path $LabRoot 'fake-game.pid'
     if (Test-Path -LiteralPath $pidFile) { $found += @(Get-Process -Id ([int] (Get-Content -LiteralPath $pidFile -Raw)) -ErrorAction SilentlyContinue) }
-    if ($DelegateAfterSeconds -gt 0 -or (Test-Path -LiteralPath (Join-Path $LabRoot 'delegated.flag'))) {
-        $found += @(Get-CimInstance Win32_Process -Filter "Name='PING.EXE'" | Where-Object { $_.CommandLine -like '*-w 4173*' } | ForEach-Object { Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue })
+    if (Test-Path -LiteralPath (Join-Path $LabRoot 'delegated.flag')) {
+        $found += @(Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.Contains($standInGame) -and -not $_.CommandLine.Contains('ping -n') } | ForEach-Object { Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue })
     }
     return @($found | Where-Object { $null -ne $_ })
 }
@@ -114,11 +118,10 @@ function Expand-KwrValidatedPackageCopy($v) {
     New-Item -ItemType Directory -Path $staged | Out-Null
     [IO.File]::WriteAllBytes((Join-Path $staged 'KingmakerWakingRune.dll'), $candidateBytes)
     Set-Content -LiteralPath (Join-Path $staged 'Info.json') -Value '{"Id":"KingmakerWakingRune"}'
-    Wait-Hook 'reinstall-before-placement'
+    Wait-Hook 'after-staging'
     return $staged
 }
 function Export-Registry([string] $path) { Copy-Item -LiteralPath (Join-Path $LabRoot 'registry\key.reg') -Destination $path -Force }
-function Import-KwrRegistry([string] $path) { Copy-Item -LiteralPath $path -Destination (Join-Path $LabRoot 'registry\key.reg') -Force }
 # A pause point at every ownership guard: -PauseAt 'assert:<stage>'.
 function Assert-KwrSharedMutation([string] $Stage) { Wait-Hook "assert:$Stage"; Assert-KwrSharedMutationOriginal $Stage }
 # A pause point after Begin (or previous-format recovery) holds the lease but before its operation lock and journal.
@@ -128,9 +131,8 @@ function Enter-KwrOperationLock([string] $StateRoot) { Wait-Hook 'after-lease'; 
 function Get-GameWindow { $p = Get-Process -Id $PID; [pscustomobject]@{ Process = $p; Rect = [pscustomobject]@{ Left = 0; Top = 0; Right = 640; Bottom = 360 }; State = (Get-State) } }
 function Assert-GameForeground($w) { }
 function Publish-KwrInitialJournal($s, $Lease, [string] $RunDirectory) { Wait-Hook 'initial-publication'; Publish-KwrInitialJournalOriginal $s $Lease $RunDirectory }
+function Publish-KwrJournal([string] $Temporary) { Wait-Hook 'journal-staged'; Publish-KwrJournalOriginal $Temporary }
 function Update-KwrOutstanding($s, [string] $Id, [scriptblock] $Change) { Wait-Hook 'before-pid-publication'; Update-KwrOutstandingOriginal $s $Id $Change }
-# Steam's app state, as the test sets it in steam-app.json; absent file: no signal.
-function Get-KwrSteamAppState { $f = Join-Path $LabRoot 'steam-app.json'; if (Test-Path -LiteralPath $f) { Get-Content -LiteralPath $f -Raw | ConvertFrom-Json } else { $null } }
 # The owned game: the journal's game PID with its recorded start, whatever its name (the stand-in is a ping).
 function Get-OwnedProcess($s) {
     if (-not $s -or -not (Get-KwrProp $s 'gamePid')) { return $null }

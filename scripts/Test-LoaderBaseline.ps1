@@ -480,9 +480,9 @@ try {
     $privAfter = @(Get-ChildItem -LiteralPath ([IO.Path]::GetTempPath()) -Directory -Filter 'KingmakerWakingRune-package-*' | ForEach-Object Name | Sort-Object) -join ';'
     Add-Case 'install-helper-rejected-receipt-cleans-private-copy' ($rejected.ExitCode -ne 0 -and ($rejected.Output -replace '\s+', ' ') -match 'packaged DLL \(SHA-256 differs\)' -and $privBefore -ceq $privAfter) ('refused: ' + (Get-Reason $rejected.Output) + "; KingmakerWakingRune-package-* directories unchanged: $($privBefore -ceq $privAfter)")
     $runtimeText = [IO.File]::ReadAllText((Join-Path $base 'scripts\KwrRuntime.ps1'))
-    $ok = ([regex]::Matches($runtimeText, '\$validated = New-KwrValidatedPackageCopy \$PackagePath')).Count -eq 2 -and ([regex]::Matches($runtimeText, 'Install-KwrValidatedPackageCopy \$validated \$ModsRoot')).Count -eq 1 -and $runtimeText -match 'Expand-KwrValidatedPackageCopy \$validated' -and
+    $ok = ([regex]::Matches($runtimeText, '\$validated = New-KwrValidatedPackageCopy \$PackagePath')).Count -eq 2 -and ([regex]::Matches($runtimeText, 'Expand-KwrValidatedPackageCopy \$validated')).Count -eq 2 -and
         ([regex]::Matches($runtimeText, 'finally \{ Remove-KwrValidatedPackageCopy \$validated \}')).Count -eq 2 -and $runtimeText -notmatch 'Expand-Archive' -and $runtimeText -notmatch 'Resolve-Path \$PackagePath'
-    Add-Case 'kwrruntime-begin-and-reinstall-use-the-helper' $ok 'Begin and Reinstall: one New-KwrValidatedPackageCopy each, install from it, cleanup in finally; no Expand-Archive or later Resolve-Path of the caller path (KwrRuntime.ps1 itself is not executed)'
+    Add-Case 'kwrruntime-begin-and-reinstall-use-the-helper' $ok 'Begin and Reinstall: one New-KwrValidatedPackageCopy each, stage from it with Expand-KwrValidatedPackageCopy (placement follows the final checks), cleanup in finally; no Expand-Archive or later Resolve-Path of the caller path (KwrRuntime.ps1 itself is not executed)'
 
     # 9. Build.ps1 places the ZIP and receipt only after validating the pair in private staging.
     $held = Join-Path $inputs 'held-candidate'; New-Item -ItemType Directory -Path $held | Out-Null
@@ -900,7 +900,7 @@ try {
     #     Launch refuses; Reinstall recovers to the previous phase; Launch is then admitted (a stub stops before Steam).
     $tokens = $null; $parseErrors = $null
     $runtimeAst = [Management.Automation.Language.Parser]::ParseFile((Join-Path $base 'scripts\KwrRuntime.ps1'), [ref]$tokens, [ref]$parseErrors)
-    $wanted = @('Write-Step', 'Get-State', 'Save-State', 'Invoke-Reinstall', 'Invoke-Close', 'Invoke-Launch')
+    $wanted = @('Write-Step', 'Get-State', 'Save-State', 'Publish-KwrJournal', 'Invoke-Reinstall', 'Invoke-Close', 'Invoke-Launch')
     $functionText = @($runtimeAst.FindAll({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $wanted -contains $n.Name }, $false) | ForEach-Object { $_.Extent.Text }) -join "`r`n"
     $runtimeFixture = Join-Path $temp 'runtime fixture'
     $fixtureScript = Join-Path $inputs 'runtime-fixture.ps1'
