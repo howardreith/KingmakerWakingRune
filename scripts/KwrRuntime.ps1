@@ -10,21 +10,25 @@
   Shot     Screenshot the game window into the run's evidence folder.
   Click / Key / Type / Scroll   Native mouse/keyboard input to the owned game window only.
   Close    Gracefully close the owned game process (bounded); never touches other processes.
-  Collect  Copy UMM log, output_log, recon files and KWR_AUTOMATION saves into evidence.
-  End      Restore every snapshot exactly and verify; uninstall unless -KeepInstalled.
-  Status   Print the open transaction.
+  Collect  Copy UMM log, output_log, recon files and KWR_AUTOMATION saves into a new evidence folder.
+  End      Restore every snapshot exactly and verify; uninstall unless -KeepInstalled. Requires -RunId of the open
+           transaction.
+  Status   Print the open transaction (reads only the journal).
+  ReleaseOrphan  Owner-supervised: release this lab's reservation for -RunId when no journal holds it.
 
   All live state lives under the lab root (two levels above the repository).
 
   Every transaction holds the Kingmaker native-test reservation (docs/NATIVE-RESERVATION.md, scripts/KwrReservation.ps1)
-  from Begin until End has verified its restoration: Begin acquires it before reading or writing anything, every later
-  operation except Status and Collect first proves the transaction still holds it, and End releases it last. Other
-  Kingmaker labs implementing the same protocol are excluded meanwhile; none of them needs to be installed.
+  from Begin until End has verified its restoration. Begin acquires it before reading or writing anything (Steam
+  discovery included), then takes this lab's operation lock and journal. Every other operation except Status (which reads
+  only the journal) proves the journal and lease are still the same run and token, holds the operation lock for its whole
+  duration, and End rechecks both at every destructive boundary and releases the lease last. Other Kingmaker labs
+  implementing the same protocol are excluded meanwhile; none of them needs to be installed.
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('Begin', 'Reinstall', 'Uninstall', 'Launch', 'Shot', 'State', 'Click', 'DoubleClick', 'Drag', 'Hover', 'Key', 'Type', 'Scroll', 'Close', 'Collect', 'End', 'Status', 'Record', 'Fault', 'Command')]
+    [ValidateSet('Begin', 'Reinstall', 'Uninstall', 'Launch', 'Shot', 'State', 'Click', 'DoubleClick', 'Drag', 'Hover', 'Key', 'Type', 'Scroll', 'Close', 'Collect', 'End', 'Status', 'Record', 'Fault', 'Command', 'ReleaseOrphan')]
     [string] $Operation,
     [string] $RunId,
     [string] $PackagePath,
@@ -57,7 +61,7 @@ $BackupRoot = Join-Path $LabRoot 'runtime-backups'
 $EvidenceRoot = Join-Path $LabRoot 'runtime-evidence'
 $StatePath = Join-Path $StateRoot 'transaction.json'
 . (Join-Path $PSScriptRoot 'KwrReservation.ps1')
-$Reservation = Get-KwrReservationConvention
+$ReservationConvention = Get-KwrReservationConvention
 
 $GameDir = 'C:\Program Files (x86)\Steam\steamapps\common\Pathfinder Kingmaker'
 $ModsRoot = Join-Path $GameDir 'Mods'
@@ -69,14 +73,7 @@ $RegKey = 'HKCU\Software\Owlcat Games\Pathfinder Kingmaker'
 $SteamExe = 'C:\Program Files (x86)\Steam\steam.exe'
 $SteamCloudLog = 'C:\Program Files (x86)\Steam\logs\cloud_log.txt'
 $AppId = '640820'
-$SteamUserData = @(Get-ChildItem 'C:\Program Files (x86)\Steam\userdata' -Directory | Where-Object { Test-Path (Join-Path $_.FullName "$AppId\remote") })
-if ($SteamUserData.Count -ne 1) { throw "Expected exactly one Steam user with a Kingmaker save mirror; found $($SteamUserData.Count)." }
-$SnapshotTrees = @(
-    @{ Name = 'profile'; Path = $ProfileDir },
-    # The game mirrors saves via Steam remote storage and restores missing local saves from it.
-    # remotecache.vdf beside it is Steam-maintained and rewritten on every launch; it is not restored.
-    @{ Name = 'steam-remote'; Path = (Join-Path $SteamUserData[0].FullName "$AppId\remote") }
-)
+$SteamUserDataRoot = 'C:\Program Files (x86)\Steam\userdata'
 
 Add-Type -AssemblyName System.Drawing
 Add-Type @'
@@ -201,47 +198,70 @@ function Assert-SteamCloudOffline {
 
 function Get-RunDir($s) { Join-Path $EvidenceRoot $s.runId }
 
+# The single Steam account's Kingmaker remote-storage mirror. Called only by an admitted Begin or End, never at load.
+function Get-SteamMirror {
+    $found = @(Get-ChildItem -LiteralPath $SteamUserDataRoot -Directory | Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName "$AppId\remote") })
+    if ($found.Count -ne 1) { throw "Expected exactly one Steam user with a Kingmaker save mirror; found $($found.Count)." }
+    return [IO.Path]::GetFullPath((Join-Path $found[0].FullName "$AppId\remote"))
+}
+
+# The trees a transaction snapshots: the profile and the Steam mirror Begin selected (recorded in the journal).
+# The game mirrors saves via Steam remote storage and restores missing local saves from it.
+# remotecache.vdf beside it is Steam-maintained and rewritten on every launch; it is not restored.
+function Get-SnapshotTrees($s) {
+    return @(@{ Name = 'profile'; Path = $ProfileDir }, @{ Name = 'steam-remote'; Path = [string] $s.steamMirror })
+}
+
 function Invoke-Begin {
     if (-not $RunId -or $RunId -notmatch '^[A-Za-z0-9._-]{3,80}$') { throw 'A -RunId of 3-80 safe characters is required.' }
     if (-not $PackagePath) { throw 'A -PackagePath to the built zip is required.' }
-    # The neutral reservation comes first, before this lab's own state (its lock) or anything shared is read or written.
-    # Until the transaction state is saved nothing shared has changed, so a refusal or failure releases it; afterwards it
-    # stays with the open transaction for End.
-    $reservation = Enter-KwrTransactionReservation $Reservation $StatePath $RunId
+    # The neutral reservation comes first, before this lab's operation lock and journal or anything shared is read or
+    # written. Until the journal is saved nothing shared has changed, so a refusal or failure releases it; afterwards it
+    # stays with the open transaction for End. Nothing shared changes before the journal says 'snapshotted'.
+    $lease = Enter-KwrTransactionReservation $ReservationConvention $StatePath $RunId
     $stateSaved = $false
     try {
+    Enter-KwrOperationLock $StateRoot
     if (Get-State) { throw "A transaction is already open: $StatePath. Run End (or inspect) first." }
     if (@(Get-GameProcesses).Count -gt 0) { throw 'Kingmaker is running; it may be an owner session. Refusing to start.' }
     $validated = New-KwrValidatedPackageCopy $PackagePath -Diagnostic:$Diagnostic
     try {
     Assert-SteamCloudOffline
+    $mirror = Get-SteamMirror
 
     $tx = Join-Path $BackupRoot $RunId
     $run = Join-Path $EvidenceRoot $RunId
     if ((Test-Path $tx) -or (Test-Path $run)) { throw "RunId $RunId was already used." }
     New-Item -ItemType Directory -Force -Path $tx, $run | Out-Null
-    $s = [ordered]@{ runId = $RunId; createdUtc = (Get-Date).ToUniversalTime().ToString('o'); phase = 'snapshotting'; gamePid = $null; gameStart = $null; package = $validated.Source; packageSha256 = $validated.Sha256; sourceProvenance = $validated.SourceProvenance; installMode = $validated.InstallMode; recon = [bool]$Recon; reservationToken = $reservation.token }
+    $s = [ordered]@{ runId = $RunId; createdUtc = (Get-Date).ToUniversalTime().ToString('o'); phase = 'snapshotting'; gamePid = $null; gameStart = $null; package = $validated.Source; packageSha256 = $validated.Sha256; dllSha256 = $validated.DllSha256; sourceProvenance = $validated.SourceProvenance; installMode = $validated.InstallMode; recon = [bool]$Recon; reservationToken = $lease.token; steamMirror = $mirror }
     Save-State $s
     $stateSaved = $true
 
     Write-Step 'Snapshotting Kingmaker profile and Steam save mirror...'
-    foreach ($t in $SnapshotTrees) { Save-Tree $t.Name $t.Path $tx }
+    foreach ($t in (Get-SnapshotTrees $s)) { Save-Tree $t.Name $t.Path $tx }
     Export-Registry (Join-Path $tx 'registry.reg')
     Copy-Item -LiteralPath $UmmParams -Destination (Join-Path $tx 'Params.xml')
     (Get-Inventory $ModsRoot) | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $tx 'mods-inventory.json') -Encoding UTF8
     $s.ummLogLength = (Get-Item -LiteralPath $UmmLog).Length
 
-    # An existing install (the owner's accepted build) is preserved exactly and put back by End.
-    if (Test-Path -LiteralPath $ModDir) {
+    # An existing install (the owner's accepted build) is preserved exactly and put back by End. Its snapshot and
+    # inventory are complete before the journal says 'snapshotted' and anything shared is changed.
+    $s.existingMod = Test-Path -LiteralPath $ModDir
+    if ($s.existingMod) {
         & robocopy.exe $ModDir (Join-Path $tx 'mod-existing') /MIR /COPY:DAT /DCOPY:DAT /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
         if ($LASTEXITCODE -ge 8) { throw "robocopy snapshot of the existing mod failed ($LASTEXITCODE)" }
-        $d = Compare-Inventory (Get-Inventory $ModDir) (Get-Inventory (Join-Path $tx 'mod-existing'))
+        $existingInventory = Get-Inventory $ModDir
+        $d = Compare-Inventory $existingInventory (Get-Inventory (Join-Path $tx 'mod-existing'))
         if ($d.Count -gt 0) { throw "Existing mod snapshot does not match: $($d -join '; ')" }
+        $existingInventory | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $tx 'mod-existing-inventory.json') -Encoding UTF8
+    }
+    $s.phase = 'snapshotted'
+    Save-State $s
+
+    if ($s.existingMod) {
         Remove-Item -LiteralPath $ModDir -Recurse -Force
-        $s.existingMod = $true
         Write-Step 'Existing mod install snapshotted and set aside.'
     }
-    else { $s.existingMod = $false }
 
     # Temporary test profile: suppress the UMM window at start (restored by End).
     [xml] $params = Get-Content -LiteralPath $UmmParams -Raw
@@ -259,7 +279,7 @@ function Invoke-Begin {
     }
     catch {
         if (-not $stateSaved) {
-            try { Exit-KwrReservation $Reservation $reservation.token }
+            try { Exit-KwrReservation $ReservationConvention $lease.token }
             catch { Write-Step "WARNING: releasing the reservation after a refused Begin failed: $($_.Exception.Message)" }
         }
         throw
@@ -297,6 +317,7 @@ function Invoke-Reinstall {
         # Recorded from the identities captured before installing (never re-resolved from the caller's path).
         $s.package = $validated.Source
         $s.packageSha256 = $validated.Sha256
+        $s | Add-Member -NotePropertyName dllSha256 -NotePropertyValue $validated.DllSha256 -Force
         $s | Add-Member -NotePropertyName sourceProvenance -NotePropertyValue $validated.SourceProvenance -Force
         $s | Add-Member -NotePropertyName installMode -NotePropertyValue $validated.InstallMode -Force
         $s.phase = $previousPhase
@@ -559,56 +580,112 @@ function Invoke-Close {
     if ($s) { $s.gamePid = $null; $s.gameStart = $null; Save-State $s }
 }
 
+# Each collection goes to a new folder of the run's evidence, so it never overwrites an earlier one.
 function Invoke-Collect {
     $s = Get-State
     if (-not $s) { throw 'No open transaction.' }
-    $run = Get-RunDir $s
+    $run = Join-Path (Get-RunDir $s) ('collect-' + (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssfffZ'))
+    if (Test-Path -LiteralPath $run) { throw "Evidence folder $run already exists; not overwriting it." }
+    New-Item -ItemType Directory -Path $run | Out-Null
     $logBytes = [IO.File]::ReadAllBytes($UmmLog)
     $start = [Math]::Min([long]$s.ummLogLength, $logBytes.Length)
     if ($logBytes.Length -lt [long]$s.ummLogLength) { $start = 0 }
-    $newLog = [IO.File]::Create((Join-Path $run 'umm-log.txt'))
+    $newLog = [IO.File]::Open((Join-Path $run 'umm-log.txt'), [IO.FileMode]::CreateNew)
     try { $newLog.Write($logBytes, $start, $logBytes.Length - $start) } finally { $newLog.Dispose() }
     $out = Join-Path $ProfileDir 'output_log.txt'
-    if (Test-Path -LiteralPath $out) { Copy-Item -LiteralPath $out -Destination (Join-Path $run ('output_log-{0:HHmmss}.txt' -f (Get-Date))) }
+    if (Test-Path -LiteralPath $out) { Copy-Item -LiteralPath $out -Destination (Join-Path $run 'output_log.txt') }
     $recon = Join-Path $ModDir 'recon'
-    if (Test-Path -LiteralPath $recon) { Copy-Item -LiteralPath $recon -Destination (Join-Path $run 'recon') -Recurse -Force }
+    if (Test-Path -LiteralPath $recon) { Copy-Item -LiteralPath $recon -Destination (Join-Path $run 'recon') -Recurse }
     $saves = Join-Path $run 'saves'
-    New-Item -ItemType Directory -Force -Path $saves | Out-Null
-    Get-ChildItem -LiteralPath (Join-Path $ProfileDir 'Saved Games') -File | Where-Object Name -like '*KWR_AUTOMATION*' | Copy-Item -Destination $saves -Force
+    New-Item -ItemType Directory -Path $saves | Out-Null
+    Get-ChildItem -LiteralPath (Join-Path $ProfileDir 'Saved Games') -File | Where-Object Name -like '*KWR_AUTOMATION*' | Copy-Item -Destination $saves
     Write-Step "Collected evidence into $run"
     Get-Content (Join-Path $run 'umm-log.txt') | Where-Object { $_ -match 'KingmakerWakingRune|Exception|\[Manager\].*(Error|error)' } | Select-Object -Last 60
 }
 
-function Invoke-End {
-    $s = Get-State
-    if (-not $s) { throw 'No open transaction.' }
-    if (Get-OwnedProcess $s) { throw 'The owned game is still running; Close it first.' }
-    if (@(Get-GameProcesses).Count -gt 0) { throw 'A Kingmaker process is running; refusing to restore underneath it.' }
-    $tx = Join-Path $BackupRoot $s.runId
-    $run = Get-RunDir $s
-    try { Invoke-Collect | Out-Null } catch { Write-Step "Collect before restore failed: $_" }
-
-    # Saves live in two places: the profile and the game's Steam remote-storage mirror (it restores
-    # missing local saves from the mirror at launch). Restore both, or test saves come back.
-    foreach ($t in $SnapshotTrees) {
-        if (Test-Path -LiteralPath (Join-Path $tx "$($t.Name)-inventory.json")) { Restore-Tree $t.Name $t.Path $tx }
-        else { Write-Step "WARNING: transaction has no $($t.Name) snapshot; not restored." }
-    }
-
-    # Registry: restore exactly if anything differs.
+# Registry: restore exactly if anything differs (the import itself is Import-KwrRegistry).
+function Restore-KwrRegistry([string] $tx) {
     $now = Join-Path $tx 'registry-after.reg'
     Export-Registry $now
     if ((Get-FileHash $now).Hash -ne (Get-FileHash (Join-Path $tx 'registry.reg')).Hash) {
-        & cmd.exe /c "reg delete `"$RegKey`" /f >nul 2>&1"
-        & cmd.exe /c "reg import `"$(Join-Path $tx 'registry.reg')`" >nul 2>&1"
+        Import-KwrRegistry (Join-Path $tx 'registry.reg')
         Export-Registry $now
         if ((Get-FileHash $now).Hash -ne (Get-FileHash (Join-Path $tx 'registry.reg')).Hash) { throw 'Registry restore did not verify.' }
         Write-Step 'Registry key restored.'
     }
     else { Write-Step 'Registry key unchanged.' }
+}
 
+function Import-KwrRegistry([string] $path) {
+    & cmd.exe /c "reg delete `"$RegKey`" /f >nul 2>&1"
+    & cmd.exe /c "reg import `"$path`" >nul 2>&1"
+}
+
+function Invoke-End {
+    $s = Get-State
+    if (-not $s) { throw 'No open transaction.' }
+    if (-not $RunId -or $RunId -cne [string] $s.runId) { throw "End needs -RunId of the open transaction ($($s.runId)); refusing." }
+    if (Get-OwnedProcess $s) { throw 'The owned game is still running; Close it first.' }
+    if (@(Get-GameProcesses).Count -gt 0) { throw 'A Kingmaker process is running; refusing to restore underneath it.' }
+    $admitted = $script:KwrAdmitted
+    $tx = Join-Path $BackupRoot $s.runId
+    $run = Get-RunDir $s
+    $progress = New-Object System.Collections.Generic.List[string]
+    $stage = 'collection'
+    try {
+    try { Invoke-Collect | Out-Null } catch { Write-Step "Collect before restore failed: $_" }
+
+    if ($s.phase -eq 'snapshotting') {
+        # Begin stopped before the journal said 'snapshotted': nothing shared was changed, so nothing is restored.
+        $stage = 'closing an unmutated transaction'
+        Complete-KwrTransactionReservation $ReservationConvention $StatePath $admitted
+        Write-Step "Transaction $($s.runId) closed before any shared change; the Kingmaker native-test reservation released. Evidence: $run"
+        return
+    }
+
+    # Every required baseline is verified before the first restore write; a missing or partial one leaves everything
+    # (the available data, the journal and the reservation) as it is.
+    $stage = 'baseline verification'
+    $missing = @(@('profile-inventory.json', 'steam-remote-inventory.json', 'registry.reg', 'Params.xml', 'mods-inventory.json') | Where-Object { -not (Test-Path -LiteralPath (Join-Path $tx $_) -PathType Leaf) })
+    if ($s.existingMod) {
+        $existingSnapshot = Join-Path $tx 'mod-existing'
+        $existingInventory = Join-Path $tx 'mod-existing-inventory.json'
+        if (-not (Test-Path -LiteralPath $existingInventory -PathType Leaf)) { $missing += 'mod-existing-inventory.json' }
+        else {
+            $expected = @{}
+            (Get-Content -LiteralPath $existingInventory -Raw | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $expected[$_.Name] = $_.Value }
+            if ((Compare-Inventory $expected (Get-Inventory $existingSnapshot)).Count -gt 0 -or $expected.Count -eq 0) { $missing += 'mod-existing (incomplete)' }
+        }
+    }
+    if ($missing.Count -gt 0) { throw "Required baselines are missing or incomplete: $($missing -join ', '). Nothing was restored; the journal and the reservation stay." }
+    $selectedMirror = Get-SteamMirror
+    if ($selectedMirror -cne [string] $s.steamMirror) { throw "The Steam save mirror is now $selectedMirror, not the $($s.steamMirror) this transaction snapshotted. Nothing was restored; the journal and the reservation stay." }
+    if ($KeepInstalled) {
+        $dll = Join-Path $ModDir 'KingmakerWakingRune.dll'
+        if (-not $s.PSObject.Properties['dllSha256'] -or -not (Test-Path -LiteralPath $dll -PathType Leaf) -or (Get-FileHash -LiteralPath $dll -Algorithm SHA256).Hash.ToLowerInvariant() -cne [string] $s.dllSha256) {
+            throw '-KeepInstalled needs the recorded candidate installed intact; it is not. Nothing was restored; run End without -KeepInstalled to restore the previous state.'
+        }
+    }
+
+    # Saves live in two places: the profile and the game's Steam remote-storage mirror (it restores
+    # missing local saves from the mirror at launch). Restore both, or test saves come back.
+    foreach ($t in (Get-SnapshotTrees $s)) {
+        $stage = "before restoring $($t.Name)"
+        Assert-KwrAdmitted $ReservationConvention $StatePath $admitted
+        Restore-Tree $t.Name $t.Path $tx
+        $progress.Add("$($t.Name) restored and verified")
+    }
+
+    $stage = 'before restoring the registry'
+    Assert-KwrAdmitted $ReservationConvention $StatePath $admitted
+    Restore-KwrRegistry $tx
+    $progress.Add('registry verified')
+
+    $stage = 'before restoring Params.xml and Mods'
+    Assert-KwrAdmitted $ReservationConvention $StatePath $admitted
     Copy-Item -LiteralPath (Join-Path $tx 'Params.xml') -Destination $UmmParams -Force
     if ((Get-FileHash $UmmParams).Hash -ne (Get-FileHash (Join-Path $tx 'Params.xml')).Hash) { throw 'UMM Params.xml restore did not verify.' }
+    $progress.Add('Params.xml verified')
 
     if (-not $KeepInstalled -and (Test-Path -LiteralPath $ModDir)) { Remove-Item -LiteralPath $ModDir -Recurse -Force }
     if ($KeepInstalled) {
@@ -617,7 +694,7 @@ function Invoke-End {
         }
     }
     $existingSnapshot = Join-Path $tx 'mod-existing'
-    if (-not $KeepInstalled -and (Test-Path -LiteralPath $existingSnapshot)) {
+    if (-not $KeepInstalled -and $s.existingMod) {
         & robocopy.exe $existingSnapshot $ModDir /MIR /COPY:DAT /DCOPY:DAT /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
         if ($LASTEXITCODE -ge 8) { throw "robocopy restore of the existing mod failed ($LASTEXITCODE)" }
         Write-Step 'Previously installed mod restored.'
@@ -625,38 +702,70 @@ function Invoke-End {
     $modsBefore = @{}
     (Get-Content -LiteralPath (Join-Path $tx 'mods-inventory.json') -Raw | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $modsBefore[$_.Name] = $_.Value }
     $modsNow = Get-Inventory $ModsRoot
-    # With -KeepInstalled the candidate replaces whatever was there; the previous install stays in the transaction's mod-existing snapshot.
+    # With -KeepInstalled the verified candidate replaces whatever was there; the previous install stays in the
+    # transaction's mod-existing snapshot.
     $modsDiff = @((Compare-Inventory $modsBefore $modsNow) | Where-Object { -not ($KeepInstalled -and $_ -match '^(added|changed|missing):KingmakerWakingRune\\') })
     if ($modsDiff.Count -gt 0) { throw "Mods inventory differs after restore: $($modsDiff -join '; ')" }
+    $progress.Add("Mods verified (candidate installed: $([bool]$KeepInstalled))")
     Write-Step "Params.xml and Mods verified (candidate installed: $([bool]$KeepInstalled))."
-    # Restoration verified: the state (this lab's lock) goes first, the neutral reservation last.
-    Complete-KwrTransactionReservation $Reservation $StatePath ([string] (Get-State).reservationToken)
+    # Restoration verified: the journal (this lab's lock) goes first, the neutral reservation last.
+    $stage = 'completion'
+    Complete-KwrTransactionReservation $ReservationConvention $StatePath $admitted
     Write-Step "Transaction $($s.runId) closed and the Kingmaker native-test reservation released. Evidence: $run"
+    }
+    catch {
+        if (-not (Test-KwrReservationHeld $ReservationConvention $admitted.Token) -or -not (Test-Path -LiteralPath $StatePath)) {
+            $incident = Write-KwrReservationIncident $ReservationConvention $run $admitted 'End' $stage $progress.ToArray() $_.Exception.Message
+            Write-Step "Ownership incident recorded: $incident"
+        }
+        throw
+    }
 }
 
-# Inside an open transaction every operation that acts on the game, the installed mod or the shared Kingmaker state first
-# proves the transaction still holds the reservation (a lost one stops it). Status and Collect only read.
-if ($Operation -notin @('Begin', 'Status', 'Collect')) { [void] (Assert-KwrTransactionReservation $Reservation $StatePath) }
-
-switch ($Operation) {
-    'Begin' { Invoke-Begin }
-    'Reinstall' { Invoke-Reinstall }
-    'Uninstall' { Invoke-Uninstall }
-    'Launch' { Invoke-Launch }
-    'Shot' { Invoke-Shot }
-    'State' { Invoke-State }
-    'Click' { Invoke-Click }
-    'DoubleClick' { Invoke-DoubleClick }
-    'Drag' { Invoke-Drag }
-    'Hover' { $w = Get-GameWindow; Assert-GameForeground $w; Assert-GameAtPoint $w $X $Y; [void][KwrInput]::SetCursorPos($w.Rect.Left + $X, $w.Rect.Top + $Y); Write-Step "Hover at window ($X,$Y)" }
-    'Key' { Invoke-Key }
-    'Type' { Invoke-Type }
-    'Scroll' { Invoke-Scroll }
-    'Close' { Invoke-Close }
-    'Collect' { Invoke-Collect }
-    'End' { Invoke-End }
-    'Status' { $s = Get-State; if ($s) { $s | ConvertTo-Json } else { 'No open transaction.' } }
-    'Record' { Invoke-Record }
-    'Fault' { Invoke-Fault }
-    'Command' { Invoke-Command }
+function Invoke-ReleaseOrphan {
+    if (-not $RunId) { throw 'ReleaseOrphan needs the -RunId the reservation names.' }
+    Remove-KwrOrphanReservation $ReservationConvention $StatePath $RunId
+    Write-Step "Released this lab's orphaned Kingmaker native-test reservation for run $RunId (owner-supervised)."
 }
+
+# Every operation except Status (which only reads the journal) runs admitted: Begin acquires the reservation, then the
+# operation lock; every other operation proves the journal and lease are the same run and token, then holds the
+# operation lock for its whole duration. A lost reservation stops the operation and is recorded for the run.
+function Invoke-KwrOperation([string] $Operation) {
+    if ($Operation -eq 'Status') { $s = Get-State; if ($s) { $s | ConvertTo-Json } else { 'No open transaction.' }; return }
+    try {
+        if ($Operation -eq 'Begin') { Invoke-Begin; return }
+        if ($Operation -eq 'ReleaseOrphan') { Enter-KwrOperationLock $StateRoot; Invoke-ReleaseOrphan; return }
+        try { $script:KwrAdmitted = Enter-KwrTransactionOperation $ReservationConvention $StatePath $StateRoot }
+        catch {
+            $s = $null; try { $s = Get-State } catch { }
+            if ($s -and $s.PSObject.Properties['reservationToken'] -and $_.Exception.Message -like '*no longer holds*') {
+                [void] (Write-KwrReservationIncident $ReservationConvention (Get-RunDir $s) ([pscustomobject]@{ RunId = [string] $s.runId; Token = [string] $s.reservationToken }) $Operation 'admission' @() $_.Exception.Message)
+            }
+            throw
+        }
+        switch ($Operation) {
+            'Reinstall' { Invoke-Reinstall }
+            'Uninstall' { Invoke-Uninstall }
+            'Launch' { Invoke-Launch }
+            'Shot' { Invoke-Shot }
+            'State' { Invoke-State }
+            'Click' { Invoke-Click }
+            'DoubleClick' { Invoke-DoubleClick }
+            'Drag' { Invoke-Drag }
+            'Hover' { $w = Get-GameWindow; Assert-GameForeground $w; Assert-GameAtPoint $w $X $Y; [void][KwrInput]::SetCursorPos($w.Rect.Left + $X, $w.Rect.Top + $Y); Write-Step "Hover at window ($X,$Y)" }
+            'Key' { Invoke-Key }
+            'Type' { Invoke-Type }
+            'Scroll' { Invoke-Scroll }
+            'Close' { Invoke-Close }
+            'Collect' { Invoke-Collect }
+            'End' { Invoke-End }
+            'Record' { Invoke-Record }
+            'Fault' { Invoke-Fault }
+            'Command' { Invoke-Command }
+        }
+    }
+    finally { Exit-KwrOperationLock }
+}
+
+Invoke-KwrOperation $Operation

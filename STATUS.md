@@ -271,7 +271,7 @@ Details and labels are in the acceptance report.
 .\scripts\Build.ps1                  # refuses to replace an existing clean package
 .\scripts\KwrRuntime.ps1 Begin -RunId <new-id> -PackagePath .\artifacts\KingmakerWakingRune-0.7.19.zip
 .\scripts\KwrRuntime.ps1 Launch      # then Command "load Manual_97x", Shot / Click (window pixels are 2x the screenshot's) / Key ..., Collect BEFORE Close
-.\scripts\KwrRuntime.ps1 End -KeepInstalled
+.\scripts\KwrRuntime.ps1 End -RunId <new-id> -KeepInstalled   # End names the open transaction's run
 ```
 
 **Seeds** (in `runtime-evidence\wr06-recon\saves`, plus 980–981 in `runtime-evidence\wr06-pass2\saves`):
