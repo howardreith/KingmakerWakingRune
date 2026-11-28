@@ -463,6 +463,18 @@ try {
         Assert-That ($null -ne (ConvertTo-KwrInstant '2026-11-28T00:00:00+00:00') -and $null -eq (ConvertTo-KwrInstant '2026-11-28T00:00:00') -and (ConvertTo-KwrInstant '2026-11-28T01:00:00+01:00').UtcTicks -eq (ConvertTo-KwrInstant '2026-11-28T00:00:00Z').UtcTicks) 'instants are not compared as instants'
     }
 
+    Test-Case 'R3-F4 a peer record in another implementation''s shape (common fields plus stateRoot) refuses by name and is preserved' {
+        $c = Get-Convention
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $c.RecordPath) | Out-Null
+        $peer = [ordered]@{ protocol = 'kingmaker-native-test-reservation/1'; lab = 'KingmakerBuffPlanner'; runId = '20261128T120000Z-mod-load-smoke'; purpose = 'runtime test'
+            token = [guid]::NewGuid().ToString('N'); holderProcessId = 4; holderStartUtc = '2026-11-28T12:00:00.0000000Z'; host = $env:COMPUTERNAME
+            createdUtc = '2026-11-28T12:00:01.0000000Z'; stateRoot = 'C:\Dev\KingmakerBuffPlannerLab\runtime-state' }
+        [IO.File]::WriteAllText($c.RecordPath, ($peer | ConvertTo-Json), [Text.UTF8Encoding]::new($false)); $bytes = Get-Sha256 $c.RecordPath
+        Assert-Refused (Invoke-Op 'Begin' 'f34-begin' 'lab-a' 'run-f34') 'reserved by KingmakerBuffPlanner run 20261128T120000Z-mod-load-smoke' 'Begin under a peer record with stateRoot'
+        Assert-Refused (Invoke-Op 'End' 'f34-end' 'lab-a' 'run-f34') 'No open Waking Rune transaction' 'End without a transaction'
+        Assert-That ((Get-Sha256 $c.RecordPath) -eq $bytes -and $null -eq (Get-Journal 'lab-a')) 'the peer record changed or a journal was written'
+    }
+
     Test-Case 'R1-F7 recovery checks the closer''s liveness with its parsed +00:00 instant: a live closer keeps the lease' {
         $c = Get-Convention
         $state = Get-LabState 'lab-a'
@@ -494,6 +506,19 @@ try {
         Assert-That ((Get-Sha256 (Get-Convention).RecordPath) -eq $replacement -and (Get-SharedDigest 'lab-a') -eq $shared) 'Reinstall wrote shared state or changed the replacement'
         $incident = Get-Content -LiteralPath (Join-Path (Get-Lab 'lab-a') 'runtime-evidence\run-f8r\reservation-incident.json') -Raw | ConvertFrom-Json
         Assert-That ($incident.operation -eq 'Reinstall' -and $incident.observed.lease -like 'KingmakerBuffPlanner run kbp-run' -and $incident.stage -eq 'before publishing the journal' -and $incident.disposition.lease -like 'left as observed*') "inaccurate incident: $($incident | ConvertTo-Json -Compress)"
+    }
+
+    Test-Case 'R1-F8 only the journal replaced while Reinstall is paused in staging: Reinstall refuses, journal bytes and installed mod unchanged' {
+        Assert-Done (Invoke-Op 'Begin' 'f8j-begin' 'lab-a' 'run-f8j') 'Begin'
+        $p = Start-Op 'Reinstall' 'f8j-reinstall' 'lab-a' -PauseAt 'reinstall-before-placement'
+        [void] (Wait-Signal 'f8j-reinstall' @('paused-reinstall-before-placement'))
+        $j = Get-Journal 'lab-a'; $j.runId = 'replacement-run'; [IO.File]::WriteAllText((Get-LabState 'lab-a'), ($j | ConvertTo-Json -Depth 6), [Text.UTF8Encoding]::new($false))
+        $journal = Get-Sha256 (Get-LabState 'lab-a'); $record = Get-Sha256 (Get-Convention).RecordPath; $shared = Get-SharedDigest 'lab-a'
+        Release-Hook 'f8j-reinstall' 'reinstall-before-placement'; [void] $p.WaitForExit(60000)
+        Assert-Refused (Wait-Signal 'f8j-reinstall' @('done', 'refused') 5) 'no longer holds' 'Reinstall after the journal was replaced'
+        Assert-That ((Get-Sha256 (Get-LabState 'lab-a')) -eq $journal -and (Get-Sha256 (Get-Convention).RecordPath) -eq $record -and (Get-SharedDigest 'lab-a') -eq $shared) 'the replacement journal, the lease or the installed mod changed'
+        $incident = Get-Content -LiteralPath (Join-Path (Get-Lab 'lab-a') 'runtime-evidence\run-f8j\reservation-incident.json') -Raw | ConvertFrom-Json
+        Assert-That ($incident.observed.journal -eq 'run replacement-run' -and $incident.stage -eq 'before publishing the journal') "inaccurate incident: $($incident | ConvertTo-Json -Compress)"
     }
 
     Test-Case 'R1-F8 only the journal identity replaced before an End restore step: no shared write; first incident survives retries' {
@@ -688,8 +713,11 @@ try {
         $target = Join-Path (Get-Lab 'lab-a') 'game\Mods\KingmakerWakingRune'
         Set-Content -LiteralPath $target -Value 'a file, not a folder'
         $shared = Get-SharedDigest 'lab-a'
+        $fileBytes = Get-Sha256 $target
         Assert-Refused (Invoke-Op 'Begin' 'f31-begin' 'lab-a' 'run-f31') 'exists but is not a folder' 'Begin with a file at the mod path'
         Assert-That ((Get-SharedDigest 'lab-a') -eq $shared -and $null -eq (Get-Record) -and $null -eq (Get-Journal 'lab-a')) 'the file or settings changed, or a lease or journal remained'
+        Assert-Refused (Invoke-Op 'End' 'f31-end' 'lab-a' 'run-f31') 'No open Waking Rune transaction' 'End after the refused Begin'
+        Assert-That ((Test-Path -LiteralPath $target -PathType Leaf) -and (Get-Sha256 $target) -eq $fileBytes -and (Get-SharedDigest 'lab-a') -eq $shared) 'the file at the mod path did not survive Begin and End'
     }
 
     Test-Case 'R3-F3 a run ID ending in a line feed is refused before any record or journal; a valid contender is admitted' {
