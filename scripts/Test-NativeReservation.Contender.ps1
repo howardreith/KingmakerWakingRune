@@ -26,7 +26,8 @@ param(
     [switch] $FailExistingSnapshot,
     [int] $LauncherSeconds = 1,
     [int] $RecorderSeconds = 1,
-    [int] $PendingWindowSeconds = 3,
+    [int] $DelegateAfterSeconds = 0,
+    [int] $CloseWait = 2,
     [string] $PackageName = 'candidate.zip',
     [string] $RuntimeScript = '',
     [switch] $SkipRegistryExport,
@@ -51,11 +52,14 @@ $AppId = '640820'
 $SteamUserDataRoot = Join-Path $LabRoot 'steam\userdata'
 $PackagePath = Join-Path $LabRoot $PackageName
 if ($RunIdSuffixLF) { $RunId = $RunId + "`n" }
-$KwrPendingWindowSeconds = $PendingWindowSeconds
+$CloseWaitSeconds = $CloseWait
 $FfmpegExe = Join-Path $LabRoot 'stand-in-recorder.cmd'
 Set-Content -LiteralPath $FfmpegExe -Value "@ping -n $($RecorderSeconds + 1) 127.0.0.1 > nul" -Encoding ASCII
 $SteamExe = Join-Path $LabRoot 'stand-in-steam.cmd'
-Set-Content -LiteralPath $SteamExe -Value "@ping -n $($LauncherSeconds + 1) 127.0.0.1 > nul" -Encoding ASCII
+# A launcher stand-in; with -DelegateAfterSeconds it exits at once after starting a detached child that, after the delay,
+# starts the game stand-in (a ping with the marker -w 4173, found by Get-GameProcesses below).
+$launcherLine = if ($DelegateAfterSeconds -gt 0) { "@start `"`" /min cmd /c `"ping -n $($DelegateAfterSeconds + 1) 127.0.0.1 >nul & ping -n 40 -w 4173 127.0.0.1 >nul`"" } else { "@ping -n $($LauncherSeconds + 1) 127.0.0.1 > nul" }
+Set-Content -LiteralPath $SteamExe -Value $launcherLine -Encoding ASCII
 $Recon = $false; $Diagnostic = $false; $LaunchArgs = @(); $TimeoutSeconds = 5; $Seconds = 1; $Name = $null; $FaultName = $null
 $Keys = $null; $Text = $null; $X = 0; $Y = 0; $X2 = 0; $Y2 = 0; $Button = 'Left'; $Delta = -120
 
@@ -69,7 +73,7 @@ $tokens = $null; $errors = $null
 $runtime = if ($RuntimeScript) { $RuntimeScript } else { Join-Path $PSScriptRoot 'KwrRuntime.ps1' }
 $ast = [Management.Automation.Language.Parser]::ParseFile($runtime, [ref] $tokens, [ref] $errors)
 $functions = @($ast.FindAll({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] }, $false) | ForEach-Object { $_.Extent.Text }) -join "`r`n"
-$functions = $functions.Replace('function Invoke-Collect {', 'function Invoke-CollectOriginal {').Replace('function Get-SteamMirror {', 'function Get-SteamMirrorOriginal {').Replace('function Assert-KwrSharedMutation(', 'function Assert-KwrSharedMutationOriginal(')
+$functions = $functions.Replace('function Publish-KwrInitialJournal(', 'function Publish-KwrInitialJournalOriginal(').Replace('function Update-KwrOutstanding(', 'function Update-KwrOutstandingOriginal(').Replace('function Invoke-Collect {', 'function Invoke-CollectOriginal {').Replace('function Get-SteamMirror {', 'function Get-SteamMirrorOriginal {').Replace('function Assert-KwrSharedMutation(', 'function Assert-KwrSharedMutationOriginal(')
 . ([scriptblock]::Create($functions))
 
 function Wait-Hook([string] $Hook) {
@@ -87,11 +91,14 @@ $candidateSha = ([BitConverter]::ToString([Security.Cryptography.SHA256]::Create
 function Get-GameProcesses {
     Add-Content -LiteralPath (Join-Path $LabRoot 'game-probes.log') -Value $Label
     if ($FakeGameAfterAdmission -or (Test-Path -LiteralPath (Join-Path $LabRoot 'fake-game.flag'))) { return @([pscustomobject]@{ Id = 4242 }) }
+    $found = @()
     $pidFile = Join-Path $LabRoot 'fake-game.pid'
-    if (Test-Path -LiteralPath $pidFile) { return @(Get-Process -Id ([int] (Get-Content -LiteralPath $pidFile -Raw)) -ErrorAction SilentlyContinue) }
-    return @()
+    if (Test-Path -LiteralPath $pidFile) { $found += @(Get-Process -Id ([int] (Get-Content -LiteralPath $pidFile -Raw)) -ErrorAction SilentlyContinue) }
+    if ($DelegateAfterSeconds -gt 0 -or (Test-Path -LiteralPath (Join-Path $LabRoot 'delegated.flag'))) {
+        $found += @(Get-CimInstance Win32_Process -Filter "Name='PING.EXE'" | Where-Object { $_.CommandLine -like '*-w 4173*' } | ForEach-Object { Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue })
+    }
+    return @($found | Where-Object { $null -ne $_ })
 }
-function Get-OwnedProcess($s) { $null }
 function Assert-SteamCloudOffline { }
 function New-KwrValidatedPackageCopy { param([string] $Path, [switch] $Diagnostic) [pscustomobject]@{ Source = $Path; Sha256 = 'stand-in-zip'; DllSha256 = $candidateSha; SourceProvenance = 'stand-in'; InstallMode = 'stand-in'; PrivateDirectory = $null } }
 function Remove-KwrValidatedPackageCopy($v) { }
@@ -120,6 +127,17 @@ function Enter-KwrOperationLock([string] $StateRoot) { Wait-Hook 'after-lease'; 
 # The game stand-in: a process whose PID the test writes to fake-game.pid; its window and foreground are assumed.
 function Get-GameWindow { $p = Get-Process -Id $PID; [pscustomobject]@{ Process = $p; Rect = [pscustomobject]@{ Left = 0; Top = 0; Right = 640; Bottom = 360 }; State = (Get-State) } }
 function Assert-GameForeground($w) { }
+function Publish-KwrInitialJournal($s, $Lease, [string] $RunDirectory) { Wait-Hook 'initial-publication'; Publish-KwrInitialJournalOriginal $s $Lease $RunDirectory }
+function Update-KwrOutstanding($s, [string] $Id, [scriptblock] $Change) { Wait-Hook 'before-pid-publication'; Update-KwrOutstandingOriginal $s $Id $Change }
+# Steam's app state, as the test sets it in steam-app.json; absent file: no signal.
+function Get-KwrSteamAppState { $f = Join-Path $LabRoot 'steam-app.json'; if (Test-Path -LiteralPath $f) { Get-Content -LiteralPath $f -Raw | ConvertFrom-Json } else { $null } }
+# The owned game: the journal's game PID with its recorded start, whatever its name (the stand-in is a ping).
+function Get-OwnedProcess($s) {
+    if (-not $s -or -not (Get-KwrProp $s 'gamePid')) { return $null }
+    $p = Get-Process -Id $s.gamePid -ErrorAction SilentlyContinue
+    if ($p -and $p.StartTime.ToString('o') -eq $s.gameStart) { return $p }
+    return $null
+}
 if ($SkipRegistryExport) { function Export-Registry([string] $path) { } }
 function Get-SteamMirror { Add-Content -LiteralPath (Join-Path $LabRoot 'probes.log') -Value $Label; Get-SteamMirrorOriginal }
 function Invoke-Collect { Invoke-CollectOriginal; Wait-Hook 'after-collect' }

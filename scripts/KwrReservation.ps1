@@ -13,8 +13,9 @@
   for the whole of each operation, runtime-state\operation.lock held open unshared.
 
   Waking Rune releases only its own transaction's lease: a refused Begin before its journal exists, End after verified
-  restoration, and Begin finishing a close that End interrupted after retiring its journal (proved by the closed journal,
-  its lease token and a closer that is no longer running). Any other lease is never removed.
+  restoration, and Begin finishing a close that End interrupted after retiring its journal (proved by the close marker
+  named after the lease token, a matching lease, and both the lease writer and the closer no longer running). Any other
+  lease is never removed.
 
   Comparisons of protocol, lab, run and token are ordinal; journal paths are compared as canonical full paths, ordinal
   ignoring case. Records and journals are decoded as strict UTF-8.
@@ -131,41 +132,50 @@ function Write-KwrRecord($Convention, $Record) {
     [IO.File]::Move($temporary, $Convention.RecordPath)
 }
 
-function Get-KwrClosedJournalPath([string] $StatePath) { return [IO.Path]::Combine([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($StatePath)), 'transaction.closed.json') }
+# The close marker: the retired journal, renamed after its lease token so no other transaction can reuse its name.
+function Get-KwrClosedJournalPath([string] $StatePath, [string] $Token) { return [IO.Path]::Combine([IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($StatePath)), "transaction.closed.$Token.json") }
 
 # Reserves the shared resources for a Waking Rune transaction, or refuses naming the holder. Any present record is a
 # reservation, whoever wrote it and whether or not its writer still runs, with one exception finished first: this lab's
-# own close that End interrupted after retiring its journal. That is proved only by the closed journal of this journal
-# path naming the same run and token as a Waking Rune lease for this path, no journal, and a closer (recorded PID and
-# start instant) that is no longer running. A closed journal whose lease is already gone is the leftover of a completed
-# close and is deleted. Anything else is left as it is.
+# own close that End interrupted after retiring its journal. That is proved only by a close marker of this journal path
+# (named after the lease token) whose run, token and close state match a Waking Rune lease for this path, no active
+# journal, and both the lease writer and the closer (each a PID with a parsed start instant) no longer running; anything
+# indeterminate counts as running. A close marker whose lease is already gone is the leftover of a completed close and is
+# deleted. Everything else is left as it is.
 function Enter-KwrReservation($Convention, [string] $RunId, [string] $Purpose, [string] $StatePath) {
     if (-not (Test-KwrRunId $RunId)) { throw 'A -RunId of 3-80 safe characters is required.' }
     $fullStatePath = [IO.Path]::GetFullPath($StatePath)
-    $closedPath = Get-KwrClosedJournalPath $fullStatePath
+    $stateDirectory = [IO.Path]::GetDirectoryName($fullStatePath)
     return Invoke-KwrUnderReservationMutex $Convention {
         $directory = Split-Path -Parent $Convention.RecordPath
         [IO.Directory]::CreateDirectory($directory) | Out-Null
         if (([IO.File]::GetAttributes($directory) -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw "The reservation directory is a link: $directory" }
         $existing = Read-KwrReservationRecord $Convention
-        if ((Test-Path -LiteralPath $closedPath) -and -not (Test-Path -LiteralPath $fullStatePath)) {
-            $closed = $null
-            try { $closed = Read-KwrUtf8Json $closedPath } catch { }
-            $valid = $closed -is [pscustomobject] -and (Test-KwrRunId (Get-KwrProp $closed 'runId')) -and (Test-KwrString $closed 'reservationToken' '^[0-9a-f]{32}\z')
-            if ($valid -and -not $existing) {
-                Remove-Item -LiteralPath $closedPath -Force   # its lease is gone: the close completed except for this file
-            }
-            elseif ($valid -and (Test-KwrRecordIs $existing (New-KwrAdmitted $closed.runId $closed.reservationToken $fullStatePath)) -and
-                $null -ne (Get-KwrProp $closed 'closerProcessId') -and -not (Test-KwrWriterAlive (Get-KwrProp $closed 'closerProcessId') (Get-KwrProp $closed 'closerStartUtc'))) {
-                Remove-Item -LiteralPath $Convention.RecordPath -Force
-                Remove-Item -LiteralPath $closedPath -Force
-                $existing = $null
+        $unattributed = @()
+        if ((Test-Path -LiteralPath $stateDirectory) -and -not (Test-Path -LiteralPath $fullStatePath)) {
+            foreach ($marker in @(Get-ChildItem -LiteralPath $stateDirectory -File -Filter 'transaction.closed.*.json')) {
+                $closed = $null
+                try { $closed = Read-KwrUtf8Json $marker.FullName } catch { }
+                $token = Get-KwrProp $closed 'reservationToken'
+                $valid = $closed -is [pscustomobject] -and (Test-KwrRunId (Get-KwrProp $closed 'runId')) -and (Test-KwrString $closed 'reservationToken' '^[0-9a-f]{32}\z') -and
+                    (Test-KwrSame $marker.Name "transaction.closed.$token.json") -and (Test-KwrSame (Get-KwrProp $closed 'phase') 'closing')
+                if (-not $valid) { $unattributed += $marker.Name; continue }
+                $admitted = New-KwrAdmitted $closed.runId $token $fullStatePath
+                if (-not $existing -or -not (Test-KwrSame $existing.token $token)) {
+                    Remove-Item -LiteralPath $marker.FullName -Force   # its lease is gone: that close completed except for this file
+                }
+                elseif ((Test-KwrRecordIs $existing $admitted) -and -not (Test-KwrWriterAlive $existing.holderProcessId $existing.holderStartUtc) -and
+                    -not (Test-KwrWriterAlive (Get-KwrProp $closed 'closerProcessId') (Get-KwrProp $closed 'closerStartUtc'))) {
+                    Remove-Item -LiteralPath $Convention.RecordPath -Force
+                    Remove-Item -LiteralPath $marker.FullName -Force
+                    $existing = $null
+                }
             }
         }
         if ($existing) {
             throw "Kingmaker native-test resources are reserved by $($existing.lab) run $($existing.runId) ($($existing.purpose); process $($existing.holderProcessId); since $($existing.createdUtc)); $($Convention.RecordPath)"
         }
-        if (Test-Path -LiteralPath $closedPath) { throw "A closed journal that cannot be attributed exists ($closedPath); it is left for the owner." }
+        if ($unattributed.Count -gt 0) { throw "A close marker that cannot be attributed exists ($($unattributed -join ', ')); it is left for the owner." }
         $record = [ordered]@{
             protocol = $script:KwrReservationProtocol; lab = $script:KwrReservationLab; runId = $RunId; purpose = $Purpose
             token = [guid]::NewGuid().ToString('N'); holderProcessId = $PID
@@ -220,6 +230,19 @@ function Exit-KwrOperationLock {
 
 function Test-KwrJournalToken($State) { return ($null -ne $State -and (Test-KwrString $State 'reservationToken' '^[0-9a-f]{32}\z')) }
 
+# One decoder for the journal's shape: 'current' (a valid run and a valid token), 'legacy' (a genuine previous-format
+# journal, as the runtime before the reservation wrote it: its fields only, none of the current ones) or 'invalid'.
+$script:KwrCurrentJournalFields = @('reservationToken', 'steamMirror', 'baselineDigests', 'candidateFiles', 'dllSha256', 'outstanding', 'legacyRecovery', 'windows', 'sessions', 'unowned', 'closerProcessId', 'closerStartUtc')
+function Get-KwrJournalShape($State) {
+    if (-not ($State -is [pscustomobject]) -or -not (Test-KwrRunId (Get-KwrProp $State 'runId'))) { return 'invalid' }
+    $names = @($State.PSObject.Properties.Name)
+    if ($names -ccontains 'reservationToken') { if (Test-KwrJournalToken $State) { return 'current' } else { return 'invalid' } }
+    if (@($names | Where-Object { $script:KwrCurrentJournalFields -ccontains $_ }).Count -gt 0) { return 'invalid' }
+    foreach ($field in @('createdUtc', 'phase', 'package', 'packageSha256')) { if ($names -cnotcontains $field) { return 'invalid' } }
+    if (@('snapshotting', 'installed', 'running', 'closed', 'reinstalling') -cnotcontains [string] (Get-KwrProp $State 'phase')) { return 'invalid' }
+    return 'legacy'
+}
+
 # The admitted identity, rechecked: the journal at the admitted path is the admitted run and token, and the lease is
 # Waking Rune's for that run, token and journal path. Returns what was observed when it is not.
 function Get-KwrOwnershipLoss($Convention, $Admitted) {
@@ -249,12 +272,13 @@ function Get-KwrOwnershipLoss($Convention, $Admitted) {
 function Enter-KwrTransactionOperation($Convention, [string] $StatePath, [string] $StateRoot) {
     $before = Read-KwrTransactionState $StatePath
     if (-not $before) { throw "No open Waking Rune transaction ($StatePath)." }
-    $runId = $before.PSObject.Properties['runId']
-    if ($null -eq $runId -or -not (Test-KwrRunId $runId.Value)) { throw "The Waking Rune journal $StatePath names no valid run; it is refused." }
-    if (-not (Test-KwrJournalToken $before)) {
-        throw "The Waking Rune transaction $StatePath carries no reservation token (written before the Kingmaker native-test reservation); only End -RunId $($runId.Value) recovers it, under a free reservation."
+    if (-not (Test-KwrRunId (Get-KwrProp $before 'runId'))) { throw "The Waking Rune journal $StatePath names no valid run; it is refused." }
+    $shape = Get-KwrJournalShape $before
+    if ($shape -eq 'legacy') {
+        throw "The Waking Rune transaction $StatePath carries no reservation token (written before the Kingmaker native-test reservation); only End -RunId $($before.runId) recovers it, under a free reservation."
     }
-    $admitted = New-KwrAdmitted $runId.Value $before.reservationToken $StatePath
+    if ($shape -ne 'current') { throw "The Waking Rune journal $StatePath is neither a current nor a previous-format journal (an invalid or missing token with current fields); it is refused." }
+    $admitted = New-KwrAdmitted $before.runId $before.reservationToken $StatePath
     $loss = Get-KwrOwnershipLoss $Convention $admitted
     if ($loss) { throw "This Waking Rune transaction ($($admitted.RunId)) no longer holds the Kingmaker native-test reservation or its journal (lease: $($loss.Lease); journal: $($loss.Journal)); stopping without touching the game or the shared state." }
     Enter-KwrOperationLock $StateRoot
@@ -263,26 +287,28 @@ function Enter-KwrTransactionOperation($Convention, [string] $StatePath, [string
     return $admitted
 }
 
-# An ownership incident, written once per destination (later ones are kept beside it): expected and observed identity
-# (unknown when unreadable), the stage, known differences, what was done and where each resource was left.
-function Write-KwrReservationIncident($Convention, [string] $Directory, $Expected, $Loss, [string] $Operation, [string] $Stage, [string[]] $Progress, [string[]] $Differences) {
+# An incident, written once per destination (later ones are kept beside it): what was expected and observed (unknown when
+# unreadable), the stage, the classified differences, the differences remaining now, what was done and where each
+# resource was left.
+function Write-KwrReservationIncident($Convention, [string] $Directory, $Expected, $Loss, [string] $Operation, [string] $Stage, [object[]] $Progress, [object[]] $Differences, $Remaining = 'not observed', [string] $Kind = 'Kingmaker native-test reservation or journal ownership lost') {
     [IO.Directory]::CreateDirectory($Directory) | Out-Null
     $observedRecord = 'absent'
     try { if (Test-Path -LiteralPath $Convention.RecordPath) { $observedRecord = [IO.File]::ReadAllText($Convention.RecordPath) } }
     catch { $observedRecord = "unknown (unreadable: $($_.Exception.Message))" }
     $incident = [ordered]@{
-        kind = 'Kingmaker native-test reservation or journal ownership lost'; recordedUtc = (Get-Date).ToUniversalTime().ToString('o')
+        kind = $Kind; recordedUtc = (Get-Date).ToUniversalTime().ToString('o')
         operation = $Operation; stage = $Stage
         expected = $Expected
         observed = [ordered]@{ lease = $Loss.Lease; journal = $Loss.Journal; record = $observedRecord }
         knownDifferences = @($Differences)
+        remainingDifferences = $Remaining
         restorationDone = @($Progress)
         disposition = [ordered]@{
             lease = 'left as observed (not released)'; journal = 'left as observed (not rewritten)'; operationLock = 'released when the operation exits'
             sharedState = "unknown to this transaction after: $Stage"
         }
     }
-    $bytes = [Text.UTF8Encoding]::new($false).GetBytes(($incident | ConvertTo-Json -Depth 6))
+    $bytes = [Text.UTF8Encoding]::new($false).GetBytes(($incident | ConvertTo-Json -Depth 8))
     $path = Join-Path $Directory 'reservation-incident.json'
     try { $stream = [IO.File]::Open($path, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None) }
     catch [IO.IOException] {
@@ -293,21 +319,18 @@ function Write-KwrReservationIncident($Convention, [string] $Directory, $Expecte
     return $path
 }
 
-# End, after verified restoration, holding the operation lock: the local close is recorded durably first (the closed
-# journal: the journal's run and token plus this closer's PID and start instant, then the journal is deleted), then the
-# operation lock is released, then the matching lease is released as the last step; the closed journal is deleted after.
-# An interruption leaves the closed journal and the lease; Begin finishes them only once this closer is gone.
+# End, after verified restoration, holding the operation lock, with the journal already saying 'closing' and naming this
+# closer: the journal is retired in one step (renamed to its close marker), then the operation lock is released, then the
+# matching lease is released last; then, under the mutex and after re-verifying its name and token, this close's own
+# marker is deleted. An interruption leaves the marker and the lease; Begin finishes them only once both the lease writer
+# and the closer are gone.
 function Complete-KwrTransactionReservation($Convention, $Admitted) {
     if (Get-KwrOwnershipLoss $Convention $Admitted) { throw "This Waking Rune transaction ($($Admitted.RunId)) no longer holds its reservation or journal; it is not closed." }
-    $closedPath = Get-KwrClosedJournalPath $Admitted.StatePath
-    if (Test-Path -LiteralPath $closedPath) { throw "A closed journal from an interrupted close exists ($closedPath); it is left for the owner." }
-    $closed = [ordered]@{ runId = $Admitted.RunId; reservationToken = $Admitted.Token; closerProcessId = $PID; closerStartUtc = (Get-Process -Id $PID).StartTime.ToUniversalTime().ToString('o'); closedUtc = (Get-Date).ToUniversalTime().ToString('o') }
-    $bytes = [Text.UTF8Encoding]::new($false).GetBytes(($closed | ConvertTo-Json))
-    $stream = [IO.File]::Open($closedPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
-    try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
-    Remove-Item -LiteralPath $Admitted.StatePath -Force
+    $closedPath = Get-KwrClosedJournalPath $Admitted.StatePath $Admitted.Token
+    [IO.File]::Move($Admitted.StatePath, $closedPath)
     Exit-KwrOperationLock
     Exit-KwrReservation $Convention $Admitted
-    # Housekeeping: only this close's own closed journal (a successor may already have removed it, or written its own).
-    try { $own = Read-KwrUtf8Json $closedPath; if ((Test-KwrSame (Get-KwrProp $own 'reservationToken') $Admitted.Token)) { Remove-Item -LiteralPath $closedPath -Force } } catch { }
+    Invoke-KwrUnderReservationMutex $Convention {
+        try { $own = Read-KwrUtf8Json $closedPath; if (Test-KwrSame (Get-KwrProp $own 'reservationToken') $Admitted.Token) { Remove-Item -LiteralPath $closedPath -Force } } catch { }
+    }
 }

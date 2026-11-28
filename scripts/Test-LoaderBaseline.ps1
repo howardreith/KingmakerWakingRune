@@ -916,7 +916,7 @@ Set-Content -LiteralPath (Join-Path `$ModDir 'recon.flag') -Value 'recon'
 $functionText
 function Get-GameProcesses { @() }
 function Get-OwnedProcess(`$s) { `$null }
-function Assert-KwrSharedMutation([string] `$Stage) { }
+function Assert-KwrSharedMutation([string] `$Stage) { } ; function Assert-KwrNoGameActivity([string] `$Stage) { }
 function Assert-SteamCloudOffline { throw 'LAUNCH-ADMITTED (fixture stub stops before Steam)' }
 Save-State ([pscustomobject]@{ runId = 'fixture'; phase = 'closed'; gamePid = `$null; gameStart = `$null; package = 'previous'; packageSha256 = 'previous' })
 function Move-Item { throw 'injected placement failure' }
@@ -959,7 +959,7 @@ New-Item -ItemType Directory -Force -Path `$StateRoot, `$ModsRoot | Out-Null
 $functionText
 function Get-GameProcesses { @() }
 function Get-OwnedProcess(`$s) { `$null }
-function Assert-KwrSharedMutation([string] `$Stage) { }
+function Assert-KwrSharedMutation([string] `$Stage) { } ; function Assert-KwrNoGameActivity([string] `$Stage) { }
 function Assert-SteamCloudOffline { throw 'LAUNCH-ADMITTED (fixture stub stops before Steam)' }
 Save-State ([pscustomobject]@{ runId = 'legacy'; phase = 'reinstalling'; gamePid = `$null; gameStart = `$null; package = 'previous'; packageSha256 = 'previous'; recon = `$$reconValue })
 if (`$$replacementPlaced) { New-Item -ItemType Directory -Force -Path `$ModDir | Out-Null; Set-Content -LiteralPath (Join-Path `$ModDir 'Info.json') -Value '{}' }
