@@ -81,6 +81,18 @@ the owner's installed loader folder (`<Kingmaker>\Kingmaker_Data\Managed\UnityMo
   --profile "owner-0.33.0=<owner copy>\UnityModManager.dll;<owner copy>\0Harmony.dll;<owner copy>\0Harmony12.dll"
 ```
 
+## Native test runs
+`scripts/KwrRuntime.ps1` runs guarded transactions against the real game (Begin, operations, End, each its own
+process). Every transaction holds the machine-wide **Kingmaker native-test reservation**
+([protocol](docs/NATIVE-RESERVATION.md), implemented in `scripts/KwrReservation.ps1`) from Begin until End has verified
+its restoration. Begin acquires it before reading or writing anything, every operation except Status and Collect checks
+that the transaction still holds it, and End releases it last. Other Kingmaker labs that implement the same protocol
+cannot start a native transaction meanwhile. This lab needs none of them to be installed, and none needs this lab.
+A refused Begin names the holder. A record left by another lab, an unreadable record, or one whose writer is still
+running is never removed. Waking Rune adopts only its own orphan, from a Begin or End interrupted while no transaction
+state exists. `scripts/Test-NativeReservation.ps1` tests the protocol against stand-ins only, using separate contender
+processes.
+
 ## Repository map
 - `src/KingmakerWakingRune` — the mod (blueprints, selection, lodge, thin Harmony patches).
 - `tests` — framework-free tests for extracted decision logic.

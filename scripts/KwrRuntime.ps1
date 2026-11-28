@@ -15,6 +15,11 @@
   Status   Print the open transaction.
 
   All live state lives under the lab root (two levels above the repository).
+
+  Every transaction holds the Kingmaker native-test reservation (docs/NATIVE-RESERVATION.md, scripts/KwrReservation.ps1)
+  from Begin until End has verified its restoration: Begin acquires it before reading or writing anything, every later
+  operation except Status and Collect first proves the transaction still holds it, and End releases it last. Other
+  Kingmaker labs implementing the same protocol are excluded meanwhile; none of them needs to be installed.
 #>
 [CmdletBinding()]
 param(
@@ -51,6 +56,8 @@ $StateRoot = Join-Path $LabRoot 'runtime-state'
 $BackupRoot = Join-Path $LabRoot 'runtime-backups'
 $EvidenceRoot = Join-Path $LabRoot 'runtime-evidence'
 $StatePath = Join-Path $StateRoot 'transaction.json'
+. (Join-Path $PSScriptRoot 'KwrReservation.ps1')
+$Reservation = Get-KwrReservationConvention
 
 $GameDir = 'C:\Program Files (x86)\Steam\steamapps\common\Pathfinder Kingmaker'
 $ModsRoot = Join-Path $GameDir 'Mods'
@@ -195,10 +202,16 @@ function Assert-SteamCloudOffline {
 function Get-RunDir($s) { Join-Path $EvidenceRoot $s.runId }
 
 function Invoke-Begin {
-    if (Get-State) { throw "A transaction is already open: $StatePath. Run End (or inspect) first." }
-    if (@(Get-GameProcesses).Count -gt 0) { throw 'Kingmaker is running; it may be an owner session. Refusing to start.' }
     if (-not $RunId -or $RunId -notmatch '^[A-Za-z0-9._-]{3,80}$') { throw 'A -RunId of 3-80 safe characters is required.' }
     if (-not $PackagePath) { throw 'A -PackagePath to the built zip is required.' }
+    # The neutral reservation comes first, before this lab's own state (its lock) or anything shared is read or written.
+    # Until the transaction state is saved nothing shared has changed, so a refusal or failure releases it; afterwards it
+    # stays with the open transaction for End.
+    $reservation = Enter-KwrTransactionReservation $Reservation $StatePath $RunId
+    $stateSaved = $false
+    try {
+    if (Get-State) { throw "A transaction is already open: $StatePath. Run End (or inspect) first." }
+    if (@(Get-GameProcesses).Count -gt 0) { throw 'Kingmaker is running; it may be an owner session. Refusing to start.' }
     $validated = New-KwrValidatedPackageCopy $PackagePath -Diagnostic:$Diagnostic
     try {
     Assert-SteamCloudOffline
@@ -207,8 +220,9 @@ function Invoke-Begin {
     $run = Join-Path $EvidenceRoot $RunId
     if ((Test-Path $tx) -or (Test-Path $run)) { throw "RunId $RunId was already used." }
     New-Item -ItemType Directory -Force -Path $tx, $run | Out-Null
-    $s = [ordered]@{ runId = $RunId; createdUtc = (Get-Date).ToUniversalTime().ToString('o'); phase = 'snapshotting'; gamePid = $null; gameStart = $null; package = $validated.Source; packageSha256 = $validated.Sha256; sourceProvenance = $validated.SourceProvenance; installMode = $validated.InstallMode; recon = [bool]$Recon }
+    $s = [ordered]@{ runId = $RunId; createdUtc = (Get-Date).ToUniversalTime().ToString('o'); phase = 'snapshotting'; gamePid = $null; gameStart = $null; package = $validated.Source; packageSha256 = $validated.Sha256; sourceProvenance = $validated.SourceProvenance; installMode = $validated.InstallMode; recon = [bool]$Recon; reservationToken = $reservation.token }
     Save-State $s
+    $stateSaved = $true
 
     Write-Step 'Snapshotting Kingmaker profile and Steam save mirror...'
     foreach ($t in $SnapshotTrees) { Save-Tree $t.Name $t.Path $tx }
@@ -242,6 +256,14 @@ function Invoke-Begin {
     Write-Step "Installed package $($s.packageSha256) into $ModDir (recon=$([bool]$Recon))."
     }
     finally { Remove-KwrValidatedPackageCopy $validated }
+    }
+    catch {
+        if (-not $stateSaved) {
+            try { Exit-KwrReservation $Reservation $reservation.token }
+            catch { Write-Step "WARNING: releasing the reservation after a refused Begin failed: $($_.Exception.Message)" }
+        }
+        throw
+    }
 }
 
 function Invoke-Reinstall {
@@ -607,9 +629,14 @@ function Invoke-End {
     $modsDiff = @((Compare-Inventory $modsBefore $modsNow) | Where-Object { -not ($KeepInstalled -and $_ -match '^(added|changed|missing):KingmakerWakingRune\\') })
     if ($modsDiff.Count -gt 0) { throw "Mods inventory differs after restore: $($modsDiff -join '; ')" }
     Write-Step "Params.xml and Mods verified (candidate installed: $([bool]$KeepInstalled))."
-    Remove-Item -LiteralPath $StatePath -Force
-    Write-Step "Transaction $($s.runId) closed. Evidence: $run"
+    # Restoration verified: the state (this lab's lock) goes first, the neutral reservation last.
+    Complete-KwrTransactionReservation $Reservation $StatePath ([string] (Get-State).reservationToken)
+    Write-Step "Transaction $($s.runId) closed and the Kingmaker native-test reservation released. Evidence: $run"
 }
+
+# Inside an open transaction every operation that acts on the game, the installed mod or the shared Kingmaker state first
+# proves the transaction still holds the reservation (a lost one stops it). Status and Collect only read.
+if ($Operation -notin @('Begin', 'Status', 'Collect')) { [void] (Assert-KwrTransactionReservation $Reservation $StatePath) }
 
 switch ($Operation) {
     'Begin' { Invoke-Begin }
