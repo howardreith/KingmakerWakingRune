@@ -111,7 +111,7 @@ function Get-State {
 
 # Published atomically: a temporary file replaces the journal, so a reader sees the previous or the new state.
 function Save-State($s) {
-    if ($script:KwrAdmitted) { Assert-KwrSharedMutation 'before publishing the journal' }
+    if (Get-Variable -Name KwrAdmitted -Scope Script -ValueOnly -ErrorAction SilentlyContinue) { Assert-KwrSharedMutation 'before publishing the journal' }
     New-Item -ItemType Directory -Force -Path $StateRoot | Out-Null
     $temporary = $StatePath + '.tmp'
     [IO.File]::WriteAllText($temporary, ($s | ConvertTo-Json -Depth 6), [Text.UTF8Encoding]::new($false))
