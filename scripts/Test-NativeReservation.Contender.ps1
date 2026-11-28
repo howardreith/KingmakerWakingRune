@@ -24,7 +24,13 @@ param(
     [switch] $KeepInstalled,
     [switch] $FakeGameAfterAdmission,
     [switch] $FailExistingSnapshot,
-    [int] $LauncherSeconds = 1
+    [int] $LauncherSeconds = 1,
+    [int] $RecorderSeconds = 1,
+    [int] $PendingWindowSeconds = 3,
+    [string] $PackageName = 'candidate.zip',
+    [string] $RuntimeScript = '',
+    [switch] $SkipRegistryExport,
+    [switch] $RunIdSuffixLF
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -43,7 +49,11 @@ $ProfileDir = Join-Path $LabRoot 'profile'
 $RegKey = 'stand-in'
 $AppId = '640820'
 $SteamUserDataRoot = Join-Path $LabRoot 'steam\userdata'
-$PackagePath = Join-Path $LabRoot 'candidate.zip'
+$PackagePath = Join-Path $LabRoot $PackageName
+if ($RunIdSuffixLF) { $RunId = $RunId + "`n" }
+$KwrPendingWindowSeconds = $PendingWindowSeconds
+$FfmpegExe = Join-Path $LabRoot 'stand-in-recorder.cmd'
+Set-Content -LiteralPath $FfmpegExe -Value "@ping -n $($RecorderSeconds + 1) 127.0.0.1 > nul" -Encoding ASCII
 $SteamExe = Join-Path $LabRoot 'stand-in-steam.cmd'
 Set-Content -LiteralPath $SteamExe -Value "@ping -n $($LauncherSeconds + 1) 127.0.0.1 > nul" -Encoding ASCII
 $Recon = $false; $Diagnostic = $false; $LaunchArgs = @(); $TimeoutSeconds = 5; $Seconds = 1; $Name = $null; $FaultName = $null
@@ -56,15 +66,17 @@ function Exit-KwrReservation($Convention, $Admitted) { Wait-Hook 'before-lease-r
 $ReservationConvention = [pscustomobject]@{ MutexName = $MutexName; RecordPath = $RecordPath }
 
 $tokens = $null; $errors = $null
-$ast = [Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'KwrRuntime.ps1'), [ref] $tokens, [ref] $errors)
+$runtime = if ($RuntimeScript) { $RuntimeScript } else { Join-Path $PSScriptRoot 'KwrRuntime.ps1' }
+$ast = [Management.Automation.Language.Parser]::ParseFile($runtime, [ref] $tokens, [ref] $errors)
 $functions = @($ast.FindAll({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] }, $false) | ForEach-Object { $_.Extent.Text }) -join "`r`n"
-$functions = $functions.Replace('function Invoke-Collect {', 'function Invoke-CollectOriginal {').Replace('function Get-SteamMirror {', 'function Get-SteamMirrorOriginal {')
+$functions = $functions.Replace('function Invoke-Collect {', 'function Invoke-CollectOriginal {').Replace('function Get-SteamMirror {', 'function Get-SteamMirrorOriginal {').Replace('function Assert-KwrSharedMutation(', 'function Assert-KwrSharedMutationOriginal(')
 . ([scriptblock]::Create($functions))
 
 function Wait-Hook([string] $Hook) {
     if (@($PauseAt -split ',') -cnotcontains $Hook) { return }
-    Set-Content -LiteralPath (Join-Path $Signals "$Label.paused-$Hook") -Value ''
-    $go = Join-Path $Signals "$Label.go-$Hook"
+    $safe = $Hook -replace '[^A-Za-z0-9.-]', '-'   # signal file names
+    Set-Content -LiteralPath (Join-Path $Signals "$Label.paused-$safe") -Value ''
+    $go = Join-Path $Signals "$Label.go-$safe"
     $until = (Get-Date).AddSeconds(120)
     while (-not (Test-Path -LiteralPath $go)) { if ((Get-Date) -gt $until) { throw "no signal to leave $Hook" }; Start-Sleep -Milliseconds 50 }
 }
@@ -74,7 +86,10 @@ $candidateBytes = [Text.Encoding]::ASCII.GetBytes('stand-in candidate dll')
 $candidateSha = ([BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash($candidateBytes))).Replace('-', '').ToLowerInvariant()
 function Get-GameProcesses {
     Add-Content -LiteralPath (Join-Path $LabRoot 'game-probes.log') -Value $Label
-    if ($FakeGameAfterAdmission -or (Test-Path -LiteralPath (Join-Path $LabRoot 'fake-game.flag'))) { @([pscustomobject]@{ Id = 4242 }) } else { @() }
+    if ($FakeGameAfterAdmission -or (Test-Path -LiteralPath (Join-Path $LabRoot 'fake-game.flag'))) { return @([pscustomobject]@{ Id = 4242 }) }
+    $pidFile = Join-Path $LabRoot 'fake-game.pid'
+    if (Test-Path -LiteralPath $pidFile) { return @(Get-Process -Id ([int] (Get-Content -LiteralPath $pidFile -Raw)) -ErrorAction SilentlyContinue) }
+    return @()
 }
 function Get-OwnedProcess($s) { $null }
 function Assert-SteamCloudOffline { }
@@ -97,6 +112,15 @@ function Expand-KwrValidatedPackageCopy($v) {
 }
 function Export-Registry([string] $path) { Copy-Item -LiteralPath (Join-Path $LabRoot 'registry\key.reg') -Destination $path -Force }
 function Import-KwrRegistry([string] $path) { Copy-Item -LiteralPath $path -Destination (Join-Path $LabRoot 'registry\key.reg') -Force }
+# A pause point at every ownership guard: -PauseAt 'assert:<stage>'.
+function Assert-KwrSharedMutation([string] $Stage) { Wait-Hook "assert:$Stage"; Assert-KwrSharedMutationOriginal $Stage }
+# A pause point after Begin (or previous-format recovery) holds the lease but before its operation lock and journal.
+${function:Enter-KwrOperationLockOriginal} = ${function:Enter-KwrOperationLock}
+function Enter-KwrOperationLock([string] $StateRoot) { Wait-Hook 'after-lease'; Enter-KwrOperationLockOriginal $StateRoot }
+# The game stand-in: a process whose PID the test writes to fake-game.pid; its window and foreground are assumed.
+function Get-GameWindow { $p = Get-Process -Id $PID; [pscustomobject]@{ Process = $p; Rect = [pscustomobject]@{ Left = 0; Top = 0; Right = 640; Bottom = 360 }; State = (Get-State) } }
+function Assert-GameForeground($w) { }
+if ($SkipRegistryExport) { function Export-Registry([string] $path) { } }
 function Get-SteamMirror { Add-Content -LiteralPath (Join-Path $LabRoot 'probes.log') -Value $Label; Get-SteamMirrorOriginal }
 function Invoke-Collect { Invoke-CollectOriginal; Wait-Hook 'after-collect' }
 function robocopy.exe {
@@ -110,7 +134,13 @@ if ($Barrier) {
     while (-not (Test-Path -LiteralPath $Barrier)) { if ((Get-Date) -gt $until) { throw 'barrier never opened' }; Start-Sleep -Milliseconds 5 }
 }
 try {
-    Invoke-KwrOperation $Operation | Out-Null
+    if ($RuntimeScript) {
+        # A previous KwrRuntime version: its own snapshot trees and operation function, as its top level defined them.
+        $SnapshotTrees = @(@{ Name = 'profile'; Path = $ProfileDir }, @{ Name = 'steam-remote'; Path = (Join-Path (@(Get-ChildItem -LiteralPath $SteamUserDataRoot -Directory)[0].FullName) "$AppId\remote") })
+        $output = & "Invoke-$Operation"
+    }
+    else { $output = Invoke-KwrOperation $Operation }
+    [IO.File]::WriteAllText((Join-Path $Signals "$Label.out"), (@($output) -join "`n"), [Text.UTF8Encoding]::new($false))
     Set-Content -LiteralPath (Join-Path $Signals "$Label.done") -Value ''
     exit 0
 }

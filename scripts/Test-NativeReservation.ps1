@@ -74,18 +74,19 @@ function Assert-Throws([scriptblock] $Body, [string] $Fragment, [string] $Messag
 }
 
 # Starts one KwrRuntime operation in its own process.
-function Start-Op([string] $Operation, [string] $Label, [string] $Lab, [string] $RunId = '', [string] $PauseAt = '', [string] $Barrier = '', [switch] $KeepInstalled, [switch] $FakeGameAfterAdmission, [switch] $FailExistingSnapshot, [int] $LauncherSeconds = 0) {
+function Start-Op([string] $Operation, [string] $Label, [string] $Lab, [string] $RunId = '', [string] $PauseAt = '', [string] $Barrier = '', [switch] $KeepInstalled, [switch] $FakeGameAfterAdmission, [switch] $FailExistingSnapshot, [int] $LauncherSeconds = 0, [string[]] $Extra = @()) {
     Use-Lab $Lab
     $c = Get-Convention
     $arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $contender + '"'), '-Operation', $Operation, '-Label', $Label,
         '-LabRoot', ('"' + (Get-Lab $Lab) + '"'), '-Signals', ('"' + (Get-Signals) + '"'), '-MutexName', $c.MutexName, '-RecordPath', ('"' + $c.RecordPath + '"'))
     if ($RunId) { $arguments += @('-RunId', $RunId) }
-    if ($PauseAt) { $arguments += @('-PauseAt', $PauseAt) }
+    if ($PauseAt) { $arguments += @('-PauseAt', ('"' + $PauseAt + '"')) }
     if ($Barrier) { $arguments += @('-Barrier', ('"' + $Barrier + '"')) }
     if ($KeepInstalled) { $arguments += '-KeepInstalled' }
     if ($FakeGameAfterAdmission) { $arguments += '-FakeGameAfterAdmission' }
     if ($FailExistingSnapshot) { $arguments += '-FailExistingSnapshot' }
     if ($LauncherSeconds) { $arguments += @('-LauncherSeconds', $LauncherSeconds) }
+    $arguments += $Extra
     $process = Start-Process -FilePath 'powershell.exe' -ArgumentList $arguments -WindowStyle Hidden -PassThru
     $processes.Add($process)
     return $process
@@ -104,8 +105,8 @@ function Wait-Signal([string] $Label, [string[]] $What, [int] $Seconds = 90) {
 }
 
 # Runs one operation to its end: waits on the process handle, then reads its outcome.
-function Invoke-Op([string] $Operation, [string] $Label, [string] $Lab, [string] $RunId = '', [switch] $KeepInstalled, [switch] $FakeGameAfterAdmission, [switch] $FailExistingSnapshot, [int] $LauncherSeconds = 0) {
-    $p = Start-Op $Operation $Label $Lab $RunId -KeepInstalled:$KeepInstalled -FakeGameAfterAdmission:$FakeGameAfterAdmission -FailExistingSnapshot:$FailExistingSnapshot -LauncherSeconds $LauncherSeconds
+function Invoke-Op([string] $Operation, [string] $Label, [string] $Lab, [string] $RunId = '', [switch] $KeepInstalled, [switch] $FakeGameAfterAdmission, [switch] $FailExistingSnapshot, [int] $LauncherSeconds = 0, [string[]] $Extra = @()) {
+    $p = Start-Op $Operation $Label $Lab $RunId -KeepInstalled:$KeepInstalled -FakeGameAfterAdmission:$FakeGameAfterAdmission -FailExistingSnapshot:$FailExistingSnapshot -LauncherSeconds $LauncherSeconds -Extra $Extra
     if (-not $p.WaitForExit(120000)) { throw "$Label did not finish" }
     return Wait-Signal $Label @('done', 'refused') 5
 }
@@ -114,7 +115,7 @@ function Assert-Refused($Outcome, [string] $Fragment, [string] $What) {
     if ($Outcome.What -ne 'refused') { throw "$What was not refused" }
     if ($Outcome.Text -notlike "*$Fragment*") { throw "$What was refused for another reason: $($Outcome.Text)" }
 }
-function Release-Hook([string] $Label, [string] $Hook) { Set-Content -LiteralPath (Join-Path (Get-Signals) "$Label.go-$Hook") -Value 'go' }
+function Release-Hook([string] $Label, [string] $Hook) { Set-Content -LiteralPath (Join-Path (Get-Signals) ("$Label.go-" + ($Hook -replace '[^A-Za-z0-9.-]', '-'))) -Value 'go' }
 function Get-Record { if (Test-Path -LiteralPath (Get-Convention).RecordPath) { Get-Content -LiteralPath (Get-Convention).RecordPath -Raw | ConvertFrom-Json } else { $null } }
 function Get-Journal([string] $Lab) { if (Test-Path -LiteralPath (Get-LabState $Lab)) { Get-Content -LiteralPath (Get-LabState $Lab) -Raw | ConvertFrom-Json } else { $null } }
 
@@ -143,6 +144,13 @@ function New-Record([string] $Lab, [int] $HolderProcessId, [string] $HolderStart
 function Get-DeadProcessId {
     $p = Start-Process -FilePath (Join-Path $env:WINDIR 'System32\PING.EXE') -ArgumentList @('-n', '1', '127.0.0.1') -WindowStyle Hidden -PassThru
     [void] $p.WaitForExit(10000); return $p.Id
+}
+function Get-Digests([string] $Lab) { (Get-SharedDigest $Lab) + '#' + $(if (Test-Path -LiteralPath (Get-LabState $Lab)) { Get-Sha256 (Get-LabState $Lab) } else { 'no-journal' }) + '#' + $(if (Test-Path -LiteralPath (Get-Convention).RecordPath) { Get-Sha256 (Get-Convention).RecordPath } else { 'no-lease' }) }
+function Start-FakeGame([string] $Lab, [int] $Seconds) {
+    $game = Start-Process -FilePath (Join-Path $env:WINDIR 'System32\PING.EXE') -ArgumentList @('-n', ($Seconds + 1), '127.0.0.1') -WindowStyle Hidden -PassThru
+    $processes.Add($game)
+    Set-Content -LiteralPath (Join-Path (Get-Lab $Lab) 'fake-game.pid') -Value $game.Id -NoNewline
+    return $game
 }
 function Get-OwnStart { (Get-Process -Id $PID).StartTime.ToUniversalTime().ToString('o') }
 
@@ -333,35 +341,62 @@ try {
     }
 
     # --- the close and leftovers ------------------------------------------------------------------------------------
-    Test-Case 'R1-F3 the close is serialized: a successor during the close is refused and End completes accurately' {
+    Test-Case 'R1-F3 the close: local close recorded, operation lock released, lease released last; successor survives' {
         Assert-Done (Invoke-Op 'Begin' 'f3c-begin' 'lab-a' 'run-f3c') 'Begin'
         $closed = Join-Path (Get-Lab 'lab-a') 'runtime-state\transaction.closed.json'
-        $p = Start-Op 'End' 'f3c-end' 'lab-a' 'run-f3c' -PauseAt 'before-lease-release,after-lease-release'
+        $p = Start-Op 'End' 'f3c-end' 'lab-a' 'run-f3c' -PauseAt 'assert:before completion,before-lease-release,after-lease-release'
+        [void] (Wait-Signal 'f3c-end' @('paused-assert-before-completion'))
+        Assert-Refused (Invoke-Op 'Begin' 'f3c-succ-0' 'lab-a' 'succ-0') 'reserved by KingmakerWakingRune run run-f3c' 'a successor before the close'
+        Release-Hook 'f3c-end' 'assert:before completion'
         [void] (Wait-Signal 'f3c-end' @('paused-before-lease-release'))
-        Assert-That ((Test-Path -LiteralPath $closed) -and $null -eq (Get-Journal 'lab-a') -and (Get-Record).runId -ceq 'run-f3c') 'not paused after the journal was retired'
-        Assert-Refused (Invoke-Op 'Begin' 'f3c-succ-1' 'lab-a' 'succ-1') 'reserved by KingmakerWakingRune run run-f3c' 'a successor while the lease is still held'
+        Assert-That ((Test-Path -LiteralPath $closed) -and $null -eq (Get-Journal 'lab-a') -and (Get-Record).runId -ceq 'run-f3c') 'the local close was not recorded before the lease release'
+        $lock = [IO.File]::Open((Join-Path (Get-Lab 'lab-a') 'runtime-state\operation.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None); $lock.Dispose()
+        Assert-Refused (Invoke-Op 'Begin' 'f3c-succ-1' 'lab-a' 'succ-1') 'reserved by KingmakerWakingRune run run-f3c' 'a successor while a live closer still holds the lease'
         Assert-PeerRefused 'f3c-peer-1' 'lab-b' 'run-f3c'
-        Assert-That ((Test-Path -LiteralPath $closed) -and (Get-Record).runId -ceq 'run-f3c') 'a refused successor changed the closer''s evidence or lease'
         Release-Hook 'f3c-end' 'before-lease-release'
         [void] (Wait-Signal 'f3c-end' @('paused-after-lease-release'))
-        Assert-That ($null -eq (Get-Record) -and (Test-Path -LiteralPath $closed)) 'not paused after the lease release'
-        Assert-Refused (Invoke-Op 'Begin' 'f3c-succ-2' 'lab-a' 'succ-2') 'Another Waking Rune operation is running' 'a same-lab successor while End still holds the operation lock'
-        Assert-That ($null -eq (Get-Record) -and (Test-Path -LiteralPath $closed)) 'the refused successor kept a lease or removed the closer''s closed journal'
+        Assert-Done (Invoke-Op 'Begin' 'f3c-succ-2' 'lab-a' 'succ-2') 'the successor once the lease is released'
+        $journal = Get-Sha256 (Get-LabState 'lab-a'); $record = Get-Sha256 (Get-Convention).RecordPath
         Release-Hook 'f3c-end' 'after-lease-release'; [void] $p.WaitForExit(60000)
         Assert-Done (Wait-Signal 'f3c-end' @('done', 'refused') 5) 'End'
-        Assert-That (-not (Test-Path -LiteralPath $closed) -and $null -eq (Get-Record)) 'End did not finish its close'
-        Assert-Done (Invoke-Op 'Begin' 'f3c-succ-3' 'lab-a' 'succ-3') 'the successor after the close'
-        Assert-Done (Invoke-Op 'End' 'f3c-succ-3-end' 'lab-a' 'succ-3') 'the successor End'
+        Assert-That ((Get-Sha256 (Get-LabState 'lab-a')) -eq $journal -and (Get-Sha256 (Get-Convention).RecordPath) -eq $record -and -not (Test-Path -LiteralPath $closed)) 'the closer touched the successor''s journal or lease'
+        Assert-Done (Invoke-Op 'End' 'f3c-succ-2-end' 'lab-a' 'succ-2') 'the successor End'
     }
 
-    Test-Case 'R1-F3/R1-F5 a closed journal left by an interrupted close is preserved; Begin refuses and releases in reverse order' {
+    Test-Case 'R1-F3/R1-F5 an interrupted close: kept while the closer lives, finished by this lab once it is gone; a peer waits' {
+        Assert-Done (Invoke-Op 'Begin' 'f3i-begin' 'lab-a' 'run-f3i') 'Begin'
+        $p = Start-Op 'End' 'f3i-end' 'lab-a' 'run-f3i' -PauseAt 'before-lease-release'
+        [void] (Wait-Signal 'f3i-end' @('paused-before-lease-release'))
+        Assert-Refused (Invoke-Op 'Begin' 'f3i-live' 'lab-a' 'live-try') 'reserved by KingmakerWakingRune run run-f3i' 'recovery while the closer is alive'
+        $p.Kill(); [void] $p.WaitForExit(10000)
+        $closed = Join-Path (Get-Lab 'lab-a') 'runtime-state\transaction.closed.json'
+        Assert-That ((Test-Path -LiteralPath $closed) -and (Get-Record).runId -ceq 'run-f3i') 'the interruption did not leave the closed journal and lease'
+        Assert-PeerRefused 'f3i-peer' 'lab-b' 'run-f3i'
+        Assert-Done (Invoke-Op 'Begin' 'f3i-next' 'lab-a' 'next-run') 'this lab finishing the interrupted close'
+        Assert-That (-not (Test-Path -LiteralPath $closed) -and (Get-Record).runId -ceq 'next-run') 'the interrupted close was not finished'
+        Assert-Done (Invoke-Op 'End' 'f3i-next-end' 'lab-a' 'next-run') 'End'
+        Assert-Done (Invoke-Op 'Begin' 'f3i-peer-2' 'lab-b' 'f3i-peer-2') 'the peer after the verified close'
+        Assert-Done (Invoke-Op 'End' 'f3i-peer-2-end' 'lab-b' 'f3i-peer-2') 'the peer End'
+    }
+
+    Test-Case 'R1-F5 an unattributable closed journal is preserved; Begin refuses before taking a lease' {
         $closed = Join-Path (Get-Lab 'lab-a') 'runtime-state\transaction.closed.json'
         New-Item -ItemType Directory -Force -Path (Split-Path $closed) | Out-Null
         Set-Content -LiteralPath $closed -Value '{"runId":"interrupted"}'
         $bytes = Get-Sha256 $closed
-        Assert-Refused (Invoke-Op 'Begin' 'f5c-begin' 'lab-a' 'next-run') 'closed journal from an interrupted close' 'Begin over a closed journal'
-        Assert-That ((Get-Sha256 $closed) -eq $bytes -and $null -eq (Get-Record)) 'the closed journal changed or the refused Begin kept the lease'
-        $probe = [IO.File]::Open((Join-Path (Get-Lab 'lab-a') 'runtime-state\operation.lock'), [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None); $probe.Dispose()
+        Assert-Refused (Invoke-Op 'Begin' 'f5c-begin' 'lab-a' 'next-run') 'closed journal that cannot be attributed' 'Begin over an unattributable closed journal'
+        Assert-That ((Get-Sha256 $closed) -eq $bytes -and $null -eq (Get-Record)) 'the closed journal changed or a lease was kept'
+    }
+
+    Test-Case 'R1-F5 a live pre-journal Begin keeps its lease' {
+        $p = Start-Op 'Begin' 'f5l-begin' 'lab-a' 'run-f5l' -PauseAt 'after-lease'
+        [void] (Wait-Signal 'f5l-begin' @('paused-after-lease'))
+        Assert-That ($null -eq (Get-Journal 'lab-a') -and (Get-Record).runId -ceq 'run-f5l') 'not paused between lease and journal'
+        Assert-Refused (Invoke-Op 'Begin' 'f5l-same' 'lab-a' 'other-run') 'reserved by KingmakerWakingRune run run-f5l' 'a same-lab Begin'
+        Assert-PeerRefused 'f5l-peer' 'lab-b' 'run-f5l'
+        Release-Hook 'f5l-begin' 'after-lease'; [void] $p.WaitForExit(60000)
+        Assert-Done (Wait-Signal 'f5l-begin' @('done', 'refused') 5) 'the paused Begin'
+        Assert-Done (Invoke-Op 'End' 'f5l-end' 'lab-a' 'run-f5l') 'End'
     }
 
     Test-Case 'R1-F5 an orphan lease (no journal) is never cleared by the tool' {
@@ -374,47 +409,77 @@ try {
         Assert-That ($runtimeText -notmatch 'ReleaseOrphan' -and -not (Get-Command Remove-KwrOrphanReservation -ErrorAction SilentlyContinue)) 'an orphan-release path remains'
     }
 
-    Test-Case 'R1-F6 a journal without a token is refused by every operation and nothing is written' {
+    Test-Case 'R1-F6 a previous-format transaction (written by the 6a48fbd runtime) is recovered only by End -RunId under a free lease' {
+        $old = Join-Path $root 'KwrRuntime-6a48fbd.ps1'
+        $source = (& git -C (Split-Path $PSScriptRoot) show '6a48fbd:scripts/KwrRuntime.ps1') -join "`n"
+        [IO.File]::WriteAllText($old, $source, [Text.UTF8Encoding]::new($false))
+        $shared = Get-SharedDigest 'lab-a'
+        Assert-Done (Invoke-Op 'Begin' 'f6-old-begin' 'lab-a' 'legacy-run' -Extra @('-RuntimeScript', ('"' + $old + '"'))) 'the previous runtime''s Begin'
         $state = Get-LabState 'lab-a'
-        New-Item -ItemType Directory -Force -Path (Split-Path $state) | Out-Null
-        [ordered]@{ runId = 'legacy'; phase = 'installed' } | ConvertTo-Json | Set-Content -LiteralPath $state -Encoding UTF8
-        $journal = Get-Sha256 $state
-        foreach ($op in @('Close', 'Reinstall', 'Collect', 'End')) { Assert-Refused (Invoke-Op $op "f6-$op" 'lab-a' 'legacy') 'carries no reservation token' "$op on a legacy journal" }
-        Assert-That ((Get-Sha256 $state) -eq $journal -and $null -eq (Get-Record)) 'the legacy journal changed or a lease was created'
-        Assert-Done (Invoke-Op 'Status' 'f6-status' 'lab-a') 'Status of a legacy journal'
-        Assert-That ($runtimeText -match '\[IO\.File\]::Replace\(\$temporary, \$StatePath') 'journal updates are not published atomically'
+        Assert-That ($null -ne (Get-Journal 'lab-a') -and -not ((Get-Journal 'lab-a').PSObject.Properties.Name -contains 'reservationToken') -and $null -eq (Get-Record)) 'not a previous-format transaction'
+        foreach ($op in @('Close', 'Reinstall', 'Collect')) { Assert-Refused (Invoke-Op $op "f6-$op" 'lab-a' 'legacy-run') 'carries no reservation token' "$op on a previous-format journal" }
+        Assert-Refused (Invoke-Op 'End' 'f6-wrong' 'lab-a' 'other-run') "must name the previous-format transaction's run" 'End naming another run'
+        [void] (New-Record 'KingmakerMountedCombat' 4 '2020-01-01T00:00:00.0000000Z' 'kmc-run'); $foreign = Get-Sha256 (Get-Convention).RecordPath
+        Assert-Refused (Invoke-Op 'End' 'f6-busy' 'lab-a' 'legacy-run') 'reserved by KingmakerMountedCombat' 'recovery under a foreign lease'
+        Assert-That ((Get-Sha256 (Get-Convention).RecordPath) -eq $foreign -and -not ((Get-Journal 'lab-a').PSObject.Properties.Name -contains 'reservationToken')) 'the foreign lease or the journal changed'
+        Remove-Item -LiteralPath (Get-Convention).RecordPath
+        $p = Start-Op 'End' 'f6-cut' 'lab-a' 'legacy-run' -PauseAt 'after-lease'
+        [void] (Wait-Signal 'f6-cut' @('paused-after-lease')); $p.Kill(); [void] $p.WaitForExit(10000)
+        Assert-That ((Get-Record).runId -ceq 'legacy-run' -and -not ((Get-Journal 'lab-a').PSObject.Properties.Name -contains 'reservationToken')) 'the interrupted recovery did not leave the lease and the unchanged journal'
+        Assert-Refused (Invoke-Op 'End' 'f6-after-cut' 'lab-a' 'legacy-run') 'reserved by KingmakerWakingRune run legacy-run' 'End after an interrupted publication (safe refusal)'
+        Assert-PeerRefused 'f6-peer' 'lab-b' 'legacy-run'
+        Remove-Item -LiteralPath (Get-Convention).RecordPath   # the owner's decision after investigating, for the rest of this case
+        Assert-Done (Invoke-Op 'End' 'f6-end' 'lab-a' 'legacy-run') 'End recovering the previous-format transaction'
+        Assert-That ($null -eq (Get-Journal 'lab-a') -and $null -eq (Get-Record) -and (Get-SharedDigest 'lab-a') -eq $shared) 'the previous-format transaction was not restored and released'
+        Assert-Done (Invoke-Op 'Begin' 'f6-peer-2' 'lab-b' 'f6-peer-2') 'the peer after verified completion'
+        Assert-Done (Invoke-Op 'End' 'f6-peer-2-end' 'lab-b' 'f6-peer-2') 'the peer End'
     }
 
     # --- record validation ---------------------------------------------------------------------------------------------
-    Test-Case 'R1-F7 records are validated strictly before use; a +00:00 holder start is a valid live reservation' {
+    Test-Case 'R1-F7/R3-F4 neutral records are validated on the protocol fields only, strictly and exactly' {
         $c = Get-Convention
         $state = Get-LabState 'lab-a'
-        $start = (Get-Process -Id $PID).StartTime.ToUniversalTime()
-        $good = [ordered]@{ protocol = 'kingmaker-native-test-reservation/1'; lab = 'KingmakerWakingRune'; runId = 'm'; purpose = 'p'; token = ('a' * 32); holderProcessId = $PID; holderStartUtc = $start.ToString("yyyy-MM-dd'T'HH:mm:ss.fffffff'+00:00'"); host = 'h'; createdUtc = '2026-11-28T00:00:00Z'; statePath = [IO.Path]::GetFullPath($state) }
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $c.RecordPath) | Out-Null
-        [IO.File]::WriteAllText($c.RecordPath, ($good | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
-        $bytes = Get-Sha256 $c.RecordPath
-        Assert-Throws { Enter-KwrTransactionReservation $c $state 'x' } 'reserved by KingmakerWakingRune run m' 'acquire over a valid +00:00 record'
-        Assert-Refused (Invoke-Op 'Begin' 'f7-begin' 'lab-a' 'f7-run') 'reserved by KingmakerWakingRune run m' 'Begin over a valid +00:00 record'
-        Assert-That ((Get-Sha256 $c.RecordPath) -eq $bytes) 'the valid record changed'
+        $minimal = [ordered]@{ protocol = 'kingmaker-native-test-reservation/1'; lab = 'SomeOtherLab'; runId = 'their run'; purpose = 'p'; token = 'not-hex'; holderProcessId = 4; holderStartUtc = 'whenever'; host = 'h'; createdUtc = 'then' }
+        [IO.File]::WriteAllText($c.RecordPath, ($minimal | ConvertTo-Json), [Text.UTF8Encoding]::new($false)); $bytes = Get-Sha256 $c.RecordPath
+        Assert-Refused (Invoke-Op 'Begin' 'f7-minimal' 'lab-a' 'f7-run') 'reserved by SomeOtherLab run their run' 'Begin under a protocol-fields-only foreign record'
+        Assert-That ((Get-Sha256 $c.RecordPath) -eq $bytes) 'the foreign record changed'
         $variants = @(
-            @{ protocol = "kingmaker-native-test-reservation/1`n" }, @{ protocol = 'Kingmaker-native-test-reservation/1' }, @{ createdUtc = '2026-13-45T99:00:00Z' },
-            @{ createdUtc = '2026-11-28 00:00:00' }, @{ host = $null }, @{ holderProcessId = "$PID" }, @{ token = ('A' * 32) }, @{ holderStartUtc = 'yesterday' },
-            @{ lab = 7 }, @{ statePath = 5 }, @{ runId = "m`n" })
+            @{ protocol = "kingmaker-native-test-reservation/1`n" }, @{ protocol = 'Kingmaker-native-test-reservation/1' }, @{ protocol = "kingmaker-native-test-reservation/1$([char] 0xAD)" },
+            @{ host = $null }, @{ token = $null }, @{ holderProcessId = '4' }, @{ lab = 7 }, @{ runId = "r`n" }, @{ createdUtc = 5 })
         foreach ($v in $variants) {
-            $r = [ordered]@{}; foreach ($k in $good.Keys) { $r[$k] = $good[$k] }
+            $r = [ordered]@{}; foreach ($k in $minimal.Keys) { $r[$k] = $minimal[$k] }
             foreach ($k in $v.Keys) { if ($null -eq $v[$k]) { $r.Remove($k) } else { $r[$k] = $v[$k] } }
             [IO.File]::WriteAllText($c.RecordPath, ($r | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
             $bytes = Get-Sha256 $c.RecordPath
             $what = ($v.Keys | ForEach-Object { "$_=$($v[$_])" }) -join ','
-            Assert-Throws { Enter-KwrTransactionReservation $c $state 'x' } 'malformed' "acquire ($what)"
-            Assert-Throws { Exit-KwrReservation $c (New-KwrAdmitted 'm' ('a' * 32) $state) } 'malformed' "release ($what)"
+            Assert-Throws { Enter-KwrTransactionReservation $c $state 'f7-run' } 'malformed' "acquire ($what)"
+            Assert-Throws { Exit-KwrReservation $c (New-KwrAdmitted 'f7-run' ('a' * 32) $state) } 'malformed' "release ($what)"
             Assert-That ((Get-Sha256 $c.RecordPath) -eq $bytes) "the record changed ($what)"
         }
-        [IO.File]::WriteAllBytes($c.RecordPath, [byte[]](0x7B, 0x22, 0xFF, 0xFE, 0x22, 0x7D))
-        Assert-Throws { Enter-KwrTransactionReservation $c $state 'x' } 'malformed' 'acquire (invalid UTF-8)'
-        Assert-That ((Get-Content -LiteralPath $c.RecordPath -Encoding Byte).Count -eq 6) 'the invalid record changed'
+        [IO.File]::WriteAllText($c.RecordPath, ($minimal | ConvertTo-Json), [Text.UnicodeEncoding]::new($false, $true)); $bytes = Get-Sha256 $c.RecordPath
+        Assert-Throws { Enter-KwrTransactionReservation $c $state 'f7-run' } 'malformed' 'acquire (UTF-16 record)'
+        Assert-That ((Get-Sha256 $c.RecordPath) -eq $bytes) 'the UTF-16 record changed'
         Assert-That ($null -ne (ConvertTo-KwrInstant '2026-11-28T00:00:00+00:00') -and $null -eq (ConvertTo-KwrInstant '2026-11-28T00:00:00') -and (ConvertTo-KwrInstant '2026-11-28T01:00:00+01:00').UtcTicks -eq (ConvertTo-KwrInstant '2026-11-28T00:00:00Z').UtcTicks) 'instants are not compared as instants'
+    }
+
+    Test-Case 'R1-F7 recovery checks the closer''s liveness with its parsed +00:00 instant: a live closer keeps the lease' {
+        $c = Get-Convention
+        $state = Get-LabState 'lab-a'
+        New-Item -ItemType Directory -Force -Path (Split-Path $state) | Out-Null
+        $token = [guid]::NewGuid().ToString('N')
+        [void] (New-Record 'KingmakerWakingRune' 4 '2020-01-01T00:00:00Z' 'closing-run' $state $token)
+        $start = (Get-Process -Id $PID).StartTime.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fffffff'+00:00'")
+        $closed = Join-Path (Split-Path $state) 'transaction.closed.json'
+        [IO.File]::WriteAllText($closed, ([ordered]@{ runId = 'closing-run'; reservationToken = $token; closerProcessId = $PID; closerStartUtc = $start } | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
+        $record = Get-Sha256 $c.RecordPath; $closedBytes = Get-Sha256 $closed
+        Assert-Refused (Invoke-Op 'Begin' 'f7-live' 'lab-a' 'f7-next') 'reserved by KingmakerWakingRune run closing-run' 'recovery while the closer (+00:00 instant) is alive'
+        Assert-That ((Get-Sha256 $c.RecordPath) -eq $record -and (Get-Sha256 $closed) -eq $closedBytes) 'the live closer''s lease or closed journal changed'
+        [IO.File]::WriteAllText($closed, ([ordered]@{ runId = 'closing-run'; reservationToken = $token; closerProcessId = $PID; closerStartUtc = 'not an instant' } | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
+        Assert-Refused (Invoke-Op 'Begin' 'f7-unparsable' 'lab-a' 'f7-next') 'reserved by KingmakerWakingRune run closing-run' 'recovery with an unparsable closer instant'
+        [IO.File]::WriteAllText($closed, ([ordered]@{ runId = 'closing-run'; reservationToken = $token; closerProcessId = (Get-DeadProcessId); closerStartUtc = '2020-01-01T00:00:00+00:00' } | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
+        Assert-Done (Invoke-Op 'Begin' 'f7-dead' 'lab-a' 'f7-next') 'recovery once the closer is gone'
+        Assert-Done (Invoke-Op 'End' 'f7-dead-end' 'lab-a' 'f7-next') 'End'
     }
 
     # --- ownership loss -------------------------------------------------------------------------------------------------
@@ -428,7 +493,7 @@ try {
         Assert-Refused (Wait-Signal 'f8r-reinstall' @('done', 'refused') 5) 'no longer holds' 'Reinstall after the lease was replaced'
         Assert-That ((Get-Sha256 (Get-Convention).RecordPath) -eq $replacement -and (Get-SharedDigest 'lab-a') -eq $shared) 'Reinstall wrote shared state or changed the replacement'
         $incident = Get-Content -LiteralPath (Join-Path (Get-Lab 'lab-a') 'runtime-evidence\run-f8r\reservation-incident.json') -Raw | ConvertFrom-Json
-        Assert-That ($incident.operation -eq 'Reinstall' -and $incident.observed.lease -like 'KingmakerBuffPlanner run kbp-run' -and $incident.stage -eq 'before replacing the installed mod') "inaccurate incident: $($incident | ConvertTo-Json -Compress)"
+        Assert-That ($incident.operation -eq 'Reinstall' -and $incident.observed.lease -like 'KingmakerBuffPlanner run kbp-run' -and $incident.stage -eq 'before publishing the journal' -and $incident.disposition.lease -like 'left as observed*') "inaccurate incident: $($incident | ConvertTo-Json -Compress)"
     }
 
     Test-Case 'R1-F8 only the journal identity replaced before an End restore step: no shared write; first incident survives retries' {
@@ -445,14 +510,14 @@ try {
         $run = Join-Path (Get-Lab 'lab-a') 'runtime-evidence\run-f8'
         $incidentPath = Join-Path $run 'reservation-incident.json'
         $incident = Get-Content -LiteralPath $incidentPath -Raw | ConvertFrom-Json
-        Assert-That ($incident.expected.runId -ceq 'run-f8' -and $incident.observed.journal -eq 'run someone-else' -and $incident.observed.lease -eq 'as admitted' -and $incident.stage -like 'before restoring*' -and $incident.release -like 'not released*') "inaccurate incident: $($incident | ConvertTo-Json -Compress)"
+        Assert-That ($incident.expected.runId -ceq 'run-f8' -and $incident.observed.journal -eq 'run someone-else' -and $incident.observed.lease -eq 'as admitted' -and $incident.stage -like 'before restoring*' -and $incident.disposition.lease -like 'left as observed*') "inaccurate incident: $($incident | ConvertTo-Json -Compress)"
         $first = Get-Sha256 $incidentPath
         $journal.runId = 'run-f8'; [IO.File]::WriteAllText((Get-LabState 'lab-a'), ($journal | ConvertTo-Json -Depth 6))
         Set-Content -LiteralPath (Get-Convention).RecordPath -Value 'not json'
         Assert-Refused (Invoke-Op 'End' 'f8-retry' 'lab-a' 'run-f8') 'unreadable' 'End retry over an unreadable record'
         Assert-That ((Get-Sha256 $incidentPath) -eq $first) 'the first incident was overwritten'
-        $later = @(Get-ChildItem -LiteralPath $run -Filter 'reservation-incident-*.json')
-        Assert-That ($later.Count -eq 1 -and (Get-Content -LiteralPath $later[0].FullName -Raw | ConvertFrom-Json).observed.lease -like 'unknown*') 'the later incident does not mark the unreadable lease unknown'
+        $later = Join-Path (Get-Lab 'lab-a') 'runtime-state\incidents\reservation-incident.json'
+        Assert-That ((Test-Path -LiteralPath $later) -and (Get-Content -LiteralPath $later -Raw | ConvertFrom-Json).observed.lease -like 'unknown*') 'the later (admission) incident does not mark the unreadable lease unknown'
         Assert-That ((Get-Content -LiteralPath (Get-Convention).RecordPath -Raw).Trim() -eq 'not json' -and (Get-SharedDigest 'lab-a') -eq $shared) 'the unreadable record or shared state changed'
     }
 
@@ -491,34 +556,57 @@ try {
         Assert-Done (Invoke-Op 'End' 'f23-peer-end' 'lab-b' 'f23-peer') 'the peer End'
     }
 
-    Test-Case 'R2-F4 a journal copied to another root or with only its run changed is refused; record and journal kept' {
+    Test-Case 'R2-F4 identities compare ordinally: a copied journal under a linguistically equal root, or a changed run, is refused' {
         Assert-Done (Invoke-Op 'Begin' 'f24-begin' 'lab-a' 'run-f24') 'Begin'
-        Use-Lab 'lab-b'
-        New-Item -ItemType Directory -Force -Path (Split-Path (Get-LabState 'lab-b')) | Out-Null
-        Copy-Item -LiteralPath (Get-LabState 'lab-a') -Destination (Get-LabState 'lab-b')
-        $record = Get-Sha256 (Get-Convention).RecordPath; $journal = Get-Sha256 (Get-LabState 'lab-a'); $sharedB = Get-SharedDigest 'lab-b'
-        Assert-Refused (Invoke-Op 'Close' 'f24-copy' 'lab-b' 'run-f24') 'no longer holds' 'an operation on the copied journal'
-        Assert-That ((Get-SharedDigest 'lab-b') -eq $sharedB) 'the copied journal''s root was changed'
-        $j = Get-Journal 'lab-a'; $j.runId = 'run-f24-other'; [IO.File]::WriteAllText((Get-LabState 'lab-a'), ($j | ConvertTo-Json -Depth 6)); $changed = Get-Sha256 (Get-LabState 'lab-a')
-        Assert-Refused (Invoke-Op 'Close' 'f24-run' 'lab-a' 'run-f24') 'no longer holds' 'an operation on a journal with another run'
+        $twin = "lab-a$([char] 0xAD)"
+        Assert-That ((Get-Lab $twin) -ceq (Get-Lab 'lab-a')) 'precondition: PowerShell compares the two roots as equal'
+        Use-Lab $twin
+        New-Item -ItemType Directory -Force -Path (Split-Path (Get-LabState $twin)) | Out-Null
+        Copy-Item -LiteralPath (Get-LabState 'lab-a') -Destination (Get-LabState $twin)
+        $record = Get-Sha256 (Get-Convention).RecordPath; $sharedTwin = Get-SharedDigest $twin
+        Assert-Refused (Invoke-Op 'Close' 'f24-copy' $twin 'run-f24') 'no longer holds' 'an operation on the copied journal'
+        Assert-That ((Get-SharedDigest $twin) -eq $sharedTwin -and (Get-Sha256 (Get-Convention).RecordPath) -eq $record) 'the twin root or the lease changed'
+        $j = Get-Journal 'lab-a'; $j.runId = "run-f24$([char] 0xAD)"; [IO.File]::WriteAllText((Get-LabState 'lab-a'), ($j | ConvertTo-Json -Depth 6), [Text.UTF8Encoding]::new($false)); $changed = Get-Sha256 (Get-LabState 'lab-a')
+        Assert-Refused (Invoke-Op 'Close' 'f24-run' 'lab-a' 'run-f24') 'names no valid run' 'an operation on a journal with a linguistically equal run'
         Assert-That ((Get-Sha256 (Get-Convention).RecordPath) -eq $record -and (Get-Sha256 (Get-LabState 'lab-a')) -eq $changed) 'the record or journal changed'
     }
 
-    Test-Case 'R2-F5 End waits for work the transaction started (delayed launcher, recorder stand-in)' {
+    Test-Case 'R2-F5 a launch is pending from before dispatch until resolved: a delegating launcher, an interrupted worker' {
         Assert-Done (Invoke-Op 'Begin' 'f25-begin' 'lab-a' 'run-f25') 'Begin'
-        Assert-Refused (Invoke-Op 'Launch' 'f25-launch' 'lab-a' -LauncherSeconds 25) 'did not start within the timeout' 'Launch with a delayed launcher'
-        $launcher = @((Get-Journal 'lab-a').outstanding)
-        Assert-That ($launcher.Count -eq 1 -and $launcher[0].kind -eq 'launcher') 'the launcher was not journaled'
-        Assert-Refused (Invoke-Op 'End' 'f25-end-1' 'lab-a' 'run-f25') 'still running' 'End while the launcher runs'
+        Assert-Refused (Invoke-Op 'Launch' 'f25-launch' 'lab-a' -LauncherSeconds 0 -Extra @('-PendingWindowSeconds', '12')) 'did not start within the timeout' 'Launch whose launcher exits after delegating'
+        $work = @((Get-Journal 'lab-a').outstanding)
+        Assert-That ($work.Count -eq 1 -and $work[0].kind -eq 'launch' -and $null -ne $work[0].pid -and -not $work[0].resolved) 'the launch was not journaled as pending'
+        Assert-Refused (Invoke-Op 'End' 'f25-end-1' 'lab-a' 'run-f25' -Extra @('-PendingWindowSeconds', '12')) 'outstanding' 'End while the launch is unresolved'
+        Assert-Refused (Invoke-Op 'Reinstall' 'f25-reinstall' 'lab-a' -Extra @('-PendingWindowSeconds', '12')) 'outstanding' 'Reinstall while the launch is unresolved'
         Assert-PeerRefused 'f25-peer' 'lab-b' 'run-f25'
-        $wait = Get-Process -Id ([int] $launcher[0].pid) -ErrorAction SilentlyContinue; if ($wait) { [void] $wait.WaitForExit(60000) }
-        $recorder = Start-Process -FilePath (Join-Path $env:WINDIR 'System32\PING.EXE') -ArgumentList @('-n', '8', '127.0.0.1') -WindowStyle Hidden -PassThru
-        $j = Get-Journal 'lab-a'; $j.outstanding = @($j.outstanding) + [pscustomobject]@{ kind = 'recorder'; pid = $recorder.Id; startUtc = $recorder.StartTime.ToUniversalTime().ToString('o') }
-        [IO.File]::WriteAllText((Get-LabState 'lab-a'), ($j | ConvertTo-Json -Depth 6))
-        Assert-Refused (Invoke-Op 'End' 'f25-end-2' 'lab-a' 'run-f25') 'recorder' 'End while the recorder runs'
-        [void] $recorder.WaitForExit(60000)
-        Assert-Done (Invoke-Op 'End' 'f25-end-3' 'lab-a' 'run-f25') 'End after the work finished'
-        Assert-That ($runtimeText -match "Add-KwrOutstandingWork \(Get-State\) 'recorder' \`$recorder") 'Record does not journal its recorder'
+        Start-Sleep -Seconds 13
+        Assert-Done (Invoke-Op 'End' 'f25-end-2' 'lab-a' 'run-f25' -Extra @('-PendingWindowSeconds', '12')) 'End after the launcher exited and the window passed'
+        Assert-Done (Invoke-Op 'Begin' 'f25b-begin' 'lab-a' 'run-f25b') 'Begin'
+        $p = Start-Op 'Launch' 'f25b-launch' 'lab-a' -PauseAt 'assert:before launching the game' -Extra @('-PendingWindowSeconds', '12')
+        [void] (Wait-Signal 'f25b-launch' @('paused-assert-before-launching-the-game')); $p.Kill(); [void] $p.WaitForExit(10000)
+        $work = @((Get-Journal 'lab-a').outstanding)
+        Assert-That ($work.Count -eq 1 -and $null -eq $work[0].pid) 'the interrupted launch was not pending without a process'
+        Assert-Refused (Invoke-Op 'End' 'f25b-end-1' 'lab-a' 'run-f25b' -Extra @('-PendingWindowSeconds', '12')) 'outstanding' 'End after an interrupted launch'
+        Assert-PeerRefused 'f25b-peer' 'lab-b' 'run-f25b'
+        Start-Sleep -Seconds 13
+        Assert-Done (Invoke-Op 'End' 'f25b-end-2' 'lab-a' 'run-f25b' -Extra @('-PendingWindowSeconds', '12')) 'End after the window passed'
+    }
+
+    Test-Case 'R3-F2 Launch then Record journal both processes through the operations; End waits for the recorder' {
+        Assert-Done (Invoke-Op 'Begin' 'f32-begin' 'lab-a' 'run-f32') 'Begin'
+        $p = Start-Op 'Launch' 'f32-launch' 'lab-a' -PauseAt 'assert:before launching the game'
+        [void] (Wait-Signal 'f32-launch' @('paused-assert-before-launching-the-game'))
+        $game = Start-FakeGame 'lab-a' 10
+        Release-Hook 'f32-launch' 'assert:before launching the game'; [void] $p.WaitForExit(60000)
+        Assert-Done (Wait-Signal 'f32-launch' @('done', 'refused') 5) 'Launch'
+        Assert-Done (Invoke-Op 'Record' 'f32-record' 'lab-a' -Extra @('-RecorderSeconds', '25')) 'Record'
+        $work = @((Get-Journal 'lab-a').outstanding)
+        Assert-That ($work.Count -eq 2 -and $work[0].kind -eq 'launch' -and $work[0].resolved -and $work[1].kind -eq 'recorder' -and $null -ne $work[1].pid) "journaled work: $($work | ConvertTo-Json -Compress)"
+        [void] $game.WaitForExit(30000)
+        Assert-Done (Invoke-Op 'Close' 'f32-close' 'lab-a') 'Close'
+        Assert-Refused (Invoke-Op 'End' 'f32-end-1' 'lab-a' 'run-f32') 'recorder' 'End while the recorder runs'
+        $recorder = Get-Process -Id ([int] $work[1].pid) -ErrorAction SilentlyContinue; if ($recorder) { [void] $recorder.WaitForExit(60000) }
+        Assert-Done (Invoke-Op 'End' 'f32-end-2' 'lab-a' 'run-f32') 'End after the recorder exited'
     }
 
     Test-Case 'R2-F6 a game process appearing during collection stops End before restoring' {
@@ -535,27 +623,106 @@ try {
         Assert-Done (Invoke-Op 'End' 'f26-end-2' 'lab-a' 'run-f26') 'End without the process'
     }
 
-    Test-Case 'R1-F4 a missing backup file, a corrupted settings backup or a changed retained Info.json refuse before shared writes' {
+    Test-Case 'R1-F4/R3-F7 damaged backups and a changed retained Info.json refuse with every digest unchanged; intact inputs recover' {
         Assert-Done (Invoke-Op 'Begin' 'f4d-begin' 'lab-a' 'run-f4d') 'Begin'
         $tx = Join-Path (Get-Lab 'lab-a') 'runtime-backups\run-f4d'
         Set-Content -LiteralPath (Join-Path (Get-Lab 'lab-a') 'profile\Saved Games\Test_1.zks') -Value 'test save'
-        $shared = Get-SharedDigest 'lab-a'; $record = Get-Sha256 (Get-Convention).RecordPath
+        $before = Get-Digests 'lab-a'
         Move-Item -LiteralPath (Join-Path $tx 'steam-remote\Owner_1.zks') -Destination (Join-Path $root 'aside.zks')
         Assert-Refused (Invoke-Op 'End' 'f4d-1' 'lab-a' 'run-f4d') 'steam-remote snapshot differs from its inventory' 'End with a missing Steam backup file'
+        Assert-That ((Get-Digests 'lab-a') -eq $before) 'shared, journal or lease changed after the missing-backup refusal'
         Move-Item -LiteralPath (Join-Path $root 'aside.zks') -Destination (Join-Path $tx 'steam-remote\Owner_1.zks')
+        $saved = Join-Path $tx 'profile\Saved Games\Owner_1.zks'
+        $time = (Get-Item -LiteralPath $saved).LastWriteTimeUtc; $original = [IO.File]::ReadAllBytes($saved)
+        $damaged = [byte[]] $original.Clone(); $damaged[0] = $damaged[0] -bxor 0x01; [IO.File]::WriteAllBytes($saved, $damaged); (Get-Item -LiteralPath $saved).LastWriteTimeUtc = $time
+        Assert-Refused (Invoke-Op 'End' 'f4d-2' 'lab-a' 'run-f4d') 'profile snapshot content differs from its SHA-256 manifest' 'End with a same-length, same-time damaged backup'
+        Assert-That ((Get-Digests 'lab-a') -eq $before) 'shared, journal or lease changed after the damaged-backup refusal'
+        [IO.File]::WriteAllBytes($saved, $original); (Get-Item -LiteralPath $saved).LastWriteTimeUtc = $time
         Copy-Item -LiteralPath (Join-Path $tx 'Params.xml') -Destination (Join-Path $root 'aside.xml')
         Set-Content -LiteralPath (Join-Path $tx 'Params.xml') -Value '<Param><ShowOnStart>0</ShowOnStart></Param>'
-        Assert-Refused (Invoke-Op 'End' 'f4d-2' 'lab-a' 'run-f4d') 'Params.xml differs from its recorded digest' 'End with a corrupted settings backup'
+        Assert-Refused (Invoke-Op 'End' 'f4d-3' 'lab-a' 'run-f4d') 'Params.xml differs from its recorded digest' 'End with a corrupted settings backup'
+        Assert-That ((Get-Digests 'lab-a') -eq $before) 'shared, journal or lease changed after the corrupted-settings refusal'
         Copy-Item -LiteralPath (Join-Path $root 'aside.xml') -Destination (Join-Path $tx 'Params.xml') -Force
         $info = Join-Path (Get-Lab 'lab-a') 'game\Mods\KingmakerWakingRune\Info.json'
         Copy-Item -LiteralPath $info -Destination (Join-Path $root 'aside.json'); Set-Content -LiteralPath $info -Value '{"Id":"changed"}'
-        $shared = Get-SharedDigest 'lab-a'
-        Assert-Refused (Invoke-Op 'End' 'f4d-3' 'lab-a' 'run-f4d' -KeepInstalled) 'Info.json and KingmakerWakingRune.dll' 'End -KeepInstalled with a changed Info.json'
-        Assert-That ((Get-SharedDigest 'lab-a') -eq $shared -and (Get-Sha256 (Get-Convention).RecordPath) -eq $record -and $null -ne (Get-Journal 'lab-a')) 'a refusal wrote shared state or dropped the lease or journal'
+        $before = Get-Digests 'lab-a'
+        Assert-Refused (Invoke-Op 'End' 'f4d-4' 'lab-a' 'run-f4d' -KeepInstalled) 'Info.json and KingmakerWakingRune.dll' 'End -KeepInstalled with a changed Info.json'
+        Assert-That ((Get-Digests 'lab-a') -eq $before) 'shared, journal or lease changed after the -KeepInstalled refusal'
         Copy-Item -LiteralPath (Join-Path $root 'aside.json') -Destination $info -Force
-        Assert-Done (Invoke-Op 'End' 'f4d-4' 'lab-a' 'run-f4d' -KeepInstalled) 'End -KeepInstalled with intact inputs'
-        $kept = @(Get-ChildItem -LiteralPath (Join-Path (Get-Lab 'lab-a') 'game\Mods\KingmakerWakingRune') -Force | ForEach-Object Name | Sort-Object)
-        Assert-That (($kept -join '|') -ceq 'Info.json|KingmakerWakingRune.dll' -and $null -eq (Get-Record)) "the kept candidate holds $($kept -join ', ') or the lease was kept"
+        Set-Content -LiteralPath (Join-Path (Get-Lab 'lab-a') 'game\Mods\KingmakerWakingRune\command.request') -Value 'pending harness command'
+        Assert-Done (Invoke-Op 'End' 'f4d-5' 'lab-a' 'run-f4d' -KeepInstalled) 'End -KeepInstalled with intact inputs and a pending command'
+        $mod = Join-Path (Get-Lab 'lab-a') 'game\Mods\KingmakerWakingRune'
+        $kept = @(Get-ChildItem -LiteralPath $mod -Force | ForEach-Object Name | Sort-Object)
+        Assert-That (($kept -join '|') -ceq 'Info.json|KingmakerWakingRune.dll' -and (Get-Sha256 (Join-Path $mod 'Info.json')) -eq (Get-Sha256 (Join-Path $root 'aside.json')) -and $null -eq (Get-Record)) "the kept candidate holds $($kept -join ', '), its Info.json differs, or the lease was kept"
+    }
+
+    Test-Case 'R1-F4 a retained Info.json changed after the preflight is caught by the recheck after cleanup' {
+        Assert-Done (Invoke-Op 'Begin' 'f4m-begin' 'lab-a' 'run-f4m') 'Begin'
+        $p = Start-Op 'End' 'f4m-end' 'lab-a' 'run-f4m' -KeepInstalled -PauseAt 'assert:before restoring Mods'
+        [void] (Wait-Signal 'f4m-end' @('paused-assert-before-restoring-Mods'))
+        Set-Content -LiteralPath (Join-Path (Get-Lab 'lab-a') 'game\Mods\KingmakerWakingRune\Info.json') -Value '{"Id":"changed late"}'
+        Release-Hook 'f4m-end' 'assert:before restoring Mods'; [void] $p.WaitForExit(60000)
+        Assert-Refused (Wait-Signal 'f4m-end' @('done', 'refused') 5) 'not exactly the recorded packaged files' 'End -KeepInstalled with a late manifest change'
+        Assert-That ($null -ne (Get-Journal 'lab-a') -and $null -ne (Get-Record)) 'the journal or lease was not kept'
+    }
+
+    Test-Case 'R1-F4 a baseline missing before the first shared change: Begin stops, End closes it unmutated' {
+        $shared = Get-SharedDigest 'lab-a'
+        Assert-Refused (Invoke-Op 'Begin' 'f4b2-begin' 'lab-a' 'run-f4b2' -Extra @('-SkipRegistryExport')) 'Baseline registry.reg was not captured' 'Begin without the registry baseline'
+        Assert-That ((Get-Journal 'lab-a').phase -eq 'snapshotting' -and (Get-SharedDigest 'lab-a') -eq $shared) 'Begin passed snapshotting or changed shared state'
+        Assert-Done (Invoke-Op 'End' 'f4b2-end' 'lab-a' 'run-f4b2') 'End'
+        Assert-That ((Get-SharedDigest 'lab-a') -eq $shared -and $null -eq (Get-Record)) 'End changed shared state or kept the lease'
+    }
+
+    Test-Case 'R2-F6 End preserves the current state (an owner save changed meanwhile) before rolling back and records the difference' {
+        Assert-Done (Invoke-Op 'Begin' 'f26p-begin' 'lab-a' 'run-f26p') 'Begin'
+        Set-Content -LiteralPath (Join-Path (Get-Lab 'lab-a') 'profile\Saved Games\Owner_1.zks') -Value 'owner progress made meanwhile'
+        Assert-Done (Invoke-Op 'End' 'f26p-end' 'lab-a' 'run-f26p') 'End'
+        $preserved = @(Get-ChildItem -LiteralPath (Join-Path (Get-Lab 'lab-a') 'runtime-evidence\run-f26p') -Directory -Filter 'pre-rollback-*')
+        Assert-That ($preserved.Count -eq 1) 'no pre-rollback preservation'
+        Assert-That ((Get-Content -LiteralPath (Join-Path $preserved[0].FullName 'profile\Saved Games\Owner_1.zks') -Raw).Trim() -eq 'owner progress made meanwhile') 'the changed owner save was not preserved'
+        Assert-That ((Get-Content -LiteralPath (Join-Path $preserved[0].FullName 'differences.json') -Raw) -like '*changed:Saved Games\\Owner_1.zks*') 'the difference was not recorded'
+    }
+
+    Test-Case 'R3-F1 a regular file at the mod folder path stops Begin before any change' {
+        $target = Join-Path (Get-Lab 'lab-a') 'game\Mods\KingmakerWakingRune'
+        Set-Content -LiteralPath $target -Value 'a file, not a folder'
+        $shared = Get-SharedDigest 'lab-a'
+        Assert-Refused (Invoke-Op 'Begin' 'f31-begin' 'lab-a' 'run-f31') 'exists but is not a folder' 'Begin with a file at the mod path'
+        Assert-That ((Get-SharedDigest 'lab-a') -eq $shared -and $null -eq (Get-Record) -and $null -eq (Get-Journal 'lab-a')) 'the file or settings changed, or a lease or journal remained'
+    }
+
+    Test-Case 'R3-F3 a run ID ending in a line feed is refused before any record or journal; a valid contender is admitted' {
+        Assert-Refused (Invoke-Op 'Begin' 'f33-begin' 'lab-a' 'run-f33' -Extra @('-RunIdSuffixLF')) 'A -RunId of 3-80 safe characters is required' 'Begin with a trailing line feed'
+        Assert-That ($null -eq (Get-Record) -and $null -eq (Get-Journal 'lab-a') -and -not (Test-Path -LiteralPath (Split-Path -Parent (Get-Convention).RecordPath))) 'a record, journal or reservation folder was created'
+        Assert-Done (Invoke-Op 'Begin' 'f33-valid' 'lab-b' 'run-f33') 'a valid contender'
+        Assert-Done (Invoke-Op 'End' 'f33-valid-end' 'lab-b' 'run-f33') 'End'
+    }
+
+    Test-Case 'R3-F5 incidents from rejected journals go to the lab''s incidents folder, never a journal-chosen path' {
+        Assert-Done (Invoke-Op 'Begin' 'f35-begin' 'lab-a' 'run-f35') 'Begin'
+        $j = Get-Journal 'lab-a'; $j.runId = 'another-run'; [IO.File]::WriteAllText((Get-LabState 'lab-a'), ($j | ConvertTo-Json -Depth 6), [Text.UTF8Encoding]::new($false))
+        $evidence = Get-TreeDigest (Join-Path (Get-Lab 'lab-a') 'runtime-evidence')
+        Assert-Refused (Invoke-Op 'Close' 'f35-other' 'lab-a') 'no longer holds' 'a journal naming another run'
+        $incidents = Join-Path (Get-Lab 'lab-a') 'runtime-state\incidents'
+        $first = Get-Content -LiteralPath (Join-Path $incidents 'reservation-incident.json') -Raw | ConvertFrom-Json
+        Assert-That ($first.expected.claimedRunId -ceq 'another-run' -and $first.expected.verified -eq $false -and $first.observed.lease -like 'KingmakerWakingRune run run-f35') "inaccurate incident: $($first | ConvertTo-Json -Compress)"
+        $j.runId = '..\..\escape'; [IO.File]::WriteAllText((Get-LabState 'lab-a'), ($j | ConvertTo-Json -Depth 6), [Text.UTF8Encoding]::new($false))
+        Assert-Refused (Invoke-Op 'Close' 'f35-path' 'lab-a') 'names no valid run' 'a journal with an invalid path component'
+        Assert-That ((Get-TreeDigest (Join-Path (Get-Lab 'lab-a') 'runtime-evidence')) -eq $evidence -and -not (Test-Path -LiteralPath (Join-Path $root 'escape'))) 'evidence changed or a journal-named directory was created'
+        Assert-That ((Get-Content -LiteralPath (Join-Path $incidents 'reservation-incident.json') -Raw | ConvertFrom-Json).expected.claimedRunId -ceq 'another-run') 'the first incident was replaced'
+    }
+
+    Test-Case 'R3-F6 a non-ASCII package path round-trips through Begin, Close and Status' {
+        $name = "kandid$([char] 0xE1)t-$([char] 0x00FC)-$([char] 0x4E2D).zip"
+        $expected = Join-Path (Get-Lab 'lab-a') $name
+        Assert-Done (Invoke-Op 'Begin' 'f36-begin' 'lab-a' 'run-f36' -Extra @('-PackageName', $name)) 'Begin'
+        Assert-Done (Invoke-Op 'Close' 'f36-close' 'lab-a') 'Close'
+        Assert-Done (Invoke-Op 'Status' 'f36-status' 'lab-a') 'Status'
+        $journal = [IO.File]::ReadAllText((Get-LabState 'lab-a'), [Text.UTF8Encoding]::new($false, $true)) | ConvertFrom-Json
+        $status = [IO.File]::ReadAllText((Join-Path (Get-Signals) 'f36-status.out'), [Text.UTF8Encoding]::new($false, $true)) | ConvertFrom-Json
+        Assert-That ([string]::Equals($journal.package, $expected, [StringComparison]::Ordinal) -and [string]::Equals($status.package, $expected, [StringComparison]::Ordinal)) "package recorded as '$($journal.package)' / Status '$($status.package)'"
+        Assert-Done (Invoke-Op 'End' 'f36-end' 'lab-a' 'run-f36') 'End'
     }
 
     Test-Case 'each collection gets its own evidence folder' {

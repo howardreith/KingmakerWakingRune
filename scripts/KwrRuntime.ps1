@@ -22,7 +22,7 @@
   discovery included), then takes this lab's operation lock and journal. Every other operation except Status (which reads
   only the journal) needs an open transaction whose journal and lease are still the same run, token and journal path,
   and holds the operation lock for its whole duration. The admitted identity is rechecked immediately before every shared
-  change, and End releases the lease last. Other Kingmaker labs implementing the same protocol are excluded meanwhile;
+  change and journal update. End records its close, releases the operation lock and releases the lease last. Other Kingmaker labs implementing the same protocol are excluded meanwhile;
   none of them needs to be installed.
 #>
 [CmdletBinding()]
@@ -73,6 +73,9 @@ $RegKey = 'HKCU\Software\Owlcat Games\Pathfinder Kingmaker'
 $SteamExe = 'C:\Program Files (x86)\Steam\steam.exe'
 $SteamCloudLog = 'C:\Program Files (x86)\Steam\logs\cloud_log.txt'
 $AppId = '640820'
+$FfmpegExe = 'ffmpeg'
+# How long a launch or recording whose process cannot be confirmed stays pending (Steam may start the game late).
+$KwrPendingWindowSeconds = 180
 $SteamUserDataRoot = 'C:\Program Files (x86)\Steam\userdata'
 
 Add-Type -AssemblyName System.Drawing
@@ -103,11 +106,12 @@ function Write-Step([string] $m) { Write-Host ("[{0:HH:mm:ss}] {1}" -f (Get-Date
 
 function Get-State {
     if (-not (Test-Path -LiteralPath $StatePath)) { return $null }
-    return Get-Content -LiteralPath $StatePath -Raw | ConvertFrom-Json
+    return [IO.File]::ReadAllText($StatePath, [Text.UTF8Encoding]::new($false, $true)).TrimStart([char] 0xFEFF) | ConvertFrom-Json
 }
 
 # Published atomically: a temporary file replaces the journal, so a reader sees the previous or the new state.
 function Save-State($s) {
+    if ($script:KwrAdmitted) { Assert-KwrSharedMutation 'before publishing the journal' }
     New-Item -ItemType Directory -Force -Path $StateRoot | Out-Null
     $temporary = $StatePath + '.tmp'
     [IO.File]::WriteAllText($temporary, ($s | ConvertTo-Json -Depth 6), [Text.UTF8Encoding]::new($false))
@@ -215,37 +219,85 @@ function Get-SnapshotTrees($s) {
     return @(@{ Name = 'profile'; Path = $ProfileDir }, @{ Name = 'steam-remote'; Path = [string] $s.steamMirror })
 }
 
+# Every baseline file End relies on.
+function Get-KwrBaselineFiles($s) {
+    $files = @('profile-inventory.json', 'profile-sha256.json', 'steam-remote-inventory.json', 'steam-remote-sha256.json', 'registry.reg', 'Params.xml', 'mods-inventory.json')
+    if ($s.existingMod) { $files += @('mod-existing-inventory.json', 'mod-existing-sha256.json') }
+    return $files
+}
+
 function Get-Sha256([string] $Path) { (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() }
 
 # Immediately before every shared change: the journal and lease must still be the admitted run, token and journal path.
-# A loss of either is recorded as the run's ownership incident and stops the operation.
+# A loss of either is recorded as the run's ownership incident (the run was verified at admission, so its evidence path is
+# contained) and stops the operation.
 function Assert-KwrSharedMutation([string] $Stage) {
     $loss = Get-KwrOwnershipLoss $ReservationConvention $script:KwrAdmitted
     if (-not $loss) { return }
-    $incident = Write-KwrReservationIncident $ReservationConvention (Join-Path $EvidenceRoot $script:KwrAdmitted.RunId) $script:KwrAdmitted $loss $script:KwrOperation $Stage $script:KwrProgress.ToArray()
+    $expected = [ordered]@{ lab = 'KingmakerWakingRune'; runId = $script:KwrAdmitted.RunId; token = $script:KwrAdmitted.Token; statePath = $script:KwrAdmitted.StatePath }
+    $incident = Write-KwrReservationIncident $ReservationConvention (Join-Path $EvidenceRoot $script:KwrAdmitted.RunId) $expected $loss $script:KwrOperation $Stage $script:KwrProgress.ToArray() $script:KwrDifferences.ToArray()
     throw "This Waking Rune transaction ($($script:KwrAdmitted.RunId)) no longer holds the Kingmaker native-test reservation or its journal (lease: $($loss.Lease); journal: $($loss.Journal)) $Stage; nothing more was changed. Incident: $incident"
 }
 
-# Processes the transaction started (the Steam launcher, recorders) that may still be running: same PID and start time.
-function Add-KwrOutstandingWork($s, [string] $Kind, $Process) {
-    $entry = [ordered]@{ kind = $Kind; pid = $Process.Id; startUtc = $Process.StartTime.ToUniversalTime().ToString('o') }
-    $existing = if ($s.PSObject.Properties['outstanding']) { @($s.outstanding) } else { @() }
-    if ($s -is [System.Collections.IDictionary]) { $s['outstanding'] = @($existing + $entry) }
-    else { $s | Add-Member -NotePropertyName outstanding -NotePropertyValue @($existing + $entry) -Force }
+# Work the transaction starts (a launch, a recording) is journaled before it is dispatched, then its process identity.
+# It stays outstanding until an affirmative outcome: a launch until the game was observed, or its launcher has exited and
+# the pending window has passed; a recording until its recorder process has exited (or, with no process recorded, the
+# window has passed).
+function Get-KwrOutstanding($s) { return @(Get-KwrProp $s 'outstanding' | Where-Object { $null -ne $_ }) }
+
+function Set-KwrOutstanding($s, [object[]] $Entries) {
+    if ($s -is [System.Collections.IDictionary]) { $s['outstanding'] = @($Entries) }
+    else { $s | Add-Member -NotePropertyName outstanding -NotePropertyValue @($Entries) -Force }
     Save-State $s
 }
 
+function Add-KwrOutstandingWork($s, [string] $Kind) {
+    $entry = [pscustomobject]@{ id = [guid]::NewGuid().ToString('N').Substring(0, 12); kind = $Kind; requestedUtc = (Get-Date).ToUniversalTime().ToString('o'); pid = $null; startUtc = $null; resolved = $false }
+    Set-KwrOutstanding $s (@(Get-KwrOutstanding $s) + @($entry))
+    return $entry.id
+}
+
+function Update-KwrOutstanding($s, [string] $Id, [scriptblock] $Change) {
+    $entries = @(Get-KwrOutstanding $s)
+    foreach ($entry in $entries) { if (Test-KwrSame ([string] $entry.id) $Id) { & $Change $entry } }
+    Set-KwrOutstanding $s $entries
+}
+
 function Get-KwrOutstandingWork($s) {
-    if (-not $s.PSObject.Properties['outstanding']) { return @() }
-    return @(@($s.outstanding) | Where-Object {
+    $now = [DateTimeOffset]::UtcNow
+    return @(Get-KwrOutstanding $s | Where-Object {
         $entry = $_
-        $process = Get-Process -Id ([int] $entry.pid) -ErrorAction SilentlyContinue
-        $process -and $process.StartTime.ToUniversalTime().ToString('o') -ceq [string] $entry.startUtc
+        if ($entry.resolved -eq $true) { return $false }
+        $alive = $null -ne $entry.pid -and (Test-KwrWriterAlive $entry.pid ([string] $entry.startUtc))
+        $requested = ConvertTo-KwrInstant ([string] $entry.requestedUtc)
+        $windowOpen = $null -eq $requested -or $now -lt $requested.AddSeconds($KwrPendingWindowSeconds)
+        if ($entry.kind -eq 'recorder' -and $null -ne $entry.pid) { return $alive }
+        return ($alive -or $windowOpen)
     })
 }
 
+# SHA-256 of every file of a tree, by relative path.
+function Get-KwrContentManifest([string] $Root) {
+    $manifest = [ordered]@{}
+    if (-not (Test-Path -LiteralPath $Root -PathType Container)) { return $manifest }
+    $full = [IO.Path]::GetFullPath($Root).TrimEnd('\')
+    foreach ($f in @(Get-ChildItem -LiteralPath $full -Recurse -File -Force | Sort-Object FullName)) { $manifest[$f.FullName.Substring($full.Length + 1)] = Get-Sha256 $f.FullName }
+    return $manifest
+}
+
+function Test-KwrContentManifest([string] $Root, [string] $ManifestPath) {
+    $expected = [ordered]@{}
+    (Read-KwrUtf8Json $ManifestPath).PSObject.Properties | ForEach-Object { $expected[$_.Name] = [string] $_.Value }
+    $actual = Get-KwrContentManifest $Root
+    if ($expected.Count -ne $actual.Count) { return $false }
+    foreach ($key in $expected.Keys) { if (-not $actual.Contains($key) -or -not (Test-KwrSame $actual[$key] $expected[$key])) { return $false } }
+    return $true
+}
+
+function Write-KwrJsonFile([string] $Path, $Value) { [IO.File]::WriteAllText($Path, ($Value | ConvertTo-Json -Depth 6), [Text.UTF8Encoding]::new($false)) }
+
 function Invoke-Begin {
-    if (-not $RunId -or $RunId -notmatch '^[A-Za-z0-9._-]{3,80}$') { throw 'A -RunId of 3-80 safe characters is required.' }
+    if (-not (Test-KwrRunId $RunId)) { throw 'A -RunId of 3-80 safe characters is required.' }
     if (-not $PackagePath) { throw 'A -PackagePath to the built zip is required.' }
     # The neutral reservation comes first, then this lab's operation lock and journal; nothing shared is read or written
     # before. Until the journal is saved nothing shared has changed, so a refusal or failure releases in reverse order
@@ -257,7 +309,8 @@ function Invoke-Begin {
     Enter-KwrOperationLock $StateRoot
     if (Get-State) { throw "A transaction is already open: $StatePath. Run End (or inspect) first." }
     $closedJournal = Get-KwrClosedJournalPath $StatePath
-    if (Test-Path -LiteralPath $closedJournal) { throw "A closed journal from an interrupted close exists ($closedJournal); it is left for the owner (README, Native test runs)." }
+    if (Test-Path -LiteralPath $closedJournal) { throw "A closed journal from an interrupted close exists ($closedJournal); it is left for the owner." }
+    if ((Test-Path -LiteralPath $ModDir) -and -not (Test-Path -LiteralPath $ModDir -PathType Container)) { throw "$ModDir exists but is not a folder; refusing before any change." }
     if (@(Get-GameProcesses).Count -gt 0) { throw 'Kingmaker is running; it may be an owner session. Refusing to start.' }
     $validated = New-KwrValidatedPackageCopy $PackagePath -Diagnostic:$Diagnostic
     try {
@@ -274,7 +327,10 @@ function Invoke-Begin {
     $script:KwrAdmitted = $lease
 
     Write-Step 'Snapshotting Kingmaker profile and Steam save mirror...'
-    foreach ($t in (Get-SnapshotTrees $s)) { Save-Tree $t.Name $t.Path $tx }
+    foreach ($t in (Get-SnapshotTrees $s)) {
+        Save-Tree $t.Name $t.Path $tx
+        Write-KwrJsonFile (Join-Path $tx "$($t.Name)-sha256.json") (Get-KwrContentManifest (Join-Path $tx $t.Name))
+    }
     Export-Registry (Join-Path $tx 'registry.reg')
     Copy-Item -LiteralPath $UmmParams -Destination (Join-Path $tx 'Params.xml')
     (Get-Inventory $ModsRoot) | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $tx 'mods-inventory.json') -Encoding UTF8
@@ -291,11 +347,13 @@ function Invoke-Begin {
         $d = Compare-Inventory $existingInventory (Get-Inventory (Join-Path $tx 'mod-existing'))
         if ($d.Count -gt 0) { throw "Existing mod snapshot does not match: $($d -join '; ')" }
         $existingInventory | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $tx 'mod-existing-inventory.json') -Encoding UTF8
+        Write-KwrJsonFile (Join-Path $tx 'mod-existing-sha256.json') (Get-KwrContentManifest (Join-Path $tx 'mod-existing'))
     }
-    # Independent integrity evidence for every baseline End relies on.
+    # The complete baseline set, with independent integrity evidence for each file, before anything shared changes.
     $digests = [ordered]@{}
-    foreach ($file in @('profile-inventory.json', 'steam-remote-inventory.json', 'registry.reg', 'Params.xml', 'mods-inventory.json', 'mod-existing-inventory.json')) {
-        if (Test-Path -LiteralPath (Join-Path $tx $file) -PathType Leaf) { $digests[$file] = Get-Sha256 (Join-Path $tx $file) }
+    foreach ($file in (Get-KwrBaselineFiles $s)) {
+        if (-not (Test-Path -LiteralPath (Join-Path $tx $file) -PathType Leaf)) { throw "Baseline $file was not captured; nothing shared was changed (End closes this transaction)." }
+        $digests[$file] = Get-Sha256 (Join-Path $tx $file)
     }
     $s.baselineDigests = $digests
     $s.phase = 'snapshotted'
@@ -359,6 +417,7 @@ function Invoke-Reinstall {
         Save-State $s
         Assert-KwrSharedMutation 'before replacing the installed mod'
         if (Test-Path -LiteralPath $ModDir) { Remove-Item -LiteralPath $ModDir -Recurse -Force }
+        Assert-KwrSharedMutation 'before placing the new mod'
         Move-Item -LiteralPath $stagedMod -Destination $ModDir
         if ((Get-FileHash -LiteralPath (Join-Path $ModDir 'KingmakerWakingRune.dll') -Algorithm SHA256).Hash.ToLowerInvariant() -cne $validated.DllSha256) { throw 'Installed DLL differs from the validated package.' }
         if ($recon) { Set-Content -LiteralPath (Join-Path $ModDir 'recon.flag') -Value 'recon' }
@@ -394,21 +453,22 @@ function Invoke-Launch {
     Assert-SteamCloudOffline
     $since = Get-Date
     $argList = @('-applaunch', $AppId) + $LaunchArgs
+    $work = Add-KwrOutstandingWork $s 'launch'
     Assert-KwrSharedMutation 'before launching the game'
     $launcher = Start-Process -FilePath $SteamExe -ArgumentList $argList -PassThru
-    Add-KwrOutstandingWork $s 'launcher' $launcher
+    Update-KwrOutstanding $s $work { param($e) $e.pid = $launcher.Id; $e.startUtc = $launcher.StartTime.ToUniversalTime().ToString('o') }
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     $p = $null
     while ((Get-Date) -lt $deadline -and -not $p) {
         Start-Sleep -Seconds 2
         $p = Get-GameProcesses | Where-Object { $_.StartTime -ge $since.AddSeconds(-5) } | Select-Object -First 1
     }
-    if (-not $p) { throw 'Kingmaker did not start within the timeout.' }
+    if (-not $p) { throw 'Kingmaker did not start within the timeout; the launch stays pending until its launcher has exited and its window has passed.' }
     while ((Get-Date) -lt $deadline -and $p.MainWindowHandle -eq [IntPtr]::Zero) { Start-Sleep -Seconds 1; $p.Refresh() }
     $s.gamePid = $p.Id
     $s.gameStart = $p.StartTime.ToString('o')
     $s.phase = 'running'
-    Save-State $s
+    Update-KwrOutstanding $s $work { param($e) $e.resolved = $true }
     Write-Step "Owned game process pid=$($p.Id) args='$($LaunchArgs -join ' ')'."
 }
 
@@ -489,8 +549,10 @@ function Invoke-Record {
     $r = $w.Rect
     $grab = 'ddagrab=framerate=30:offset_x={0}:offset_y={1}:video_size={2}x{3},hwdownload,format=bgra,scale=1280:720,format=yuv420p' -f $r.Left, $r.Top, ($r.Right - $r.Left), ($r.Bottom - $r.Top)
     $arguments = @('-hide_banner', '-loglevel', 'error', '-y', '-init_hw_device', 'd3d11va', '-filter_complex', $grab, '-t', "$Seconds", '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', "`"$file`"")
-    $recorder = Start-Process -FilePath 'ffmpeg' -ArgumentList $arguments -WindowStyle Hidden -PassThru
-    Add-KwrOutstandingWork (Get-State) 'recorder' $recorder
+    $s = Get-State
+    $work = Add-KwrOutstandingWork $s 'recorder'
+    $recorder = Start-Process -FilePath $FfmpegExe -ArgumentList $arguments -WindowStyle Hidden -PassThru
+    Update-KwrOutstanding $s $work { param($e) $e.pid = $recorder.Id; $e.startUtc = $recorder.StartTime.ToUniversalTime().ToString('o') }
     Write-Output $file
 }
 
@@ -511,6 +573,7 @@ function Invoke-Command {
     $s = Get-State
     if (-not (Get-OwnedProcess $s)) { throw 'No owned game process is running.' }
     $file = Join-Path (Get-RunDir $s) ('{0:HHmmss_fff}-cmd.txt' -f (Get-Date))
+    Assert-KwrSharedMutation 'before sending a harness command'
     [IO.File]::WriteAllText((Join-Path $ModDir 'command.request'), "$file`n$Text")
     $deadline = (Get-Date).AddSeconds(30)
     while ((Get-Date) -lt $deadline) {
@@ -623,6 +686,7 @@ function Invoke-Close {
         Write-Step 'Owned game process already exited.'
     }
     else {
+        Assert-KwrSharedMutation 'before closing the owned game'
         [void]$p.CloseMainWindow()
         if (-not $p.WaitForExit(60000)) {
             Write-Step 'Game did not exit after a close request; terminating the owned process only.'
@@ -681,17 +745,18 @@ function Import-KwrRegistry([string] $path) {
 function Invoke-End {
     $s = Get-State
     if (-not $s) { throw 'No open transaction.' }
-    if (-not $RunId -or $RunId -cne [string] $s.runId) { throw "End needs -RunId of the open transaction ($($s.runId)); refusing." }
+    if (-not (Test-KwrSame $RunId (Get-KwrProp $s 'runId'))) { throw "End needs -RunId of the open transaction ($(Get-KwrProp $s 'runId')); refusing." }
+    $legacy = [bool] (Get-KwrProp $s 'legacyRecovery')
     if (Get-OwnedProcess $s) { throw 'The owned game is still running; Close it first.' }
     if (@(Get-GameProcesses).Count -gt 0) { throw 'A Kingmaker process is running; refusing to restore underneath it.' }
     $outstanding = @(Get-KwrOutstandingWork $s)
-    if ($outstanding.Count -gt 0) { throw "Work this transaction started is still running ($(@($outstanding | ForEach-Object { "$($_.kind) $($_.pid)" }) -join ', ')); End waits for it. The journal and the reservation stay." }
+    if ($outstanding.Count -gt 0) { throw "Work this transaction started is still outstanding ($(@($outstanding | ForEach-Object { "$($_.kind) $($_.pid)" }) -join ', ')); End waits for it. The journal and the reservation stay." }
     $tx = Join-Path $BackupRoot $s.runId
     $run = Get-RunDir $s
     try { Invoke-Collect | Out-Null } catch { Write-Step "Collect before restore failed: $_" }
     if (@(Get-GameProcesses).Count -gt 0) { throw 'A Kingmaker process appeared during collection; refusing to restore underneath it.' }
 
-    if ($s.phase -eq 'snapshotting') {
+    if ($s.phase -eq 'snapshotting' -and -not $legacy) {
         # Begin stopped before the journal said 'snapshotted': nothing shared was changed, so nothing is restored.
         Assert-KwrSharedMutation 'before closing an unmutated transaction'
         Complete-KwrTransactionReservation $ReservationConvention $script:KwrAdmitted
@@ -700,16 +765,16 @@ function Invoke-End {
     }
 
     # Every baseline End relies on is verified before the first restore write: present, equal to the digest Begin
-    # recorded, and each snapshot tree equal to its inventory. Otherwise nothing is restored and the journal and the
-    # reservation stay.
+    # recorded, and each snapshot tree equal in content (SHA-256 per file) to the manifest Begin wrote and to its
+    # inventory. A previous-format transaction recorded no digests or manifests; its baseline files must be present and
+    # its snapshot trees equal to their inventories. Otherwise nothing is restored and the journal and reservation stay.
     $problems = @()
-    $required = @('profile-inventory.json', 'steam-remote-inventory.json', 'registry.reg', 'Params.xml', 'mods-inventory.json')
-    if ($s.existingMod) { $required += 'mod-existing-inventory.json' }
+    $required = if ($legacy) { @('profile-inventory.json', 'steam-remote-inventory.json', 'registry.reg', 'Params.xml', 'mods-inventory.json') } else { @(Get-KwrBaselineFiles $s) }
+    $digests = Get-KwrProp $s 'baselineDigests'
     foreach ($file in $required) {
         $path = Join-Path $tx $file
-        $recorded = if ($s.PSObject.Properties['baselineDigests'] -and $s.baselineDigests.PSObject.Properties[$file]) { [string] $s.baselineDigests.$file } else { $null }
-        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { $problems += "$file missing" }
-        elseif (-not $recorded -or (Get-Sha256 $path) -cne $recorded) { $problems += "$file differs from its recorded digest" }
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { $problems += "$file missing"; continue }
+        if (-not $legacy -and -not (Test-KwrSame (Get-Sha256 $path) ([string] (Get-KwrProp $digests $file)))) { $problems += "$file differs from its recorded digest" }
     }
     if ($problems.Count -eq 0) {
         $trees = @((Get-SnapshotTrees $s) | ForEach-Object { $_.Name })
@@ -717,21 +782,53 @@ function Invoke-End {
         foreach ($name in $trees) {
             $saved = Join-Path $tx $name
             if (-not (Test-Path -LiteralPath $saved -PathType Container)) { $problems += "$name snapshot folder missing"; continue }
+            if ($name -eq 'mod-existing' -and $legacy) { continue }
             $expected = @{}
-            (Get-Content -LiteralPath (Join-Path $tx "$name-inventory.json") -Raw | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $expected[$_.Name] = $_.Value }
+            (Read-KwrUtf8Json (Join-Path $tx "$name-inventory.json")).PSObject.Properties | ForEach-Object { $expected[$_.Name] = $_.Value }
             $d = Compare-Inventory $expected (Get-Inventory $saved)
             if ($d.Count -gt 0) { $problems += "$name snapshot differs from its inventory ($($d[0..([Math]::Min(3, $d.Count) - 1)] -join '; '))" }
+            elseif (-not $legacy -and -not (Test-KwrContentManifest $saved (Join-Path $tx "$name-sha256.json"))) { $problems += "$name snapshot content differs from its SHA-256 manifest" }
         }
     }
     if ($problems.Count -gt 0) { throw "Required baselines are missing or inconsistent: $($problems -join ', '). Nothing was restored; the journal and the reservation stay." }
     $selectedMirror = Get-SteamMirror
-    if ($selectedMirror -cne [string] $s.steamMirror) { throw "The Steam save mirror is now $selectedMirror, not the $($s.steamMirror) this transaction snapshotted. Nothing was restored; the journal and the reservation stay." }
-    if ($KeepInstalled) {
-        $intact = $s.PSObject.Properties['candidateFiles'] -and @('Info.json', 'KingmakerWakingRune.dll' | Where-Object {
+    if (-not (Test-KwrSamePath $selectedMirror ([string] $s.steamMirror))) { throw "The Steam save mirror is now $selectedMirror, not the $($s.steamMirror) this transaction snapshotted. Nothing was restored; the journal and the reservation stay." }
+    if ((Test-Path -LiteralPath $ModDir) -and -not (Test-Path -LiteralPath $ModDir -PathType Container)) { throw "$ModDir is not a folder; nothing was restored." }
+    $candidate = Get-KwrProp $s 'candidateFiles'
+    $candidateIntact = {
+        $null -ne $candidate -and @('Info.json', 'KingmakerWakingRune.dll' | Where-Object {
             $file = Join-Path $ModDir $_
-            -not (Test-Path -LiteralPath $file -PathType Leaf) -or (Get-Sha256 $file) -cne [string] $s.candidateFiles.$_ }).Count -eq 0
-        if (-not $intact) { throw '-KeepInstalled needs the recorded candidate (Info.json and KingmakerWakingRune.dll) installed intact; it is not. Nothing was restored; run End without -KeepInstalled to restore the previous state.' }
+            -not (Test-Path -LiteralPath $file -PathType Leaf) -or -not (Test-KwrSame (Get-Sha256 $file) ([string] (Get-KwrProp $candidate $_))) }).Count -eq 0
     }
+    if ($KeepInstalled -and -not (& $candidateIntact)) {
+        throw '-KeepInstalled needs the recorded candidate (Info.json and KingmakerWakingRune.dll) installed intact; it is not. Nothing was restored; run End without -KeepInstalled to restore the previous state.'
+    }
+
+    # Before any rollback write, the current state of everything End will restore is preserved in the run's evidence
+    # (the run was verified at admission), and its differences from the snapshot are recorded, so no change made meanwhile
+    # by anyone is destroyed. If that preservation fails, nothing is restored.
+    $preserved = Join-Path $run ('pre-rollback-' + (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssfffZ'))
+    New-Item -ItemType Directory -Path $preserved | Out-Null
+    $differences = @()
+    foreach ($t in (Get-SnapshotTrees $s)) {
+        if (Test-Path -LiteralPath $t.Path) {
+            & robocopy.exe $t.Path (Join-Path $preserved $t.Name) /E /COPY:DAT /DCOPY:DAT /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
+            if ($LASTEXITCODE -ge 8) { throw "Preserving the current $($t.Name) failed ($LASTEXITCODE); nothing was restored." }
+            if ((Compare-Inventory (Get-Inventory $t.Path) (Get-Inventory (Join-Path $preserved $t.Name))).Count -gt 0) { throw "The preserved copy of $($t.Name) is incomplete; nothing was restored." }
+        }
+        $baseline = @{}
+        (Read-KwrUtf8Json (Join-Path $tx "$($t.Name)-inventory.json")).PSObject.Properties | ForEach-Object { $baseline[$_.Name] = $_.Value }
+        $differences += @((Compare-Inventory $baseline (Get-Inventory $t.Path)) | ForEach-Object { "$($t.Name): $_" })
+    }
+    Export-Registry (Join-Path $preserved 'registry.reg')
+    Copy-Item -LiteralPath $UmmParams -Destination (Join-Path $preserved 'Params.xml')
+    if (Test-Path -LiteralPath $ModDir -PathType Container) {
+        & robocopy.exe $ModDir (Join-Path $preserved 'mod') /E /COPY:DAT /DCOPY:DAT /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
+        if ($LASTEXITCODE -ge 8) { throw "Preserving the current mod folder failed ($LASTEXITCODE); nothing was restored." }
+    }
+    Write-KwrJsonFile (Join-Path $preserved 'differences.json') @($differences)
+    foreach ($d in $differences) { $script:KwrDifferences.Add($d) }
+    if (@(Get-GameProcesses).Count -gt 0) { throw 'A Kingmaker process appeared while the current state was preserved; nothing was restored.' }
 
     # Saves live in two places: the profile and the game's Steam remote-storage mirror (it restores
     # missing local saves from the mirror at launch). Restore both, or test saves come back.
@@ -745,18 +842,21 @@ function Invoke-End {
     Restore-KwrRegistry $tx
     $script:KwrProgress.Add('registry verified')
 
-    Assert-KwrSharedMutation 'before restoring Params.xml and Mods'
+    Assert-KwrSharedMutation 'before restoring Params.xml'
     Copy-Item -LiteralPath (Join-Path $tx 'Params.xml') -Destination $UmmParams -Force
     if ((Get-FileHash $UmmParams).Hash -ne (Get-FileHash (Join-Path $tx 'Params.xml')).Hash) { throw 'UMM Params.xml restore did not verify.' }
     $script:KwrProgress.Add('Params.xml verified')
 
-    if (-not $KeepInstalled -and (Test-Path -LiteralPath $ModDir)) { Remove-Item -LiteralPath $ModDir -Recurse -Force }
+    Assert-KwrSharedMutation 'before restoring Mods'
+    if (-not $KeepInstalled -and (Test-Path -LiteralPath $ModDir -PathType Container)) { Remove-Item -LiteralPath $ModDir -Recurse -Force }
     if ($KeepInstalled) {
-        foreach ($leftover in 'recon.flag', 'recon', 'capture.flag', 'capture.request', 'state.request', 'fault.request') {
+        # The harness files this transaction placed (including an unconsumed command request) are removed; only the
+        # two packaged files may remain, with the recorded content.
+        foreach ($leftover in 'recon.flag', 'recon', 'capture.flag', 'capture.request', 'state.request', 'fault.request', 'command.request') {
             Remove-Item -LiteralPath (Join-Path $ModDir $leftover) -Recurse -Force -ErrorAction SilentlyContinue
         }
         $kept = @(Get-ChildItem -LiteralPath $ModDir -Force | ForEach-Object Name | Sort-Object)
-        if (($kept -join '|') -cne 'Info.json|KingmakerWakingRune.dll') { throw "The kept candidate folder holds more than its packaged files after cleanup: $($kept -join ', ')" }
+        if (-not (Test-KwrSame ($kept -join '|') 'Info.json|KingmakerWakingRune.dll') -or -not (& $candidateIntact)) { throw "The kept candidate folder is not exactly the recorded packaged files after cleanup: $($kept -join ', ')" }
     }
     $existingSnapshot = Join-Path $tx 'mod-existing'
     if (-not $KeepInstalled -and $s.existingMod) {
@@ -765,7 +865,7 @@ function Invoke-End {
         Write-Step 'Previously installed mod restored.'
     }
     $modsBefore = @{}
-    (Get-Content -LiteralPath (Join-Path $tx 'mods-inventory.json') -Raw | ConvertFrom-Json).PSObject.Properties | ForEach-Object { $modsBefore[$_.Name] = $_.Value }
+    (Read-KwrUtf8Json (Join-Path $tx 'mods-inventory.json')).PSObject.Properties | ForEach-Object { $modsBefore[$_.Name] = $_.Value }
     $modsNow = Get-Inventory $ModsRoot
     # With -KeepInstalled the verified candidate replaces whatever was there; the previous install stays in the
     # transaction's mod-existing snapshot.
@@ -775,10 +875,39 @@ function Invoke-End {
     if (-not $KeepInstalled -and (Test-Path -LiteralPath $ModDir -PathType Container) -ne [bool] $s.existingMod) { throw "The mod folder's existence was not restored (expected $([bool] $s.existingMod))." }
     $script:KwrProgress.Add("Mods verified (candidate installed: $([bool]$KeepInstalled))")
     Write-Step "Params.xml and Mods verified (candidate installed: $([bool]$KeepInstalled))."
-    # Restoration verified: under the operation lock for the whole close, the journal is retired, then the lease released.
+    # Restoration verified: the close is recorded locally, the operation lock released, and the lease released last.
     Assert-KwrSharedMutation 'before completion'
     Complete-KwrTransactionReservation $ReservationConvention $script:KwrAdmitted
     Write-Step "Transaction $($s.runId) closed and the Kingmaker native-test reservation released. Evidence: $run"
+}
+
+# A previous-format journal (no reservation token) is recovered only by End -RunId <its run>: under a free reservation
+# (any record refuses) and then the operation lock, the journal is re-read unchanged, the single Steam mirror is
+# recorded, and the token is published atomically; End then verifies the previous-format baselines and restores. An
+# interruption before the token is published leaves the lease and the unchanged journal; End then refuses.
+function Enter-KwrLegacyRecovery {
+    $s = Get-State
+    $run = Get-KwrProp $s 'runId'
+    if (-not (Test-KwrRunId $run) -or -not (Test-KwrSame $RunId $run)) { throw "End -RunId must name the previous-format transaction's run ($run); refusing." }
+    $lease = Enter-KwrReservation $ReservationConvention $run 'previous-format recovery' $StatePath
+    $published = $false
+    try {
+        Enter-KwrOperationLock $StateRoot
+        $s = Get-State
+        if (-not $s -or (Test-KwrJournalToken $s) -or -not (Test-KwrSame (Get-KwrProp $s 'runId') $run)) { throw 'The previous-format journal changed during recovery admission; refusing.' }
+        $mirror = Get-SteamMirror
+        foreach ($field in @(@('reservationToken', $lease.Token), @('steamMirror', $mirror), @('legacyRecovery', $true))) { $s | Add-Member -NotePropertyName $field[0] -NotePropertyValue $field[1] -Force }
+        Save-State $s
+        $published = $true
+        return $lease
+    }
+    catch {
+        if (-not $published) {
+            Exit-KwrOperationLock
+            try { Exit-KwrReservation $ReservationConvention $lease } catch { Write-Step "WARNING: releasing the recovery reservation failed: $($_.Exception.Message)" }
+        }
+        throw
+    }
 }
 
 # Every operation except Status (which only reads the journal) runs admitted. Begin acquires the reservation, then the
@@ -790,21 +919,32 @@ function Invoke-KwrOperation([string] $Operation) {
     $script:KwrOperation = $Operation
     $script:KwrAdmitted = $null
     $script:KwrProgress = New-Object System.Collections.Generic.List[string]
+    $script:KwrDifferences = New-Object System.Collections.Generic.List[string]
     try {
         if ($Operation -eq 'Begin') { Invoke-Begin; return }
-        try { $script:KwrAdmitted = Enter-KwrTransactionOperation $ReservationConvention $StatePath $StateRoot }
-        catch {
-            $failure = $_
-            $s = $null; try { $s = Get-State } catch { }
-            if ($s -and $s.PSObject.Properties['reservationToken'] -and [string] $s.reservationToken -cmatch '^[0-9a-f]{32}\z') {
-                $admitted = New-KwrAdmitted ([string] $s.runId) ([string] $s.reservationToken) $StatePath
-                $loss = Get-KwrOwnershipLoss $ReservationConvention $admitted
-                if ($loss) { [void] (Write-KwrReservationIncident $ReservationConvention (Get-RunDir $s) $admitted $loss $Operation 'admission' @()) }
+        $journal = $null; try { $journal = Get-State } catch { }
+        if ($Operation -eq 'End' -and $journal -and -not (Test-KwrJournalToken $journal)) { $script:KwrAdmitted = Enter-KwrLegacyRecovery }
+        else {
+            try { $script:KwrAdmitted = Enter-KwrTransactionOperation $ReservationConvention $StatePath $StateRoot }
+            catch {
+                # A rejected journal never chooses where its incident goes: a fixed lab-owned folder, identities as data.
+                $failure = $_
+                if ($journal -and (Test-KwrJournalToken $journal)) {
+                    $claimed = New-KwrAdmitted ([string] (Get-KwrProp $journal 'runId')) ([string] $journal.reservationToken) $StatePath
+                    $loss = Get-KwrOwnershipLoss $ReservationConvention $claimed
+                    if ($loss) {
+                        $expected = [ordered]@{ lab = 'KingmakerWakingRune'; claimedRunId = $claimed.RunId; claimedToken = $claimed.Token; statePath = $claimed.StatePath; verified = $false }
+                        [void] (Write-KwrReservationIncident $ReservationConvention (Join-Path $StateRoot 'incidents') $expected $loss $Operation 'admission' @() @())
+                    }
+                }
+                throw $failure
             }
-            throw $failure
         }
-        $phase = [string] (Get-State).phase
+        $current = Get-State
+        $phase = [string] $current.phase
         if ($phase -in @('snapshotting', 'snapshotted') -and $Operation -notin @('Collect', 'Close', 'End')) { throw "$Operation is refused while Begin's snapshot is incomplete (phase $phase); run End." }
+        $pending = @(Get-KwrOutstandingWork $current)
+        if ($pending.Count -gt 0 -and $Operation -in @('Reinstall', 'Uninstall', 'Launch', 'Fault', 'End')) { throw "$Operation is refused while work this transaction started is outstanding ($(@($pending | ForEach-Object { "$($_.kind) $($_.pid)" }) -join ', ')); the journal and the reservation stay." }
         switch ($Operation) {
             'Reinstall' { Invoke-Reinstall }
             'Uninstall' { Invoke-Uninstall }

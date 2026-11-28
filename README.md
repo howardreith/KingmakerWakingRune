@@ -87,28 +87,29 @@ its own process). Every transaction holds the machine-wide **Kingmaker native-te
 ([protocol](docs/NATIVE-RESERVATION.md), implemented in `scripts/KwrReservation.ps1`) from Begin until End has verified
 its restoration:
 - Begin acquires it before reading or writing anything (Steam discovery included), then this lab's operation lock
-  (`runtime-state\operation.lock`) and journal (`transaction.json`, published atomically, which records the run, the
-  lease token, the Steam mirror it snapshotted and digests of every baseline). Nothing shared changes before the journal
-  says `snapshotted`; until then only Collect, Close and End run.
+  (`runtime-state\operation.lock`) and journal (`transaction.json`, UTF-8, published atomically: the run, the lease
+  token, the Steam mirror it snapshotted, digests of every baseline and SHA-256 manifests of the snapshot trees). The
+  complete baseline set exists before the journal says `snapshotted`, and nothing shared changes before that; until
+  then only Collect, Close and End run.
 - Every other operation except Status (which only reads the journal) needs an open transaction whose journal and lease
-  are the same run, token and journal path, and holds the operation lock for its whole duration, so two Waking Rune
-  operations never overlap. The admitted identity is rechecked immediately before every shared change; a lost or
-  replaced journal or lease stops the operation and the first incident is kept as `reservation-incident.json` in the
-  run's evidence. Each Collect writes a new `collect-<time>` folder.
-- End waits for processes the transaction started (the Steam launcher, recorders), restores only when every baseline
-  matches its recorded digest and inventory and the Steam mirror is the one snapshotted, and with `-KeepInstalled`
-  requires the recorded candidate files intact. Holding the operation lock for the whole close, it retires the journal
-  (renamed to `transaction.closed.json`), releases the lease, then deletes the closed journal.
-- A journal without a token (written before the reservation) is refused.
+  are the same run, token and journal path (compared ordinally), and holds the operation lock for its whole duration.
+  The admitted identity is rechecked before every shared change and journal update; a lost or replaced journal or lease
+  stops the operation and records an incident (in the run's evidence, or in `runtime-state\incidents` when the journal
+  itself is rejected). Launches and recordings are journaled before they are dispatched and keep End and conflicting
+  operations waiting until their outcome is known.
+- End verifies every baseline's digest and every snapshot file's content before the first restore write, preserves the
+  current state of everything it will restore (and its differences from the snapshot) in the run's evidence, then
+  restores. With `-KeepInstalled` it requires the recorded candidate files intact before and after removing the harness
+  files. It then records its close (`transaction.closed.json`), releases the operation lock, and releases the lease last.
 
-Nothing in this lab ever removes a reservation it did not just acquire in the same process. If Begin or End is
-interrupted between taking or releasing the lease and its journal, the lease (or a `transaction.closed.json`) is left
-for the owner. To clear it by hand: confirm that `runtime-state` holds no `transaction.json`, that no `Kingmaker`
-process runs, that the record at `%ProgramData%\KingmakerNativeTest\reservation.v1.json` names `KingmakerWakingRune` and
-this lab's journal path, and, for a closed journal, that its run's End verified restoration; then delete the record
-and the closed journal.
+Waking Rune releases only its own transaction's lease: a refused Begin before its journal exists, End after verified
+restoration, and the next Begin finishing a close that End interrupted after recording it (the closed journal names the
+lease's run and token, and the closer is no longer running). A journal written before the reservation (no token) is
+recovered only by `End -RunId <run>`, under a free reservation, after the same baseline and Steam-mirror checks.
 
-Other Kingmaker labs that implement the same protocol cannot start a native transaction meanwhile. This lab needs none of
+A lease without its journal or closed journal (for example a Begin or recovery interrupted before publishing its
+journal) is an incident: the tool never clears it, and the owner investigates before anything else runs. Other Kingmaker
+labs that implement the same protocol cannot start a native transaction while any lease exists. This lab needs none of
 them to be installed, and none needs this lab. A record left by another lab, or an unreadable or malformed record, is
 never removed. `scripts/Test-NativeReservation.ps1` runs KwrRuntime's own functions in separate processes against
 disposable stand-in labs only.
